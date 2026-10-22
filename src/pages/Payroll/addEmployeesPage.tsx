@@ -38,7 +38,17 @@ import {
   Gender,
 } from "../../shared/types/employee.types";
 import { COUNTRY_OPTIONS, ALL_CURRENCIES } from "../../shared/utils/country-list";
-import { State, City } from "country-state-city";
+import type { ICity, IState } from "country-state-city";
+
+// The city/state dataset is several MB, so it is downloaded after the page opens rather than with it
+type GeoData = {
+  State: { getStatesOfCountry: (countryCode: string) => IState[] };
+  City: { getCitiesOfState: (countryCode: string, stateCode: string) => ICity[] };
+};
+const NO_GEO_DATA: GeoData = {
+  State: { getStatesOfCountry: () => [] },
+  City: { getCitiesOfState: () => [] },
+};
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
@@ -120,6 +130,19 @@ const customClassNames = {
 };
 
 const AddEmployeePage: React.FC = () => {
+  const [geoData, setGeoData] = useState<GeoData>(NO_GEO_DATA);
+  useEffect(() => {
+    let active = true;
+    import("country-state-city")
+      .then(({ State, City }) => {
+        if (active) setGeoData({ State, City });
+      })
+      .catch(() => undefined); // address fields fall back to free text
+    return () => {
+      active = false;
+    };
+  }, []);
+  const { State, City } = geoData;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("editId");

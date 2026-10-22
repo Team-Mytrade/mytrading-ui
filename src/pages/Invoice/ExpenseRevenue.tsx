@@ -1,24 +1,35 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  CheckCircleIcon,
-} from "@heroicons/react/24/outline";
+import { CheckCircleIcon, PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { ToasterService } from "../../Services/ToasterService";
-import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import PaginatedPopup from "../../components/common/unpopup";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { FloatingInput, FloatingSelect1 } from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
+import {
+  GeneralAccount,
+  INVOICE_API,
+  Option,
+  PAYMENT_METHOD_OPTIONS,
+  accountLabel,
+  apiError,
+  dateLabel,
+  labelOf,
+  money,
+  paymentMethodLabel,
+  todayInput,
+} from "./invoiceShared";
+import { DialogFooter, StatusBadge } from "./invoiceUi";
 
-interface ExpenseRevenueItem {
+const API_URL = `${INVOICE_API}/expenses-revenue`;
+const PAGE_SIZE = 10;
+
+interface Item {
   id: number;
   revenueExpenseType?: string;
   revenueExpenseCategory?: string;
@@ -27,258 +38,215 @@ interface ExpenseRevenueItem {
   transactionDate?: string;
   paymentMethod?: string;
   referenceNumber?: string;
+  generalAccount?: Pick<GeneralAccount, "id" | "accountCode" | "accountName"> | null;
 }
 
-const API_URL = "/v1/api/invoice/expenses-revenue";
-const PAGE_SIZE = 10;
+// Expense and revenue first; the rest are the service's other movement types
+const TYPE_OPTIONS: Option[] = ["EXPENSE", "REVENUE", "REFUND", "ADJUSTMENT", "TRANSFER", "CREDIT_NOTE", "DEBIT_NOTE", "CHARGEBACK", "WRITE_OFF", "OTHER"].map(
+  (id) => ({ id, name: id === "REVENUE" ? "Revenue (income)" : labelOf(id) })
+);
 
-const REVENUE_EXPENSE_TYPES = ["EXPENSE", "REVENUE", "TRANSFER", "ADJUSTMENT", "CREDIT_NOTE", "DEBIT_NOTE", "REFUND", "CHARGEBACK", "WRITE_OFF", "OTHER"];
-const REVENUE_EXPENSE_CATEGORIES = ["RENT", "FREIGHT", "MISC", "SALARY", "UTILITIES", "OFFICE_SUPPLIES", "MAINTENANCE", "TRAVEL", "ENTERTAINMENT", "ADVERTISING", "INSURANCE", "TAXES", "DEPRECIATION", "INTEREST", "OTHER"];
+const CATEGORY_OPTIONS: Option[] = [
+  "RENT", "SALARY", "UTILITIES", "FREIGHT", "OFFICE_SUPPLIES", "MAINTENANCE", "TRAVEL", "ENTERTAINMENT",
+  "ADVERTISING", "INSURANCE", "TAXES", "DEPRECIATION", "INTEREST", "MISC", "OTHER",
+].map((id) => ({ id, name: labelOf(id) }));
 
-const typeTone = (type?: string) => {
-  switch (type) {
-    case "EXPENSE":
-      return "bg-red-50 text-red-700 border-red-200/40";
-    case "REVENUE":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200/40";
-    case "REFUND":
-      return "bg-blue-50 text-blue-700 border-blue-200/40";
-    default:
-      return "bg-gray-50 text-gray-700 border-gray-200/40";
-  }
+const TYPE_TONES: Record<string, string> = {
+  EXPENSE: "bg-red-50 text-red-700 border-red-200/60",
+  REVENUE: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
+  REFUND: "bg-blue-50 text-blue-700 border-blue-200/60",
 };
 
+// The account type that usually goes with each movement type
+const ACCOUNT_TYPE_FOR: Record<string, string> = { EXPENSE: "EXPENSE", REVENUE: "INCOME" };
+
+const emptyForm = () => ({
+  revenueExpenseType: "EXPENSE",
+  revenueExpenseCategory: "",
+  description: "",
+  amount: "",
+  transactionDate: todayInput(),
+  paymentMethod: "BANK_TRANSFER",
+  generalAccountId: "",
+});
+
 const ExpenseRevenue: React.FC = () => {
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const [items, setItems] = useState<Item[]>([]);
+  const [accounts, setAccounts] = useState<GeneralAccount[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [month, setMonth] = useState(() => todayInput().slice(0, 7));
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Item | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<Item | null>(null);
 
-  const [items, setItems] = useState<ExpenseRevenueItem[]>([]);
-  const [form, setForm] = useState<Partial<ExpenseRevenueItem>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<ExpenseRevenueItem | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
-
-  useEffect(() => {
-    fetchItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchAll = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [itemRes, accountRes] = await Promise.all([
+        axios.get<Item[]>(API_URL),
+        axios.get<GeneralAccount[]>(`${INVOICE_API}/general-accounts`).catch(() => ({ data: [] as GeneralAccount[] })),
+      ]);
+      setItems(Array.isArray(itemRes.data) ? itemRes.data : []);
+      const accountList = Array.isArray(accountRes.data) ? accountRes.data : [];
+      setAccounts([...accountList].sort((a, b) => a.accountCode.localeCompare(b.accountCode)));
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to load expenses and revenue"));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchItems = async () => {
-    try {
-      setIsLoading(true);
-      const res = await axios.get<ExpenseRevenueItem[]>(API_URL, { headers });
-      setItems(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Error fetching expenses and revenue", err);
-      ToasterService.error("Failed to load expenses and revenue");
-      setItems([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.description?.trim()) {
-      ToasterService.error("Description is required");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Item updated successfully!" : "Item added successfully!");
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        await fetchItems();
-      }
-    } catch (err) {
-      console.error("Error submitting expense/revenue item", err);
-      ToasterService.error("Failed to save item");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEdit = (item: ExpenseRevenueItem) => {
-    setForm(item);
-    setEditingId(item.id);
-    setShowFormModal(true);
-  };
+  // Accounts of the matching type when there are any (expense → expense accounts, revenue → income accounts)
+  const accountOptions = useMemo(() => {
+    const usable = accounts.filter((account) => account.isActive !== false || String(account.id) === form.generalAccountId);
+    const wanted = ACCOUNT_TYPE_FOR[form.revenueExpenseType];
+    const matching = wanted ? usable.filter((account) => account.accountType === wanted) : [];
+    return (matching.length ? matching : usable).map((account) => ({ id: String(account.id), name: accountLabel(account) }));
+  }, [accounts, form.revenueExpenseType, form.generalAccountId]);
 
   const openCreate = () => {
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
+    setEditing(null);
+    setForm(emptyForm());
+    setFormOpen(true);
   };
 
-  const closeModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
+  const openEdit = (item: Item) => {
+    setEditing(item);
+    setForm({
+      revenueExpenseType: item.revenueExpenseType ?? "EXPENSE",
+      revenueExpenseCategory: item.revenueExpenseCategory ?? "",
+      description: item.description ?? "",
+      amount: item.amount != null ? String(item.amount) : "",
+      transactionDate: item.transactionDate ?? todayInput(),
+      paymentMethod: item.paymentMethod || "BANK_TRANSFER",
+      generalAccountId: item.generalAccount?.id ? String(item.generalAccount.id) : "",
+    });
+    setFormOpen(true);
   };
 
-  const handleDelete = (item: ExpenseRevenueItem) => {
-    setItemToDelete(item);
-    setShowDeletePopup(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!itemToDelete) return;
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.revenueExpenseCategory) return ToasterService.error("Choose a category");
+    if (!form.description.trim()) return ToasterService.error("Describe what it was for");
+    const amount = Number(form.amount);
+    if (!amount || amount <= 0) return ToasterService.error("Enter the amount");
+    // The reference number is assigned by the server and kept on edit
+    const payload = {
+      revenueExpenseType: form.revenueExpenseType,
+      revenueExpenseCategory: form.revenueExpenseCategory,
+      description: form.description.trim(),
+      amount,
+      transactionDate: form.transactionDate || null,
+      paymentMethod: form.paymentMethod || null,
+      generalAccount: form.generalAccountId ? { id: Number(form.generalAccountId) } : null,
+    };
+    setBusy(true);
     try {
-      await axios.delete(`${API_URL}/${itemToDelete.id}`, { headers });
-      ToasterService.success("Item deleted successfully!");
-      setShowDeletePopup(false);
-      setItemToDelete(null);
-      fetchItems();
+      if (editing) {
+        await axios.put(`${API_URL}/${editing.id}`, payload);
+        ToasterService.success(`${editing.referenceNumber ?? "Item"} updated`);
+      } else {
+        const res = await axios.post<Item>(API_URL, payload);
+        ToasterService.success(`${res.data?.referenceNumber ?? "Item"} recorded`);
+      }
+      setFormOpen(false);
+      await fetchAll();
     } catch (err) {
-      console.error("Error deleting expense/revenue item", err);
-      ToasterService.error("Failed to delete item");
+      ToasterService.error(apiError(err, "Could not save the item"));
+    } finally {
+      setBusy(false);
     }
   };
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (item.description || "").toLowerCase().includes(term) ||
-        (item.revenueExpenseType || "").toLowerCase().includes(term) ||
-        (item.referenceNumber || "").toLowerCase().includes(term);
+  const remove = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await axios.delete(`${API_URL}/${deleting.id}`);
+      ToasterService.success(`${deleting.referenceNumber ?? "Item"} deleted`);
+      setDeleting(null);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not delete the item"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      let matchesFilter = true;
-      if (activeFilter === "EXPENSE") {
-        matchesFilter = item.revenueExpenseType === "EXPENSE";
-      } else if (activeFilter === "REVENUE") {
-        matchesFilter = item.revenueExpenseType === "REVENUE";
-      } else if (activeFilter === "REFUND") {
-        matchesFilter = item.revenueExpenseType === "REFUND";
-      }
+  const inMonth = useMemo(() => items.filter((item) => !month || item.transactionDate?.startsWith(month)), [items, month]);
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [items, search, activeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      totalItems: items.length,
-      expenses: items.filter((i) => i.revenueExpenseType === "EXPENSE").length,
-      revenue: items.filter((i) => i.revenueExpenseType === "REVENUE").length,
-      totalAmount: items.reduce((acc, i) => acc + Number(i.amount || 0), 0),
-    }),
-    [items]
+  const filtered = useMemo(
+    () => (typeFilter === "ALL" ? inMonth : inMonth.filter((item) => item.revenueExpenseType === typeFilter)),
+    [inMonth, typeFilter]
   );
 
-  const tableColumns: ColumnDef<ExpenseRevenueItem>[] = [
+  const stats = useMemo(() => {
+    const sum = (type: string) => inMonth.filter((item) => item.revenueExpenseType === type).reduce((total, item) => total + Number(item.amount || 0), 0);
+    const expense = sum("EXPENSE");
+    const revenue = sum("REVENUE");
+    return { expense, revenue, net: revenue - expense, count: inMonth.length };
+  }, [inMonth]);
+
+  const columns: ColumnDef<Item>[] = [
+    { key: "transactionDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.transactionDate)}</span> },
     {
       key: "description",
       label: "Description",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
-      render: (item) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <CheckCircleIcon className="h-4 w-4 text-cyan-600" />
-          </div>
-          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-            {item.description || "Unnamed Item"}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: "revenueExpenseType",
-      label: "Type",
-      sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
-      render: (item) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${typeTone(item.revenueExpenseType)}`}>
-          {item.revenueExpenseType || "N/A"}
+      render: (row) => (
+        <span className="text-sm text-slate-800">
+          <span className="font-medium">{row.description || "—"}</span>
+          <span className="block text-xs text-slate-400">{row.referenceNumber ?? ""}</span>
         </span>
       ),
     },
+    { key: "revenueExpenseType", label: "Type", sortable: true, render: (row) => <StatusBadge status={row.revenueExpenseType} tones={TYPE_TONES} /> },
+    { key: "revenueExpenseCategory", label: "Category", sortable: true, render: (row) => <span className="text-sm text-slate-600">{labelOf(row.revenueExpenseCategory)}</span> },
     {
-      key: "revenueExpenseCategory",
-      label: "Category",
+      key: "generalAccount",
+      label: "Account",
       sortable: true,
-      headerClassName: "w-[14%] text-left",
-      className: "w-[14%]",
-      render: (item) => (
-        <span className="text-sm text-slate-600 truncate">{item.revenueExpenseCategory || "N/A"}</span>
-      ),
+      sortValueGetter: (row) => row.generalAccount?.accountCode ?? "",
+      render: (row) => <span className="text-sm text-slate-600">{row.generalAccount ? accountLabel(row.generalAccount) : "—"}</span>,
     },
+    { key: "paymentMethod", label: "Paid by", sortable: true, render: (row) => <span className="text-sm text-slate-600">{row.paymentMethod ? paymentMethodLabel(row.paymentMethod) : "—"}</span> },
     {
       key: "amount",
       label: "Amount",
       sortable: true,
-      headerClassName: "w-[14%] text-right",
-      className: "w-[14%] text-right",
-      sortValueGetter: (item) => Number(item.amount || 0),
-      render: (item) => (
-        <span className="text-sm font-semibold text-slate-700">
-          {Number(item.amount || 0).toLocaleString()}
-        </span>
-      ),
-    },
-    {
-      key: "transactionDate",
-      label: "Transaction Date",
-      sortable: true,
-      headerClassName: "w-[13%] text-left",
-      className: "w-[13%]",
-      render: (item) => (
-        <span className="text-sm text-slate-600">
-          {item.transactionDate ? new Date(item.transactionDate).toLocaleDateString() : "N/A"}
-        </span>
-      ),
-    },
-    {
-      key: "referenceNumber",
-      label: "Reference Number",
-      sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
-      render: (item) => (
-        <span className="text-sm text-slate-600 truncate">{item.referenceNumber || "N/A"}</span>
+      headerClassName: "text-right",
+      className: "text-right",
+      sortValueGetter: (row) => Number(row.amount || 0),
+      render: (row) => (
+        <span className={`text-sm font-semibold ${row.revenueExpenseType === "REVENUE" ? "text-emerald-700" : "text-slate-900"}`}>{money(row.amount)}</span>
       ),
     },
     {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[14%] text-right pr-4",
-      className: "w-[14%] text-right",
-      render: (item) => (
-        <div className="flex items-center justify-end gap-0.5">
-          <button
-            type="button"
-            onClick={() => handleEdit(item)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Item"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(item)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Item"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex justify-end gap-0.5">
+          {canUpdate && (
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -286,203 +254,93 @@ const ExpenseRevenue: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Expenses & Revenue" description="Manage expenses and revenue" />
+      <PageMeta title="Expenses & Revenue" description="Day-to-day expenses and other income" />
       <PageBreadcrumb pageTitle="Expenses & Revenue" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Item" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Items"
-            value={stats.totalItems}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Expenses"
-            value={stats.expenses}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-          />
-          <StatsCard
-            label="Revenue"
-            value={stats.revenue}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Amount"
-            value={stats.totalAmount.toLocaleString()}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
+      <div className="w-full max-w-none space-y-4 py-4">
+        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Record expense / income" />}</div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Expenses" value={money(stats.expense)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label="Revenue" value={money(stats.revenue)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Net" value={money(stats.net)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Items" value={stats.count} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search items by description, type, or reference..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Expenses & Revenue"
-              buttonLabel="Filters"
-              label="Filter by Type"
-              value={activeFilter}
-              options={[
-                { label: "All Items", value: "ALL" },
-                { label: "Expenses", value: "EXPENSE" },
-                { label: "Revenue", value: "REVENUE" },
-                { label: "Refunds", value: "REFUND" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {[{ id: "ALL", name: "All" }, { id: "EXPENSE", name: "Expenses" }, { id: "REVENUE", name: "Revenue" }, { id: "REFUND", name: "Refunds" }].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setTypeFilter(option.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${typeFilter === option.id ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
+              {option.name}
+            </button>
+          ))}
+          <label className="ml-auto flex items-center gap-2 text-xs text-slate-600">
+            Month
+            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+            {month && (
+              <button type="button" onClick={() => setMonth("")} className="text-cyan-700 hover:underline">All months</button>
+            )}
+          </label>
         </div>
 
         <ReusableTable
-          data={filteredItems}
-          columns={tableColumns}
+          data={filtered}
+          columns={columns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="description"
-          defaultSortOrder="asc"
-          loading={isLoading}
+          loading={loading}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <CheckCircleIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No expense or revenue items found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first expense or revenue item
-                </button>
-              )}
+            <div className="flex flex-col items-center justify-center py-8">
+              <CheckCircleIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm text-gray-500">Nothing recorded{month ? " this month" : ""}</p>
             </div>
           }
         />
-
-        <PaginatedPopup
-          isOpen={showFormModal}
-          title={editingId !== null ? "Edit Expense / Revenue" : "Create New Expense / Revenue"}
-          subtitle={editingId !== null ? "Update this expense or revenue item" : "Add a new expense or revenue item"}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          submitLabel={editingId !== null ? "Update Item" : "Create Item"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingInput
-                  key="description"
-                  label="Description"
-                  name="description"
-                  value={form.description || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingSelect
-                  key="revenueExpenseType"
-                  label="Type"
-                  name="revenueExpenseType"
-                  value={form.revenueExpenseType || ""}
-                  onChange={(e) => setForm({ ...form, revenueExpenseType: e.target.value })}
-                  options={REVENUE_EXPENSE_TYPES.map((t) => ({ id: t, name: t }))}
-                />,
-                <FloatingSelect
-                  key="revenueExpenseCategory"
-                  label="Category"
-                  name="revenueExpenseCategory"
-                  value={form.revenueExpenseCategory || ""}
-                  onChange={(e) => setForm({ ...form, revenueExpenseCategory: e.target.value })}
-                  options={REVENUE_EXPENSE_CATEGORIES.map((c) => ({ id: c, name: c }))}
-                />,
-                <FloatingInput
-                  key="amount"
-                  label="Amount"
-                  name="amount"
-                  type="number"
-                  value={form.amount ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="transactionDate"
-                  label="Transaction Date"
-                  name="transactionDate"
-                  type="date"
-                  value={form.transactionDate || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="paymentMethod"
-                  label="Payment Method"
-                  name="paymentMethod"
-                  value={form.paymentMethod || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  key="referenceNumber"
-                  label="Reference Number"
-                  name="referenceNumber"
-                  value={form.referenceNumber || ""}
-                  onChange={handleChange}
-                />,
-              ],
-            },
-          ]}
-        />
-
-        <DynamicPopup
-          isPopupOpen={showDeletePopup}
-          setIsPopupOpen={setShowDeletePopup}
-          icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-          iconBg="bg-red-100"
-          innerText="Delete Item"
-          subText={
-            itemToDelete
-              ? `Are you sure you want to delete "${itemToDelete.description}"? This action cannot be undone.`
-              : "Are you sure you want to delete this item?"
-          }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          onConfirm={confirmDelete}
-          onCancel={() => setItemToDelete(null)}
-          confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-        />
-
-
       </div>
+
+      <PaginatedPopup
+        isOpen={formOpen}
+        title={editing ? `Edit ${editing.referenceNumber ?? "item"}` : "Record expense or income"}
+        subtitle={editing ? undefined : "A reference number is assigned when it is saved"}
+        onClose={() => setFormOpen(false)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={save} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingSelect1 label="Type" name="revenueExpenseType" value={form.revenueExpenseType} options={TYPE_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => setForm((current) => ({ ...current, revenueExpenseType: event.target.value }))} />
+              <FloatingSelect1 label="Category" name="revenueExpenseCategory" required value={form.revenueExpenseCategory} options={CATEGORY_OPTIONS}
+                onChange={(event) => setForm((current) => ({ ...current, revenueExpenseCategory: event.target.value }))} />
+              <div className="sm:col-span-2">
+                <FloatingInput label="Description" name="description" required value={form.description}
+                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+              </div>
+              <FloatingInput label="Amount" name="amount" type="number" required value={form.amount}
+                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
+              <FloatingInput label="Date" name="transactionDate" type="date" value={form.transactionDate}
+                onChange={(event) => setForm((current) => ({ ...current, transactionDate: event.target.value }))} />
+              <FloatingSelect1 label="Payment method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS}
+                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
+              <FloatingSelect1 label="Ledger account (optional)" name="generalAccountId" value={form.generalAccountId} options={accountOptions}
+                onChange={(event) => setForm((current) => ({ ...current, generalAccountId: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record"} busy={busy} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleting)}
+        title="Delete item"
+        message={`Delete ${deleting?.referenceNumber ?? "this item"}: ${deleting?.description ?? ""} (${money(deleting?.amount)})?`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
     </>
   );
 };

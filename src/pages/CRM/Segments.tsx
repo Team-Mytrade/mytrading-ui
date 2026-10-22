@@ -29,7 +29,9 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import StatsCard from "../../components/common/Statscard";
 import TableExportModal from "../../components/common/TableExportModal";
-import "./Deals.css";
+import "../../styles/Deals.css";
+import { apiError } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -146,7 +148,10 @@ const Segments: React.FC = () => {
   const processedEditIdRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const location = useLocation();
+  // Opened from a customer's page: the segments that customer is in
+  const scopedCustomerId = Number(new URLSearchParams(location.search).get("customerId")) || null;
 
   /* ---------------- Fetching ---------------- */
 
@@ -264,7 +269,7 @@ const Segments: React.FC = () => {
       }
     } catch (err) {
       console.error("Error submitting segment", err);
-      ToasterService.error("Failed to save segment");
+      ToasterService.error(apiError(err, "Failed to save segment"));
     }
      finally {
     setIsSaving(false);
@@ -349,7 +354,9 @@ const Segments: React.FC = () => {
       fetchSegments();
     } catch (err) {
       console.error("Error deleting segment", err);
-      ToasterService.error("Failed to delete segment");
+      ToasterService.error(apiError(err, "Failed to delete segment"));
+      setShowDeletePopup(false);
+      setSegmentToDelete(null);
     }
   };
 
@@ -365,9 +372,15 @@ const Segments: React.FC = () => {
       let matches = true;
       if (activeFilter === "ACTIVE") matches = getCustomerCount(segment) > 0;
       else if (activeFilter === "INACTIVE") matches = getCustomerCount(segment) === 0;
+      if (scopedCustomerId) {
+        matches = matches && (segment.segmentCustomers || []).some((c) => c.customerId === scopedCustomerId);
+      }
       return matches;
     });
-  }, [segments, activeFilter]);
+  }, [segments, activeFilter, scopedCustomerId]);
+  const scopedCustomerName = scopedCustomerId
+    ? segments.flatMap((s) => s.segmentCustomers || []).find((c) => c.customerId === scopedCustomerId)?.customerName
+    : undefined;
 
   const stats = useMemo(
     () => ({
@@ -473,33 +486,39 @@ const Segments: React.FC = () => {
               <EyeIcon className="h-4 w-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleEdit(segment)}
-              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-              title="Edit Segment"
-            >
-              <PencilSquareIcon className="h-4 w-4" />
-            </button>
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => handleEdit(segment)}
+                className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
+                title="Edit Segment"
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+              </button>
+            )}
 
-            {/* Opens the drawer */}
-            <button
-              type="button"
-              onClick={() => openCustomerDrawer(segment.id)}
-              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-              title={count > 0 ? "Manage Customers" : "Add Customers"}
-            >
-              {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
-            </button>
+            {/* Opens the drawer (adding customers is a create, removing them a delete) */}
+            {(canCreate || (canDelete && count > 0)) && (
+              <button
+                type="button"
+                onClick={() => openCustomerDrawer(segment.id)}
+                className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+                title={count > 0 ? "Manage Customers" : "Add Customers"}
+              >
+                {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={(e) => handleDelete(segment.id, e)}
-              className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-              title="Delete Segment"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={(e) => handleDelete(segment.id, e)}
+                className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
+                title="Delete Segment"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
         );
       },
@@ -518,6 +537,14 @@ const Segments: React.FC = () => {
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        {scopedCustomerId && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+            <span>Segments of <strong>{scopedCustomerName || `customer #${scopedCustomerId}`}</strong></span>
+            <button type="button" onClick={() => navigate("/customer-segment")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
+              View all segments
+            </button>
+          </div>
+        )}
         <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" aria-busy={isLoading}>
           <StatsCard label="Total Segments" value={stats.totalSegments} loading={isLoading} />
           <StatsCard label="Active Segments" value={stats.activeSegments} loading={isLoading} />
@@ -552,7 +579,7 @@ const Segments: React.FC = () => {
                 >
                   Clear filters
                 </button>
-              ) : (
+              ) : canCreate && (
                 <button
                   type="button"
                   onClick={() => openCreateSegment()}

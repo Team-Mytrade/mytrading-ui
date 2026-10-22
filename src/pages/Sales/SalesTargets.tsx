@@ -25,6 +25,8 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { toLocalIsoDate, todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type TargetStatus =
   | "NOT_STARTED"
@@ -111,10 +113,9 @@ const emptyForm: TargetForm = {
   achievedAmount: "0",
   targetYear: String(new Date().getFullYear()),
   targetMonth: String(new Date().getMonth() + 1),
-  startDate: new Date().toISOString().split("T")[0],
-  endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-    .toISOString()
-    .split("T")[0],
+  startDate: todayIso(),
+  // Local dates: toISOString() is UTC and would land on the previous day east of UTC (e.g. India)
+  endDate: toLocalIsoDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)),
   remarks: "",
   status: "NOT_STARTED",
 };
@@ -199,6 +200,7 @@ function deriveStatusFromAmounts(
 }
 
 const SalesTargets: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -281,8 +283,8 @@ const SalesTargets: React.FC = () => {
         const year = Number(name === "targetYear" ? value : next.targetYear);
         const month = Number(name === "targetMonth" ? value : next.targetMonth);
         if (year && month >= 1 && month <= 12) {
-          next.startDate = new Date(year, month - 1, 1).toISOString().split("T")[0];
-          next.endDate = new Date(year, month, 0).toISOString().split("T")[0];
+          next.startDate = toLocalIsoDate(new Date(year, month - 1, 1));
+          next.endDate = toLocalIsoDate(new Date(year, month, 0));
         }
       }
 
@@ -357,8 +359,8 @@ const SalesTargets: React.FC = () => {
     const year = Number(form.targetYear);
     const month = Number(form.targetMonth);
     if (year && month >= 1 && month <= 12) {
-      const monthStart = new Date(year, month - 1, 1).toISOString().split("T")[0];
-      const monthEnd = new Date(year, month, 0).toISOString().split("T")[0];
+      const monthStart = toLocalIsoDate(new Date(year, month - 1, 1));
+      const monthEnd = toLocalIsoDate(new Date(year, month, 0));
       if (form.startDate && (form.startDate < monthStart || form.startDate > monthEnd)) {
         ToasterService.error(
           "Invalid date range",
@@ -620,7 +622,11 @@ const SalesTargets: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (target) => (
+      render: (target) => !canUpdate ? (
+        <span className={`inline-flex w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStatusSelectClasses(String(target.status))}`}>
+          {toFriendlyStatus(String(target.status))}
+        </span>
+      ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={String(target.status)}
@@ -648,31 +654,33 @@ const SalesTargets: React.FC = () => {
       render: (target) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {/* Added dark: classes to all action buttons */}
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(target)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => void markTargetAsAchieved(target)}
-            disabled={achievedUpdatingId === target.id}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
-            title="Mark achieved"
-          >
-            <TrophyIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => void markTargetAsAchieved(target)}
+              disabled={achievedUpdatingId === target.id}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
+              title="Mark achieved"
+            >
+              <TrophyIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteTarget(target)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -753,7 +761,7 @@ const SalesTargets: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Target" : "Create Sales Target"}
-        subtitle="Enter target details from the sales target API schema"
+        subtitle="Enter the sales target details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

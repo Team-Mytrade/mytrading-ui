@@ -34,6 +34,7 @@ import {
   YAxis,
 } from "recharts";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type CreditCheckResponse = {
   sufficient: boolean;
@@ -305,6 +306,11 @@ function mapTransaction(raw: RawCreditTransaction, fallbackCustomerId: number, i
 }
 
 const CreditLimit: React.FC = () => {
+  const { canCreate, canDelete, canExport, canUpdate } = usePermissions();
+  // Credit check is a POST (SALES:CREATE), outstanding changes are updates, available credit is a read
+  const allowedMethods = methodOptions.filter(
+    (option) => option.id === "available" || (option.id === "check" ? canCreate : canUpdate)
+  );
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(() => authHeaders(token), [token]);
   const initialRange = getDefaultDateRange();
@@ -320,7 +326,7 @@ const CreditLimit: React.FC = () => {
   const [lastAvailableCredit, setLastAvailableCredit] = useState<number | null>(null);
   const [lastCreditLimit, setLastCreditLimit] = useState<number | null>(null);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<CreditMethod>("check");
+  const [selectedMethod, setSelectedMethod] = useState<CreditMethod>(() => (canCreate ? "check" : "available"));
   const [historyFrom, setHistoryFrom] = useState<Date | null>(initialRange.from);
   const [historyTo, setHistoryTo] = useState<Date | null>(initialRange.to);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
@@ -938,12 +944,12 @@ const CreditLimit: React.FC = () => {
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div className="text-xs font-semibold text-slate-900 dark:text-white">Choose action</div>
                     <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-gray-800 dark:text-slate-400">
-                      {methodOptions.length} actions
+                      {allowedMethods.length} actions
                     </div>
                   </div>
 
                   <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {methodOptions.map((option) => {
+                    {allowedMethods.map((option) => {
                       const optionConfig = methodConfig[option.id];
                       const OptionIcon = optionConfig.icon;
                       const isActive = selectedMethod === option.id;
@@ -1119,22 +1125,24 @@ const CreditLimit: React.FC = () => {
                 >
                   <ArrowPathIcon className="h-4 w-4" />
                 </button>
-                <button
+                {canExport && (<button
                   type="button"
                   onClick={openExportPopup}
                   disabled={exportLoading || !isPositiveNumber(form.customerId)}
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ArrowDownTrayIcon className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPurgeConfirm(true)}
-                  disabled={purging || !isPositiveNumber(form.customerId)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
+                </button>)}
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPurgeConfirm(true)}
+                    disabled={purging || !isPositiveNumber(form.customerId)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
 

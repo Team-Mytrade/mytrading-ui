@@ -36,6 +36,8 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type SalaryStructure = {
     id: number;
@@ -55,6 +57,7 @@ const API_URL = "/v1/api/payroll/salary-structures";
 const PAGE_SIZE = 10;
 
 const SalaryStructurePage: React.FC = () => {
+  const { canDelete, canExport, canUpdate } = usePermissions();
     const [data, setData] = useState<SalaryStructure[]>([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
@@ -68,7 +71,7 @@ const SalaryStructurePage: React.FC = () => {
         hra: 0,
         allowances: 0,
         deductions: 0,
-        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveFrom: todayIso(),
     });
 
     useEffect(() => {
@@ -150,7 +153,7 @@ const SalaryStructurePage: React.FC = () => {
             hra: 0, 
             allowances: 0, 
             deductions: 0, 
-            effectiveFrom: new Date().toISOString().split('T')[0] 
+            effectiveFrom: todayIso() 
         });
     };
 
@@ -197,7 +200,7 @@ const SalaryStructurePage: React.FC = () => {
             headStyles: { fillColor: [6, 182, 212] },
             styles: { fontSize: 10 },
         });
-        doc.save(`Salary_Structure_${record.employeeId}_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Salary_Structure_${record.employeeId}_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -226,7 +229,7 @@ const SalaryStructurePage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`All_Salary_Structures_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`All_Salary_Structures_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -244,7 +247,7 @@ const SalaryStructurePage: React.FC = () => {
         })));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Salary Structures');
-        XLSX.writeFile(workbook, `Salary_Structures_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(workbook, `Salary_Structures_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
@@ -324,7 +327,7 @@ const SalaryStructurePage: React.FC = () => {
                         <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
                     </Menu.Button>
                     <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                        <Menu.Item>
+                        {canExport && (<Menu.Item>
                             {({ active }) => (
                                 <button
                                     onClick={() => exportPDF(row)}
@@ -334,8 +337,8 @@ const SalaryStructurePage: React.FC = () => {
                                     Export PDF
                                 </button>
                             )}
-                        </Menu.Item>
-                        <Menu.Item>
+                        </Menu.Item>)}
+                        {canUpdate && (<Menu.Item>
                             {({ active }) => (
                                 <button
                                     onClick={() => openEdit(row)}
@@ -345,8 +348,8 @@ const SalaryStructurePage: React.FC = () => {
                                     Edit
                                 </button>
                             )}
-                        </Menu.Item>
-                        <Menu.Item>
+                        </Menu.Item>)}
+                        {canDelete && (<Menu.Item>
                             {({ active }) => (
                                 <button
                                     onClick={() => handleDelete(row.id)}
@@ -356,7 +359,7 @@ const SalaryStructurePage: React.FC = () => {
                                     Delete
                                 </button>
                             )}
-                        </Menu.Item>
+                        </Menu.Item>)}
                     </Menu.Items>
                 </Menu>
             )
@@ -391,13 +394,13 @@ const SalaryStructurePage: React.FC = () => {
                 <div className="mb-6 flex justify-end items-center">
                     {/* Export Menu */}
                     <div className="relative">
-                        <button
+                        {canExport && (<button
                             onClick={() => setShowExportMenu(!showExportMenu)}
                             className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                             disabled={data.length === 0}
                         >
                             <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                        </button>
+                        </button>)}
 
                         {showExportMenu && (
                             <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">

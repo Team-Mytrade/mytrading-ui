@@ -1,3 +1,5 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
+import { appUrl } from "../../utils/appPath";
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
@@ -13,6 +15,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
 import { useNavigate } from 'react-router-dom';
+import { todayIso } from "../../utils/localDate";
 
 const safeString = (val: any, fallback = ""): string => {
   if (val === null || val === undefined) return fallback;
@@ -93,28 +96,8 @@ export interface EmployeeDashboardModel {
 
 const LeaveDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        const rawId = parsed.employeeId || parsed.id || parsed.userId || 12;
-        let numId = typeof rawId === 'number' ? rawId : (parseInt(String(rawId).replace(/\D/g, ''), 10) || 12);
-        // If ID is a timestamp or composite code (e.g. 202607111119), fallback to 12 as valid DB ID
-        if (numId > 100000) {
-          numId = parsed.employeeId ? Number(parsed.employeeId) : 12;
-        }
-        return {
-          id: numId,
-          name: parsed.fullName || parsed.name || parsed.username || "System Admin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
-          code: parsed.code || parsed.employeeCode,
-          email: parsed.email
-        };
-      } catch (e) {}
-    }
-    return { id: 12, name: "System Admin", role: "SUPER_ADMIN", code: undefined, email: undefined };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   const isManagerOrAdmin = useMemo(() => {
     const r = String(currentUser.role || '').toUpperCase();
@@ -122,8 +105,8 @@ const LeaveDashboardPage: React.FC = () => {
   }, [currentUser]);
 
   const [activeTab, setActiveTab] = useState<'employee' | 'manager'>('employee');
-  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id > 100000 ? 12 : currentUser.id);
-  const [employeeCode, setEmployeeCode] = useState<string>(currentUser.code || `ADM-EMP-${String(currentUser.id > 100000 ? 12 : currentUser.id).padStart(4, '0')}`);
+  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(currentUser.id);
+  const [employeeCode, setEmployeeCode] = useState<string>(currentUser.code || `ADM-EMP-${String(currentUser.id).padStart(4, '0')}`);
 
   const [employeeMap, setEmployeeMap] = useState<Record<number, string>>({});
 
@@ -236,7 +219,7 @@ const LeaveDashboardPage: React.FC = () => {
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [newEventForm, setNewEventForm] = useState({
     title: '',
-    dateStr: new Date().toISOString().split('T')[0],
+    dateStr: todayIso(),
     time: '05:30 AM',
     description: '',
     location: '',
@@ -394,11 +377,7 @@ const LeaveDashboardPage: React.FC = () => {
 
     let numericEmpId = (typeof empId === 'number' && !isNaN(empId)) 
       ? empId 
-      : (parseInt(String(empId).replace(/\D/g, ''), 10) || 12);
-
-    if (numericEmpId > 100000) {
-      numericEmpId = 12;
-    }
+      : (parseInt(String(empId).replace(/\D/g, ''), 10) || currentUser.id);
 
     // 1. Employee Leave Dashboard & Balances
     for (const base of DASHBOARD_CANDIDATES) {
@@ -444,7 +423,7 @@ const LeaveDashboardPage: React.FC = () => {
         if (Array.isArray(res.data)) { 
           const mapped = res.data.map((a: any) => ({
             ...a,
-            employeeName: a.employeeName || employeeMap[a.employeeId] || (Number(a.employeeId) === currentUser.id ? currentUser.name : "Roy Hamlin")
+            employeeName: a.employeeName || employeeMap[a.employeeId] || (Number(a.employeeId) === currentUser.id ? currentUser.name : `Employee #${a.employeeId}`)
           }));
           setAdjustments(mapped); 
           break; 
@@ -475,7 +454,7 @@ const LeaveDashboardPage: React.FC = () => {
             const isApproved = status === 'APPROVED';
             return {
               id: r.id || (idx + 1),
-              transactionDate: String(r.createdDate || r.fromDate || new Date().toISOString().split('T')[0]).split('T')[0],
+              transactionDate: String(r.createdDate || r.fromDate || todayIso()).split('T')[0],
               leaveType: (r.leaveType || 'CASUAL').toUpperCase(),
               action: isApproved ? 'LEAVE_APPROVED' : status === 'PENDING' ? 'LEAVE_REQUESTED' : 'LEAVE_REJECTED',
               balanceBefore: isApproved ? 10 : 12,
@@ -636,7 +615,7 @@ const LeaveDashboardPage: React.FC = () => {
       const newAdjustment: AdjustmentModel = resData || {
         ...payload,
         id: Date.now(),
-        employeeName: employeeMap[payload.employeeId] || (payload.employeeId === currentUser.id ? currentUser.name : "Roy Hamlin"),
+        employeeName: employeeMap[payload.employeeId] || (payload.employeeId === currentUser.id ? currentUser.name : `Employee #${payload.employeeId}`),
         balanceBefore: 10,
         balanceAfter: 10 + payload.adjustmentLeaves
       };
@@ -654,9 +633,9 @@ const LeaveDashboardPage: React.FC = () => {
 
   // ── Columns for Adjustments Table ───────────────────────────────────────
   const adjustmentColumns: ColumnDef<AdjustmentModel>[] = [
-    { key: 'adjustedDate', label: 'Date', sortable: true, render: (row) => <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{row.adjustedDate || new Date().toISOString().split('T')[0]}</span> },
+    { key: 'adjustedDate', label: 'Date', sortable: true, render: (row) => <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{row.adjustedDate || todayIso()}</span> },
     { key: 'employeeName', label: 'Employee', sortable: true, render: (row) => {
-        const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser.id ? currentUser.name : 'Roy Hamlin');
+        const empName = row.employeeName || employeeMap[row.employeeId] || (row.employeeId === currentUser.id ? currentUser.name : `Employee #${row.employeeId}`);
         return (
           <div className="flex flex-col whitespace-nowrap">
             <span className="font-bold text-gray-900 text-xs">{empName}</span>
@@ -694,7 +673,7 @@ const LeaveDashboardPage: React.FC = () => {
   const transactionColumns: ColumnDef<any>[] = [
     { key: 'id', label: 'Trans ID', sortable: true, render: (row) => <span className="font-mono font-bold text-xs text-cyan-700 whitespace-nowrap">#{row.id || row.transactionId || 'TXN-1'}</span> },
     { key: 'transactionDate', label: 'Date', sortable: true, render: (row) => {
-        const rawDate = row.transactionDate || row.adjustedDate || new Date().toISOString().split('T')[0];
+        const rawDate = row.transactionDate || row.adjustedDate || todayIso();
         const formattedDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate);
         return <span className="font-mono text-xs text-gray-600 whitespace-nowrap">{formattedDate}</span>;
       }
@@ -792,7 +771,7 @@ const LeaveDashboardPage: React.FC = () => {
             {/* Apply Leave Button */}
             <button
               type="button"
-              onClick={() => { window.location.href = '/att_leaveRequest'; }}
+              onClick={() => { window.location.href = appUrl('/att_leaveRequest'); }}
               className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95"
             >
               <Plus className="w-2.5 h-2.5" /> Apply Leave

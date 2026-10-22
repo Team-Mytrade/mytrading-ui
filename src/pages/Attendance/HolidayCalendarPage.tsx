@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
@@ -8,6 +9,8 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -36,6 +39,8 @@ export interface HolidayCalendarModel {
 }
 
 const HolidayCalendarPage: React.FC = () => {
+  // Everyone may view holidays here (self-service page); changing them needs ATTENDANCE permissions
+  const { canCreate, canDelete, canUpdate } = usePermissions("ATTENDANCE");
   // ── States ─────────────────────────────────────────────────────────────
   const [calendars, setCalendars] = useState<HolidayCalendarModel[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -217,7 +222,7 @@ const HolidayCalendarPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Holiday_Calendars_Noticeboard_${todayIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -517,12 +522,13 @@ const HolidayCalendarPage: React.FC = () => {
         <button
           type="button"
           onClick={() => handleToggleCalendarActive(row)}
-          className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shadow-2xs ${
+          disabled={!canUpdate}
+          className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shadow-2xs disabled:pointer-events-none ${
             row.active !== false 
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent hover:bg-emerald-100 dark:hover:bg-[#222222]' 
               : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent hover:bg-rose-100 dark:hover:bg-[#222222]'
           }`}
-          title="Click to toggle Active / Inactive"
+          title={canUpdate ? "Click to toggle Active / Inactive" : undefined}
         >
           {row.active !== false ? 'Active' : 'Inactive'}
         </button>
@@ -541,38 +547,38 @@ const HolidayCalendarPage: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openManageHolidaysModal(row)}
             className="p-1.5 bg-indigo-50 dark:bg-[#222222] hover:bg-indigo-100 dark:hover:bg-[#2a2a2a] border border-indigo-200 dark:!border-transparent rounded-lg text-indigo-700 dark:text-indigo-400 transition-colors cursor-pointer"
             title="Manage Holidays List"
           >
             <CalendarDays className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canCreate && (<button
             type="button"
             onClick={() => handleDuplicateCalendar(row)}
             className="p-1.5 bg-amber-50 dark:bg-[#222222] hover:bg-amber-100 dark:hover:bg-[#2a2a2a] border border-amber-200 dark:!border-transparent rounded-lg text-amber-700 dark:text-amber-400 transition-colors cursor-pointer"
             title="Duplicate Calendar for Next Year"
           >
             <Copy className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canUpdate && (<button
             type="button"
             onClick={() => openEditCalendarModal(row)}
             className="p-1.5 bg-cyan-50 dark:bg-[#222222] hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] border border-cyan-200 dark:!border-transparent rounded-lg text-cyan-700 dark:text-cyan-400 transition-colors cursor-pointer"
             title="Edit Calendar Master"
           >
             <Edit className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => handleDeleteCalendar(row)}
             className="p-1.5 bg-rose-50 dark:bg-[#222222] hover:bg-rose-100 dark:hover:bg-[#2a2a2a] border border-rose-200 dark:!border-transparent rounded-lg text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
             title="Delete Calendar"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          </button>)}
         </div>
       )
     }
@@ -585,21 +591,8 @@ const HolidayCalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'manager' | 'table'>('manager');
 
   // User Profile
-  const currentUser = useMemo(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const parsed = JSON.parse(userStr);
-        return {
-          name: parsed.fullName || parsed.name || parsed.username || "Roy Hamlin",
-          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
-          email: parsed.email || parsed.username || "roy.hamlin@mytrading.com",
-          code: parsed.employeeCode || "#ADM-EMP-0067"
-        };
-      } catch (e) {}
-    }
-    return { name: "Roy Hamlin", role: "SUPER_ADMIN", email: "roy.hamlin@mytrading.com", code: "#ADM-EMP-0067" };
-  }, []);
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // Sync selectedCalendarCodeId when calendars load & auto-fetch holidays
   useEffect(() => {
@@ -728,17 +721,18 @@ const HolidayCalendarPage: React.FC = () => {
               <FileSpreadsheet className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
               <span>{activeTab === 'table' ? 'Split Calendar View' : `Master Records (${calendars.length})`}</span>
             </button>
-            <button
+            {canCreate && (<button
               type="button"
               onClick={openCreateCalendarModal}
               className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs cursor-pointer"
             >
-              <Plus className="w-3 h-3" />
-              <span>Create Calendar</span>
-            </button>
-            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg px-2 py-0.5 text-right">
-              <span className="text-[8px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider leading-none">Employee ID</span>
-              <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-gray-200 leading-tight">#{currentUser.code}</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Create Calendar</span>
+              <span className="sm:hidden">Create</span>
+            </button>)}
+            <div className="text-right hidden sm:block border-l border-gray-200 dark:!border-transparent pl-2.5 ml-0.5">
+              <span className="text-[8.5px] text-gray-400 dark:text-gray-500 font-medium block">Employee ID</span>
+              <span className="text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300">{currentUser.code}</span>
             </div>
           </div>
         </div>
@@ -841,12 +835,149 @@ const HolidayCalendarPage: React.FC = () => {
                       </div>
                       <p className="text-[9.5px] text-gray-500 dark:text-gray-400 truncate">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
                     </div>
+                    {canUpdate && (
+                      <button
+                        type="button"
+                        onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
+                        className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Edit className="w-2.5 h-2.5" /> Edit Holidays
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">{activeSelectedCalendar.description || 'Holidays schedule for employees'}</p>
+                </div>
+              )}
+
+              {/* Holidays List Preview & Quick Add */}
+              <div className="space-y-2 pt-1 border-t border-gray-100 dark:!border-transparent">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
+                      Holidays Schedule ({holidaysList.length})
+                    </h4>
+                    {selectedDateStr && (
+                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-[#222222] text-gray-700 dark:text-gray-300 border border-gray-200 dark:!border-transparent rounded text-[10px] font-mono font-bold">
+                        Selected: {selectedDateStr}
+                      </span>
+                    )}
+                  </div>
+
+                  {holidaysList.length > 0 && canUpdate && (
                     <button
                       type="button"
-                      onClick={() => openManageHolidaysModal(activeSelectedCalendar)}
-                      className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      onClick={addHolidayRow}
+                      className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                     >
-                      <Edit className="w-2.5 h-2.5" /> Edit
+                      <Plus className="w-3.5 h-3.5" /> Add Holiday for {selectedDateStr || 'Today'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-52 overflow-y-auto no-scrollbar space-y-1.5 pr-1">
+                  {holidaysList.length === 0 ? (
+                    <div className="p-4 text-center text-[11px] text-gray-500 dark:text-gray-400 italic bg-gray-50/60 dark:bg-[#222222] rounded-xl border border-dashed border-gray-200 dark:!border-transparent space-y-2">
+                      <p>No holidays configured for this calendar on <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{selectedDateStr}</span>.</p>
+                      {canUpdate && (
+                        <button
+                          type="button"
+                          onClick={addHolidayRow}
+                          className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" /> Create Holiday on {selectedDateStr}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    holidaysList.map((h, idx) => {
+                      const isMatchSelected = h.holidayDate === selectedDateStr;
+
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => {
+                            if (h.holidayDate) {
+                              setSelectedDateStr(h.holidayDate);
+                              const d = new Date(h.holidayDate);
+                              if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border transition-all space-y-2 cursor-pointer ${
+                            isMatchSelected 
+                              ? 'bg-cyan-50/50 dark:bg-[#222222] border-cyan-300 dark:!border-transparent ring-1 ring-cyan-400/20 shadow-2xs' 
+                              : 'bg-gray-50/70 dark:bg-[#222222] border-gray-200 dark:!border-transparent hover:border-gray-300 dark:hover:bg-[#262626]'
+                          }`}
+                        >
+                          {/* Row 1: Name + Date */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={h.holidayName}
+                              onChange={(e) => handleHolidayFieldChange(idx, 'holidayName', e.target.value)}
+                              placeholder="Holiday Name (e.g. Independence Day)"
+                              className="flex-1 h-9 px-3 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 outline-none min-w-0"
+                            />
+                            <div className="w-36 sm:w-44 h-9 relative flex items-center shrink-0">
+                              <input
+                                type="date"
+                                value={h.holidayDate}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch {}
+                                }}
+                                onChange={(e) => {
+                                  handleHolidayFieldChange(idx, 'holidayDate', e.target.value);
+                                  if (e.target.value) {
+                                    setSelectedDateStr(e.target.value);
+                                    const d = new Date(e.target.value);
+                                    if (!isNaN(d.getTime())) setMiniCalendarDate(d);
+                                  }
+                                }}
+                                className="w-full h-9 pl-3 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-xs font-mono text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-cyan-500 cursor-pointer outline-none"
+                              />
+                              <Calendar className="w-4 h-4 text-gray-400 absolute right-2.5 pointer-events-none" />
+                            </div>
+                          </div>
+                          {/* Row 2: Type + Delete */}
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={h.holidayType}
+                              onChange={(e) => handleHolidayFieldChange(idx, 'holidayType', e.target.value)}
+                              className="flex-1 h-9 pl-2.5 pr-8 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-xs font-bold text-gray-800 dark:text-gray-100 cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500"
+                            >
+                              <option value="NATIONAL">NATIONAL</option>
+                              <option value="STATE">STATE</option>
+                              <option value="FESTIVAL">FESTIVAL</option>
+                            </select>
+                            {canDelete && (<button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSingleHoliday(idx, h);
+                              }}
+                              className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] border border-gray-300 dark:!border-transparent rounded-lg shrink-0 transition-colors shadow-2xs cursor-pointer"
+                              title="Delete Holiday"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>)}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {holidaysList.length > 0 && canUpdate && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleBulkCreateHolidays}
+                      disabled={isSubmitting}
+                      className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow-2xs disabled:opacity-70 transition-colors cursor-pointer"
+                    >
+                      {isSubmitting ? "Saving..." : "Save Holidays Schedule"}
                     </button>
                   </div>
                 )}
@@ -1206,14 +1337,14 @@ const HolidayCalendarPage: React.FC = () => {
                         <option value="STATE">STATE</option>
                         <option value="FESTIVAL">FESTIVAL</option>
                       </select>
-                      <button
+                      {canDelete && (<button
                         type="button"
                         onClick={() => handleDeleteSingleHoliday(idx, h)}
                         className="h-9 w-9 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] border border-gray-300 dark:!border-transparent rounded-lg shrink-0 transition-colors shadow-2xs cursor-pointer"
                         title="Remove Holiday"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
+                      </button>)}
                     </div>
                   </div>
                 ))
@@ -1313,7 +1444,7 @@ const HolidayCalendarPage: React.FC = () => {
             </div>
 
             <div className="pt-3 border-t border-gray-100 dark:!border-transparent flex items-center justify-between">
-              <button
+              {canUpdate && (<button
                 type="button"
                 onClick={() => {
                   const target = viewingCalendarDetails;
@@ -1323,7 +1454,7 @@ const HolidayCalendarPage: React.FC = () => {
                 className="px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-cyan-700 dark:text-cyan-300 rounded-lg text-xs font-bold border border-cyan-200 dark:!border-transparent transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Edit className="w-3.5 h-3.5" /> Manage Holiday List
-              </button>
+              </button>)}
 
               <button
                 type="button"

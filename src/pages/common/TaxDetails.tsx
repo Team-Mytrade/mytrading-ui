@@ -18,6 +18,8 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
+import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 interface TaxDetail {
   id: number;
@@ -33,6 +35,7 @@ const API_URL = "/v1/api/invoice/tax-details";
 const PAGE_SIZE = 10;
 
 const TaxDetails: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -89,8 +92,7 @@ const TaxDetails: React.FC = () => {
         await fetchTaxDetails();
       }
     } catch (err) {
-      console.error("Error submitting tax detail", err);
-      ToasterService.error("Failed to save tax detail");
+      ToasterService.error(apiError(err, "Failed to save tax detail"));
     } finally {
       setSubmitting(false);
     }
@@ -128,8 +130,7 @@ const TaxDetails: React.FC = () => {
       setTaxDetailToDelete(null);
       fetchTaxDetails();
     } catch (err) {
-      console.error("Error deleting tax detail", err);
-      ToasterService.error("Failed to delete tax detail");
+      ToasterService.error(apiError(err, "Failed to delete tax detail"));
     }
   };
 
@@ -236,22 +237,22 @@ const TaxDetails: React.FC = () => {
       className: "w-[20%] text-right",
       render: (taxDetail) => (
         <div className="flex items-center justify-end gap-0.5">
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => handleEdit(taxDetail)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Tax Detail"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => handleDelete(taxDetail)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete Tax Detail"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -264,7 +265,7 @@ const TaxDetails: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Tax Detail" />
+          {canCreate && <AddButton onClick={openCreate} label="Add Tax Detail" />}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 my-5">
           <StatsCard
@@ -311,7 +312,7 @@ const TaxDetails: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"

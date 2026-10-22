@@ -1,3 +1,4 @@
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { 
@@ -9,6 +10,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { usePermissions } from '../../access/usePermissions';
 
 // ── Attendance Regularization API Base Endpoints ─────────────────────────
 // POST   /v1/api/attendance/regularization
@@ -43,12 +45,10 @@ const AttendanceRegularizationApprovalPage: React.FC<AttendanceRegularizationApp
   onActionComplete
 }) => {
   const { user } = useContext(AuthContext);
+  const { canApprove } = usePermissions();
 
-  const currentUser = {
-    id: user?.id || 12,
-    name: user?.fullName || user?.username || 'User',
-    role: user?.role || 'SUPER_ADMIN'
-  };
+  // Own employee identity from the login token (no hard-coded ids)
+  const currentUser = useCurrentEmployee();
 
   // ── States ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
@@ -143,7 +143,7 @@ const AttendanceRegularizationApprovalPage: React.FC<AttendanceRegularizationApp
         ToasterService.success(`Regularization request #${selectedRequest.id} rejected.`);
         onActionComplete?.();
       } else if (actionType === 'cancel') {
-        const empId = selectedRequest.employeeId || currentUser.id || 12;
+        const empId = selectedRequest.employeeId || currentUser.id;
         await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/cancel?employeeId=${empId}`);
         ToasterService.success(`Regularization request #${selectedRequest.id} cancelled.`);
         onActionComplete?.();
@@ -218,7 +218,7 @@ const AttendanceRegularizationApprovalPage: React.FC<AttendanceRegularizationApp
       // Non-enumerable properties: accessible by code, modals, and actions
       Object.defineProperties(rowItem, {
         _raw: { value: req, enumerable: false, writable: true },
-        employeeId: { value: req.employeeId || 12, enumerable: false, writable: true },
+        employeeId: { value: req.employeeId, enumerable: false, writable: true },
         employeeName: { value: empName, enumerable: false, writable: true },
         requestedInTime: { value: req.requestedInTime, enumerable: false, writable: true },
         requestedOutTime: { value: req.requestedOutTime, enumerable: false, writable: true },
@@ -336,7 +336,7 @@ const AttendanceRegularizationApprovalPage: React.FC<AttendanceRegularizationApp
       className: 'whitespace-nowrap text-right',
       render: (row) => (
         <div className="flex items-center justify-end gap-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-          {activeTab === 'pending' && (
+          {activeTab === 'pending' && canApprove && (
             <>
               <button
                 type="button"

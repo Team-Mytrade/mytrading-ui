@@ -21,6 +21,7 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,36 +68,10 @@ const emptyForm: Vehicle = {
   status:       "Active",
 };
 
-// ─── Auth helpers (same pattern as CRM segments page) ──────────────────────────
-
-const getTenantIdFromToken = (token: string) => {
-  try {
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded?.tenantId || null;
-  } catch {
-    return null;
-  }
-};
-
-const getTenantId = () => {
-  try {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user?.tenantId) return user.tenantId;
-    }
-    const token = localStorage.getItem("accessToken");
-    if (token) return getTenantIdFromToken(token);
-    return null;
-  } catch {
-    return null;
-  }
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const VehiclePage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading]   = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -111,9 +86,6 @@ const VehiclePage: React.FC = () => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deletingItem, setDeletingItem]       = useState<Vehicle | null>(null);
 
-  const token = localStorage.getItem("accessToken");
-  const tenantId = getTenantId();
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   useEffect(() => { loadData(); }, []);
 
@@ -126,10 +98,7 @@ const VehiclePage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<Vehicle[]>(API_URL, {
-        headers: authHeaders,
-        params: tenantId ? { tenantId } : {},
-      });
+      const res = await axios.get<Vehicle[]>(API_URL);
       setVehicles(res.data);
     } catch (err) {
       console.error("Failed to load vehicles:", err);
@@ -175,17 +144,17 @@ const VehiclePage: React.FC = () => {
 
     try {
       if (form.id) {
-        await axios.put(`${API_URL}/${form.id}`, payload, { headers: authHeaders });
+        await axios.put(`${API_URL}/${form.id}`, payload);
         ToasterService.success("Vehicle updated successfully!");
       } else {
-        await axios.post(API_URL, payload, { headers: authHeaders });
+        await axios.post(API_URL, payload);
         ToasterService.success("Vehicle added successfully!");
       }
       await loadData();
       resetForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving vehicle:", err);
-      ToasterService.error("Failed to save vehicle");
+      ToasterService.error(err.response?.data?.message || "Failed to save vehicle");
     } finally {
       setSaving(false);
     }
@@ -199,7 +168,7 @@ const VehiclePage: React.FC = () => {
   const confirmDelete = async () => {
     if (!deletingItem?.id) return;
     try {
-      await axios.delete(`${API_URL}/${deletingItem.id}`, { headers: authHeaders });
+      await axios.delete(`${API_URL}/${deletingItem.id}`);
       ToasterService.success("Vehicle deleted successfully!");
       setVehicles(prev => prev.filter(v => v.id !== deletingItem.id));
     } catch (err) {
@@ -330,20 +299,20 @@ const VehiclePage: React.FC = () => {
       className: "w-[8%] text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             title="Edit"
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => promptDelete(row)}
             title="Delete"
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -475,7 +444,7 @@ const VehiclePage: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >

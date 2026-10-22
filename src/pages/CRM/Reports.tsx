@@ -18,6 +18,9 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
+import { LEAD_STATUS_LABELS } from "./crmShared";
+import { formatMoney } from "../Dashboard/dashboardKit";
+import { usePermissions } from "../../access/usePermissions";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -71,11 +74,8 @@ const getToken = () => localStorage.getItem("accessToken") || "";
 const safeNumber = (v: unknown, fallback = 0): number =>
   typeof v === "number" && !isNaN(v) ? v : fallback;
 
-const formatCurrency = (amount: number) => {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(1)}K`;
-  return `$${amount}`;
-};
+// Rupees in compact form (₹2.5L, ₹1.2Cr), like the other dashboards
+const formatCurrency = (amount: number) => formatMoney(amount, "INR", true);
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -193,11 +193,13 @@ const stageColor = (stage: string): string => {
   switch (stage.toUpperCase()) {
     case "PROSPECTING":
       return "bg-blue-500";
+    case "QUALIFIED":
+      return "bg-cyan-500";
     case "NEGOTIATION":
       return "bg-yellow-500";
-    case "CLOSED_WON":
+    case "WON":
       return "bg-green-500";
-    case "CLOSED_LOST":
+    case "LOST":
       return "bg-red-500";
     default:
       return "bg-slate-400";
@@ -212,12 +214,17 @@ const leadStatusColor = (status: string): string => {
       return "bg-yellow-500";
     case "QUALIFIED":
       return "bg-green-500";
-    case "LOST":
+    case "CONVERTED":
+      return "bg-emerald-600";
+    case "DISQUALIFIED":
       return "bg-red-500";
     default:
       return "bg-slate-400";
   }
 };
+
+// Lead statuses use the Leads page's wording (DISQUALIFIED is "Lost")
+const leadStatusLabel = (status: string) => LEAD_STATUS_LABELS[status] ?? titleCase(status);
 
 const activityTypeColor = (type: string): string => {
   switch (type.toUpperCase()) {
@@ -253,7 +260,8 @@ const CompactBarList: React.FC<{
   title: string;
   data: Record<string, number>;
   colorFn?: (key: string) => string;
-}> = ({ title, data, colorFn }) => {
+  labelFn?: (key: string) => string;
+}> = ({ title, data, colorFn, labelFn = titleCase }) => {
   const entries = Object.entries(data).filter(([, v]) => v > 0);
   const max = Math.max(1, ...entries.map(([, v]) => v));
 
@@ -280,9 +288,9 @@ const CompactBarList: React.FC<{
                 >
                   <span
                     className="text-[10px] text-slate-600 truncate"
-                    title={titleCase(key)}
+                    title={labelFn(key)}
                   >
-                    {titleCase(key)}
+                    {labelFn(key)}
                   </span>
                   <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <div
@@ -356,6 +364,7 @@ const TrendTile: React.FC<{
 /* ------------------------------------------------------------------ */
 
 const Reports: React.FC = () => {
+  const { canExport } = usePermissions();
   const [report, setReport] = useState<ReportSummary>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
@@ -440,8 +449,11 @@ const Reports: React.FC = () => {
       );
     } catch (err: any) {
       console.error(`Error exporting ${type}:`, err);
+      // The body is a Blob here, so the service's message isn't readable; name the usual cause
       ToasterService.error(
-        err.response?.data?.message || `Failed to export ${type}`
+        err.response?.status === 403
+          ? "You don't have permission to export CRM reports (CRM:EXPORT). Ask your administrator for access."
+          : `Failed to export ${type === "pdf" ? "PDF" : "Excel"}`
       );
     } finally {
       setExporting(null);
@@ -485,24 +497,28 @@ const Reports: React.FC = () => {
               />
               Refresh
             </button>
-            <button
-              type="button"
-              onClick={() => handleExport("excel")}
-              disabled={!!exporting}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-              {exporting === "excel" ? "..." : "Excel"}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExport("pdf")}
-              disabled={!!exporting}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-60"
-            >
-              <ArrowDownTrayIcon className="h-3.5 w-3.5" />
-              {exporting === "pdf" ? "..." : "PDF"}
-            </button>
+            {canExport && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleExport("excel")}
+                  disabled={!!exporting}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                  {exporting === "excel" ? "..." : "Excel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExport("pdf")}
+                  disabled={!!exporting}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:opacity-60"
+                >
+                  <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                  {exporting === "pdf" ? "..." : "PDF"}
+                </button>
+              </>
+            )}
           </div>
         }
       />
@@ -618,6 +634,7 @@ const Reports: React.FC = () => {
               title="Leads by Status"
               data={report.leadsByStatus || {}}
               colorFn={leadStatusColor}
+              labelFn={leadStatusLabel}
             />
             <CompactBarList
               title="Activities by Type"

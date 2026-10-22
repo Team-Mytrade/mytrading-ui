@@ -28,6 +28,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import PaginatedPopup from "../../components/common/unpopup";
 import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ const parseDuration = (duration: string): { value: string; unit: "M" | "H" } => 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const OvertimeRulePage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [rules, setRules] = useState<OvertimeRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -377,20 +379,20 @@ const OvertimeRulePage: React.FC = () => {
       headerClassName: "!text-right pr-8", className: "text-right",
       render: (row: OvertimeRule) => (
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             onClick={() => openEditForm(row)}
             title="Edit"
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
             title="Delete"
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -502,13 +504,13 @@ const OvertimeRulePage: React.FC = () => {
                 <BoltIcon className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 text-sm font-medium mb-2">No rules found</p>
-              <button
+              {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
                 Add your first rule
-              </button>
+              </button>)}
             </div>
           }
         />

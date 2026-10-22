@@ -1,0 +1,51 @@
+.goods-receipt-editor {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  border: 1px solid #dbe4ee;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgb(15 23 42 / 8%);
+}
+
+.goods-receipt-editor__entry,
+.goods-receipt-editor__footer { padding: 24px 32px; }
+.goods-receipt-editor__receipt { margin: 0 32px; border: 1px solid #bceaf7; border-radius: 14px; background: #f5fcfe; }
+.goods-receipt-editor__receipt-head { display: flex; justify-content: space-between; padding: 13px 17px; border-bottom: 1px solid #d7eff6; color: #087fa8; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.goods-receipt-editor__receipt-head time { color: #52647c; font-weight: 600; letter-spacing: normal; }
+.goods-receipt-editor__summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 17px; }
+.goods-receipt-editor__summary span { display: block; margin-bottom: 5px; color: #64748b; font-size: 12px; }
+.goods-receipt-editor__summary strong { color: #172033; font-size: 16px; }
+.goods-receipt-editor__controls, .goods-receipt-editor__quantities, .goods-receipt-editor__tracking { display: grid; gap: 16px; }
+.goods-receipt-editor__controls { grid-template-columns: 1.2fr 1fr 1fr; padding: 17px; }
+.goods-receipt-editor__items { padding: 28px 32px; }
+.goods-receipt-editor__section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.goods-receipt-editor__section-title h3 { margin: 0; color: #172033; font-size: 17px; }
+.goods-receipt-editor__section-title span { color: #64748b; font-size: 13px; }
+.goods-receipt-editor__empty { margin: 0; border: 1px dashed #cbd5e1; border-radius: 9px; padding: 22px; color: #718096; text-align: center; }
+.goods-receipt-editor__item { margin-top: 14px; border: 1px solid #dbe4ee; border-radius: 14px; overflow: hidden; }
+.goods-receipt-editor__item > header { padding: 13px 16px; border-bottom: 1px solid #e2e8f0; background: #fbfdff; }
+.goods-receipt-editor__item header span { color: #64748b; font-size: 12px; }
+.goods-receipt-editor__item h4 { margin: 3px 0 0; color: #1e293b; font-size: 15px; }
+.goods-receipt-editor__quantities { grid-template-columns: repeat(3, 1fr); padding: 16px; }
+.goods-receipt-editor__tracking { grid-template-columns: repeat(3, 1fr); padding: 0 16px 16px; }
+.goods-receipt-editor__serials { grid-column: span 3; }
+.goods-receipt-editor__entry { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); gap: 22px; }
+.goods-receipt-editor label { display: block; color: #334155; font-size: 14px; font-weight: 600; }
+.goods-receipt-editor label em { color: #94a3b8; font-size: 12px; font-style: normal; font-weight: 400; }
+.goods-receipt-editor input, .goods-receipt-editor select, .goods-receipt-editor textarea { box-sizing: border-box; display: block; width: 100%; margin-top: 7px; border: 1px solid #cbd5e1; border-radius: 9px; padding: 11px 12px; color: #172033; font: inherit; outline: 0; background: #fff; }
+.goods-receipt-editor textarea { resize: vertical; }
+.goods-receipt-editor input:focus, .goods-receipt-editor select:focus, .goods-receipt-editor textarea:focus { border-color: #0799c7; box-shadow: 0 0 0 3px rgb(8 159 202 / 12%); }
+.goods-receipt-editor small { display: block; margin-top: 6px; color: #718096; font-size: 12px; }
+.goods-receipt-editor__footer { display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; background: #fbfdff; }
+.goods-receipt-editor__footer button { border-radius: 9px; padding: 10px 17px; font: inherit; font-weight: 600; cursor: pointer; }
+.goods-receipt-editor__cancel { border: 1px solid #cbd5e1; background: #fff; color: #475569; }
+.goods-receipt-editor__submit { border: 1px solid #087fa8; background: #078db8; color: #fff; }
+.goods-receipt-editor__submit:disabled { cursor: wait; opacity: .65; }
+
+@media (max-width: 620px) {
+  .goods-receipt-editor__entry, .goods-receipt-editor__footer { padding: 20px; }
+  .goods-receipt-editor__receipt { margin: 0 20px; }
+  .goods-receipt-editor__summary, .goods-receipt-editor__entry, .goods-receipt-editor__controls, .goods-receipt-editor__quantities, .goods-receipt-editor__tracking { grid-template-columns: 1fr; }
+  .goods-receipt-editor__items { padding: 20px; }
+  .goods-receipt-editor__serials { grid-column: auto; }
+}

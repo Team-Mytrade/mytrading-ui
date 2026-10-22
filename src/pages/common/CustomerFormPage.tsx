@@ -1,60 +1,78 @@
-import React, { useEffect, useState, FormEvent } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  XMarkIcon,
-  BuildingOfficeIcon,
-  EnvelopeIcon,
-  PhoneIcon,
-  GlobeAltIcon,
-  MapPinIcon,
-  HomeIcon,
-  BuildingStorefrontIcon,
-  TruckIcon,
   BriefcaseIcon,
-  PlusIcon,
-  TrashIcon,
-  PencilSquareIcon,
+  BuildingOfficeIcon,
+  BuildingStorefrontIcon,
   CheckIcon,
-  ArrowLeftIcon,
+  EnvelopeIcon,
+  HomeIcon,
+  MapPinIcon,
+  PencilSquareIcon,
+  PlusIcon,
+  StarIcon,
+  TrashIcon,
+  TruckIcon,
+  WalletIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { ToasterService } from "../../Services/ToasterService";
-import { BackButton } from "../../components/common/BackButton";
-import {
-  FloatingInput,
-  FloatingSelect1 as FloatingSelect,
-  FloatingTextarea,
-} from "../../components/inputfeild/FloatingInput";
+import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { CUSTOMER_TYPE_OPTIONS, apiError } from "../CRM/crmShared";
+import { formatMoney } from "../Dashboard/dashboardKit";
 
-// Enums
-enum AddressType {
-  BILLING = "BILLING",
-  SHIPPING = "SHIPPING",
-  OFFICE = "OFFICE",
-  WAREHOUSE = "WAREHOUSE",
-  BRANCH = "BRANCH",
-  OTHER = "OTHER",
-}
+// Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
 
-enum CustomerStatus {
-  LEAD = "LEAD",
-  ACTIVE = "ACTIVE",
-  CREDIT_HOLD = "CREDIT_HOLD",
-  BLOCKED = "BLOCKED",
-  INACTIVE = "INACTIVE",
-}
+const API_URL = "/v1/api/crm/customers";
+const SALES_PERSONS_API = "/v1/api/sales/sales-persons";
+const FORM_ID = "customer-form";
 
-enum CustomerType {
-  WHOLESALE = "WHOLESALE",
-  RETAIL = "RETAIL",
-  CORPORATE = "CORPORATE",
-  INDIVIDUAL = "INDIVIDUAL",
-}
+const STATUS_OPTIONS = [
+  { id: "ACTIVE", name: "Active" },
+  { id: "LEAD", name: "Lead" },
+  { id: "CREDIT_HOLD", name: "Credit hold" },
+  { id: "BLOCKED", name: "Blocked" },
+  { id: "INACTIVE", name: "Inactive" },
+];
+
+const PAYMENT_TERM_OPTIONS = [
+  { id: "IMMEDIATE", name: "Due on receipt" },
+  { id: "NET15", name: "Net 15 days" },
+  { id: "NET30", name: "Net 30 days" },
+  { id: "NET45", name: "Net 45 days" },
+  { id: "NET60", name: "Net 60 days" },
+  { id: "NET90", name: "Net 90 days" },
+];
+
+const CURRENCY_OPTIONS = [
+  { id: "INR", name: "INR — Indian rupee" },
+  { id: "USD", name: "USD — US dollar" },
+  { id: "EUR", name: "EUR — Euro" },
+  { id: "GBP", name: "GBP — British pound" },
+  { id: "AED", name: "AED — UAE dirham" },
+  { id: "QAR", name: "QAR — Qatari riyal" },
+  { id: "JPY", name: "JPY — Japanese yen" },
+];
+
+const ADDRESS_TYPES = [
+  { id: "BILLING", name: "Billing", icon: HomeIcon },
+  { id: "SHIPPING", name: "Shipping", icon: TruckIcon },
+  { id: "OFFICE", name: "Office", icon: BuildingOfficeIcon },
+  { id: "WAREHOUSE", name: "Warehouse", icon: BuildingStorefrontIcon },
+  { id: "BRANCH", name: "Branch", icon: BriefcaseIcon },
+  { id: "OTHER", name: "Other", icon: MapPinIcon },
+];
+
+// Same patterns the service validates with
+const PHONE_PATTERN = /^\+?[0-9][0-9 ()-]{5,18}[0-9]$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Address {
-  type: AddressType;
+  id?: number;
+  type: string;
   addressLine1: string;
   addressLine2?: string;
   city: string;
@@ -64,662 +82,727 @@ interface Address {
   defaultAddress: boolean;
 }
 
-interface Customer {
-  id?: number;
+interface CustomerForm {
   customerName: string;
-  tradeName?: string;
-  taxNumber?: string;
-  registrationNumber?: string;
-  customerType: CustomerType;
-  status: CustomerStatus;
-  phone: string;
+  tradeName: string;
+  customerType: string;
+  status: string;
+  taxNumber: string;
+  registrationNumber: string;
   email: string;
-  website?: string;
-  creditLimit?: number;
-  currentCredit?: number;
-  outstandingBalance?: number;
-  paymentTerms?: string;
-  currencyCode?: string;
-  active: boolean;
+  phone: string;
+  website: string;
+  salesPersonId: string;
+  paymentTerms: string;
+  currencyCode: string;
+  // Blank = no credit limit (Sales skips the credit check); 0 would block every order
+  creditLimit: string;
   addresses: Address[];
 }
 
-const API_URL = "/v1/api/crm/customers";
+// Kept by Sales; sent back unchanged so editing the customer never resets them
+interface SalesFigures {
+  customerCode?: string;
+  currentCredit: number;
+  outstandingBalance: number;
+}
 
-const addressTypeOptions = [
-  { id: AddressType.BILLING, name: "Billing Address", icon: HomeIcon },
-  { id: AddressType.SHIPPING, name: "Shipping Address", icon: TruckIcon },
-  { id: AddressType.OFFICE, name: "Office Address", icon: BuildingOfficeIcon },
-  { id: AddressType.WAREHOUSE, name: "Warehouse Address", icon: BuildingStorefrontIcon },
-  { id: AddressType.BRANCH, name: "Branch Address", icon: BriefcaseIcon },
-  { id: AddressType.OTHER, name: "Other Address", icon: MapPinIcon },
-];
+interface SalesPerson {
+  id: number;
+  name: string;
+  code?: string;
+  active?: boolean;
+}
 
-const toNumberOrZero = (value: unknown) => {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : 0;
+type Errors = Partial<Record<keyof CustomerForm | "addresses", string>>;
+
+const EMPTY_FORM: CustomerForm = {
+  customerName: "",
+  tradeName: "",
+  customerType: "WHOLESALE",
+  status: "ACTIVE",
+  taxNumber: "",
+  registrationNumber: "",
+  email: "",
+  phone: "",
+  website: "",
+  salesPersonId: "",
+  paymentTerms: "NET30",
+  currencyCode: "INR",
+  creditLimit: "",
+  addresses: [],
 };
+
+const EMPTY_ADDRESS: Address = {
+  type: "BILLING",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  country: "India",
+  postalCode: "",
+  defaultAddress: false,
+};
+
+const text = (value: unknown) => (value === null || value === undefined ? "" : String(value));
+
+const validate = (form: CustomerForm): Errors => {
+  const errors: Errors = {};
+  if (!form.customerName.trim()) errors.customerName = "Customer name is required";
+  if (!form.customerType) errors.customerType = "Choose the customer type";
+  if (!form.email.trim()) errors.email = "Email is required";
+  else if (!EMAIL_PATTERN.test(form.email.trim())) errors.email = "Enter a valid email address";
+  if (!form.phone.trim()) errors.phone = "Phone is required";
+  else if (!PHONE_PATTERN.test(form.phone.trim()))
+    errors.phone = "7–20 digits; spaces, dashes, brackets and a leading + are allowed";
+  if (form.creditLimit !== "" && (Number.isNaN(Number(form.creditLimit)) || Number(form.creditLimit) < 0))
+    errors.creditLimit = "Credit limit can't be negative";
+  return errors;
+};
+
+const validateAddress = (address: Address): Partial<Record<keyof Address, string>> => {
+  const errors: Partial<Record<keyof Address, string>> = {};
+  if (!address.addressLine1.trim()) errors.addressLine1 = "Address is required";
+  if (!address.city.trim()) errors.city = "City is required";
+  if (!address.state.trim()) errors.state = "State is required";
+  if (!address.country.trim()) errors.country = "Country is required";
+  return errors;
+};
+
+/* ---------------------------------------------------------------- layout pieces */
+
+const Section: React.FC<{
+  title: string;
+  description?: string;
+  icon: React.ElementType;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ title, description, icon: Icon, action, children }) => (
+  <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <header className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+          <Icon className="h-4 w-4" />
+        </span>
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+          {description && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{description}</p>}
+        </div>
+      </div>
+      {action}
+    </header>
+    <div className="px-5 pb-1 pt-5">{children}</div>
+  </section>
+);
+
+const Hint: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="-mt-3 mb-4 text-xs text-gray-500 dark:text-gray-400">{children}</p>
+);
+
+/* ---------------------------------------------------------------- page */
 
 const CustomerFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isEditing = !!id;
-  const [loading, setLoading] = useState(false);
+  const isEditing = Boolean(id);
+
+  const [form, setForm] = useState<CustomerForm>(EMPTY_FORM);
+  const [initialForm, setInitialForm] = useState<CustomerForm>(EMPTY_FORM);
+  const [salesFigures, setSalesFigures] = useState<SalesFigures>({ currentCredit: 0, outstandingBalance: 0 });
+  const [errors, setErrors] = useState<Errors>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
+  const [salesPersons, setSalesPersons] = useState<SalesPerson[] | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
-  // Customer Form State
-  const [customerForm, setCustomerForm] = useState<Partial<Customer>>({
-    customerName: "",
-    tradeName: "",
-    taxNumber: "",
-    registrationNumber: "",
-    customerType: CustomerType.WHOLESALE,
-    status: CustomerStatus.ACTIVE,
-    phone: "",
-    email: "",
-    website: "",
-    creditLimit: 0,
-    currentCredit: 0,
-    outstandingBalance: 0,
-    paymentTerms: "",
-    currencyCode: "INR",
-    active: true,
-    addresses: [],
-  });
+  // Address being added (index = null) or edited (index = position)
+  const [addressDraft, setAddressDraft] = useState<{ index: number | null; value: Address } | null>(null);
+  const [addressErrors, setAddressErrors] = useState<Partial<Record<keyof Address, string>>>({});
 
-  // Address Modal State
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [currentAddress, setCurrentAddress] = useState<Address>({
-    type: AddressType.BILLING,
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    country: "",
-    postalCode: "",
-    defaultAddress: false,
-  });
-  const [editingAddressIndex, setEditingAddressIndex] = useState<number | null>(null);
+  const isDirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initialForm), [form, initialForm]);
 
-  // Fetch customer data if editing
   useEffect(() => {
-    if (isEditing && id) {
-      fetchCustomerDetails();
-    }
-  }, [id, isEditing]);
+    // Sales persons come from the Sales module; without access the field is simply left out
+    axios
+      .get(SALES_PERSONS_API)
+      .then((res) => setSalesPersons(Array.isArray(res.data) ? res.data : res.data?.content ?? []))
+      .catch(() => setSalesPersons(null));
+  }, []);
 
-  const fetchCustomerDetails = async () => {
+  useEffect(() => {
+    if (!isEditing) return;
     setLoading(true);
-    try {
-      const res = await axios.get(`${API_URL}/${id}`);
-      const customerData = res.data;
-      setCustomerForm({
-        id: customerData.id,
-        customerName: customerData.customerName,
-        tradeName: customerData.tradeName || "",
-        taxNumber: customerData.taxNumber || "",
-        registrationNumber: customerData.registrationNumber || "",
-        customerType: customerData.customerType,
-        status: customerData.status,
-        phone: customerData.phone,
-        email: customerData.email,
-        website: customerData.website || "",
-        creditLimit: customerData.creditLimit ?? 0,
-        currentCredit: customerData.currentCredit ?? 0,
-        outstandingBalance: customerData.outstandingBalance ?? 0,
-        paymentTerms: customerData.paymentTerms || "",
-        currencyCode: customerData.currencyCode || "INR",
-        active: customerData.active,
-        addresses: customerData.addresses || [],
-      });
-    } catch (err) {
-      console.error("Error fetching customer:", err);
-      ToasterService.error("Failed to load customer details");
-      navigate("/customer-management");
-    } finally {
-      setLoading(false);
-    }
+    axios
+      .get(`${API_URL}/${id}`)
+      .then(({ data }) => {
+        const loaded: CustomerForm = {
+          customerName: text(data.customerName),
+          tradeName: text(data.tradeName),
+          customerType: text(data.customerType) || "OTHER",
+          status: text(data.status) || "ACTIVE",
+          taxNumber: text(data.taxNumber),
+          registrationNumber: text(data.registrationNumber),
+          email: text(data.email),
+          phone: text(data.phone),
+          website: text(data.website),
+          salesPersonId: text(data.salesPersonId),
+          paymentTerms: text(data.paymentTerms),
+          currencyCode: text(data.currencyCode) || "INR",
+          creditLimit: text(data.creditLimit),
+          addresses: (data.addresses ?? []).map((a: Address) => ({
+            ...EMPTY_ADDRESS,
+            ...a,
+            addressLine2: a.addressLine2 ?? "",
+            postalCode: a.postalCode ?? "",
+            defaultAddress: Boolean(a.defaultAddress),
+          })),
+        };
+        setForm(loaded);
+        setInitialForm(loaded);
+        setSalesFigures({
+          customerCode: data.customerCode,
+          currentCredit: Number(data.currentCredit) || 0,
+          outstandingBalance: Number(data.outstandingBalance) || 0,
+        });
+      })
+      .catch((err) => {
+        ToasterService.error(apiError(err, "Failed to load customer details"));
+        navigate("/customer-management");
+      })
+      .finally(() => setLoading(false));
+  }, [id, isEditing, navigate]);
+
+  const update = <K extends keyof CustomerForm>(field: K, value: CustomerForm[K]) => {
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      // After a failed save, errors clear as fields are fixed
+      if (submitted) setErrors(validate(next));
+      return next;
+    });
   };
 
-  // Address Management
-  const addAddress = () => {
-    if (!currentAddress.addressLine1 || !currentAddress.city || !currentAddress.state || !currentAddress.country) {
-      ToasterService.error("Please fill in all required address fields");
-      return;
-    }
+  /* ---------------- addresses ---------------- */
 
-    if (editingAddressIndex !== null) {
-      const updatedAddresses = [...(customerForm.addresses || [])];
-      updatedAddresses[editingAddressIndex] = { ...currentAddress };
-      setCustomerForm({ ...customerForm, addresses: updatedAddresses });
-      setEditingAddressIndex(null);
-    } else {
-      setCustomerForm({
-        ...customerForm,
-        addresses: [...(customerForm.addresses || []), { ...currentAddress }],
-      });
-    }
-
-    resetAddressForm();
-    setShowAddressModal(false);
-    ToasterService.success(editingAddressIndex !== null ? "Address updated" : "Address added");
+  const openAddress = (index: number | null) => {
+    setAddressErrors({});
+    setAddressDraft({
+      index,
+      value: index === null ? { ...EMPTY_ADDRESS, defaultAddress: form.addresses.length === 0 } : { ...form.addresses[index] },
+    });
   };
 
-  const editAddress = (index: number) => {
-    const address = customerForm.addresses?.[index];
-    if (address) {
-      setCurrentAddress(address);
-      setEditingAddressIndex(index);
-      setShowAddressModal(true);
-    }
+  const saveAddress = () => {
+    if (!addressDraft) return;
+    const problems = validateAddress(addressDraft.value);
+    setAddressErrors(problems);
+    if (Object.keys(problems).length) return;
+
+    const value = { ...addressDraft.value };
+    let addresses =
+      addressDraft.index === null
+        ? [...form.addresses, value]
+        : form.addresses.map((a, i) => (i === addressDraft.index ? value : a));
+    // Exactly one default address
+    const defaultIndex = addressDraft.index === null ? addresses.length - 1 : addressDraft.index;
+    if (value.defaultAddress) addresses = addresses.map((a, i) => ({ ...a, defaultAddress: i === defaultIndex }));
+    if (!addresses.some((a) => a.defaultAddress)) addresses[0] = { ...addresses[0], defaultAddress: true };
+    update("addresses", addresses);
+    setAddressDraft(null);
   };
 
   const removeAddress = (index: number) => {
-    const updatedAddresses = [...(customerForm.addresses || [])];
-    updatedAddresses.splice(index, 1);
-    setCustomerForm({ ...customerForm, addresses: updatedAddresses });
-    ToasterService.success("Address removed");
+    const addresses = form.addresses.filter((_, i) => i !== index);
+    if (addresses.length && !addresses.some((a) => a.defaultAddress)) addresses[0] = { ...addresses[0], defaultAddress: true };
+    update("addresses", addresses);
   };
 
-  const resetAddressForm = () => {
-    setCurrentAddress({
-      type: AddressType.BILLING,
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      state: "",
-      country: "",
-      postalCode: "",
-      defaultAddress: false,
-    });
-    setEditingAddressIndex(null);
-  };
+  const makeDefault = (index: number) =>
+    update("addresses", form.addresses.map((a, i) => ({ ...a, defaultAddress: i === index })));
 
-  const setDefaultAddress = (index: number) => {
-    const updatedAddresses = (customerForm.addresses || []).map((addr, i) => ({
-      ...addr,
-      defaultAddress: i === index,
-    }));
-    setCustomerForm({ ...customerForm, addresses: updatedAddresses });
-    ToasterService.success("Default address updated");
-  };
+  /* ---------------- save ---------------- */
 
-  // Form Submission
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!customerForm.customerName) {
-      ToasterService.error("Customer name is required");
+    setSubmitted(true);
+    const problems = validate(form);
+    setErrors(problems);
+    if (Object.keys(problems).length) {
+      ToasterService.error("Please fix the highlighted fields");
+      return;
+    }
+    if (addressDraft) {
+      ToasterService.error("Save or cancel the address you're editing first");
       return;
     }
 
-    if (!customerForm.email) {
-      ToasterService.error("Email is required");
-      return;
-    }
-
-    if (!customerForm.phone) {
-      ToasterService.error("Phone is required");
-      return;
-    }
-
+    const salesPerson = salesPersons?.find((p) => String(p.id) === form.salesPersonId);
     const payload = {
-      customerName: customerForm.customerName,
-      tradeName: customerForm.tradeName,
-      taxNumber: customerForm.taxNumber,
-      registrationNumber: customerForm.registrationNumber,
-      customerType: customerForm.customerType,
-      status: customerForm.status,
-      phone: customerForm.phone,
-      email: customerForm.email,
-      website: customerForm.website,
-      creditLimit: toNumberOrZero(customerForm.creditLimit),
-      currentCredit: toNumberOrZero(customerForm.currentCredit),
-      outstandingBalance: toNumberOrZero(customerForm.outstandingBalance),
-      paymentTerms: customerForm.paymentTerms,
-      currencyCode: customerForm.currencyCode,
-      active: customerForm.active,
-      addresses: customerForm.addresses,
+      customerName: form.customerName.trim(),
+      tradeName: form.tradeName.trim() || null,
+      customerType: form.customerType,
+      status: form.status,
+      // Same rule as the status dropdown on the customer list
+      active: form.status === "ACTIVE",
+      taxNumber: form.taxNumber.trim() || null,
+      registrationNumber: form.registrationNumber.trim() || null,
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      website: form.website.trim() || null,
+      salesPersonId: form.salesPersonId ? Number(form.salesPersonId) : null,
+      salesPersonName: salesPerson?.name ?? null,
+      paymentTerms: form.paymentTerms || null,
+      currencyCode: form.currencyCode || "INR",
+      creditLimit: form.creditLimit === "" ? null : Number(form.creditLimit),
+      currentCredit: salesFigures.currentCredit,
+      outstandingBalance: salesFigures.outstandingBalance,
+      addresses: form.addresses,
     };
 
     setSaving(true);
     try {
-      if (isEditing && customerForm.id) {
-        await axios.put(`${API_URL}/${customerForm.id}`, payload);
-        ToasterService.success("Customer updated successfully!");
+      if (isEditing) {
+        await axios.put(`${API_URL}/${id}`, payload);
+        ToasterService.success("Customer updated");
       } else {
         await axios.post(API_URL, payload);
-        ToasterService.success("Customer created successfully!");
+        ToasterService.success("Customer created");
       }
+      setInitialForm(form);
       navigate("/customer-management");
     } catch (err: any) {
-      console.error("Error saving customer:", err);
-      ToasterService.error(err.response?.data?.message || "Failed to save customer!");
+      // Show the service's field errors next to the fields
+      const fieldErrors = err?.response?.data?.fieldErrors as Record<string, string> | undefined;
+      if (fieldErrors) setErrors((current) => ({ ...current, ...fieldErrors }));
+      ToasterService.error(apiError(err, "Failed to save customer"));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
-        </div>
-      </div>
-    );
-  }
+  const leave = () => (isDirty ? setConfirmLeave(true) : navigate("/customer-management"));
+
+  // Keep a stored value that isn't in the standard lists (older records used free text)
+  const paymentTermOptions = useMemo(
+    () =>
+      form.paymentTerms && !PAYMENT_TERM_OPTIONS.some((o) => o.id === form.paymentTerms)
+        ? [...PAYMENT_TERM_OPTIONS, { id: form.paymentTerms, name: form.paymentTerms }]
+        : PAYMENT_TERM_OPTIONS,
+    [form.paymentTerms]
+  );
+  const currencyOptions = useMemo(
+    () =>
+      form.currencyCode && !CURRENCY_OPTIONS.some((o) => o.id === form.currencyCode)
+        ? [...CURRENCY_OPTIONS, { id: form.currencyCode, name: form.currencyCode }]
+        : CURRENCY_OPTIONS,
+    [form.currencyCode]
+  );
+  const salesPersonOptions = (salesPersons ?? [])
+    .filter((p) => p.active !== false || String(p.id) === form.salesPersonId)
+    .map((p) => ({ id: String(p.id), name: p.code ? `${p.name} (${p.code})` : p.name }));
+
+  const title = isEditing ? "Edit Customer" : "New Customer";
 
   return (
-    <>
-      <PageMeta title={isEditing ? "Edit Customer" : "Create Customer"} description="Manage customer information" />
-      <PageBreadcrumb pageTitle={isEditing ? "Edit Customer" : "Create Customer"} />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Header */}
-        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-700 p-5 text-white shadow-xl shadow-cyan-900/10 transition-transform duration-300 hover:scale-[1.01] sm:p-8">
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-            <button
-              onClick={() => navigate("/customer-management")}
-              className="p-2.5 rounded-full bg-white/10 hover:bg-white/25 transition-all backdrop-blur-md"
-            >
-              <ArrowLeftIcon className="h-6 w-6 text-white" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white mb-1 sm:text-3xl">
-                {isEditing ? "Edit Customer" : "Create New Customer"}
-              </h1>
-              <p className="text-cyan-100 text-sm font-medium">
-                {isEditing ? "Update and manage customer details accurately" : "Set up a new client profile for your database"}
-              </p>
-            </div>
-          </div>
-          {/* Decorative shapes */}
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white opacity-5 blur-3xl"></div>
-          <div className="absolute -bottom-32 right-10 h-64 w-64 rounded-full bg-cyan-300 opacity-20 blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-y-1/2 h-full w-1/2 bg-gradient-to-r from-transparent to-white/5 skew-x-12"></div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
-            <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-100/80">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
-                <BuildingOfficeIcon className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Basic Information</h2>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5">Essential details</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FloatingInput
-                label="Customer Name *"
-                value={customerForm.customerName || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, customerName: e.target.value })}
-                required
-              />
-              <FloatingInput
-                label="Trade Name"
-                value={customerForm.tradeName || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, tradeName: e.target.value })}
-              />
-              <FloatingInput
-                label="Tax Number"
-                value={customerForm.taxNumber || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, taxNumber: e.target.value })}
-              />
-              <FloatingInput
-                label="Registration Number"
-                value={customerForm.registrationNumber || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, registrationNumber: e.target.value })}
-              />
-              <FloatingSelect
-                label="Customer Type"
-                value={customerForm.customerType || CustomerType.WHOLESALE}
-                onChange={(e) => setCustomerForm({ ...customerForm, customerType: e.target.value as CustomerType })}
-                options={[
-                  { id: CustomerType.WHOLESALE, name: "Wholesale" },
-                  { id: CustomerType.RETAIL, name: "Retail" },
-                  { id: CustomerType.CORPORATE, name: "Corporate" },
-                  { id: CustomerType.INDIVIDUAL, name: "Individual" },
-                ]}
-              />
-              <FloatingSelect
-                label="Status"
-                value={customerForm.status || CustomerStatus.ACTIVE}
-                onChange={(e) => setCustomerForm({ ...customerForm, status: e.target.value as CustomerStatus })}
-                options={[
-                  { id: CustomerStatus.LEAD, name: "Lead" },
-                  { id: CustomerStatus.ACTIVE, name: "Active" },
-                  { id: CustomerStatus.CREDIT_HOLD, name: "Credit Hold" },
-                  { id: CustomerStatus.BLOCKED, name: "Blocked" },
-                  { id: CustomerStatus.INACTIVE, name: "Inactive" },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* Contact Information */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
-            <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-100/80">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
-                <EnvelopeIcon className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Contact Information</h2>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5">Communication details</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FloatingInput
-                label="Email *"
-                type="email"
-                value={customerForm.email || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
-                required
-              />
-              <FloatingInput
-                label="Phone *"
-                type="tel"
-                value={customerForm.phone || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                required
-              />
-              <FloatingInput
-                label="Website"
-                type="url"
-                value={customerForm.website || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, website: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {/* Financial Information */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
-            <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-100/80">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
-                <CurrencyIcon className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Financial Information</h2>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5">Credit & billing</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FloatingInput
-                label="Credit Limit"
-                type="number"
-                value={customerForm.creditLimit || 0}
-                onChange={(e) => setCustomerForm({ ...customerForm, creditLimit: Number(e.target.value) })}
-              />
-              <FloatingInput
-                label="Current Credit"
-                type="number"
-                value={customerForm.currentCredit || 0}
-                onChange={(e) => setCustomerForm({ ...customerForm, currentCredit: Number(e.target.value) })}
-              />
-              <FloatingInput
-                label="Outstanding Balance"
-                type="number"
-                value={customerForm.outstandingBalance || 0}
-                onChange={(e) => setCustomerForm({ ...customerForm, outstandingBalance: Number(e.target.value) })}
-              />
-              <FloatingInput
-                label="Payment Terms"
-                value={customerForm.paymentTerms || ""}
-                onChange={(e) => setCustomerForm({ ...customerForm, paymentTerms: e.target.value })}
-              />
-              <FloatingInput
-                label="Currency Code"
-                value={customerForm.currencyCode || "INR"}
-                onChange={(e) => setCustomerForm({ ...customerForm, currencyCode: e.target.value })}
-              />
-              <div className="flex items-center pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={customerForm.active}
-                    onChange={(e) => setCustomerForm({ ...customerForm, active: e.target.checked })}
-                    className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
-                  />
-                  <span className="text-sm text-gray-700">Active Customer</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Addresses Section */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-cyan-100 sm:p-8">
-            <div className="mb-6 flex flex-col gap-4 border-b border-gray-100/80 pb-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100/50">
-                  <MapPinIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Addresses</h2>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5">Locations & Shipping</p>
-                </div>
-              </div>
-              {!showAddressModal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetAddressForm();
-                    setShowAddressModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors flex items-center gap-1"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Add Address
-                </button>
-              )}
-            </div>
-
-            {showAddressModal ? (
-              <div className="bg-gray-50/50 rounded-xl border border-gray-100 p-4 animate-slide-up sm:p-6">
-                <div className="mb-5 flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {editingAddressIndex !== null ? "Edit Address" : "Add Address"}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Enter address details for this customer</p>
-                  </div>
-                  <button type="button" onClick={() => setShowAddressModal(false)} className="text-gray-400 hover:text-gray-600">
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <FloatingSelect
-                    label="Address Type *"
-                    value={currentAddress.type}
-                    onChange={(e) => setCurrentAddress({ ...currentAddress, type: e.target.value as AddressType })}
-                    options={addressTypeOptions.map(opt => ({ id: opt.id, name: opt.name }))}
-                  />
-                  <FloatingInput
-                    label="Address Line 1 *"
-                    value={currentAddress.addressLine1}
-                    onChange={(e) => setCurrentAddress({ ...currentAddress, addressLine1: e.target.value })}
-                    required={false}
-                  />
-                  <FloatingInput
-                    label="Address Line 2"
-                    value={currentAddress.addressLine2 || ""}
-                    onChange={(e) => setCurrentAddress({ ...currentAddress, addressLine2: e.target.value })}
-                  />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FloatingInput
-                      label="City *"
-                      value={currentAddress.city}
-                      onChange={(e) => setCurrentAddress({ ...currentAddress, city: e.target.value })}
-                      required={false}
-                    />
-                    <FloatingInput
-                      label="State *"
-                      value={currentAddress.state}
-                      onChange={(e) => setCurrentAddress({ ...currentAddress, state: e.target.value })}
-                      required={false}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FloatingInput
-                      label="Postal Code"
-                      value={currentAddress.postalCode}
-                      onChange={(e) => setCurrentAddress({ ...currentAddress, postalCode: e.target.value })}
-                    />
-                    <FloatingInput
-                      label="Country *"
-                      value={currentAddress.country}
-                      onChange={(e) => setCurrentAddress({ ...currentAddress, country: e.target.value })}
-                      required={false}
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer pt-2">
-                    <input
-                      type="checkbox"
-                      checked={currentAddress.defaultAddress}
-                      onChange={(e) => setCurrentAddress({ ...currentAddress, defaultAddress: e.target.checked })}
-                      className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm text-gray-700">Set as default address</span>
-                  </label>
-                </div>
-                <div className="mt-6 flex flex-col justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddressModal(false)}
-                    className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addAddress}
-                    disabled={!currentAddress.addressLine1 || !currentAddress.city || !currentAddress.state || !currentAddress.country}
-                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {editingAddressIndex !== null ? "Update Address" : "Save Address"}
-                  </button>
-                </div>
-              </div>
-            ) : customerForm.addresses && customerForm.addresses.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {customerForm.addresses.map((addr, idx) => {
-                  const AddressIcon = addressTypeOptions.find(opt => opt.id === addr.type)?.icon || MapPinIcon;
-                  return (
-                    <div key={idx} className="relative overflow-hidden bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 hover:border-cyan-200 group/card">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-cyan-400 to-blue-500 opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AddressIcon className="h-4 w-4 text-cyan-600" />
-                            <span className="text-sm font-semibold text-gray-700">{addr.type}</span>
-                            {addr.defaultAddress && (
-                              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Default</span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600">{addr.addressLine1}</p>
-                          {addr.addressLine2 && <p className="text-sm text-gray-600">{addr.addressLine2}</p>}
-                          <p className="text-sm text-gray-600">
-                            {addr.city}, {addr.state} - {addr.postalCode}
-                          </p>
-                          <p className="text-sm text-gray-600">{addr.country}</p>
-                        </div>
-                        <div className="flex gap-1 ml-2">
-                          <button
-                            type="button"
-                            onClick={() => setDefaultAddress(idx)}
-                            className="p-1.5 text-gray-400 hover:text-green-600 rounded-lg hover:bg-green-50 transition-colors"
-                            title="Set as Default"
-                          >
-                            <CheckIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => editAddress(idx)}
-                            className="p-1.5 text-gray-400 hover:text-cyan-600 rounded-lg hover:bg-cyan-50 transition-colors"
-                            title="Edit"
-                          >
-                            <PencilSquareIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeAddress(idx)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-                <MapPinIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm mb-2">No addresses added yet</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetAddressForm();
-                    setShowAddressModal(true);
-                  }}
-                  className="text-cyan-600 hover:text-cyan-700 text-sm font-medium"
-                >
-                  Add your first address
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Form Actions */}
-          <div className="mt-8 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-gray-200/50 bg-white/90 p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:p-4">
+    <div className="flex h-full min-h-0 flex-col">
+      <PageMeta title={title} description="Create or update a customer" />
+      <PageBreadcrumb
+        pageTitle={title}
+        onBack={leave}
+        actions={
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => navigate("/customer-management")}
-              className="flex h-[44px] items-center justify-center rounded-xl px-2 font-semibold text-gray-600 transition-colors hover:bg-gray-100 sm:flex-none sm:px-6"
+              onClick={leave}
+              className="inline-flex h-9 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={saving}
-              className="flex h-[44px] items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-2 font-semibold !text-white shadow-md transition-all duration-300 hover:from-cyan-700 hover:to-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:gap-2 sm:px-8"
+              form={FORM_ID}
+              disabled={saving || loading}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span className="!text-white whitespace-nowrap">Saving...</span>
-                </>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
               ) : (
-                <>
-                  <CheckIcon className="h-5 w-5 !text-white flex-shrink-0" />
-                  <span className="!text-white whitespace-nowrap">{isEditing ? "Update Customer" : "Save Customer"}</span>
-                </>
+                <CheckIcon className="h-4 w-4" />
               )}
+              {saving ? "Saving…" : isEditing ? "Save changes" : "Create customer"}
             </button>
           </div>
-        </form>
-      </div>
-
-      <style>{`
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(15px); }
-          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slide-up { animation: slide-up 0.25s ease-out; }
-      `}</style>
-    </>
+      />
+
+      {loading ? (
+        <div className="flex flex-1 items-center justify-center">
+          <span className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-600/30 border-t-cyan-600" />
+        </div>
+      ) : (
+        <form id={FORM_ID} noValidate onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto pb-6">
+          <div className="grid gap-4 xl:grid-cols-3">
+            {/* ---------------- left: who they are ---------------- */}
+            <div className="space-y-4 xl:col-span-2">
+              <Section icon={BuildingOfficeIcon} title="Company" description="Legal name, type and registration details">
+                <div className="grid gap-x-4 md:grid-cols-2">
+                  <FloatingInput
+                    label="Customer name"
+                    name="customerName"
+                    required
+                    value={form.customerName}
+                    error={errors.customerName}
+                    onChange={(e) => update("customerName", e.target.value)}
+                    maxLength={150}
+                  />
+                  <FloatingInput
+                    label="Trade name"
+                    name="tradeName"
+                    value={form.tradeName}
+                    onChange={(e) => update("tradeName", e.target.value)}
+                    maxLength={150}
+                  />
+                  <FloatingSelect
+                    label="Customer type *"
+                    name="customerType"
+                    value={form.customerType}
+                    onChange={(e) => update("customerType", e.target.value)}
+                    options={CUSTOMER_TYPE_OPTIONS}
+                    includeEmptyOption={false}
+                  />
+                  <FloatingSelect
+                    label="Status *"
+                    name="status"
+                    value={form.status}
+                    onChange={(e) => update("status", e.target.value)}
+                    options={STATUS_OPTIONS}
+                    includeEmptyOption={false}
+                  />
+                  <FloatingInput
+                    label="GSTIN / Tax number"
+                    name="taxNumber"
+                    value={form.taxNumber}
+                    onChange={(e) => update("taxNumber", e.target.value.toUpperCase())}
+                    maxLength={50}
+                  />
+                  <FloatingInput
+                    label="Registration number"
+                    name="registrationNumber"
+                    value={form.registrationNumber}
+                    onChange={(e) => update("registrationNumber", e.target.value)}
+                    maxLength={50}
+                  />
+                </div>
+              </Section>
+
+              <Section icon={EnvelopeIcon} title="Contact details" description="Main email and phone for the company; people go under Key Contacts">
+                <div className="grid gap-x-4 md:grid-cols-2">
+                  <FloatingInput
+                    label="Email"
+                    name="email"
+                    type="email"
+                    required
+                    value={form.email}
+                    error={errors.email}
+                    onChange={(e) => update("email", e.target.value)}
+                    maxLength={120}
+                  />
+                  <FloatingInput
+                    label="Phone"
+                    name="phone"
+                    type="tel"
+                    required
+                    value={form.phone}
+                    error={errors.phone}
+                    onChange={(e) => update("phone", e.target.value)}
+                    maxLength={50}
+                  />
+                  <div className="md:col-span-2">
+                    <FloatingInput
+                      label="Website"
+                      name="website"
+                      type="url"
+                      value={form.website}
+                      onChange={(e) => update("website", e.target.value)}
+                      maxLength={120}
+                    />
+                  </div>
+                </div>
+              </Section>
+
+              <Section
+                icon={MapPinIcon}
+                title="Addresses"
+                description="Billing, shipping and other locations; mark one as the default"
+                action={
+                  !addressDraft && (
+                    <button
+                      type="button"
+                      onClick={() => openAddress(null)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300"
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                      Add address
+                    </button>
+                  )
+                }
+              >
+                {addressDraft && (
+                  <div className="mb-5 rounded-lg border border-cyan-200 bg-cyan-50/40 p-4 dark:border-cyan-900 dark:bg-cyan-950/20">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
+                      {addressDraft.index === null ? "New address" : "Edit address"}
+                    </p>
+                    <div className="grid gap-x-4 md:grid-cols-2">
+                      <FloatingSelect
+                        label="Address type"
+                        value={addressDraft.value.type}
+                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, type: e.target.value } })}
+                        options={ADDRESS_TYPES.map((t) => ({ id: t.id, name: t.name }))}
+                        includeEmptyOption={false}
+                      />
+                      <div className="hidden md:block" />
+                      <div className="md:col-span-2">
+                        <FloatingInput
+                          label="Address line 1"
+                          required
+                          value={addressDraft.value.addressLine1}
+                          error={addressErrors.addressLine1}
+                          onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine1: e.target.value } })}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <FloatingInput
+                          label="Address line 2"
+                          value={addressDraft.value.addressLine2 ?? ""}
+                          onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine2: e.target.value } })}
+                        />
+                      </div>
+                      <FloatingInput
+                        label="City"
+                        required
+                        value={addressDraft.value.city}
+                        error={addressErrors.city}
+                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, city: e.target.value } })}
+                      />
+                      <FloatingInput
+                        label="State"
+                        required
+                        value={addressDraft.value.state}
+                        error={addressErrors.state}
+                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, state: e.target.value } })}
+                      />
+                      <FloatingInput
+                        label="Postal code"
+                        value={addressDraft.value.postalCode}
+                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, postalCode: e.target.value } })}
+                      />
+                      <FloatingInput
+                        label="Country"
+                        required
+                        value={addressDraft.value.country}
+                        error={addressErrors.country}
+                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, country: e.target.value } })}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={addressDraft.value.defaultAddress}
+                          onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, defaultAddress: e.target.checked } })}
+                          className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                        />
+                        Default address
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAddressDraft(null)}
+                          className="h-8 rounded-lg border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveAddress}
+                          className="h-8 rounded-lg bg-cyan-600 px-3 text-xs font-semibold text-white hover:bg-cyan-700"
+                        >
+                          {addressDraft.index === null ? "Add address" : "Update address"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {form.addresses.length === 0 && !addressDraft ? (
+                  <button
+                    type="button"
+                    onClick={() => openAddress(null)}
+                    className="mb-5 flex w-full flex-col items-center rounded-lg border-2 border-dashed border-gray-200 py-8 text-center hover:border-cyan-300 hover:bg-cyan-50/30 dark:border-gray-700 dark:hover:border-cyan-800"
+                  >
+                    <MapPinIcon className="mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">No addresses yet</span>
+                    <span className="text-xs text-cyan-700 dark:text-cyan-400">Add the billing address</span>
+                  </button>
+                ) : (
+                  <div className="mb-5 grid gap-3 md:grid-cols-2">
+                    {form.addresses.map((address, index) => {
+                      const type = ADDRESS_TYPES.find((t) => t.id === address.type) ?? ADDRESS_TYPES[5];
+                      const TypeIcon = type.icon;
+                      const editing = addressDraft?.index === index;
+                      return (
+                        <div
+                          key={address.id ?? `new-${index}`}
+                          className={`rounded-lg border p-4 ${
+                            editing
+                              ? "border-cyan-300 opacity-50"
+                              : address.defaultAddress
+                              ? "border-cyan-300 bg-cyan-50/30 dark:border-cyan-800 dark:bg-cyan-950/10"
+                              : "border-gray-200 dark:border-gray-800"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                              <TypeIcon className="h-4 w-4 text-cyan-600" />
+                              {type.name}
+                              {address.defaultAddress && (
+                                <span className="rounded-full bg-cyan-600 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-white">
+                                  Default
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {!address.defaultAddress && (
+                                <button
+                                  type="button"
+                                  title="Make default"
+                                  onClick={() => makeDefault(index)}
+                                  className="rounded-md p-1.5 text-gray-400 hover:bg-cyan-50 hover:text-cyan-700"
+                                >
+                                  <StarIcon className="h-4 w-4" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                title="Edit address"
+                                onClick={() => openAddress(index)}
+                                className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
+                              >
+                                <PencilSquareIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Remove address"
+                                onClick={() => removeAddress(index)}
+                                className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-800 dark:text-gray-200">{address.addressLine1}</p>
+                          {address.addressLine2 && <p className="text-sm text-gray-600 dark:text-gray-400">{address.addressLine2}</p>}
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {[address.city, address.state, address.postalCode].filter(Boolean).join(", ")}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{address.country}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Section>
+            </div>
+
+            {/* ---------------- right: how we sell to them ---------------- */}
+            <div className="space-y-4">
+              <Section icon={WalletIcon} title="Sales & billing" description="Sales person, payment terms, currency and credit">
+                {salesPersons !== null && (
+                  <>
+                    <FloatingSelect
+                      label="Sales person"
+                      name="salesPersonId"
+                      value={form.salesPersonId}
+                      onChange={(e) => update("salesPersonId", e.target.value)}
+                      options={salesPersonOptions}
+                    />
+                    {salesPersonOptions.length === 0 && <Hint>Add sales persons in Sales → Sales Persons.</Hint>}
+                  </>
+                )}
+                <FloatingSelect
+                  label="Payment terms"
+                  name="paymentTerms"
+                  value={form.paymentTerms}
+                  onChange={(e) => update("paymentTerms", e.target.value)}
+                  options={paymentTermOptions}
+                />
+                <FloatingSelect
+                  label="Currency"
+                  name="currencyCode"
+                  value={form.currencyCode}
+                  onChange={(e) => update("currencyCode", e.target.value)}
+                  options={currencyOptions}
+                  includeEmptyOption={false}
+                />
+                <FloatingInput
+                  label="Credit limit"
+                  name="creditLimit"
+                  type="number"
+                  min={0}
+                  value={form.creditLimit}
+                  error={errors.creditLimit}
+                  onChange={(e) => update("creditLimit", e.target.value)}
+                />
+                <Hint>
+                  {form.creditLimit === ""
+                    ? "Leave blank for no limit — orders aren't checked against credit."
+                    : Number(form.creditLimit) === 0
+                    ? "A limit of 0 blocks every order on credit."
+                    : `Orders are checked against ${formatMoney(Number(form.creditLimit), form.currencyCode || "INR")}.`}
+                </Hint>
+              </Section>
+
+              {isEditing ? (
+                <Section icon={BriefcaseIcon} title="Account" description="Kept up to date by Sales">
+                  <dl className="mb-4 space-y-3 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-gray-500 dark:text-gray-400">Customer code</dt>
+                      <dd className="font-mono text-gray-900 dark:text-gray-100">{salesFigures.customerCode ?? "—"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-gray-500 dark:text-gray-400">Outstanding balance</dt>
+                      <dd className="font-semibold text-gray-900 dark:text-gray-100">
+                        {formatMoney(salesFigures.outstandingBalance, form.currencyCode || "INR")}
+                      </dd>
+                    </div>
+                  </dl>
+                </Section>
+              ) : (
+                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                  The customer code is assigned automatically when you create the customer. Add contact people afterwards under
+                  CRM → Key Contacts.
+                </p>
+              )}
+            </div>
+          </div>
+        </form>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmLeave}
+        variant="warning"
+        title="Discard changes?"
+        message="You have unsaved changes to this customer. Leave without saving?"
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          setConfirmLeave(false);
+          navigate("/customer-management");
+        }}
+        onCancel={() => setConfirmLeave(false)}
+      />
+    </div>
   );
 };
-
-// Currency Icon component
-const CurrencyIcon: React.FC<{ className?: string }> = ({ className = "h-5 w-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-  </svg>
-);
 
 export default CustomerFormPage;

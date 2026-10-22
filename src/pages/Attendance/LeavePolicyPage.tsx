@@ -9,6 +9,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { usePermissions } from "../../access/usePermissions";
 
 const LEAVE_POLICY_ENDPOINT = '/v1/api/attendance/leave-policies';
 const ASSIGN_POLICY_ENDPOINT = '/v1/api/attendance/employee-leave-balances/assign-policy';
@@ -47,6 +48,7 @@ export interface EmployeeOption {
 }
 
 const LeavePolicyPage: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const [policies, setPolicies] = useState<LeavePolicyModel[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -408,14 +410,14 @@ const LeavePolicyPage: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:border-transparent text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 rounded-lg transition-colors"
             title="Edit Policy"
           >
             <Edit2 className="w-3.5 h-3.5" />
-          </button>
+          </button>)}
           <button
             type="button"
             onClick={() => {
@@ -429,7 +431,7 @@ const LeavePolicyPage: React.FC = () => {
             <Users className="w-3.5 h-3.5 text-purple-600 dark:text-gray-400" /> Assign
           </button>
           {row.id && (
-            <button
+            canDelete && <button
               type="button"
               onClick={() => handleDeletePolicy(row.id!)}
               className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] border border-rose-200 dark:border-transparent text-rose-700 dark:text-gray-400 dark:hover:text-rose-400 rounded-lg transition-colors"
@@ -469,13 +471,13 @@ const LeavePolicyPage: React.FC = () => {
             >
               <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
             </button>
-            <button
+            {canCreate && (<button
               type="button"
               onClick={openCreateModal}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
             >
               <Plus className="w-4 h-4" /> Create Leave Policy
-            </button>
+            </button>)}
           </div>
         </div>
 

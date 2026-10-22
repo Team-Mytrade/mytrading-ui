@@ -21,6 +21,7 @@ import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ const fmt = (n: number) => `₹${n.toLocaleString()}`;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const PayrollRecordPage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [records, setRecords]     = useState<PayrollRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading]     = useState(false);
@@ -235,14 +237,14 @@ const PayrollRecordPage: React.FC = () => {
       headerClassName: "!text-right pr-8", className: "text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button onClick={() => editRecord(row)} title="Edit"
+          {canUpdate && (<button onClick={() => editRecord(row)} title="Edit"
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors">
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button onClick={() => promptDelete(row)} title="Delete"
+          </button>)}
+          {canDelete && (<button onClick={() => promptDelete(row)} title="Delete"
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -408,10 +410,10 @@ const PayrollRecordPage: React.FC = () => {
                 <BanknotesIcon className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 text-sm font-medium mb-2">No payroll records found</p>
-              <button onClick={() => { setForm({ ...emptyForm }); setShowForm(true); }}
+              {canCreate && (<button onClick={() => { setForm({ ...emptyForm }); setShowForm(true); }}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium">
                 Add your first payroll record →
-              </button>
+              </button>)}
             </div>
           }
         />

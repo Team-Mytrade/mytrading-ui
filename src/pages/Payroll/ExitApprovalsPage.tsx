@@ -1,19 +1,15 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExitManagementService, ExitRequest } from '../../Services/ExitManagementService';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { Check, X, AlertCircle } from 'lucide-react';
-import { AuthContext } from '../../context/AuthContext';
+import { usePermissions } from '../../access/usePermissions';
 import ExitManagementPage from './ExitManagementPage';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 
 const ExitApprovalsPage: React.FC = () => {
-    const { user } = useContext(AuthContext);
-    const isAdmin = (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.roles?.includes('SUPER_ADMIN') || user?.roles?.includes('ADMIN')) && user?.userType !== 'USER' && user?.userType !== 'EMPLOYEE';
-
-    if (!isAdmin) {
-        return <ExitManagementPage />;
-    }
+    // Deciding exit requests needs HRM:APPROVE; anyone else sees their own exit request instead
+    const { canApprove } = usePermissions();
 
     const [requests, setRequests] = useState<ExitRequest[]>([]);
     const [loading, setLoading] = useState(false);
@@ -21,8 +17,8 @@ const ExitApprovalsPage: React.FC = () => {
     const [rejectReason, setRejectReason] = useState("");
 
     useEffect(() => {
-        fetchRequests();
-    }, []);
+        if (canApprove) fetchRequests();
+    }, [canApprove]);
 
     const fetchRequests = async () => {
         setLoading(true);
@@ -78,6 +74,10 @@ const ExitApprovalsPage: React.FC = () => {
             console.error("Failed to reject withdrawal", error);
         }
     };
+
+    if (!canApprove) {
+        return <ExitManagementPage />;
+    }
 
     const columns: ColumnDef<ExitRequest>[] = [
         {

@@ -28,11 +28,14 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
+import { LEAD_STATUS_LABELS, LEAD_STATUS_OPTIONS, apiError } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 const API_URL = "/v1/api/crm/leads";
 const CUSTOMER_API = "/v1/api/crm/customers";
 const getToken = () => localStorage.getItem("accessToken") || "";
 
-type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "LOST";
+// Service values; DISQUALIFIED is shown as "Lost"
+type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "DISQUALIFIED" | "CONVERTED";
 
 interface Lead {
   id: number;
@@ -67,11 +70,8 @@ const normalizeLead = (
   index: number
 ): Lead => {
   const rawStatus = String(lead.status ?? "NEW").toUpperCase();
-  const status: LeadStatus = (
-    ["NEW", "CONTACTED", "QUALIFIED", "LOST"] as const
-  ).includes(rawStatus as LeadStatus)
-    ? (rawStatus as LeadStatus)
-    : "NEW";
+  const status: LeadStatus =
+    rawStatus in LEAD_STATUS_LABELS ? (rawStatus as LeadStatus) : "NEW";
 
   return {
     id: Number(lead.id ?? index + 1),
@@ -105,6 +105,7 @@ const getCustomerLabel = (c: Customer) =>
 const Leads: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const leadSearchParams = new URLSearchParams(location.search);
   const scopedLeadId = Number(leadSearchParams.get("leadId")) || null;
   const scopedLeadName = leadSearchParams.get("leadName") || "Selected lead";
@@ -190,7 +191,12 @@ const Leads: React.FC = () => {
       });
       setEditingId(lead.id);
       setShowModal(true);
+      // Open once: otherwise the form reopens every time the list reloads (e.g. after saving)
+      const params = new URLSearchParams(location.search);
+      params.delete("editId");
+      navigate({ search: params.toString() }, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leads, location.search]);
 
   /* ---------------- Derived ---------------- */
@@ -277,9 +283,7 @@ const Leads: React.FC = () => {
       resetForm();
     } catch (err: any) {
       console.error("Error saving lead:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to save lead"
-      );
+      ToasterService.error(apiError(err, "Failed to save lead"));
     } finally {
       setIsSaving(false);
     }
@@ -297,9 +301,7 @@ const Leads: React.FC = () => {
       ToasterService.success("Lead deleted successfully!");
     } catch (err: any) {
       console.error("Error deleting lead:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to delete lead"
-      );
+      ToasterService.error(apiError(err, "Failed to delete lead"));
     } finally {
       setDeleteLead(null);
       setShowDeletePopup(false);
@@ -326,32 +328,19 @@ const confirmConvert = async () => {
   try {
     setConvertingId(convertLead.id);
     setShowConvertPopup(false);
-
-    try {
-      await axios.post(
-        `${API_URL}/${convertLead.id}/convert`,
-        {},
-        { headers: authHeaders }
-      );
-      ToasterService.success(
-        `"${convertLead.name}" converted to customer successfully!`
-      );
-    } catch (primaryErr: any) {
-      console.warn(
-        "Convert endpoint unavailable:",
-        primaryErr?.response?.status
-      );
-      ToasterService.error(
-        primaryErr?.response?.data?.message ||
-          "Conversion endpoint not available yet. Please contact your administrator."
-      );
-    }
+    const res = await axios.post(
+      `${API_URL}/${convertLead.id}/convert`,
+      {},
+      { headers: authHeaders }
+    );
+    const customerName = res.data?.customer?.customerName;
+    ToasterService.success(
+      `"${convertLead.name}" converted${customerName ? ` — customer ${customerName} created` : " to a customer"}`
+    );
     await fetchData();
   } catch (err: any) {
     console.error("Error converting lead:", err);
-    ToasterService.error(
-      err.response?.data?.message || "Failed to convert lead"
-    );
+    ToasterService.error(apiError(err, "Failed to convert lead"));
   } finally {
     setConvertingId(null);
     setConvertLead(null);
@@ -374,33 +363,18 @@ const confirmConvert = async () => {
       return;
     }
     try {
-      // Try dedicated endpoint first; fallback to full PUT
-      try {
-        await axios.post(
-          `${API_URL}/${selectedLeadId}/customer/${selectedCustomerId}`,
-          {},
-          { headers: authHeaders }
-        );
-      } catch {
-        const lead = leads.find((l) => l.id === selectedLeadId);
-        if (!lead) throw new Error("Lead not found");
-        await axios.put(
-          `${API_URL}/${selectedLeadId}`,
-          { ...lead, customer: { id: selectedCustomerId } },
-          {
-            headers: { ...authHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+      await axios.post(
+        `${API_URL}/${selectedLeadId}/customer/${selectedCustomerId}`,
+        {},
+        { headers: authHeaders }
+      );
       ToasterService.success("Lead linked to customer successfully!");
       setShowLinkModal(false);
       setSelectedCustomerId(null);
       await fetchData();
     } catch (err: any) {
       console.error("Error linking customer:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to link customer"
-      );
+      ToasterService.error(apiError(err, "Failed to link customer"));
     }
   };
 
@@ -428,7 +402,7 @@ const confirmConvert = async () => {
     } catch (err) {
       console.error("Error updating lead status:", err);
       setLeads(previous);
-      ToasterService.error("Failed to update lead status");
+      ToasterService.error(apiError(err, "Failed to update lead status"));
     } finally {
       setStatusUpdatingId(null);
     }
@@ -442,8 +416,10 @@ const confirmConvert = async () => {
         return "bg-yellow-100 text-yellow-800";
       case "QUALIFIED":
         return "bg-green-100 text-green-800";
-      case "LOST":
+      case "DISQUALIFIED":
         return "bg-red-100 text-red-800";
+      case "CONVERTED":
+        return "bg-emerald-100 text-emerald-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -505,7 +481,13 @@ const confirmConvert = async () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (lead) => (
+      render: (lead) =>
+        // A converted lead stays converted (it is linked to its customer)
+        lead.status === "CONVERTED" || !canUpdate ? (
+          <span className={`inline-flex w-[112px] items-center rounded-lg px-2 py-1.5 text-xs font-semibold ${getStatusBadgeColor(lead.status)}`}>
+            {LEAD_STATUS_LABELS[lead.status]}
+          </span>
+        ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={lead.status}
@@ -521,10 +503,9 @@ const confirmConvert = async () => {
                 : "cursor-pointer"
             }`}
           >
-            <option value="NEW">New</option>
-            <option value="CONTACTED">Contacted</option>
-            <option value="QUALIFIED">Qualified</option>
-            <option value="LOST">Lost</option>
+            {LEAD_STATUS_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
           </select>
         </div>
       ),
@@ -542,7 +523,7 @@ const confirmConvert = async () => {
         >
           {/* Convert to Customer (or already-linked indicator) */}
           {!lead.customer ? (
-            <button
+            canCreate && <button
               type="button"
               onClick={() => openConvertPopup(lead)}
               disabled={convertingId === lead.id}
@@ -555,7 +536,7 @@ const confirmConvert = async () => {
             <button
               type="button"
               onClick={() =>
-                navigate(`/customer-management/${lead.customer!.id}`)
+                navigate(`/crm-view/customers/${lead.customer!.id}`, { state: { from: "leads" } })
               }
               className="rounded-lg p-2 text-emerald-500 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
               title={`View linked customer: ${
@@ -567,7 +548,7 @@ const confirmConvert = async () => {
           )}
 
           {/* Link to an existing customer (opens modal) — hidden if already linked */}
-          {!lead.customer && (
+          {!lead.customer && canCreate && (
             <button
               type="button"
               onClick={() => openLinkModal(lead.id)}
@@ -579,37 +560,41 @@ const confirmConvert = async () => {
           )}
 
           {/* Edit */}
-          <button
-            type="button"
-            onClick={() => {
-              setFormData({
-                name: lead.name,
-                email: lead.email,
-                phone: lead.phone,
-                status: lead.status,
-                customer: lead.customer ?? null,
-              });
-              setEditingId(lead.id);
-              setShowModal(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-            title="Edit Lead"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  name: lead.name,
+                  email: lead.email,
+                  phone: lead.phone,
+                  status: lead.status,
+                  customer: lead.customer ?? null,
+                });
+                setEditingId(lead.id);
+                setShowModal(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+              title="Edit Lead"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Delete */}
-          <button
-            type="button"
-            onClick={() => {
-              setDeleteLead(lead);
-              setShowDeletePopup(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete Lead"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteLead(lead);
+                setShowDeletePopup(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete Lead"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -680,7 +665,7 @@ const confirmConvert = async () => {
                     Try adjusting your search
                   </p>
                 ) : (
-                  <button
+                  canCreate && <button
                     type="button"
                     onClick={() => {
                       resetForm();
@@ -812,12 +797,12 @@ const confirmConvert = async () => {
       onChange={(e) =>
         setFormData({ ...formData, status: e.target.value as LeadStatus })
       }
-      options={[
-        { id: "NEW", name: "New" },
-        { id: "CONTACTED", name: "Contacted" },
-        { id: "QUALIFIED", name: "Qualified" },
-        { id: "LOST", name: "Lost" },
-      ]}
+      disabled={formData.status === "CONVERTED"}
+      options={
+        formData.status === "CONVERTED"
+          ? [{ id: "CONVERTED", name: LEAD_STATUS_LABELS.CONVERTED }]
+          : LEAD_STATUS_OPTIONS
+      }
     />,
   ]}
 />

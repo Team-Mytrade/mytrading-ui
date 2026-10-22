@@ -18,6 +18,8 @@ import { UserEmployee, Role, Domain } from "./RoleConfigTypes";
 import { StatusBadge, Toggle } from "./RoleConfigShared";
 import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 const EMPLOYEE_API_BASE = "/v1/api/user";
 const ADD_USER_EMPLOYEE_API = "/v1/api/user/add/userEmployee";
@@ -45,6 +47,7 @@ interface Department {
 }
 
 const UserEmployeeTab: React.FC = () => {
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const { user } = useContext(AuthContext);
   const tenantId = user?.tenantId;
 
@@ -374,8 +377,8 @@ const UserEmployeeTab: React.FC = () => {
       tenantId: form.tenantId,
       createdBy: "",
       active: true,
-      validFrom: new Date().toISOString().split("T")[0],
-      validTo: new Date().toISOString().split("T")[0],
+      validFrom: todayIso(),
+      validTo: todayIso(),
     }));
 
     if (!editingId && form.password) {
@@ -623,20 +626,20 @@ const UserEmployeeTab: React.FC = () => {
       className: "text-right",
       render: (row: any) => (
         <div className="flex items-center justify-end gap-1">
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.userId)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -925,7 +928,7 @@ const UserEmployeeTab: React.FC = () => {
           )}
         </div>
 
-        <button
+        {canCreate && (<button
           onClick={() => {
             setForm(getBlankRow());
             setEditingId(null);
@@ -937,7 +940,7 @@ const UserEmployeeTab: React.FC = () => {
         >
           <PlusIcon className="h-4 w-4" />
           Add User
-        </button>
+        </button>)}
       </div>
 
       {/* Table */}
@@ -963,7 +966,7 @@ const UserEmployeeTab: React.FC = () => {
                 View all users →
               </button>
             ) : !search && (
-              <button
+              canCreate && <button
                 onClick={() => {
                   setForm(getBlankRow());
                   setEditingId(null);

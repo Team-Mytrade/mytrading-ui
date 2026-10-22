@@ -7,6 +7,7 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from "../../utils/localDate";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
@@ -43,8 +44,8 @@ const WorkFromHomeRequestPage: React.FC<WorkFromHomeRequestPageProps> = ({ isEmb
 
   // Form State
   const [form, setForm] = useState({
-    fromDate: new Date().toISOString().slice(0, 10),
-    toDate: new Date().toISOString().slice(0, 10),
+    fromDate: todayIso(),
+    toDate: todayIso(),
     projectTaskName: "Attendance Module Development",
     remarks: "Working from home due to internet installation.",
     reason: "Need to work remotely."

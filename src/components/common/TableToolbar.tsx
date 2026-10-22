@@ -6,7 +6,8 @@ import {
   MagnifyingGlassIcon,
   ShareIcon,
 } from "@heroicons/react/24/outline";
-import "./Statscard.css";
+import { usePermissions } from "../../access/usePermissions";
+import "../../styles/Statscard.css";
 
 export interface TableToolbarProps {
   onListView?: () => void;
@@ -31,6 +32,7 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
   onRefresh,
   filterControl,
 }) => {
+  const { canExport } = usePermissions();
   const [showQuickSearch, setShowQuickSearch] = React.useState(false);
   const [quickSearch, setQuickSearch] = React.useState("");
   const columnsButtonRef = React.useRef<HTMLButtonElement>(null);
@@ -92,16 +94,18 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
         <ListBulletIcon />
       </button>
 
-      {/* 2. Export the associated reusable table. */}
-      <button
-        type="button"
-        className="stats-card-actions__button"
-        onClick={handleShare}
-        title="Export"
-        aria-label="Export table"
-      >
-        <ShareIcon />
-      </button>
+      {/* 2. Export the associated reusable table (needs the module's EXPORT permission). */}
+      {canExport && (
+        <button
+          type="button"
+          className="stats-card-actions__button"
+          onClick={handleShare}
+          title="Export"
+          aria-label="Export table"
+        >
+          <ShareIcon />
+        </button>
+      )}
 
       {/* 3. Search — inline quick-search input */}
       {showQuickSearch && (

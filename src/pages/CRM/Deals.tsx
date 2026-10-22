@@ -14,7 +14,7 @@ import {
   UsersIcon,
   XMarkIcon,
   CalendarIcon,
-  CurrencyDollarIcon,
+  BanknotesIcon,
   TagIcon,
   BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
@@ -32,19 +32,23 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import PaginatedPopup from "../../components/common/unpopup";
-import "./Deals.css";
+import "../../styles/Deals.css";
+import { formatMoney } from "../Dashboard/dashboardKit";
+import {
+  DEAL_STAGE_OPTIONS,
+  DEAL_STATUS_LABELS,
+  OPEN_DEAL_STATUS_OPTIONS,
+  apiError,
+  isClosedStage,
+} from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
 
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";
 const CUSTOMERS_API = "/v1/api/crm/customers";
 const PAGE_SIZE = 10;
 
-const stageOptions = [
-  { id: "PROSPECTING", name: "Prospecting" },
-  { id: "NEGOTIATION", name: "Negotiation" },
-  { id: "CLOSED_WON", name: "Closed Won" },
-  { id: "CLOSED_LOST", name: "Closed Lost" },
-];
+const stageOptions = DEAL_STAGE_OPTIONS;
 
 const normalizeStage = (stage?: string) =>
   stage ? stage.trim().toUpperCase().replace(/\s+/g, "_") : "PROSPECTING";
@@ -57,9 +61,10 @@ interface Opportunity {
   amount: number;
   expectedCloseDate: string;
   stage: string;
-  status: "ACTIVE" | "INACTIVE";
+  // ACTIVE / CANCELLED while open; WON / LOST follow the stage (set by the service)
+  status: string;
   lead?: { id: number; name: string } | null;
-  customer?: { id: number; name?: string; customerName?: string } | null;
+  customer?: { id: number; name?: string; customerName?: string; currencyCode?: string } | null;
 }
 
 interface Lead {
@@ -78,6 +83,7 @@ const getToken = () => localStorage.getItem("accessToken") || "";
 export default function Deals() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -126,7 +132,12 @@ export default function Deals() {
       setForm(opp);
       setOwnerType(opp.lead ? "LEAD" : "CUSTOMER");
       setShowForm(true);
+      // Open once: otherwise the form reopens every time the list reloads (e.g. after saving)
+      const params = new URLSearchParams(location.search);
+      params.delete("editId");
+      navigate({ search: params.toString() }, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opportunities, location.search]);
 
   const fetchOpportunities = async () => {
@@ -224,12 +235,12 @@ export default function Deals() {
         { headers: { ...authHeaders, "Content-Type": "application/json" } }
       );
       ToasterService.success("Opportunity updated successfully!");
+      // Won / Lost set the status on the server
+      await fetchOpportunities();
     } catch (err: any) {
       console.error("Error updating opportunity", err);
       setOpportunities(previous);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to update opportunity"
-      );
+      ToasterService.error(apiError(err, "Failed to update opportunity"));
     } finally {
       setInlineUpdatingId(null);
     }
@@ -260,7 +271,7 @@ export default function Deals() {
         });
         ToasterService.success("Opportunity created successfully!");
       } else {
-        // Plain create endpoint (BE must add — see ticket P1 #4)
+        // Deal for a customer: the customer travels in the body
         await axios.post(API_URL, payload, {
           headers: { ...authHeaders, "Content-Type": "application/json" },
         });
@@ -271,9 +282,7 @@ export default function Deals() {
       setForm({});
     } catch (err: any) {
       console.error("Error saving opportunity", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to save opportunity"
-      );
+      ToasterService.error(apiError(err, "Failed to save opportunity"));
     } finally {
       setIsSaving(false);
     }
@@ -287,9 +296,7 @@ export default function Deals() {
       await fetchOpportunities();
     } catch (err: any) {
       console.error("Error deleting opportunity", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to delete opportunity"
-      );
+      ToasterService.error(apiError(err, "Failed to delete opportunity"));
     } finally {
       setDeleteId(null);
       setShowDeletePopup(false);
@@ -304,23 +311,21 @@ export default function Deals() {
     );
   });
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  // Rupees, like the rest of the app (a deal's customer may use another currency)
+  const formatCurrency = (amount: number, currency?: string) =>
+    formatMoney(Number(amount) || 0, currency || "INR");
 
   const getStageColor = (stage: string) => {
     switch (normalizeStage(stage)) {
       case "PROSPECTING":
         return "border-blue-200 bg-blue-50 text-blue-700";
+      case "QUALIFIED":
+        return "border-cyan-200 bg-cyan-50 text-cyan-700";
       case "NEGOTIATION":
         return "border-yellow-200 bg-yellow-50 text-yellow-700";
-      case "CLOSED_WON":
+      case "WON":
         return "border-green-200 bg-green-50 text-green-700";
-      case "CLOSED_LOST":
+      case "LOST":
         return "border-red-200 bg-red-50 text-red-700";
       default:
         return "border-gray-200 bg-gray-50 text-gray-700";
@@ -361,8 +366,8 @@ export default function Deals() {
       sortable: true,
       render: (o) => (
         <div className="flex items-center text-sm font-medium text-gray-900">
-          <CurrencyDollarIcon className="h-3.5 w-3.5 mr-0.5 text-gray-400 flex-shrink-0" />
-          {formatCurrency(o.amount)}
+          <BanknotesIcon className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
+          {formatCurrency(o.amount, o.customer?.currencyCode)}
         </div>
       ),
     },
@@ -387,7 +392,11 @@ export default function Deals() {
       key: "stage",
       label: "Stage",
       sortable: true,
-      render: (o) => (
+      render: (o) => !canUpdate ? (
+        <span className={`inline-flex w-[118px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
+          {stageOptions.find((option) => option.id === normalizeStage(o.stage))?.name ?? o.stage}
+        </span>
+      ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={normalizeStage(o.stage)}
@@ -416,7 +425,19 @@ export default function Deals() {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (o) => (
+      render: (o) =>
+        // Won / Lost come from the stage; only an open deal can be made active or cancelled
+        isClosedStage(normalizeStage(o.stage)) ? (
+          <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
+            {DEAL_STATUS_LABELS[o.status] ?? o.status}
+          </span>
+        ) : !canUpdate ? (
+          <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+            o.status === "ACTIVE" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"
+          }`}>
+            {DEAL_STATUS_LABELS[o.status] ?? o.status}
+          </span>
+        ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={o.status}
@@ -426,7 +447,7 @@ export default function Deals() {
               })
             }
             disabled={inlineUpdatingId === o.id}
-            className={`w-[88px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
+            className={`w-[96px] rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none transition ${
               o.status === "ACTIVE"
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "border-red-200 bg-red-50 text-red-700"
@@ -436,8 +457,9 @@ export default function Deals() {
                 : "cursor-pointer"
             }`}
           >
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            {OPEN_DEAL_STATUS_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
           </select>
         </div>
       ),
@@ -453,18 +475,20 @@ export default function Deals() {
           className="flex items-center justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => {
-              setForm(o);
-              setOwnerType(o.lead ? "LEAD" : "CUSTOMER");
-              setShowForm(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                setForm(o);
+                setOwnerType(o.lead ? "LEAD" : "CUSTOMER");
+                setShowForm(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
           {o.lead ? (
             <button
@@ -480,13 +504,15 @@ export default function Deals() {
               <UsersIcon className="h-4 w-4" />
             </button>
           ) : (
-            <button
+            canUpdate && <button
               type="button"
-              onClick={() =>
-                ToasterService.info("Add Lead functionality coming soon")
-              }
+              onClick={() => {
+                setForm(o);
+                setOwnerType("LEAD");
+                setShowForm(true);
+              }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-              title="Add Lead"
+              title="Link a lead"
             >
               <PlusIcon className="h-4 w-4" />
             </button>
@@ -496,7 +522,7 @@ export default function Deals() {
             <button
               type="button"
               onClick={() =>
-                navigate(`/customer-management/${o.customer!.id}`)
+                navigate(`/crm-view/customers/${o.customer!.id}`, { state: { from: "opportunities" } })
               }
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
               title="View Customer"
@@ -504,29 +530,33 @@ export default function Deals() {
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
           ) : (
-            <button
+            canUpdate && <button
               type="button"
-              onClick={() =>
-                ToasterService.info("Add Customer functionality coming soon")
-              }
+              onClick={() => {
+                setForm(o);
+                setOwnerType("CUSTOMER");
+                setShowForm(true);
+              }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-              title="Add Customer"
+              title="Link a customer"
             >
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setDeleteId(o.id);
-              setShowDeletePopup(true);
-            }}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteId(o.id);
+                setShowDeletePopup(true);
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -605,17 +635,19 @@ export default function Deals() {
               <p className="text-gray-500 text-sm mb-2">
                 No opportunities found
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setForm({ status: "ACTIVE", stage: "PROSPECTING" });
-                  setOwnerType("LEAD");
-                  setShowForm(true);
-                }}
-                className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-              >
-                Add your first opportunity
-              </button>
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ status: "ACTIVE", stage: "PROSPECTING" });
+                    setOwnerType("LEAD");
+                    setShowForm(true);
+                  }}
+                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                >
+                  Add your first opportunity
+                </button>
+              )}
             </div>
           }
         />
@@ -681,12 +713,14 @@ export default function Deals() {
           key="status"
           label="Status"
           name="status"
-          value={form.status || ""}
+          value={isClosedStage(normalizeStage(form.stage)) ? normalizeStage(form.stage) : form.status || "ACTIVE"}
           onChange={handleChange}
-          options={[
-            { id: "ACTIVE", name: "Active" },
-            { id: "INACTIVE", name: "Inactive" },
-          ]}
+          disabled={isClosedStage(normalizeStage(form.stage))}
+          options={
+            isClosedStage(normalizeStage(form.stage))
+              ? [{ id: normalizeStage(form.stage), name: DEAL_STATUS_LABELS[normalizeStage(form.stage)] }]
+              : OPEN_DEAL_STATUS_OPTIONS
+          }
         />,
       ],
     },

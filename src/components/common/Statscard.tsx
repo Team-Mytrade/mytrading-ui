@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ChartBarIcon,
 } from "@heroicons/react/24/outline";
-import "./Statscard.css";
+import "../../styles/Statscard.css";
 import TableToolbar from "./TableToolbar";
 
 interface StatsCardProps {
@@ -22,6 +22,12 @@ interface StatsCardProps {
   onFilter?: () => void;
   onRefresh?: () => void;
   filterControl?: React.ReactNode;
+  /** Makes the card clickable (e.g. to filter the table to these records). */
+  onClick?: () => void;
+  /** Shows the card as the active filter. */
+  selected?: boolean;
+  /** Tooltip for a clickable card. */
+  title?: string;
 }
 
 interface StatsCardActionsProps {
@@ -58,6 +64,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
   onFilter,
   onRefresh,
   filterControl,
+  onClick,
+  selected = false,
+  title,
 }) => {
   const tone = getTone(`${_gradient} ${_borderColor} ${_labelColor}`);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -78,8 +87,22 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
   return (
     <div className={`stats-card stats-card--${tone}`}>
+      {/* Only the metric area is clickable, so the toolbar buttons beside it keep working. */}
       <div
-        className={`stats-card__content ${collapsed ? "stats-card__content--collapsed" : ""}`}
+        className={`stats-card__content ${collapsed ? "stats-card__content--collapsed" : ""} ${
+          onClick ? "cursor-pointer rounded-lg transition hover:opacity-80" : ""
+        } ${selected ? "rounded-lg ring-1 ring-current" : ""}`}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-pressed={onClick ? selected : undefined}
+        title={title}
+        onClick={onClick}
+        onKeyDown={(event) => {
+          if (onClick && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            onClick();
+          }
+        }}
       >
         {loading || isRefreshing ? (
           <div className="stats-card__metric stats-card__metric--skeleton" aria-label={`Refreshing ${label}`}>

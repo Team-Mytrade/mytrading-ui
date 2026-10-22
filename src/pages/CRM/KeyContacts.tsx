@@ -23,6 +23,10 @@ import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import { CONTACT_ROLE_OPTIONS, apiError } from "./crmShared";
+import { usePermissions } from "../../access/usePermissions";
+
+const roleLabel = (role?: string) => CONTACT_ROLE_OPTIONS.find((o) => o.id === role)?.name ?? role ?? "";
 
 const ADD_DRAFT_STORAGE_KEY = "contactPerson:addDraft";
 const EDIT_DRAFT_STORAGE_KEY = "contactPerson:editDraft";
@@ -33,6 +37,7 @@ type ContactDraft = {
     fullName: string;
     email: string;
     phone: string;
+    designation?: string;
     role: string;
     customerId: string;
   };
@@ -60,6 +65,8 @@ interface Address {
 enum Role {
   DECISION_MAKER = "DECISION_MAKER",
   INFLUENCER = "INFLUENCER",
+  BUYER = "BUYER",
+  USER = "USER",
 }
 
 interface Customer {
@@ -111,6 +118,7 @@ const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
 
 const KeyContacts: React.FC = () => {
   const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -130,6 +138,7 @@ const KeyContacts: React.FC = () => {
     fullName: "",
     email: "",
     phone: "",
+    designation: "",
     role: "",
     customerId: "",
   });
@@ -140,6 +149,8 @@ const KeyContacts: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const location = useLocation();
+  // Opened from a customer's page: only that customer's contacts
+  const scopedCustomerId = Number(new URLSearchParams(location.search).get("customerId")) || null;
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -163,7 +174,7 @@ const KeyContacts: React.FC = () => {
     if (savedAddDraft) {
       try {
         const parsedDraft: ContactDraft = JSON.parse(savedAddDraft);
-        setNewContact(parsedDraft.data);
+        setNewContact({ ...parsedDraft.data, designation: parsedDraft.data.designation ?? "" });
         if (parsedDraft.modalOpen) {
           setShowAddModal(true);
         }
@@ -212,6 +223,9 @@ const KeyContacts: React.FC = () => {
         if (contactToEdit) {
           setEditContact(contactToEdit);
           setShowEditModal(true);
+          // Open once: otherwise the form reopens every time the list reloads (e.g. after saving)
+          searchParams.delete("editId");
+          navigate({ search: searchParams.toString() }, { replace: true });
         }
       }
     }
@@ -320,7 +334,9 @@ const KeyContacts: React.FC = () => {
       ToasterService.success("Contact deleted successfully!");
     } catch (err) {
       console.error("Error deleting contact", err);
-      ToasterService.error("Failed to delete contact");
+      ToasterService.error(apiError(err, "Failed to delete contact"));
+      setShowDeletePopup(false);
+      setContactToDelete(null);
     }
   };
 
@@ -337,9 +353,11 @@ const KeyContacts: React.FC = () => {
     } else if (activeFilter === "WITH_CUSTOMER") {
       matchesFilter = !!c.customer;
     }
+    const matchesScope = !scopedCustomerId || c.customer?.id === scopedCustomerId;
 
-    return matchesSearch && matchesFilter;
+    return matchesSearch && matchesFilter && matchesScope;
   });
+  const scopedCustomer = scopedCustomerId ? customers.find((c) => c.id === scopedCustomerId) : undefined;
 
   // Add Contact Submit
 const handleAddContact = async (e: FormEvent) => {
@@ -348,20 +366,22 @@ const handleAddContact = async (e: FormEvent) => {
     ToasterService.error("Full name is required");
     return;
   }
+  // A contact always belongs to a company
+  if (!newContact.customerId) {
+    ToasterService.error("Choose the company this contact works for");
+    return;
+  }
   try {
      setIsSaving(true);
      const payload = {
       fullName: newContact.fullName,
       email: newContact.email,
       phone: newContact.phone,
-      role: newContact.role,
+      designation: newContact.designation || null,
+      role: newContact.role || null,
     };
 
-    const url = newContact.customerId
-      ? `${API_URL}/customer/${newContact.customerId}`
-      : API_URL;
-
-    const res = await axios.post(url, payload, {
+    const res = await axios.post(`${API_URL}/customer/${newContact.customerId}`, payload, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -372,6 +392,7 @@ const handleAddContact = async (e: FormEvent) => {
         fullName: "",
         email: "",
         phone: "",
+        designation: "",
         role: "",
         customerId: "",
       });
@@ -379,10 +400,8 @@ const handleAddContact = async (e: FormEvent) => {
       fetchCustomers();
     }
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const err = error as any;
-    console.error("Error adding contact:", err);
-    ToasterService.error(err.response?.data?.message || "Failed to add contact.");
+    console.error("Error adding contact:", error);
+    ToasterService.error(apiError(error, "Failed to add contact."));
   }
    finally {
     setIsSaving(false);
@@ -428,12 +447,13 @@ const handleEditContact = async (e: FormEvent) => {
   }
     };
 
-    // Step 2: scalar fields
+    // Step 2: scalar fields (the service replaces all of them, so send the designation too)
     const payload = {
       fullName: editContact.fullName,
       email: editContact.email,
       phone: editContact.phone,
-      role: editContact.role,
+      designation: editContact.designation || null,
+      role: editContact.role || null,
     };
 
     try {
@@ -482,7 +502,7 @@ const handleEditContact = async (e: FormEvent) => {
       fetchCustomers();
     } catch (err) {
       console.error("Error assigning customer:", err);
-      ToasterService.error("Failed to assign customer");
+      ToasterService.error(apiError(err, "Failed to assign customer"));
     }
   };
 
@@ -569,7 +589,7 @@ const handleEditContact = async (e: FormEvent) => {
       render: (contact) =>
         contact.role ? (
           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap rounded-full border ${contact.role === Role.DECISION_MAKER ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
-            {contact.role.replace("_", " ")}
+            {roleLabel(contact.role)}
           </span>
       ) : (
   <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full border border-gray-200 bg-gray-50 text-gray-500">
@@ -601,20 +621,22 @@ const handleEditContact = async (e: FormEvent) => {
       className: "w-[10%] text-right",
       render: (contact) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => {
-              setEditContact(contact);
-              setShowEditModal(true);
-            }}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit Contact"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditContact(contact);
+                setShowEditModal(true);
+              }}
+              className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit Contact"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
 
           {!contact.customer ? (
-            <button
+            canCreate && <button
               type="button"
               onClick={() => {
                 setActiveContactId(contact.id);
@@ -628,7 +650,7 @@ const handleEditContact = async (e: FormEvent) => {
           ) : (
             <button
               type="button"
-              onClick={() => navigate(`/customer-management/${contact.customer?.id}`)}
+              onClick={() => navigate(`/crm-view/customers/${contact.customer?.id}`, { state: { from: "contacts" } })}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
               title="View Customer"
             >
@@ -636,14 +658,16 @@ const handleEditContact = async (e: FormEvent) => {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => handleDelete(contact.id)}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete Contact"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => handleDelete(contact.id)}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Delete Contact"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -652,12 +676,29 @@ const handleEditContact = async (e: FormEvent) => {
   return (
     <>
       <PageMeta title="Contact Persons" description="Manage your contact persons" />
-      <PageBreadcrumb pageTitle="Contact Persons" />
+      <PageBreadcrumb
+        pageTitle="Contact Persons"
+        actions={
+          <AddButton
+            onClick={() => {
+              // From a customer's page, the new contact is for that customer
+              if (scopedCustomerId) setNewContact((c) => ({ ...c, customerId: String(scopedCustomerId) }));
+              setShowAddModal(true);
+            }}
+            label="Add Contact Person"
+          />
+        }
+      />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={() => setShowAddModal(true)} label="Add Contact Person" />
-        </div>
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        {scopedCustomerId && (
+          <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+            <span>Showing contacts of <strong>{getCustomerDisplayName(scopedCustomer)}</strong></span>
+            <button type="button" onClick={() => navigate("/contactPerson")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
+              View all contacts
+            </button>
+          </div>
+        )}
         <div className="py-4 px-3">
         <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
@@ -723,7 +764,7 @@ const handleEditContact = async (e: FormEvent) => {
                   <p className="text-gray-500 text-sm mb-2">No contacts found</p>
                   {search || activeFilter !== "ALL" ? (
                     <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-                  ) : (
+                  ) : canCreate && (
                     <button
                       type="button"
                       onClick={() => setShowAddModal(true)}
@@ -791,6 +832,15 @@ const handleEditContact = async (e: FormEvent) => {
             }
             required
           />,
+          <FloatingInput
+            key="designation"
+            label="Designation"
+            name="designation"
+            value={editContact.designation || ""}
+            onChange={(e) =>
+              setEditContact({ ...editContact, designation: e.target.value })
+            }
+          />,
           <FloatingSelect
             key="role"
             label="Role"
@@ -799,10 +849,7 @@ const handleEditContact = async (e: FormEvent) => {
             onChange={(e) =>
               setEditContact({ ...editContact, role: e.target.value })
             }
-            options={Object.values(Role).map((r) => ({
-              id: r,
-              name: r.replace("_", " "),
-            }))}
+            options={CONTACT_ROLE_OPTIONS}
           />,
           <div key="customer" className="md:col-span-2">
             <FloatingSelect
@@ -855,6 +902,15 @@ const handleEditContact = async (e: FormEvent) => {
             }
             required
           />,
+          <FloatingInput
+            key="designation"
+            label="Designation"
+            name="designation"
+            value={newContact.designation}
+            onChange={(e) =>
+              setNewContact({ ...newContact, designation: e.target.value })
+            }
+          />,
           <FloatingSelect
             key="role"
             label="Role"
@@ -863,14 +919,12 @@ const handleEditContact = async (e: FormEvent) => {
             onChange={(e) =>
               setNewContact({ ...newContact, role: e.target.value })
             }
-            options={Object.values(Role).map((r) => ({
-              id: r,
-              name: r.replace("_", " "),
-            }))}
+            options={CONTACT_ROLE_OPTIONS}
           />,
           <div key="customerId" className="md:col-span-2">
             <FloatingSelect
-              label="Company (Optional)"
+              label="Company"
+              required
               name="customerId"
               value={newContact.customerId}
               onChange={(e) =>

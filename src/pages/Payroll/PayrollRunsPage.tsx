@@ -37,6 +37,8 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type Payslip = {
     employeeId: string;
@@ -64,6 +66,7 @@ const API_URL = "/v1/api/payroll/runs";
 const PAGE_SIZE = 10;
 
 const PayrollRunsPage: React.FC = () => {
+  const { canDelete, canExport, canUpdate } = usePermissions();
     const [runs, setRuns] = useState<PayrollRun[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
@@ -83,7 +86,7 @@ const PayrollRunsPage: React.FC = () => {
 
     const [form, setForm] = useState({
         period: "",
-        runDate: new Date().toISOString().split('T')[0],
+        runDate: todayIso(),
         status: 'Pending' as const,
     });
 
@@ -145,7 +148,7 @@ const PayrollRunsPage: React.FC = () => {
         setEditingRun(null);
         setForm({ 
             period: "", 
-            runDate: new Date().toISOString().split('T')[0], 
+            runDate: todayIso(), 
             status: 'Pending' 
         });
     };
@@ -171,7 +174,7 @@ const PayrollRunsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Payroll_Runs_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Payroll_Runs_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -186,7 +189,7 @@ const PayrollRunsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Payroll Runs");
-        XLSX.writeFile(wb, `Payroll_Runs_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Payroll_Runs_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
@@ -306,13 +309,13 @@ const PayrollRunsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
-                            <button
+                            {canExport && (<button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                                 disabled={runs.length === 0}
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                            </button>)}
 
                             {showExportMenu && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
@@ -483,7 +486,7 @@ const PayrollRunsPage: React.FC = () => {
                                                             </button>
                                                         )}
                                                     </Menu.Item>
-                                                    <Menu.Item>
+                                                    {canUpdate && (<Menu.Item>
                                                         {({ active }) => (
                                                             <button
                                                                 onClick={() => handleEdit(run)}
@@ -493,8 +496,8 @@ const PayrollRunsPage: React.FC = () => {
                                                                 Edit
                                                             </button>
                                                         )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
+                                                    </Menu.Item>)}
+                                                    {canDelete && (<Menu.Item>
                                                         {({ active }) => (
                                                             <button
                                                                 onClick={() => handleDelete(run.id, run.period)}
@@ -504,7 +507,7 @@ const PayrollRunsPage: React.FC = () => {
                                                                 Delete
                                                             </button>
                                                         )}
-                                                    </Menu.Item>
+                                                    </Menu.Item>)}
                                                 </Menu.Items>
                                             </Menu>
                                         </td>

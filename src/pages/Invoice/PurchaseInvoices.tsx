@@ -17,7 +17,8 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
-import { toSelectOptions, useInvoiceEnum } from "./invoiceEnums";
+import { usePermissions } from "../../access/usePermissions";
+import { INVOICE_API, apiError, dateLabel, labelOf, money } from "./invoiceShared";
 
 interface PurchaseInvoice {
   id: number;
@@ -29,28 +30,32 @@ interface PurchaseInvoice {
   currency?: string;
   referenceNumber?: string;
   notes?: string;
+  vendor?: { id: number; name?: string } | null;
+  vendorId?: string;
 }
 
 /**
- * Fields accepted when creating or updating a purchase invoice.
- * Server-maintained fields (id, createdDate, updatedDate, createdBy, tenantId)
- * are deliberately excluded and must be assigned by the API.
+ * Fields accepted when creating or updating a purchase invoice. The payment status follows
+ * the payable (vendor payments), so it is not sent.
  */
 interface PurchaseInvoicePayload {
   invoiceNumber: string;
   invoiceDate?: string;
   dueDate?: string;
   totalAmount: number;
-  purchaseInvoiceStatus: string;
   currency: string;
   referenceNumber?: string;
   notes?: string;
+  vendor: { id: number };
 }
 
-const API_URL = "/v1/api/invoice/purchase-invoices";
-const PAGE_SIZE = 10;
+interface Vendor {
+  id: number;
+  name: string;
+}
 
-const PURCHASE_INVOICE_STATUS_FALLBACK = ["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED", "OVERDUE", "DRAFT", "VOID", "RETURNED", "APPROVED", "REJECTED", "PENDING", "COMPLETED", "FAILED", "REFUNDED", "CHARGEBACK", "WRITE_OFF", "OTHER"];
+const API_URL = `${INVOICE_API}/purchase-invoices`;
+const PAGE_SIZE = 10;
 
 const statusTone = (status?: string) => {
   switch (status) {
@@ -73,6 +78,7 @@ const statusTone = (status?: string) => {
 };
 
 const PurchaseInvoices: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -86,10 +92,14 @@ const PurchaseInvoices: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const purchaseInvoiceStatuses = useInvoiceEnum("PURCHASE_INVOICE_STATUS", PURCHASE_INVOICE_STATUS_FALLBACK);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
 
   useEffect(() => {
     fetchPurchaseInvoices();
+    axios
+      .get<Vendor[]>(`${INVOICE_API}/vendors`, { headers })
+      .then((res) => setVendors(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setVendors([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -99,8 +109,7 @@ const PurchaseInvoices: React.FC = () => {
       const res = await axios.get<PurchaseInvoice[]>(API_URL, { headers });
       setPurchaseInvoices(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Error fetching purchase invoices", err);
-      ToasterService.error("Failed to load purchase invoices");
+      ToasterService.error(apiError(err, "Failed to load purchase invoices"));
       setPurchaseInvoices([]);
     } finally {
       setIsLoading(false);
@@ -112,14 +121,18 @@ const PurchaseInvoices: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.vendorId) {
+      ToasterService.error("Choose the vendor");
+      return;
+    }
     if (!form.invoiceNumber?.trim()) {
-      ToasterService.error("Invoice number is required");
+      ToasterService.error("Enter the vendor's invoice number");
       return;
     }
 
     const totalAmount = Number(form.totalAmount ?? 0);
-    if (!Number.isFinite(totalAmount) || totalAmount < 0) {
-      ToasterService.error("Total amount must be a valid non-negative number");
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      ToasterService.error("Enter the bill amount");
       return;
     }
 
@@ -128,42 +141,41 @@ const PurchaseInvoices: React.FC = () => {
       invoiceDate: form.invoiceDate || undefined,
       dueDate: form.dueDate || undefined,
       totalAmount,
-      purchaseInvoiceStatus: form.purchaseInvoiceStatus || "OPEN",
       currency: form.currency?.trim() || "INR",
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
+      vendor: { id: Number(form.vendorId) },
     };
 
     setSubmitting(true);
     try {
       const res =
         editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
+          ? await axios.put(`${API_URL}/${editingId}`, payload, { headers })
           : await axios.post<PurchaseInvoice>(API_URL, payload, { headers });
       if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Purchase invoice updated successfully!" : "Purchase invoice added successfully!");
+        ToasterService.success(editingId !== null ? "Purchase invoice updated" : "Purchase invoice added; it is now in Accounts Payable");
         setShowFormModal(false);
         setForm({});
         setEditingId(null);
         await fetchPurchaseInvoices();
       }
     } catch (err) {
-      console.error("Error submitting purchase invoice", err);
-      ToasterService.error("Failed to save purchase invoice");
+      ToasterService.error(apiError(err, "Failed to save purchase invoice"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleEdit = (invoice: PurchaseInvoice) => {
-    setForm(invoice);
+    setForm({ ...invoice, vendorId: invoice.vendor?.id ? String(invoice.vendor.id) : "" });
     setEditingId(invoice.id);
     setShowFormModal(true);
   };
 
   const openCreate = () => {
     setShowFormModal(true);
-    setForm({ currency: "INR", purchaseInvoiceStatus: "OPEN", totalAmount: 0 });
+    setForm({ currency: "INR", vendorId: "" });
     setEditingId(null);
   };
 
@@ -187,8 +199,8 @@ const PurchaseInvoices: React.FC = () => {
       setInvoiceToDelete(null);
       fetchPurchaseInvoices();
     } catch (err) {
-      console.error("Error deleting purchase invoice", err);
-      ToasterService.error("Failed to delete purchase invoice");
+      setShowDeletePopup(false);
+      ToasterService.error(apiError(err, "Failed to delete purchase invoice"));
     }
   };
 
@@ -197,6 +209,7 @@ const PurchaseInvoices: React.FC = () => {
       const term = search.toLowerCase();
       const matchesSearch =
         (invoice.invoiceNumber || "").toLowerCase().includes(term) ||
+        (invoice.vendor?.name || "").toLowerCase().includes(term) ||
         (invoice.referenceNumber || "").toLowerCase().includes(term) ||
         (invoice.purchaseInvoiceStatus || "").toLowerCase().includes(term);
 
@@ -242,6 +255,15 @@ const PurchaseInvoices: React.FC = () => {
       ),
     },
     {
+      key: "vendor",
+      label: "Vendor",
+      sortable: true,
+      headerClassName: "w-[16%] text-left",
+      className: "w-[16%]",
+      sortValueGetter: (invoice) => invoice.vendor?.name ?? "",
+      render: (invoice) => <span className="text-sm text-slate-700">{invoice.vendor?.name ?? "—"}</span>,
+    },
+    {
       key: "invoiceDate",
       label: "Invoice Date",
       sortable: true,
@@ -249,7 +271,7 @@ const PurchaseInvoices: React.FC = () => {
       className: "w-[12%]",
       render: (invoice) => (
         <span className="text-sm text-slate-600">
-          {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : "N/A"}
+          {dateLabel(invoice.invoiceDate)}
         </span>
       ),
     },
@@ -261,7 +283,7 @@ const PurchaseInvoices: React.FC = () => {
       className: "w-[12%]",
       render: (invoice) => (
         <span className="text-sm text-slate-600">
-          {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}
+          {dateLabel(invoice.dueDate)}
         </span>
       ),
     },
@@ -274,7 +296,7 @@ const PurchaseInvoices: React.FC = () => {
       sortValueGetter: (invoice) => Number(invoice.totalAmount || 0),
       render: (invoice) => (
         <span className="text-sm font-semibold text-slate-700">
-          {Number(invoice.totalAmount || 0).toLocaleString()}
+          {money(invoice.totalAmount, invoice.currency)}
         </span>
       ),
     },
@@ -282,11 +304,11 @@ const PurchaseInvoices: React.FC = () => {
       key: "purchaseInvoiceStatus",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
       render: (invoice) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full border ${statusTone(invoice.purchaseInvoiceStatus)}`}>
-          {invoice.purchaseInvoiceStatus || "N/A"}
+          {invoice.purchaseInvoiceStatus ? labelOf(invoice.purchaseInvoiceStatus) : "N/A"}
         </span>
       ),
     },
@@ -294,26 +316,26 @@ const PurchaseInvoices: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[25%] text-right pr-4",
-      className: "w-[25%] text-right",
+      headerClassName: "w-[12%] text-right pr-4",
+      className: "w-[12%] text-right",
       render: (invoice) => (
         <div className="flex items-center justify-end gap-0.5">
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => handleEdit(invoice)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit Purchase Invoice"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => handleDelete(invoice)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
             title="Delete Purchase Invoice"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -326,7 +348,7 @@ const PurchaseInvoices: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Purchase Invoice" />
+          {canCreate && <AddButton onClick={openCreate} label="Add Purchase Invoice" />}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
@@ -352,7 +374,7 @@ const PurchaseInvoices: React.FC = () => {
           />
           <StatsCard
             label="Total Amount"
-            value={stats.totalAmount.toLocaleString()}
+            value={money(stats.totalAmount)}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
@@ -365,7 +387,7 @@ const PurchaseInvoices: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search invoices by number, reference, or status..."
+                placeholder="Search by number, vendor, reference or status..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); }}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -414,7 +436,7 @@ const PurchaseInvoices: React.FC = () => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
@@ -439,9 +461,25 @@ const PurchaseInvoices: React.FC = () => {
             {
               label: "Basic Info",
               fields: [
+                <FloatingSelect
+                  key="vendorId"
+                  label="Vendor"
+                  name="vendorId"
+                  value={form.vendorId || ""}
+                  onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
+                  options={vendors.map((vendor) => ({ id: String(vendor.id), name: vendor.name }))}
+                  required
+                />,
+                ...(vendors.length === 0
+                  ? [
+                      <p key="noVendors" className="text-xs text-amber-700">
+                        No vendors yet. Add them under Common → Invoice Vendors first.
+                      </p>,
+                    ]
+                  : []),
                 <FloatingInput
                   key="invoiceNumber"
-                  label="Invoice Number"
+                  label="Vendor's invoice number"
                   name="invoiceNumber"
                   value={form.invoiceNumber || ""}
                   onChange={handleChange}
@@ -465,19 +503,12 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="totalAmount"
-                  label="Total Amount"
+                  label="Bill amount (incl. tax)"
                   name="totalAmount"
                   type="number"
                   value={form.totalAmount ?? ""}
                   onChange={handleChange}
-                />,
-                <FloatingSelect
-                  key="purchaseInvoiceStatus"
-                  label="Status"
-                  name="purchaseInvoiceStatus"
-                  value={form.purchaseInvoiceStatus || ""}
-                  onChange={(e) => setForm({ ...form, purchaseInvoiceStatus: e.target.value })}
-                  options={toSelectOptions(purchaseInvoiceStatuses)}
+                  required
                 />,
                 <FloatingInput
                   key="currency"

@@ -25,6 +25,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingTextarea, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { COUNTRIES, CountryOption } from "../../data/countries";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ const CountryCodeCombobox: React.FC<CountryCodeComboboxProps> = ({ selected, onS
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TransporterPage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [transporters, setTransporters] = useState<Transporter[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -210,8 +212,8 @@ useEffect(() => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<Transporter[]>(API_URL);
-      setTransporters(res.data);
+      const res = await axios.get<(Omit<Transporter, "status"> & { active: boolean })[]>(API_URL);
+      setTransporters(res.data.map(({ active, ...t }) => ({ ...t, status: active ? "Active" : "Inactive" })));
     } catch (err) {
       console.error("Failed to load transporters:", err);
       ToasterService.error("Failed to load transporters");
@@ -251,7 +253,7 @@ useEffect(() => {
       email: form.email,
       address: form.address,
       gstNumber: form.gstNumber,
-      status: form.status,
+      active: form.status === "Active",
     };
 
     try {
@@ -264,9 +266,9 @@ useEffect(() => {
       }
       await loadData();
       resetForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving transporter:", err);
-      ToasterService.error("Failed to save transporter");
+      ToasterService.error(err.response?.data?.message || "Failed to save transporter");
     } finally {
       setSaving(false);
     }
@@ -283,9 +285,10 @@ useEffect(() => {
       await axios.delete(`${API_URL}/${deletingItem.id}`);
       ToasterService.success("Transporter deleted successfully!");
       setTransporters(prev => prev.filter(t => t.id !== deletingItem.id));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deleting transporter:", err);
-      ToasterService.error("Failed to delete transporter");
+      // e.g. still used by delivery orders: the server says to mark it Inactive instead
+      ToasterService.error(err.response?.data?.message || "Failed to delete transporter");
     } finally {
       setShowDeletePopup(false);
       setDeletingItem(null);
@@ -297,12 +300,9 @@ useEffect(() => {
   const filteredTransporters = useMemo(() => {
     return transporters.filter(t => {
       const term = search.toLowerCase();
-      const matchesSearch =
-        t.name.toLowerCase().includes(term) ||
-        t.contactPerson.toLowerCase().includes(term) ||
-        t.contactNumber.toLowerCase().includes(term) ||
-        t.email.toLowerCase().includes(term) ||
-        t.gstNumber.toLowerCase().includes(term);
+      // Every column is optional on the backend, so a transporter without an email or GST number must not crash the page
+      const matchesSearch = [t.name, t.contactPerson, t.contactNumber, t.email, t.gstNumber]
+        .some((field) => (field ?? "").toLowerCase().includes(term));
 
       const matchesFilter = activeFilter === "ALL" || t.status === activeFilter;
 
@@ -420,20 +420,20 @@ useEffect(() => {
       className: "w-[10%] text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             title="Edit"
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => promptDelete(row)}
             title="Delete"
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -565,7 +565,7 @@ useEffect(() => {
               {search || activeFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >

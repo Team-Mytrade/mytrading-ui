@@ -36,6 +36,8 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type TaxDeduction = {
     id: number;
@@ -55,6 +57,7 @@ const API_URL = "/v1/api/payroll/tax-deductions";
 const PAGE_SIZE = 10;
 
 const PayrollTaxDeductionsPage: React.FC = () => {
+  const { canCreate, canDelete, canExport, canUpdate } = usePermissions();
     const [deductions, setDeductions] = useState<TaxDeduction[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
@@ -75,7 +78,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
         employeeId: "",
         deductionType: "",
         amount: 0,
-        effectiveDate: new Date().toISOString().split('T')[0],
+        effectiveDate: todayIso(),
         remarks: "",
     });
 
@@ -139,7 +142,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
             employeeId: "", 
             deductionType: "", 
             amount: 0, 
-            effectiveDate: new Date().toISOString().split('T')[0], 
+            effectiveDate: todayIso(), 
             remarks: "" 
         });
     };
@@ -165,7 +168,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Tax_Deductions_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Tax_Deductions_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -182,7 +185,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Tax Deductions");
-        XLSX.writeFile(wb, `Tax_Deductions_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Tax_Deductions_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
@@ -338,13 +341,13 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
-                            <button
+                            {canExport && (<button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                                 disabled={deductions.length === 0}
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                            </button>)}
 
                             {showExportMenu && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
@@ -395,13 +398,13 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                         </button>
 
                         {/* Add Button */}
-                        <button
+                        {canCreate && (<button
                             onClick={() => setShowForm(true)}
                             className="px-4 !mb-0 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2"
                         >
                             <PlusIcon className="h-5 w-5" />
                             <span className="hidden sm:inline">Add Deduction</span>
-                        </button>
+                        </button>)}
                     </div>
                 </div>
 
@@ -555,7 +558,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                             </button>
                                                         )}
                                                     </Menu.Item>
-                                                    <Menu.Item>
+                                                    {canUpdate && (<Menu.Item>
                                                         {({ active }) => (
                                                             <button
                                                                 onClick={() => {
@@ -569,8 +572,8 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                                 Edit
                                                             </button>
                                                         )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
+                                                    </Menu.Item>)}
+                                                    {canDelete && (<Menu.Item>
                                                         {({ active }) => (
                                                             <button
                                                                 onClick={() => handleDelete(deduction.id, deduction.employeeName || deduction.employeeId)}
@@ -580,7 +583,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                                 Delete
                                                             </button>
                                                         )}
-                                                    </Menu.Item>
+                                                    </Menu.Item>)}
                                                 </Menu.Items>
                                             </Menu>
                                         </td>
@@ -762,7 +765,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
+                                    {canUpdate && (<button
                                         type="button"
                                         onClick={() => {
                                             setViewModalOpen(false);
@@ -774,7 +777,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                     >
                                         <PencilSquareIcon className="h-4 w-4 mr-2" />
                                         Edit
-                                    </button>
+                                    </button>)}
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}

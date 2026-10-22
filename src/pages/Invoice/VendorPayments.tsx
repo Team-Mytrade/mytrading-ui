@@ -1,265 +1,242 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
-import PaginatedPopup from "../../components/common/unpopup";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  UserGroupIcon,
-  CreditCardIcon,
-} from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { ToasterService } from "../../Services/ToasterService";
-import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import FilterPopover from "../../components/common/filter";
-import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
+import PaginatedPopup from "../../components/common/unpopup";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { FloatingInput, FloatingSelect1 } from "../../components/inputfeild/FloatingInput";
+import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
+import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, dateLabel, money, paymentMethodLabel, todayInput } from "./invoiceShared";
+import { DialogFooter } from "./invoiceUi";
+
+const API_URL = `${INVOICE_API}/vendor-payments`;
+const PAGE_SIZE = 10;
 
 interface VendorPayment {
   id: number;
   paymentReference?: string;
   paymentDate?: string;
-  vendorName?: string;
-  invoiceNumber?: string;
+  vendor?: { id: number; name?: string };
+  invoice?: { id: number; invoiceNumber?: string; currency?: string };
   amountPaid?: number;
   paymentMethod?: string;
   paidBy?: string;
 }
 
-const API_URL = "/v1/api/invoice/vendor-payments";
-const PAGE_SIZE = 10;
+interface Vendor {
+  id: number;
+  name: string;
+}
+
+interface Payable {
+  id: number;
+  purchaseInvoice?: { id: number; invoiceNumber?: string; currency?: string };
+  vendor?: { id: number; name?: string };
+  balance: number;
+  dueDate?: string;
+}
+
+const emptyForm = () => ({
+  vendorId: "",
+  invoiceId: "",
+  amountPaid: "",
+  paymentDate: todayInput(),
+  paymentMethod: "BANK_TRANSFER",
+  paymentReference: "",
+  paidBy: "",
+});
 
 const VendorPayments: React.FC = () => {
-  const token = localStorage.getItem("accessToken");
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const [payments, setPayments] = useState<VendorPayment[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [payables, setPayables] = useState<Payable[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [methodFilter, setMethodFilter] = useState("ALL");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<VendorPayment | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<VendorPayment | null>(null);
 
-  const [vendorPayments, setVendorPayments] = useState<VendorPayment[]>([]);
-  const [form, setForm] = useState<Partial<VendorPayment>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [paymentToDelete, setPaymentToDelete] = useState<VendorPayment | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("ALL");
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    fetchVendorPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchAll = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [paymentRes, vendorRes, payableRes] = await Promise.all([
+        axios.get<VendorPayment[]>(API_URL),
+        axios.get<Vendor[]>(`${INVOICE_API}/vendors`),
+        axios.get<Payable[]>(`${INVOICE_API}/accounts-payable`),
+      ]);
+      setPayments(Array.isArray(paymentRes.data) ? paymentRes.data : []);
+      setVendors(Array.isArray(vendorRes.data) ? vendorRes.data : []);
+      setPayables(Array.isArray(payableRes.data) ? payableRes.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to load vendor payments"));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchVendorPayments = async () => {
-    try {
-      setIsLoading(true);
-      const res = await axios.get<VendorPayment[]>(API_URL, { headers });
-      setVendorPayments(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Error fetching vendor payments", err);
-      ToasterService.error("Failed to load vendor payments");
-      setVendorPayments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  // Bills of the chosen vendor that still have something due. When editing, the bill being
+  // edited counts this payment's amount as still available.
+  const billOptions = useMemo(() => {
+    if (!form.vendorId) return [];
+    return payables
+      .filter((row) => String(row.vendor?.id) === form.vendorId)
+      .map((row) => {
+        const own = editing && editing.invoice?.id === row.purchaseInvoice?.id ? Number(editing.amountPaid || 0) : 0;
+        return { row, available: Number(row.balance || 0) + own };
+      })
+      .filter(({ available }) => available > 0);
+  }, [payables, form.vendorId, editing]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.paymentReference?.trim()) {
-      ToasterService.error("Payment reference is required");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res =
-        editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
-      if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Vendor payment updated successfully!" : "Vendor payment added successfully!");
-        setShowFormModal(false);
-        setForm({});
-        setEditingId(null);
-        await fetchVendorPayments();
-      }
-    } catch (err) {
-      console.error("Error submitting vendor payment", err);
-      ToasterService.error("Failed to save vendor payment");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEdit = (payment: VendorPayment) => {
-    setForm(payment);
-    setEditingId(payment.id);
-    setShowFormModal(true);
-  };
+  const selectedBill = billOptions.find(({ row }) => String(row.purchaseInvoice?.id) === form.invoiceId);
 
   const openCreate = () => {
-    setShowFormModal(true);
-    setForm({});
-    setEditingId(null);
+    setEditing(null);
+    setForm(emptyForm());
+    setFormOpen(true);
   };
 
-  const closeModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
+  const openEdit = (payment: VendorPayment) => {
+    setEditing(payment);
+    setForm({
+      vendorId: payment.vendor?.id ? String(payment.vendor.id) : "",
+      invoiceId: payment.invoice?.id ? String(payment.invoice.id) : "",
+      amountPaid: String(payment.amountPaid ?? ""),
+      paymentDate: payment.paymentDate ?? todayInput(),
+      paymentMethod: payment.paymentMethod || "BANK_TRANSFER",
+      paymentReference: payment.paymentReference ?? "",
+      paidBy: payment.paidBy ?? "",
+    });
+    setFormOpen(true);
   };
 
-  const handleDelete = (payment: VendorPayment) => {
-    setPaymentToDelete(payment);
-    setShowDeletePopup(true);
+  const chooseBill = (invoiceId: string) => {
+    const bill = billOptions.find(({ row }) => String(row.purchaseInvoice?.id) === invoiceId);
+    setForm((current) => ({ ...current, invoiceId, amountPaid: bill && !editing ? String(bill.available) : current.amountPaid }));
   };
 
-  const confirmDelete = async () => {
-    if (!paymentToDelete) return;
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.vendorId) return ToasterService.error("Choose the vendor");
+    if (!form.invoiceId) return ToasterService.error("Choose the bill being paid");
+    const amount = Number(form.amountPaid);
+    if (!amount || amount <= 0) return ToasterService.error("Enter the amount paid");
+    if (selectedBill && amount - selectedBill.available > 0.001) {
+      return ToasterService.error(`Only ${money(selectedBill.available)} is due on this bill`);
+    }
+    const common = {
+      amountPaid: amount,
+      paymentDate: form.paymentDate || null,
+      paymentMethod: form.paymentMethod,
+      paymentReference: form.paymentReference.trim() || null,
+      paidBy: form.paidBy.trim() || null,
+    };
+    setBusy(true);
     try {
-      await axios.delete(`${API_URL}/${paymentToDelete.id}`, { headers });
-      ToasterService.success("Vendor payment deleted successfully!");
-      setShowDeletePopup(false);
-      setPaymentToDelete(null);
-      fetchVendorPayments();
+      if (editing) {
+        await axios.put(`${API_URL}/${editing.id}`, { ...common, vendorId: Number(form.vendorId), invoiceId: Number(form.invoiceId) });
+        ToasterService.success("Payment updated");
+      } else {
+        await axios.post(API_URL, { ...common, vendor: { id: Number(form.vendorId) }, invoice: { id: Number(form.invoiceId) } });
+        ToasterService.success(`${money(amount)} paid`);
+      }
+      setFormOpen(false);
+      await fetchAll();
     } catch (err) {
-      console.error("Error deleting vendor payment", err);
-      ToasterService.error("Failed to delete vendor payment");
+      ToasterService.error(apiError(err, "Could not save the payment"));
+    } finally {
+      setBusy(false);
     }
   };
 
-  const filteredVendorPayments = useMemo(() => {
-    return vendorPayments.filter((payment) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        (payment.paymentReference || "").toLowerCase().includes(term) ||
-        (payment.vendorName || "").toLowerCase().includes(term) ||
-        (payment.invoiceNumber || "").toLowerCase().includes(term);
+  const remove = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await axios.delete(`${API_URL}/${deleting.id}`);
+      ToasterService.success("Payment deleted; the bill is due again");
+      setDeleting(null);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not delete the payment"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      let matchesFilter = true;
-      if (activeFilter !== "ALL") {
-        matchesFilter = (payment.paymentMethod || "") === activeFilter;
-      }
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [vendorPayments, search, activeFilter]);
-
-  const stats = useMemo(
-    () => ({
-      total: vendorPayments.length,
-      methodsUsed: vendorPayments.filter((p) => (p.paymentMethod || "").trim()).length,
-      totalPaid: vendorPayments.reduce((sum, p) => sum + Number(p.amountPaid || 0), 0),
-    }),
-    [vendorPayments]
+  const filtered = useMemo(
+    () => (methodFilter === "ALL" ? payments : payments.filter((payment) => payment.paymentMethod === methodFilter)),
+    [payments, methodFilter]
   );
 
-  const tableColumns: ColumnDef<VendorPayment>[] = [
+  const stats = useMemo(() => {
+    const month = todayInput().slice(0, 7);
+    return {
+      count: payments.length,
+      total: payments.reduce((sum, payment) => sum + Number(payment.amountPaid || 0), 0),
+      thisMonth: payments.filter((payment) => payment.paymentDate?.startsWith(month)).reduce((sum, payment) => sum + Number(payment.amountPaid || 0), 0),
+      toPay: payables.reduce((sum, row) => sum + Math.max(Number(row.balance || 0), 0), 0),
+    };
+  }, [payments, payables]);
+
+  const columns: ColumnDef<VendorPayment>[] = [
+    { key: "paymentDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.paymentDate)}</span> },
     {
-      key: "paymentReference",
-      label: "Payment Reference",
-      sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
-      render: (payment) => (
-        <span className="text-sm font-semibold text-slate-900 truncate">{payment.paymentReference || "N/A"}</span>
-      ),
-    },
-    {
-      key: "vendorName",
+      key: "vendor",
       label: "Vendor",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
-      render: (payment) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-sm font-semibold text-cyan-700">
-              {payment.vendorName ? payment.vendorName.charAt(0).toUpperCase() : "V"}
-            </span>
-          </div>
-          <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
-            {payment.vendorName || "Unknown Vendor"}
-          </span>
-        </div>
-      ),
+      sortValueGetter: (row) => row.vendor?.name ?? "",
+      filterValueGetter: (row) => row.vendor?.name ?? "",
+      render: (row) => <span className="text-sm font-medium text-slate-800">{row.vendor?.name ?? "—"}</span>,
     },
     {
-      key: "invoiceNumber",
-      label: "Invoice",
+      key: "invoice",
+      label: "Bill",
       sortable: true,
-      headerClassName: "w-[13%] text-left",
-      className: "w-[13%]",
-      render: (payment) => (
-        <span className="text-sm text-slate-600 truncate">{payment.invoiceNumber || "N/A"}</span>
-      ),
+      sortValueGetter: (row) => row.invoice?.invoiceNumber ?? "",
+      filterValueGetter: (row) => row.invoice?.invoiceNumber ?? "",
+      render: (row) => <span className="text-sm text-slate-700">{row.invoice?.invoiceNumber ?? "—"}</span>,
     },
+    { key: "paymentMethod", label: "Method", sortable: true, render: (row) => <span className="text-sm text-slate-600">{paymentMethodLabel(row.paymentMethod)}</span> },
+    { key: "paymentReference", label: "Reference", sortable: true, render: (row) => <span className="text-sm text-slate-600">{row.paymentReference || "—"}</span> },
     {
       key: "amountPaid",
-      label: "Amount Paid",
+      label: "Amount",
       sortable: true,
-      headerClassName: "w-[12%] text-right",
-      className: "w-[12%] text-right",
-      sortValueGetter: (payment) => Number(payment.amountPaid || 0),
-      render: (payment) => (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/40">
-          <CreditCardIcon className="h-3.5 w-3.5 text-emerald-600 opacity-80" />
-          {Number(payment.amountPaid || 0).toLocaleString()}
-        </span>
-      ),
-    },
-    {
-      key: "paymentMethod",
-      label: "Payment Method",
-      sortable: true,
-      headerClassName: "w-[14%] text-left",
-      className: "w-[14%]",
-      render: (payment) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200/40">
-          {payment.paymentMethod || "N/A"}
-        </span>
-      ),
-    },
-    {
-      key: "paymentDate",
-      label: "Payment Date",
-      sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
-      render: (payment) => (
-        <span className="text-sm text-slate-600 truncate">{payment.paymentDate || "N/A"}</span>
-      ),
+      headerClassName: "text-right",
+      className: "text-right",
+      sortValueGetter: (row) => Number(row.amountPaid || 0),
+      render: (row) => <span className="text-sm font-semibold text-slate-900">{money(row.amountPaid, row.invoice?.currency)}</span>,
     },
     {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[12%] text-right pr-4",
-      className: "w-[12%] text-right",
-      render: (payment) => (
-        <div className="flex items-center justify-end gap-0.5">
-          <button
-            type="button"
-            onClick={() => handleEdit(payment)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Payment"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(payment)}
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Payment"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex justify-end gap-0.5">
+          {canUpdate && (
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit payment">
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete payment">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -267,205 +244,102 @@ const VendorPayments: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Vendor Payments" description="Manage vendor payments" />
+      <PageMeta title="Vendor Payments" description="Payments made to vendors against their bills" />
       <PageBreadcrumb pageTitle="Vendor Payments" />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Vendor Payment" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Payments"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Methods Used"
-            value={stats.methodsUsed}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Total Paid"
-            value={stats.totalPaid.toLocaleString()}
-            gradient="from-blue-50 to-indigo-50"
-            borderColor="border-blue-100"
-            labelColor="text-blue-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredVendorPayments.length}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
+      <div className="w-full max-w-none space-y-4 py-4">
+        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Pay a bill" />}</div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label="Payments" value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label="Paid in total" value={money(stats.total)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label="Paid this month" value={money(stats.thisMonth)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
+          <StatsCard label="Still to pay" value={money(stats.toPay)} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by reference, vendor, or invoice..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title="Filter Vendor Payments"
-              buttonLabel="Filters"
-              label="Filter by Method"
-              value={activeFilter}
-              options={[
-                { label: "All Payments", value: "ALL" },
-                { label: "Cash", value: "CASH" },
-                { label: "Bank Transfer", value: "BANK_TRANSFER" },
-                { label: "Check", value: "CHECK" },
-                { label: "Credit Card", value: "CREDIT_CARD" },
-                { label: "Other", value: "OTHER" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {[{ id: "ALL", name: "All methods" }, ...PAYMENT_METHOD_OPTIONS].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setMethodFilter(option.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${methodFilter === option.id ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
+              {option.name}
+            </button>
+          ))}
         </div>
 
         <ReusableTable
-          data={filteredVendorPayments}
-          columns={tableColumns}
+          data={filtered}
+          columns={columns}
           pageSize={PAGE_SIZE}
-          defaultSortKey="paymentReference"
-          defaultSortOrder="asc"
-          loading={isLoading}
+          loading={loading}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-12">
-              <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No vendor payments found</p>
-              {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Create your first vendor payment
-                </button>
-              )}
+            <div className="flex flex-col items-center justify-center py-8">
+              <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm text-gray-500">No vendor payments yet</p>
             </div>
           }
         />
-
-        <PaginatedPopup
-          isOpen={showFormModal}
-          title={editingId !== null ? "Edit Vendor Payment" : "Create New Vendor Payment"}
-          subtitle={editingId !== null ? "Update your payment details" : "Add a new vendor payment"}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          submitLabel={editingId !== null ? "Update Payment" : "Create Payment"}
-          maxWidthClassName="max-w-2xl"
-          tabs={[
-            {
-              label: "Basic Info",
-              fields: [
-                <FloatingInput
-                  label="Payment Reference"
-                  name="paymentReference"
-                  value={form.paymentReference || ""}
-                  onChange={handleChange}
-                  required
-                />,
-                <FloatingInput
-                  label="Vendor Name"
-                  name="vendorName"
-                  value={form.vendorName || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Invoice Number"
-                  name="invoiceNumber"
-                  value={form.invoiceNumber || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Amount Paid"
-                  name="amountPaid"
-                  type="number"
-                  value={form.amountPaid ?? ""}
-                  onChange={handleChange}
-                />,
-                <FloatingSelect
-                  label="Payment Method"
-                  name="paymentMethod"
-                  value={form.paymentMethod || ""}
-                  onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                  options={["CASH", "BANK_TRANSFER", "CHECK", "CREDIT_CARD", "OTHER"].map((m) => ({ id: m, name: m }))}
-                />,
-                <FloatingInput
-                  label="Payment Date"
-                  name="paymentDate"
-                  type="date"
-                  value={form.paymentDate || ""}
-                  onChange={handleChange}
-                />,
-                <FloatingInput
-                  label="Paid By"
-                  name="paidBy"
-                  value={form.paidBy || ""}
-                  onChange={handleChange}
-                />,
-              ],
-            },
-          ]}
-        />
-
-        <DynamicPopup
-          isPopupOpen={showDeletePopup}
-          setIsPopupOpen={setShowDeletePopup}
-          icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-          iconBg="bg-red-100"
-          innerText="Delete Vendor Payment"
-          subText={
-            paymentToDelete
-              ? `Are you sure you want to delete payment "${paymentToDelete.paymentReference || "this payment"}"? This action cannot be undone.`
-              : "Are you sure you want to delete this vendor payment?"
-          }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          onConfirm={confirmDelete}
-          onCancel={() => setPaymentToDelete(null)}
-          confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
-        />
-
-        <style>{`
-          @keyframes slide-up {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-slide-up {
-            animation: slide-up 0.25s ease-out;
-          }
-        `}</style>
       </div>
+
+      <PaginatedPopup
+        isOpen={formOpen}
+        title={editing ? "Edit vendor payment" : "Pay a bill"}
+        subtitle="The payment settles the bill's payable"
+        onClose={() => setFormOpen(false)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={save} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingSelect1
+                label="Vendor"
+                name="vendorId"
+                required
+                value={form.vendorId}
+                options={vendors.map((vendor) => ({ id: String(vendor.id), name: vendor.name }))}
+                onChange={(event) => setForm((current) => ({ ...current, vendorId: event.target.value, invoiceId: "" }))}
+              />
+              <FloatingSelect1
+                label="Bill"
+                name="invoiceId"
+                required
+                value={form.invoiceId}
+                options={billOptions.map(({ row, available }) => ({
+                  id: String(row.purchaseInvoice?.id),
+                  name: `${row.purchaseInvoice?.invoiceNumber ?? row.id} · ${money(available, row.purchaseInvoice?.currency)} due ${dateLabel(row.dueDate)}`,
+                }))}
+                onChange={(event) => chooseBill(event.target.value)}
+              />
+              {form.vendorId && billOptions.length === 0 && (
+                <p className="text-xs text-amber-700 sm:col-span-2">This vendor has no unpaid bills. Add the bill under Purchase Invoices first.</p>
+              )}
+              <FloatingInput label="Amount paid" name="amountPaid" type="number" required value={form.amountPaid}
+                onChange={(event) => setForm((current) => ({ ...current, amountPaid: event.target.value }))} />
+              <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
+                onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
+              <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
+              <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
+                onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
+              <FloatingInput label="Paid by" name="paidBy" value={form.paidBy}
+                onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record payment"} busy={busy} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleting)}
+        title="Delete payment"
+        message={`Delete the ${money(deleting?.amountPaid)} payment to ${deleting?.vendor?.name ?? "the vendor"}? Bill ${deleting?.invoice?.invoiceNumber ?? ""} will show that amount as due again.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
     </>
   );
 };

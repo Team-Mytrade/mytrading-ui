@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import {
   ArrowUpIcon,
   ArrowDownIcon,
@@ -15,7 +15,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import noDataImage from "../../images/no_data.png";
 import RecordDetailDrawer from "./RecordDetailDrawer";
 import TableExportModal from "./TableExportModal";
-import "./Table.css";
+import "../../styles/Table.css";
 
 export interface ColumnDef<T> {
   key: string;
@@ -25,6 +25,8 @@ export interface ColumnDef<T> {
   sortValueGetter?: (row: T) => string | number | null | undefined;
   className?: string;
   headerClassName?: string;
+  /** Full value shown in the shared styled tooltip for an otherwise truncated cell. */
+  tooltipContent?: (row: T, value: unknown) => React.ReactNode;
   /** Set false to omit this column from the toolbar-triggered filter row. */
   filterable?: boolean;
   /** Fixed enum values. When provided, this column renders a select instead of a text search. */
@@ -44,6 +46,8 @@ export interface ColumnDef<T> {
    * duplicate another field's value there.
    */
   excludeFromDetails?: boolean;
+  /** Plain-text value used by Export (PDF / Excel), e.g. "₹25,000.00" or "13 Oct 2026". */
+  exportValueGetter?: (row: T) => string | number | null | undefined;
 }
 
 export interface ReusableTableProps<T extends { id?: number | string }> {
@@ -68,6 +72,19 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
    * database id that isn't meant to be customer-facing.
    */
   hiddenDetailKeys?: string[];
+  /**
+   * Renders custom action controls (e.g. an Edit button) at the top of the
+   * row-details drawer for the currently selected row.
+   */
+  rowDetailsActions?: (row: T) => React.ReactNode;
+  /**
+   * Set true to temporarily close/hide the row-details drawer without
+   * losing the currently selected row — e.g. while an edit popup triggered
+   * from `rowDetailsActions` is open, so the popup isn't fighting the
+   * drawer's own stacking context. The drawer reappears (with fresh data,
+   * since `data` is re-synced automatically) once this goes back to false.
+   */
+  suspendRowDetails?: boolean;
   loading?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
@@ -81,8 +98,68 @@ function getCellValue<T>(row: T, key: string): unknown {
   return (row as Record<string, unknown>)[key];
 }
 
+/* ------------------------------------------------------------------ */
+/* Display formats used by the table, the details drawer and export     */
+/*   Date:      13 Oct 2026                                              */
+/*   Date-time: 13 Oct 2026, 03:45 PM (12-hour)                          */
+/*   Money:     ₹25,000.00                                               */
+/* ------------------------------------------------------------------ */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+export function formatDisplayDate(value: string): string {
+  // Date-only values are read as local dates, so 2026-10-13 never shifts to the 12th.
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+export function formatDisplayDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).replace(/\b(am|pm)\b/i, (part) => part.toUpperCase());
+}
+
+export function formatMoney(value: number): string {
+  return value.toLocaleString("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
+}
+
+/** Turns a date / date-time string into the display format; other text is returned unchanged. */
+export function formatDisplayText(text: string): string {
+  if (DATE_TIME.test(text)) return formatDisplayDateTime(text);
+  if (DATE_ONLY.test(text)) return formatDisplayDate(text);
+  return text;
+}
+
+/**
+ * True/false shown as a meaningful word for the field, never a bare "Yes"/"No".
+ * e.g. active → Active/Inactive, batchTracking → Tracked/Not tracked,
+ * stockItem → Stock item/Not a stock item.
+ */
+export function formatBooleanFor(fieldName: string, value: boolean): string {
+  const key = fieldName.toLowerCase();
+  if (key === "active" || key === "enabled" || key === "isactive") return value ? "Active" : "Inactive";
+  if (key.endsWith("tracking")) return value ? "Tracked" : "Not tracked";
+  if (key.endsWith("item")) {
+    const label = fieldName.replace(/([A-Z])/g, " $1").trim().toLowerCase();
+    return value ? label.charAt(0).toUpperCase() + label.slice(1) : `Not a ${label}`;
+  }
+  if (/approved/.test(key)) return value ? "Approved" : "Not approved";
+  if (/verified/.test(key)) return value ? "Verified" : "Not verified";
+  if (/required|mandatory/.test(key)) return value ? "Required" : "Optional";
+  return value ? "Enabled" : "Disabled";
+}
+
 function renderDefaultCell(value: unknown): React.ReactNode {
-  const text = String(value ?? "--");
+  const text = typeof value === "string" ? formatDisplayText(value) : String(value ?? "--");
   return (
     <span className="block max-w-full truncate" title={text}>
       {text}
@@ -106,8 +183,14 @@ function getCellTitle(value: unknown): string | undefined {
  * an array like `items[]`).
  */
 function isIdLikeKey(key: string): boolean {
-  return /^id$/i.test(key) || /Id$/.test(key);
+  return /^id$/i.test(key) || /Id$/.test(key) || /Ids$/.test(key);
 }
+
+/** Technical fields that mean nothing to a user (file paths, audit columns, tenant). */
+const TECHNICAL_KEYS = new Set([
+  "tenantId", "tenant", "imagePath", "imageType", "imageName",
+  "createdBy", "updatedBy", "version", "deleted", "password",
+]);
 
 /**
  * Field-name based check used only to decide whether a nested numeric value
@@ -115,7 +198,7 @@ function isIdLikeKey(key: string): boolean {
  * number or an actual currency amount. This intentionally excludes rates,
  * percentages and quantities, which are numeric but not money.
  */
-function isMoneyLikeKey(key: string): boolean {
+export function isMoneyLikeKey(key: string): boolean {
   if (/percentage|percent|rate$|quantity|qty/i.test(key)) return false;
   if (isIdLikeKey(key)) return false;
   return /amount|price|total|cost|discount|tax/i.test(key);
@@ -132,29 +215,11 @@ function formatDetailLabel(key: string): string {
     .toUpperCase();
 }
 
-function formatPrimitiveValue(v: unknown): string {
+function formatPrimitiveValue(v: unknown, fieldName = ""): string {
   if (v == null || v === "") return "--";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  if (typeof v === "number") return v.toLocaleString();
-  const str = String(v);
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(str)) {
-    try {
-      const d = new Date(str);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return str;
+  if (typeof v === "boolean") return formatBooleanFor(fieldName, v);
+  if (typeof v === "number") return isMoneyLikeKey(fieldName) ? formatMoney(v) : v.toLocaleString("en-IN");
+  return formatDisplayText(String(v));
 }
 
 function isAddressObject(rec: Record<string, unknown>): boolean {
@@ -220,7 +285,7 @@ function getItemTitle(
     if (name) return name;
   }
 
-  if (!keyName) return `Item #${idx + 1}`;
+  if (!keyName) return `Item ${idx + 1}`;
   const clean = keyName
     .replace(/([A-Z])/g, " $1")
     .replace(/[_-]+/g, " ")
@@ -231,7 +296,7 @@ function getItemTitle(
     singular = singular.slice(0, -1);
   }
   const cap = singular.charAt(0).toUpperCase() + singular.slice(1);
-  return `${cap} #${idx + 1}`;
+  return `${cap} ${idx + 1}`;
 }
 
 function renderDetailValue(
@@ -242,9 +307,9 @@ function renderDetailValue(
   if (React.isValidElement(value)) return value;
   if (value == null || value === "")
     return <span className="text-gray-400">--</span>;
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "number") return value.toLocaleString();
-  if (typeof value === "string") return formatPrimitiveValue(value);
+  if (typeof value === "boolean") return formatBooleanFor(fieldName, value);
+  if (typeof value === "number") return formatPrimitiveValue(value, fieldName);
+  if (typeof value === "string") return formatPrimitiveValue(value, fieldName);
 
   if (depth > 6)
     return (
@@ -271,7 +336,7 @@ function renderDetailValue(
               key={i}
               className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
             >
-              {formatPrimitiveValue(v)}
+              {formatPrimitiveValue(v, fieldName)}
             </span>
           ))}
         </div>
@@ -303,8 +368,8 @@ function renderDetailValue(
                     <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
                       {title}
                     </span>
-                    <span className="text-[10px] font-mono text-gray-400">
-                      #{idx + 1}
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      {idx + 1} of {value.length}
                     </span>
                   </div>
                 )}
@@ -337,7 +402,8 @@ function renderDetailValue(
         v !== undefined &&
         v !== "" &&
         typeof v !== "function" &&
-        !isIdLikeKey(k),
+        !isIdLikeKey(k) &&
+        !TECHNICAL_KEYS.has(k),
     );
 
     if (entries.length === 0) return <span className="text-gray-400">--</span>;
@@ -362,9 +428,7 @@ function renderDetailValue(
                   {formatDetailLabel(k)}
                 </span>
                 <span className="font-semibold text-cyan-700 dark:text-cyan-400 break-words sm:text-right shrink-0">
-                  {typeof v === "number" && isMoneyLikeKey(k)
-                    ? `₹${v.toLocaleString()}`
-                    : formatPrimitiveValue(v)}
+                  {formatPrimitiveValue(v, k)}
                 </span>
               </div>
             ))}
@@ -390,7 +454,7 @@ function renderDetailValue(
     );
   }
 
-  return formatPrimitiveValue(value);
+  return formatPrimitiveValue(value, fieldName);
 }
 
 function getDetailEntries<T>(
@@ -411,6 +475,7 @@ function getDetailEntries<T>(
     .filter((key) => key !== "actions" && typeof record[key] !== "function")
     .filter((key) => !hiddenDetailKeys.includes(key))
     .filter((key) => !isIdLikeKey(key))
+    .filter((key) => !TECHNICAL_KEYS.has(key))
     .filter((key) => {
       const column = columns.find((item) => item.key === key);
       return !column?.excludeFromDetails;
@@ -544,6 +609,8 @@ export function ReusableTable<T extends { id?: number | string }>({
   rowDetailsTitle = "Row Details",
   rowDetailsSubtitle = "Read-only record details",
   hiddenDetailKeys = [],
+  rowDetailsActions,
+  suspendRowDetails = false,
   loading = false,
   emptyState,
   className = "",
@@ -568,8 +635,10 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => columns.map((column) => column.key));
   const tableShellRef = useRef<HTMLDivElement | null>(null);
   const tableRootRef = useRef<HTMLDivElement | null>(null);
+  const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean } | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [hasRowActions, setHasRowActions] = useState(true);
   const [isToolbarRefreshing, setIsToolbarRefreshing] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(
     () => window.innerWidth >= 1024,
@@ -580,6 +649,50 @@ export function ReusableTable<T extends { id?: number | string }>({
     window.addEventListener("resize", updateScreenSize);
     return () => window.removeEventListener("resize", updateScreenSize);
   }, []);
+
+  useEffect(() => {
+    const root = tableRootRef.current;
+    if (!root) return undefined;
+    const promoteNativeTitles = (scope: ParentNode) => {
+      const elements = [
+        ...(scope instanceof HTMLElement && scope.matches("[title]") ? [scope] : []),
+        ...scope.querySelectorAll<HTMLElement>("[title]"),
+      ];
+      elements.forEach((element) => {
+        const title = element.getAttribute("title");
+        if (title) element.dataset.tableTooltip = title;
+        element.removeAttribute("title");
+      });
+    };
+    promoteNativeTitles(root);
+    const observer = new MutationObserver((records) => records.forEach((record) => {
+      if (record.type === "attributes" && record.target instanceof HTMLElement) promoteNativeTitles(record.target);
+      record.addedNodes.forEach((node) => { if (node instanceof HTMLElement) promoteNativeTitles(node); });
+    }));
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["title"] });
+    return () => observer.disconnect();
+  }, [columns, data]);
+
+  const showTableTooltip = (event: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-table-tooltip]");
+    if (!target || !tableRootRef.current?.contains(target)) return;
+    const bounds = target.getBoundingClientRect();
+    const alignRight = window.innerWidth - bounds.right < 260;
+    setActiveTableTooltip({
+      content: target.dataset.tableTooltip || "",
+      left: alignRight ? bounds.right : bounds.left,
+      top: bounds.top - 8,
+      alignRight,
+    });
+  };
+
+  const hideTableTooltip = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-table-tooltip]");
+    const related = event.relatedTarget instanceof HTMLElement
+      ? event.relatedTarget.closest<HTMLElement>("[data-table-tooltip]")
+      : null;
+    if (target !== related) setActiveTableTooltip(null);
+  };
 
   useEffect(() => {
     if (!isDrawerResizing) return;
@@ -662,6 +775,26 @@ export function ReusableTable<T extends { id?: number | string }>({
     };
   }, []);
 
+  // Keeps the drawer's row data fresh — e.g. after saving an edit made via
+  // rowDetailsActions, the row in `data` changes, and the drawer (which may
+  // currently be suspended, or about to reappear) should show the update
+  // rather than the stale object captured when the row was first clicked.
+  useEffect(() => {
+    setSelectedRow((current) => {
+      if (!current || current.id === undefined || current.id === null) return current;
+      const fresh = data.find((row) => row.id === current.id);
+      return fresh && fresh !== current ? fresh : current;
+    });
+  }, [data]);
+
+  // Pages leave out row actions the user's permissions don't allow; when no row has any left
+  // (e.g. a view-only user), the Actions column is hidden. Its cells stay rendered so this re-checks.
+  useLayoutEffect(() => {
+    const cells = tableRootRef.current?.querySelectorAll("tbody td.common-data-table__sticky-actions");
+    if (!cells?.length) return;
+    setHasRowActions([...cells].some((cell) => cell.querySelector("button, a, input, select, [role='button']")));
+  });
+
   const tableWorkspaceLeft = isLargeScreen ? 60 : 0;
 
   const getFilterOptions = (column: ColumnDef<T>) => {
@@ -673,6 +806,16 @@ export function ReusableTable<T extends { id?: number | string }>({
   };
   const visibleColumns = columns.filter((column) => visibleColumnKeys.includes(column.key));
   const isLoading = loading || isToolbarRefreshing;
+  const isActionsColumn = (column: ColumnDef<T>) => column.key === "actions";
+  const hidesActions = !hasRowActions && visibleColumns.some(isActionsColumn);
+  // Last column on screen gets room for the full-screen button
+  const lastShownColumnKey = visibleColumns.filter((column) => !(hidesActions && isActionsColumn(column))).slice(-1)[0]?.key;
+  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped
+  const tableMinWidth = Math.max(680, (visibleColumns.length - (hidesActions ? 1 : 0)) * 112);
+  const actionsHeaderClass = (column: ColumnDef<T>) =>
+    isActionsColumn(column)
+      ? `common-data-table__sticky-actions ${/(^|\s)!?w-/.test(column.headerClassName ?? "") ? "" : "w-[132px]"}`
+      : "";
 
   const filtered = useMemo(() => data.filter((row) => {
     if (!rowMatchesSearch(row, search, searchFields)) return false;
@@ -829,6 +972,10 @@ export function ReusableTable<T extends { id?: number | string }>({
   return (
     <div
       ref={tableRootRef}
+      onMouseOver={showTableTooltip}
+      onMouseOut={hideTableTooltip}
+      onFocus={showTableTooltip}
+      onBlur={() => setActiveTableTooltip(null)}
       data-reusable-table="true"
       style={
         isTableFullscreen ? { left: `${tableWorkspaceLeft}px` } : undefined
@@ -887,6 +1034,7 @@ export function ReusableTable<T extends { id?: number | string }>({
           ref={tableShellRef}
           className={[
             "common-data-table relative rounded-lg border border-gray-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900",
+            hidesActions ? "common-data-table--no-row-actions" : "",
             isTableFullscreen
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
               : "overflow-visible",
@@ -931,10 +1079,13 @@ export function ReusableTable<T extends { id?: number | string }>({
                 : "relative overflow-x-auto overflow-y-visible"
             }
           >
-            <table className="min-w-[680px] table-fixed divide-y divide-gray-200 sm:min-w-full dark:divide-gray-800">
+            <table
+              className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800"
+              style={{ minWidth: tableMinWidth }}
+            >
               <thead className="bg-gray-50 dark:bg-gray-800/70">
                 <tr>
-                  {visibleColumns.map((col, index) => (
+                  {visibleColumns.map((col) => (
                     <th
                       key={col.key}
                       onClick={() => col.sortable && handleSort(col.key)}
@@ -949,7 +1100,8 @@ export function ReusableTable<T extends { id?: number | string }>({
                           ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           : "",
                         col.headerClassName ?? "",
-                        index === visibleColumns.length - 1 ? "!pr-12" : "",
+                        actionsHeaderClass(col),
+                        col.key === lastShownColumnKey ? "!pr-12" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -957,7 +1109,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <span
                         className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${align === "center" ? "justify-center w-full" : align === "right" ? "justify-end w-full" : ""}`}
                       >
-                        <span className="truncate" title={col.label}>
+                        <span className="truncate" data-table-tooltip={col.label}>
                           {col.label}
                         </span>
                         {col.sortable &&
@@ -980,7 +1132,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       const options = getFilterOptions(column);
                       const canFilter = column.filterable !== false && column.key !== "actions";
                       return (
-                        <th key={`${column.key}-filter`} className="px-2 py-2">
+                        <th key={`${column.key}-filter`} className={`px-2 py-2 ${isActionsColumn(column) ? "common-data-table__sticky-actions" : ""}`}>
                           {canFilter && options.length > 0 ? (
                             <select value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} aria-label={`Filter ${column.label}`}>
                               <option value="">All</option>
@@ -1000,7 +1152,7 @@ export function ReusableTable<T extends { id?: number | string }>({
               <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-800 dark:bg-gray-900">
                 {isLoading
                   ? Array.from({ length: skeletonRowCount }).map((_, i) => (
-                      <SkeletonRow key={i} cols={visibleColumns.length} />
+                      <SkeletonRow key={i} cols={visibleColumns.length - (hidesActions ? 1 : 0)} />
                     ))
                   : paginated.map((row, idx) => (
                       <tr
@@ -1019,11 +1171,18 @@ export function ReusableTable<T extends { id?: number | string }>({
                         {visibleColumns.map((col) =>
                           (() => {
                             const value = getCellValue(row, col.key);
+                            const tooltipContent = col.tooltipContent?.(row, value) || (col.render ? getCellTitle(value) : undefined);
+                            const cellContent = col.render
+                              ? col.render(row, value)
+                              : renderDefaultCell(value);
                             return (
                               <td
                                 key={col.key}
                                 className={[
-                                  "px-3 py-2 text-sm text-gray-700 dark:text-gray-300 overflow-hidden text-ellipsis",
+                                  "px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                                  isActionsColumn(col)
+                                    ? "common-data-table__sticky-actions whitespace-nowrap"
+                                    : "overflow-hidden text-ellipsis",
                                   align === "center"
                                     ? "text-center"
                                     : align === "right"
@@ -1036,13 +1195,9 @@ export function ReusableTable<T extends { id?: number | string }>({
                               >
                                 <div
                                   className={`min-w-0 max-w-full ${align === "center" ? "flex justify-center text-center items-center" : align === "right" ? "flex justify-end text-right items-center" : ""}`}
-                                  title={
-                                    col.render ? getCellTitle(value) : undefined
-                                  }
+                                  data-table-tooltip={tooltipContent}
                                 >
-                                  {col.render
-                                    ? col.render(row, value)
-                                    : renderDefaultCell(value)}
+                                  {cellContent}
                                 </div>
                               </td>
                             );
@@ -1130,11 +1285,23 @@ export function ReusableTable<T extends { id?: number | string }>({
         </div>
       )}
 
+      {activeTableTooltip?.content && (
+        <div
+          className={`common-data-table__tooltip-float ${activeTableTooltip.alignRight ? "common-data-table__tooltip-float--align-right" : ""}`}
+          role="tooltip"
+          style={{ left: activeTableTooltip.left, top: activeTableTooltip.top }}
+        >
+          {activeTableTooltip.content}
+        </div>
+      )}
+
       <RecordDetailDrawer
-        isOpen={Boolean(selectedRow)}
+        isOpen={Boolean(selectedRow) && !suspendRowDetails}
         title={selectedRowDetailsTitle}
         subtitle={rowDetailsSubtitle}
         onClose={() => setSelectedRow(null)}
+        // Edit (and other actions) sit in the header, right next to the close button.
+        headerActions={selectedRow && rowDetailsActions ? rowDetailsActions(selectedRow) : undefined}
         drawerWidth={drawerWidth}
         isResizing={isDrawerResizing}
         resizeHandle={<button type="button" className="record-detail-drawer__resize-handle" onPointerDown={(event) => { event.preventDefault(); setIsDrawerResizing(true); }} aria-label="Resize details panel" />}

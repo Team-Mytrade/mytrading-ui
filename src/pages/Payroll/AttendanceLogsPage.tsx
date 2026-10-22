@@ -34,6 +34,8 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { Refresh } from '@mui/icons-material';
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type AttendanceLog = {
     id: number;
@@ -53,6 +55,7 @@ const API_URL = "/v1/api/payroll/attendance-logs";
 const PAGE_SIZE = 10;
 
 const AttendanceLogsPage: React.FC = () => {
+  const { canCreate, canDelete, canExport, canUpdate } = usePermissions();
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
@@ -72,7 +75,7 @@ const AttendanceLogsPage: React.FC = () => {
 
     const [form, setForm] = useState<Omit<AttendanceLog, 'id'>>({
         employeeId: '',
-        date: new Date().toISOString().split('T')[0],
+        date: todayIso(),
         checkIn: '09:00',
         checkOut: '18:00',
         status: 'Present',
@@ -135,7 +138,7 @@ const AttendanceLogsPage: React.FC = () => {
         setEditingLog(null);
         setForm({
             employeeId: '',
-            date: new Date().toISOString().split('T')[0],
+            date: todayIso(),
             checkIn: '09:00',
             checkOut: '18:00',
             status: 'Present',
@@ -183,7 +186,7 @@ const AttendanceLogsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Attendance_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Attendance_Report_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -201,7 +204,7 @@ const AttendanceLogsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Attendance Logs");
-        XLSX.writeFile(wb, `Attendance_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Attendance_Report_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
@@ -374,13 +377,13 @@ const AttendanceLogsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
-                            <button
+                            {canExport && (<button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                                 disabled={logs.length === 0}
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                            </button>)}
 
                             {showExportMenu && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
@@ -431,13 +434,13 @@ const AttendanceLogsPage: React.FC = () => {
                         </button>
 
                         {/* Add Log Button */}
-                        <button
+                        {canCreate && (<button
                             onClick={() => setShowForm(true)}
                             className="px-4 !mb-0 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2"
                         >
                             <PlusIcon className="h-5 w-5" />
                             <span className="hidden sm:inline">Add Log</span>
-                        </button>
+                        </button>)}
                     </div>
                 </div>
 
@@ -622,7 +625,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                             </button>
                                                         )}
                                                     </Menu.Item>
-                                                    <Menu.Item>
+                                                    {canUpdate && (<Menu.Item>
                                                         {({ active }) => (
                                                             <button
                                                                 onClick={() => openEdit(log)}
@@ -632,8 +635,8 @@ const AttendanceLogsPage: React.FC = () => {
                                                                 Edit
                                                             </button>
                                                         )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
+                                                    </Menu.Item>)}
+                                                    {canDelete && (<Menu.Item>
                                                         {({ active }) => (
                                                             <button
                                                                 onClick={() => handleDelete(log.id, log.employeeId, log.date)}
@@ -643,7 +646,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                                 Delete
                                                             </button>
                                                         )}
-                                                    </Menu.Item>
+                                                    </Menu.Item>)}
                                                 </Menu.Items>
                                             </Menu>
                                         </td>
@@ -842,7 +845,7 @@ const AttendanceLogsPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
+                                    {canUpdate && (<button
                                         type="button"
                                         onClick={() => {
                                             setViewModalOpen(false);
@@ -852,7 +855,7 @@ const AttendanceLogsPage: React.FC = () => {
                                     >
                                         <PencilSquareIcon className="h-4 w-4 mr-2" />
                                         Edit
-                                    </button>
+                                    </button>)}
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}

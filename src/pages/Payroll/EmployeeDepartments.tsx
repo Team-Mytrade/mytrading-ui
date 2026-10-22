@@ -26,6 +26,7 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { usePermissions } from "../../access/usePermissions";
 
 const API_URL = "/v1/api/payroll/department";
 
@@ -40,6 +41,7 @@ interface Department {
 }
 
 const EmployeeDepartmentsPage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -270,20 +272,20 @@ const EmployeeDepartmentsPage: React.FC = () => {
       className: "text-right w-32",
       render: (row) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             onClick={() => openEditModal(row._raw || { id: row.numericId, name: row.name })}
             className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-[#222222] hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] p-1.5 rounded-md transition-colors cursor-pointer"
             title="Edit Department"
           >
             <PencilSquareIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => handleDelete(row.numericId, row.name)}
             className="text-red-600 dark:text-rose-400 hover:text-red-900 dark:hover:text-rose-300 bg-red-50 dark:bg-[#222222] hover:bg-red-100 dark:hover:bg-[#2a2a2a] p-1.5 rounded-md transition-colors cursor-pointer"
             title="Delete Department"
           >
             <TrashIcon className="h-3.5 w-3.5" />
-          </button>
+          </button>)}
         </div>
       )
     }
@@ -321,12 +323,12 @@ const EmployeeDepartmentsPage: React.FC = () => {
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-3" />
               <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No departments found</p>
-              <button
+              {canCreate && (<button
                 onClick={openCreateModal}
                 className="mt-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 text-xs font-medium cursor-pointer"
               >
                 Create your first department
-              </button>
+              </button>)}
             </div>
           }
         />

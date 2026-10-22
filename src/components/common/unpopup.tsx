@@ -21,7 +21,10 @@ type PaginatedPopupProps = {
   maxWidthClassName?: string;
   itemsPerPage?: number;
   fields?: React.ReactNode[];
+  sidePanel?: React.ReactNode;
   tabs?: PaginatedPopupTab[];
+  /** Replaces the standard paginated field form, for compact workflow-specific forms. */
+  content?: React.ReactNode;
 };
 
 const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
@@ -38,7 +41,9 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
   maxWidthClassName = "max-w-3xl",
   itemsPerPage = 6,
   fields = [],
+  sidePanel,
   tabs,
+  content,
 }) => {
   const [page, setPage] = useState(0);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -134,12 +139,15 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
           </div>
         )}
 
-        <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="flex flex-col">
+        {content || <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="flex flex-col">
           <div className="px-4 py-4 sm:px-5">
-            <div className="grid grid-cols-1 gap-3 pt-1 md:grid-cols-2">
-              {currentPageFields.map((field, index) => (
-                <React.Fragment key={index}>{field}</React.Fragment>
-              ))}
+            <div className={sidePanel ? "grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]" : "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2"}>
+              <div className={sidePanel ? "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2" : "contents"}>
+                {currentPageFields.map((field, index) => (
+                  <React.Fragment key={index}>{field}</React.Fragment>
+                ))}
+              </div>
+              {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">{sidePanel}</aside>}
             </div>
           </div>
 
@@ -177,7 +185,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
               )}
             </div>
           </div>
-        </form>
+        </form>}
       </div>
     </div>,
     document.body

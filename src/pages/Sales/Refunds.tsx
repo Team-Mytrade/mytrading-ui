@@ -22,6 +22,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type Refund = {
   id: number;
@@ -64,22 +65,6 @@ type PaymentMethod =
   | "CHEQUE"
   | "UPI";
 
-type ReturnDetail = {
-  id: number;
-  requestDate: string;
-  status: string;
-  reason: string;
-  salesOrderId: number;
-  remarks?: string;
-  items?: Array<{
-    id?: number;
-    salesOrderItemId: number;
-    refundAmount: number;
-    returnQuantity: number;
-    remarks?: string;
-  }>;
-};
-
 const API_URL = "/v1/api/sales/refunds";
 const RETURNS_API_URL = "/v1/api/sales/returns";
 const PAGE_SIZE = 10;
@@ -97,7 +82,7 @@ const REFUNDABLE_RETURN_STATUSES = ["APPROVED"];
 
 const emptyForm: RefundForm = {
   amount: "",
-  refundDate: new Date().toISOString().slice(0, 16),
+  refundDate: toLocalDateTimeInput(),
   status: "PENDING",
   paymentMethod: "BANK_TRANSFER",
   returnRequestId: "",
@@ -116,8 +101,9 @@ function toNumber(value: string) {
   return Number(value || 0);
 }
 
+/** The backend keeps the refund time as local wall-clock time (no zone), so send it as entered, not as UTC. */
 function toApiDateTime(value: string) {
-  return value ? new Date(value).toISOString() : new Date().toISOString();
+  return `${toLocalDateTimeInput(value || undefined)}:00`;
 }
 
 function toLocalDateTimeInput(value?: string) {
@@ -150,6 +136,7 @@ function money(value: number | string | undefined) {
 }
 
 const Refunds: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () =>
@@ -204,35 +191,6 @@ const Refunds: React.FC = () => {
       setReturnRequests(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load return requests", getErrorMessage(error, "Please try again."));
-    }
-  };
-
-  const markReturnAsRefunded = async (returnRequestId: number) => {
-    if (!Number.isFinite(returnRequestId) || returnRequestId <= 0) return;
-    try {
-      const detail = await axios.get<ReturnDetail>(
-        `${RETURNS_API_URL}/${returnRequestId}`,
-        { headers }
-      );
-
-      const body = {
-        ...detail.data,
-        status: "REFUNDED",
-        items: (detail.data.items || []).map((item) => ({
-          id: item.id ?? 0,
-          salesOrderItemId: item.salesOrderItemId,
-          refundAmount: Number(item.refundAmount || 0),
-          returnQuantity: Number(item.returnQuantity || 0),
-          remarks: item.remarks ?? "",
-        })),
-      };
-
-      await axios.put(`${RETURNS_API_URL}/${returnRequestId}`, body, { headers });
-    } catch {
-      ToasterService.error(
-        "Refund saved, return not updated",
-        "The refund was created but the return request could not be marked REFUNDED. Open Return Requests and update it manually."
-      );
     }
   };
 
@@ -293,10 +251,8 @@ const Refunds: React.FC = () => {
         returnRequestId: res.data.returnRequestId ?? toNumber(form.returnRequestId),
       });
 
-      if (!editingId) {
-        await markReturnAsRefunded(toNumber(form.returnRequestId));
-        void fetchReturnRequests();
-      }
+      // The backend completes the return once its refund is PROCESSED; refresh to show that
+      void fetchReturnRequests();
 
       ToasterService.success(editingId ? "Refund updated" : "Refund created");
       closeForm();
@@ -430,7 +386,11 @@ const Refunds: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (refund) => (
+      render: (refund) => !canUpdate ? (
+        <span className="inline-flex h-9 w-[112px] items-center rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700">
+          {refund.status || "--"}
+        </span>
+      ) : (
         <select
           value={refund.status || ""}
           onChange={(e) => {
@@ -458,22 +418,22 @@ const Refunds: React.FC = () => {
       className: "text-right",
       render: (refund) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(refund)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteRefund(refund)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -543,7 +503,7 @@ const Refunds: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Refund" : "Create Refund"}
-        subtitle="Enter refund details from the API schema"
+        subtitle="Enter the refund details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

@@ -22,6 +22,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type SalesChannel = {
   id: number;
@@ -97,6 +98,7 @@ const badgeClass = (type: string) => {
 };
 
 const SalesChannels: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const scopedChannelId = Number(searchParams.get("channelId")) || null;
@@ -273,22 +275,22 @@ const SalesChannels: React.FC = () => {
       className: "text-right",
       render: (channel) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(channel)}
             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteChannel(channel)}
             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -372,7 +374,7 @@ const SalesChannels: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Sales Channel" : "Create Sales Channel"}
-        subtitle="Enter sales channel details from the API schema"
+        subtitle="Enter the sales channel details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}

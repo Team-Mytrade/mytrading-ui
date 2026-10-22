@@ -165,6 +165,44 @@ const floatingStyles = `
     color: #f9fafb;
   }
 
+  /* Single date picker */
+  .floating-datepicker-wrapper { display: block; width: 100%; }
+  .floating-datepicker-wrapper .react-datepicker__input-container { display: block; width: 100%; }
+  .floating-datepicker-wrapper .react-datepicker__close-icon { right: 36px; }
+  #floating-datepicker-portal .react-datepicker-popper,
+  .react-datepicker-popper { z-index: 100000 !important; }
+  .floating-range-picker .react-datepicker__month-dropdown-container select,
+  .floating-range-picker .react-datepicker__year-dropdown-container select {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 13px;
+    background: #ffffff;
+    color: #111827;
+  }
+  .dark .floating-range-picker .react-datepicker__month-dropdown-container select,
+  .dark .floating-range-picker .react-datepicker__year-dropdown-container select {
+    background: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+  .floating-range-picker .react-datepicker__day--selected {
+    background: #0891b2;
+    color: #ffffff;
+    border-radius: 9999px;
+  }
+  .floating-range-picker .react-datepicker__today-button {
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
+    color: #0e7490;
+  }
+  .dark .floating-range-picker .react-datepicker__today-button {
+    background: #111827 !important;
+    border-top-color: #374151 !important;
+    color: #22d3ee !important;
+  }
+  .dark .floating-datepicker-icon { color: #94a3b8 !important; }
+
   .floating-range-trigger {
     width: 100%;
     font-size: 16px;
@@ -615,6 +653,23 @@ export const FloatingTextarea: React.FC<FloatingTextareaProps> = ({
   );
 };
 
+/** "2026-10-13" → local Date (no time-zone shift), or null. */
+const parseIsoDate = (value: unknown): Date | null => {
+  const text = String(value ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const [year, month, day] = text.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/** Local Date → "2026-10-13" (what forms and APIs use). */
+const toIsoDate = (date: Date | null) => (date ? format(date, "yyyy-MM-dd") : "");
+
+/**
+ * Date field with a calendar. Shows the date as "13 Oct 2026" and has month and year
+ * dropdowns, but still gives the form "2026-10-13", so callers don't change:
+ * onChange receives an event-like object with target.value.
+ */
 export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
   label,
   value,
@@ -625,88 +680,90 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
   minDate,
   maxDate,
   className = '',
-  ...props
+  dateFormat = 'dd MMM yyyy',
+  disabled,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const selected = parseIsoDate(value);
+  const labelActive = open || Boolean(selected);
 
-  const styles = {
-    formGroup: {
-      position: 'relative' as const,
-      marginBottom: '20px',
-      width: '100%',
-    },
-    dateInput: {
-      width: '100%',
-      fontSize: '16px',
-      color: '#1f2937',
-      padding: '16px 40px 4px 12px',
-      border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
-      borderRadius: '6px',
-      backgroundColor: 'white',
-      transition: 'all 0.2s ease-in-out',
-      height: '52px',
-      cursor: 'pointer' as const,
-    },
-    formLabel: {
-      position: 'absolute' as const,
-      top: '50%',
-      left: '12px',
-      fontSize: '16px',
-      margin: 0,
-      padding: '0 4px',
-      backgroundColor: 'transparent',
-      transition: 'all 0.2s ease-in-out',
-      color: error ? '#dc2626' : '#6b7280',
-      pointerEvents: 'none' as const,
-      zIndex: 2,
-      lineHeight: '1',
-      transform: 'translateY(-50%)',
-    },
-    calendarIcon: {
-      position: 'absolute' as const,
-      right: '12px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      color: '#6b7280',
-      pointerEvents: 'none' as const,
-      zIndex: 2,
-    }
+  const emit = (date: Date | null) => {
+    const nextValue = toIsoDate(date);
+    onChange?.({ target: { name, value: nextValue }, currentTarget: { name, value: nextValue } } as unknown as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (
-    <div style={styles.formGroup}>
+    <div style={{ position: 'relative', marginBottom: '20px', width: '100%' }} className={className}>
       <style>{floatingStyles}</style>
-      <input
-        ref={inputRef}
-        type="date"
-        value={value}
-        onChange={onChange}
-        onClick={() => inputRef.current?.showPicker?.()}
-        onFocus={() => inputRef.current?.showPicker?.()}
-        style={styles.dateInput}
-        className={`floating-input floating-datepicker ${error ? 'error' : ''} ${className}`}
-        required={required}
-        placeholder=" "
+      <DatePicker
+        selected={selected}
+        onChange={(date: Date | null) => emit(date)}
+        onCalendarOpen={() => setOpen(true)}
+        onCalendarClose={() => setOpen(false)}
+        dateFormat={dateFormat}
+        minDate={parseIsoDate(minDate) ?? undefined}
+        maxDate={parseIsoDate(maxDate) ?? undefined}
+        showMonthDropdown
+        showYearDropdown
+        dropdownMode="select"
+        todayButton="Today"
+        isClearable={!required && Boolean(selected)}
+        disabled={disabled}
         name={name}
-        min={minDate}
-        max={maxDate}
-        {...props}
+        placeholderText=" "
+        autoComplete="off"
+        // Shown above drawers and popups, never cut off by them.
+        portalId="floating-datepicker-portal"
+        calendarClassName="floating-range-picker"
+        wrapperClassName="floating-datepicker-wrapper"
+        className={`floating-input floating-datepicker ${error ? 'error' : ''}`}
+        customInput={
+          <input
+            style={{
+              width: '100%',
+              fontSize: '16px',
+              color: '#1f2937',
+              padding: '16px 40px 4px 12px',
+              border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
+              borderRadius: '6px',
+              backgroundColor: 'white',
+              height: '52px',
+              cursor: 'pointer',
+            }}
+          />
+        }
       />
-      <label 
-        style={styles.formLabel}
-        className="floating-label"
+      <label
+        className={labelActive ? 'floating-label floating-label-active' : 'floating-label'}
         htmlFor={name}
+        style={{
+          position: 'absolute',
+          top: labelActive ? '0' : '50%',
+          left: '12px',
+          fontSize: labelActive ? '12px' : '16px',
+          margin: 0,
+          padding: '0 4px',
+          backgroundColor: labelActive ? 'var(--floating-label-bg, white)' : 'transparent',
+          transition: 'all 0.2s ease-in-out',
+          color: error ? '#dc2626' : labelActive ? '#2563eb' : '#6b7280',
+          pointerEvents: 'none',
+          zIndex: 2,
+          lineHeight: '1',
+          transform: 'translateY(-50%)',
+          fontWeight: labelActive ? 500 : 400,
+        }}
       >
         {getFloatingLabel(label, required)}
       </label>
-      <svg 
-        style={styles.calendarIcon}
-        width="20" 
-        height="20" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
+      <svg
+        style={{ position: 'absolute', right: '12px', top: '26px', transform: 'translateY(-50%)', color: '#6b7280', pointerEvents: 'none', zIndex: 2 }}
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
         strokeWidth="2"
+        className="floating-datepicker-icon"
       >
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
         <line x1="16" y1="2" x2="16" y2="6"></line>

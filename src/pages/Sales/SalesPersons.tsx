@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -16,6 +16,8 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
 import { FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { useStatsCardFilter } from "../../components/common/StatsCardFilter";
+import { usePermissions } from "../../access/usePermissions";
 
 type SalesPerson = {
   id: number;
@@ -106,6 +108,7 @@ function getUserFullName(user?: UserOption) {
 }
 
 const SalesPersons: React.FC = () => {
+  const { canCreate, canUpdate } = usePermissions();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const scopedSalesPersonId = Number(searchParams.get("salesPersonId")) || null;
@@ -249,6 +252,8 @@ const SalesPersons: React.FC = () => {
         : await axios.post<SalesPerson>(API_URL, payload, { headers });
       const savedPerson = mergeSubmittedIds(res.data, payload);
 
+      // Updating this state also refreshes the open Row Details drawer:
+      // ReusableTable re-syncs its selected row from `data` by id.
       setSalesPersons((current) => {
         const exists = current.some((item) => item.id === savedPerson.id);
         if (exists) return current.map((item) => (item.id === savedPerson.id ? savedPerson : item));
@@ -432,7 +437,15 @@ const SalesPersons: React.FC = () => {
       label: "Status",
       sortable: true,
       detailFormatter: (person) => (person.active ? "Active" : "Inactive"),
-      render: (person) => (
+      render: (person) => !canUpdate ? (
+        <span className={`inline-flex w-[84px] rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+          person.active
+            ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400"
+            : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
+        }`}>
+          {person.active ? "Active" : "Inactive"}
+        </span>
+      ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={String(person.active)}
@@ -458,14 +471,14 @@ const SalesPersons: React.FC = () => {
       className: "text-right",
       render: (person) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(person)}
             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -520,57 +533,79 @@ const SalesPersons: React.FC = () => {
           defaultSortKey="id"
           defaultSortOrder="desc"
           hiddenDetailKeys={["id"]}
+          // Hide the Row Details drawer while the edit popup is open; it comes back
+          // (with the updated row) as soon as the popup closes - cancel or save.
+          suspendRowDetails={showFormModal}
+          // NEW: Edit button shown at the top-right of the Row Details drawer.
+          // Uses the same openEdit() as the pencil icon in the table.
+          rowDetailsActions={(person) => (
+            canUpdate && <button
+              type="button"
+              onClick={() => openEdit(person)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+              Edit
+            </button>
+          )}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales persons found</p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first sales person
-              </button>
+              </button>)}
             </div>
           }
         />
       </div>
 
-      <PaginatedPopup
-        isOpen={showFormModal}
-        title={editingId ? "Edit Sales Person" : "Create Sales Person"}
-        subtitle="Select the user and region for this sales person"
-        onClose={closeForm}
-        onSubmit={handleSubmit}
-        submitting={submitting}
-        submitLabel={editingId ? "Update Sales Person" : "Create Sales Person"}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Basic Info",
-            fields: [
-              <FloatingSelect
-                label="User"
-                name="userId"
-                value={form.userId}
-                onChange={handleChange}
-                options={users.map((user) => ({
-                  id: user.userId,
-                  name: getUserFullName(user) || user.userId,
-                }))}
-                required
-              />,
-              <FloatingSelect
-                label="Region"
-                name="region"
-                value={form.region}
-                onChange={handleChange}
-                options={REGION_OPTIONS}
-              />,
-            ],
-          },
-        ]}
-      />
+      {/* z-index wrapper: keeps the edit popup ABOVE the Row Details drawer,
+          so the drawer stays open underneath and is still there (with fresh
+          data) once the popup closes after saving. */}
+      <div style={{ position: "relative", zIndex: 9999 }}>
+        <PaginatedPopup
+          isOpen={showFormModal}
+          title={editingId ? "Edit Sales Person" : "Create Sales Person"}
+          subtitle="Select the user and region for this sales person"
+          onClose={closeForm}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          submitLabel={editingId ? "Update Sales Person" : "Create Sales Person"}
+          maxWidthClassName="max-w-2xl"
+          tabs={[
+            {
+              label: "Basic Info",
+              fields: [
+                <FloatingSelect
+                  key="userId"
+                  label="User"
+                  name="userId"
+                  value={form.userId}
+                  onChange={handleChange}
+                  options={users.map((user) => ({
+                    id: user.userId,
+                    name: getUserFullName(user) || user.userId,
+                  }))}
+                  required
+                />,
+                <FloatingSelect
+                  key="region"
+                  label="Region"
+                  name="region"
+                  value={form.region}
+                  onChange={handleChange}
+                  options={REGION_OPTIONS}
+                />,
+              ],
+            },
+          ]}
+        />
+      </div>
     </>
   );
 };

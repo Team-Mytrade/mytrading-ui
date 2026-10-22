@@ -2,7 +2,7 @@ import { CircleDot, ChevronRight, FolderClosed, ArrowLeft, House } from "lucide-
 import { Link, useLocation, useNavigate } from "react-router";
 import { navItems } from "../../layout/AppSidebar";
 import { AddButton } from "./AddButton";
-import "./PageBreadCrumb.css";
+import "../../styles/PageBreadCrumb.css";
 
 interface BreadcrumbProps {
   pageTitle: string;

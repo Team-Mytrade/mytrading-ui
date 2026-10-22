@@ -1,5 +1,5 @@
 import React from "react";
-import "./QuotationPreviewTemplate.css";
+import "../../styles/QuotationPreviewTemplate.css";
 
 type Address = {
   customerName?: string;

@@ -18,6 +18,7 @@ import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
+import { usePermissions } from "../../access/usePermissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ const emptyForm: RouteSchedule = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const RouteSchedulePage: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [routes, setRoutes]     = useState<RouteSchedule[]>([]);
   const [loading, setLoading]   = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -224,21 +226,21 @@ const RouteSchedulePage: React.FC = () => {
           className="flex items-center justify-end gap-0.5"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          {canUpdate && (<button
             onClick={() => handleEdit(row)}
             title="Edit"
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
+          </button>)}
 
-          <button
+          {canDelete && (<button
             onClick={() => promptDelete(row)}
             title="Delete"
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -329,7 +331,7 @@ const RouteSchedulePage: React.FC = () => {
               {search ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search</p>
               ) : (
-                <button
+                canCreate && <button
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >

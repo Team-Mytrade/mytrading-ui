@@ -24,6 +24,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 // ---------- Interfaces ----------
 interface Product {
@@ -94,7 +95,8 @@ type SerialNumberForm = {
 
 // ---------- Constants ----------
 const API_URL = "/v1/api/inventory";
-const PRODUCT_URL = "/v1/api/purchase";
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_URL = "/v1/api/product";
 const PAGE_SIZE = 10;
 
 // 🔧 Route paths — match your app's actual routes.
@@ -204,6 +206,7 @@ function getStatusBadgeClass(status?: string | null) {
 
 // ---------- Component ----------
 const SerialNumberManager: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -655,22 +658,22 @@ const SerialNumberManager: React.FC = () => {
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeletingSerial(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -726,13 +729,13 @@ const SerialNumberManager: React.FC = () => {
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
                 No serial numbers found
               </p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first serial number
-              </button>
+              </button>)}
             </div>
           }
         />

@@ -26,6 +26,8 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 /**
  * =====================================================================================
@@ -137,7 +139,8 @@ type InventoryForm = {
 
 const API_URL = "/v1/api/inventory/inventory-reservations";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/purchase/products";
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_API_URL = "/v1/api/product/products";
 const CUSTOMER_API_URL = "/v1/api/crm/customers";
 const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const ENUM_API_URL = "/v1/api/inventory/enums";
@@ -163,7 +166,7 @@ const emptyForm: InventoryForm = {
   salesOrderId: "",
   warehouseId: "",
   status: "",
-  reservationDate: new Date().toISOString().split("T")[0],
+  reservationDate: todayIso(),
   productId: "",
   reservedQty: "",
 };
@@ -187,6 +190,7 @@ function getCustomerName(customer: Customer | undefined): string {
 }
 
 const InventoryReservationManager: React.FC = () => {
+  const { canUpdate, canDelete: canDeleteReservations } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -874,17 +878,9 @@ const InventoryReservationManager: React.FC = () => {
       className: "text-right",
       render: (reservation) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => openEdit(reservation)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-
+          {/* No edit: changing a reservation would re-lock stock. Release it and reserve again. */}
           {canRelease(reservation.status) && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => {
                 setActionId(reservation.id || null);
@@ -898,7 +894,7 @@ const InventoryReservationManager: React.FC = () => {
           )}
 
           {canConsume(reservation.status) && (
-            <button
+            canUpdate && <button
               type="button"
               onClick={() => {
                 setActionId(reservation.id || null);
@@ -911,7 +907,7 @@ const InventoryReservationManager: React.FC = () => {
             </button>
           )}
 
-          <button
+          {canDeleteReservations && <button
             type="button"
             onClick={() => {
               if (canDelete(reservation.status)) {
@@ -931,7 +927,7 @@ const InventoryReservationManager: React.FC = () => {
             disabled={!canDelete(reservation.status)}
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>}
         </div>
       ),
     },
@@ -981,7 +977,51 @@ const InventoryReservationManager: React.FC = () => {
           />
         </div>
 
-        
+        {/* CORRECTED: PDF export added — previously missing entirely. */}
+        <div className="mb-4 flex items-center justify-end">
+          <ListingPdfExportButton
+            title="Inventory Reservations"
+            subtitle="Current inventory reservations listing"
+            reportLabel="Inventory Reservations Report"
+            data={reservations}
+            fileName="Inventory_Reservations"
+            disabled={loading}
+            columns={[
+              { header: "Reservation No", accessor: (row) => row.reservationNo || "-" },
+              { header: "Customer", accessor: (row) => getReservationCustomerName(row) },
+              { header: "Product", accessor: (row) => row.productName || "-" },
+              {
+                header: "Sales Order",
+                accessor: (row) => getSalesOrderDisplayById(row.salesOrderId),
+              },
+              {
+                header: "Warehouse",
+                accessor: (row) =>
+                  warehouses.find((w) => Number(w.id) === Number(row.warehouseId))?.name ||
+                  `Warehouse #${row.warehouseId}`,
+              },
+              { header: "Status", accessor: (row) => row.status },
+              {
+                header: "Quantity",
+                accessor: (row) => String(row.items?.[0]?.reservedQty || 0),
+              },
+              {
+                header: "Reservation Date",
+                accessor: (row) =>
+                  row.reservationDate ? new Date(row.reservationDate).toLocaleDateString() : "-",
+              },
+            ]}
+            metadata={(rows) => [
+              { label: "Total Reservations", value: rows.length },
+              { label: "Reserved", value: rows.filter((r) => r.status === "RESERVED").length },
+              { label: "Released", value: rows.filter((r) => r.status === "RELEASED").length },
+              {
+                label: "Consumed / Cancelled",
+                value: rows.filter((r) => r.status === "CONSUMED" || r.status === "CANCELLED").length,
+              },
+            ]}
+          />
+        </div>
 
         <ReusableTable
           data={reservations}
@@ -1030,7 +1070,6 @@ const InventoryReservationManager: React.FC = () => {
                 name="salesOrderId"
                 value={form.salesOrderId}
                 onChange={handleChange}
-                emptyOptionLabel="Select sales order"
                 options={salesOrders.map((order, index) => ({
                   id: String(order.id),
                   name: getSalesOrderLabel(order, index),
@@ -1043,7 +1082,6 @@ const InventoryReservationManager: React.FC = () => {
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={handleChange}
-                emptyOptionLabel="Select warehouse"
                 options={warehouses.map((w) => ({
                   id: String(w.id),
                   name: w.name || w.code || `Warehouse #${w.id}`,
@@ -1074,7 +1112,6 @@ const InventoryReservationManager: React.FC = () => {
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                emptyOptionLabel="Select product"
                 options={products.map((p) => ({
                   id: String(p.id),
                   name: p.productName || p.name || `Product #${p.id}`,

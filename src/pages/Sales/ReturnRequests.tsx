@@ -23,6 +23,8 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { toLocalIsoDate, todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type ReturnItem = {
   id: number;
@@ -43,6 +45,10 @@ type Refund = {
 
 type ReturnRequest = {
   id: number;
+  returnNumber?: string;
+  salesOrderNumber?: string;
+  customerId?: number;
+  customerName?: string;
   requestDate: string;
   status: string;
   reason: ReturnReason | string;
@@ -59,9 +65,7 @@ type ScheduleOrderOption = {
   orderNumber?: string;
   salesOrderNumber?: string;
   customerId?: number;
-  // Not yet confirmed present in the actual API response — see the
-  // filtering note near the dropdown options below. Added defensively so
-  // filtering works automatically the moment backend starts returning it.
+  status?: string;
   quotationType?: "PRODUCT" | "SERVICE" | string;
   items?: Array<{
     id?: number;
@@ -70,6 +74,7 @@ type ScheduleOrderOption = {
     productName?: string;
     productCode?: string;
     quantity?: number;
+    deliveredQuantity?: number;
   }>;
 };
 
@@ -102,7 +107,10 @@ type RefundForm = {
 };
 
 const API_URL = "/v1/api/sales/returns";
-const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
+// Full orders: the form needs each order's status and lines (the schedule summary only has id and number)
+const ORDERS_API = "/v1/api/sales/sales-orders";
+// Only goods that were delivered can come back
+const RETURNABLE_ORDER_STATUSES = ["PARTIALLY_DELIVERED", "DELIVERED", "INVOICED"];
 const PAGE_SIZE = 10;
 const reasonOptions: ReturnReason[] = [
   "DAMAGED_PRODUCT",
@@ -111,18 +119,34 @@ const reasonOptions: ReturnReason[] = [
   "LATE_DELIVERY",
   "OTHER",
 ];
-const paymentMethodOptions = ["BANK_TRANSFER"];
 const refundStatusOptions = ["PENDING", "PROCESSED", "FAILED"];
+/**
+ * Status moves the backend allows. A new return starts PENDING; it is approved or rejected, and an approved
+ * return is completed (the backend also completes it once its refund is PROCESSED).
+ */
+const nextReturnStatuses: Record<string, string[]> = {
+  REQUESTED: ["PENDING", "APPROVED", "REJECTED"],
+  PENDING: ["APPROVED", "REJECTED"],
+  APPROVED: ["COMPLETED", "REJECTED"],
+};
+const FINAL_RETURN_STATUSES = ["COMPLETED", "REJECTED"];
+// The backend deletes only returns that are still open, or were rejected
+const DELETABLE_RETURN_STATUSES = ["REQUESTED", "PENDING", "REJECTED"];
+const paymentMethods = ["BANK_TRANSFER", "UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD", "CHEQUE", "WALLET", "OTHER"];
+
+/** yyyy-MM-ddTHH:mm in the user's own timezone, for datetime-local inputs (toISOString would be UTC). */
+const toLocalDateTimeInput = (date: Date) => `${toLocalIsoDate(date)}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
 const emptyReturnForm: ReturnForm = {
-  requestDate: new Date().toISOString().split("T")[0],
-  status: "REQUESTED",
+  requestDate: todayIso(),
+  status: "PENDING",
   reason: "DAMAGED_PRODUCT",
   salesOrderId: "",
   salesOrderNumber: "",
   remarks: "",
   itemSalesOrderItemId: "",
-  itemRefundAmount: "0",
+  // Blank: the backend refunds the value of the returned quantity
+  itemRefundAmount: "",
   itemReturnQuantity: "1",
   itemRemarks: "",
 };
@@ -130,7 +154,7 @@ const emptyReturnForm: ReturnForm = {
 const emptyRefundForm: RefundForm = {
   returnRequestId: "",
   amount: "0",
-  refundDate: new Date().toISOString().slice(0, 16),
+  refundDate: toLocalDateTimeInput(new Date()),
   status: "PENDING",
   paymentMethod: "BANK_TRANSFER",
 };
@@ -156,9 +180,10 @@ function firstPositiveNumber(...values: Array<number | string | undefined | null
   return 0;
 }
 
+/** The backend keeps the refund time as local wall-clock time (no zone), so send it as entered, not as UTC. */
 function toIsoDateTime(value: string) {
-  if (!value) return new Date().toISOString();
-  return value.includes("T") ? new Date(value).toISOString() : new Date(`${value}T00:00:00`).toISOString();
+  if (!value) return `${toLocalDateTimeInput(new Date())}:00`;
+  return value.includes("T") ? `${value.slice(0, 16)}:00` : `${value}T00:00:00`;
 }
 
 function toDateValue(value?: string) {
@@ -203,16 +228,23 @@ function scheduleItemLabel(
     productName?: string;
     productCode?: string;
     quantity?: number;
+    deliveredQuantity?: number;
   },
   index: number
 ) {
   const resolvedId = getScheduleItemId(item);
   const name = item.productName || item.productCode || `Item #${resolvedId || index + 1}`;
-  const qty = item.quantity !== undefined ? ` · Qty ${item.quantity}` : "";
+  const qty =
+    item.deliveredQuantity !== undefined
+      ? ` · Delivered ${item.deliveredQuantity}`
+      : item.quantity !== undefined
+        ? ` · Qty ${item.quantity}`
+        : "";
   return `${name}${qty}`;
 }
 
 const ReturnRequests: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : undefined),
@@ -267,7 +299,7 @@ const ReturnRequests: React.FC = () => {
     try {
       setScheduleOrdersLoading(true);
       setScheduleOrdersError(false);
-      const res = await axios.get<ScheduleOrderOption[]>(SCHEDULE_ORDERS_API, { headers });
+      const res = await axios.get<ScheduleOrderOption[]>(ORDERS_API, { headers });
       setScheduleOrders(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       setScheduleOrdersError(true);
@@ -313,36 +345,34 @@ const ReturnRequests: React.FC = () => {
     setRefundForm((current) => ({ ...current, [name]: value }));
   };
 
-  const availableStatusOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          ["REQUESTED", "PENDING", "APPROVED", "REJECTED", "REFUNDED", ...returns.map((item) => item.status).filter(Boolean)]
-        )
-      ),
-    [returns]
-  );
+  /** The current status plus the moves the backend allows from it. */
+  const statusChoices = (status?: string) => {
+    const current = status || "PENDING";
+    return [current, ...(nextReturnStatuses[current] || [])];
+  };
+  const editingStatus = returns.find((item) => item.id === editingId)?.status;
 
-  // Return Requests should only offer PRODUCT-type orders — a service
-  // order gets fulfilled via Service Schedule, not returned the way a
-  // physical product is. Filters only if quotationType is actually
-  // present in the response; if backend hasn't added that field yet,
-  // shows every order rather than silently filtering everything out
-  // (which would look like "no orders exist" when the field just isn't
-  // there yet).
-  const productScheduleOrders = useMemo(() => {
-    const hasOrderTypeInfo = scheduleOrders.some((order) => Boolean(order.quotationType));
-    return hasOrderTypeInfo
-      ? scheduleOrders.filter((order) => order.quotationType === "PRODUCT")
-      : scheduleOrders;
-  }, [scheduleOrders]);
+  // Only delivered goods can be returned, and a service order is fulfilled via Service Schedule rather than
+  // returned. Orders entered directly have no quotation type, so only SERVICE orders are left out.
+  const productScheduleOrders = useMemo(
+    () =>
+      scheduleOrders.filter(
+        (order) =>
+          order.quotationType !== "SERVICE" &&
+          (!order.status || RETURNABLE_ORDER_STATUSES.includes(order.status))
+      ),
+    [scheduleOrders]
+  );
 
   const selectedOrderItems = useMemo(() => {
     if (!form.salesOrderId) return [];
     const order = scheduleOrders.find(
       (o) => String(getScheduleOrderId(o)) === form.salesOrderId
     );
-    return order?.items || [];
+    // Lines with nothing delivered yet cannot be returned
+    return (order?.items || []).filter(
+      (item) => item.deliveredQuantity === undefined || Number(item.deliveredQuantity) > 0
+    );
   }, [scheduleOrders, form.salesOrderId]);
 
   // Resolves what a return request's item(s) actually ARE (product name),
@@ -375,7 +405,7 @@ const ReturnRequests: React.FC = () => {
       {
         id: 0,
         salesOrderItemId: toNumber(form.itemSalesOrderItemId),
-        refundAmount: toNumber(form.itemRefundAmount),
+        refundAmount: form.itemRefundAmount.trim() === "" ? null : toNumber(form.itemRefundAmount),
         returnQuantity: toNumber(form.itemReturnQuantity),
         remarks: form.itemRemarks,
       },
@@ -466,7 +496,7 @@ const ReturnRequests: React.FC = () => {
       salesOrderNumber: matchedOrder ? getScheduleOrderNumber(matchedOrder) : `Order #${request.salesOrderId}`,
       remarks: request.remarks || "",
       itemSalesOrderItemId: String(item?.salesOrderItemId || ""),
-      itemRefundAmount: String(item?.refundAmount || 0),
+      itemRefundAmount: item?.refundAmount != null ? String(item.refundAmount) : "",
       itemReturnQuantity: String(item?.returnQuantity || 1),
       itemRemarks: item?.remarks || "",
     });
@@ -499,7 +529,12 @@ const ReturnRequests: React.FC = () => {
     setRefundForm({
       ...emptyRefundForm,
       returnRequestId: String(request.id),
-      amount: String(request.refund?.amount ?? request.items?.[0]?.refundAmount ?? 0),
+      // The most that can be refunded is the value of all returned lines
+      amount: String(
+        request.refund?.amount ??
+          (request.items || []).reduce((sum, item) => sum + Number(item.refundAmount || 0), 0)
+      ),
+      refundDate: toLocalDateTimeInput(new Date()),
     });
     setShowRefundModal(true);
   };
@@ -551,11 +586,17 @@ const ReturnRequests: React.FC = () => {
         returnRequestId: res.data.returnRequestId ?? returnRequestId,
       };
 
-      setReturns((current) =>
-        current.map((item) =>
-          Number(item.id) === returnRequestId ? { ...item, refund } : item
-        )
-      );
+      // A PROCESSED refund completes the return on the backend, so reload it rather than patching locally
+      try {
+        const fresh = await axios.get<ReturnRequest>(`${API_URL}/${returnRequestId}`, { headers });
+        upsertReturn(fresh.data);
+      } catch {
+        setReturns((current) =>
+          current.map((item) =>
+            Number(item.id) === returnRequestId ? { ...item, refund } : item
+          )
+        );
+      }
 
       ToasterService.success("Refund created");
       setRefundForm(emptyRefundForm);
@@ -591,8 +632,11 @@ const ReturnRequests: React.FC = () => {
       sortable: true,
       render: (item) => (
         <div>
-          <div className="text-sm font-semibold text-slate-900">Return #{item.id}</div>
-          <div className="text-xs text-slate-500">Order ID: {item.salesOrderId}</div>
+          <div className="text-sm font-semibold text-slate-900">{item.returnNumber || `Return #${item.id}`}</div>
+          <div className="text-xs text-slate-500">
+            {item.salesOrderNumber || `Order ID: ${item.salesOrderId}`}
+            {item.customerName ? ` · ${item.customerName}` : ""}
+          </div>
         </div>
       ),
     },
@@ -628,7 +672,11 @@ const ReturnRequests: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (item) => (
+      render: (item) => !canUpdate || statusChoices(item.status).length <= 1 ? (
+        <span className="inline-flex h-9 w-[112px] items-center rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700">
+          {toFriendlyLabel(item.status || "")}
+        </span>
+      ) : (
         <select
           value={item.status || ""}
           onChange={(e) => {
@@ -639,7 +687,7 @@ const ReturnRequests: React.FC = () => {
           disabled={statusUpdatingId === item.id}
           className="h-9 w-[112px] rounded-xl border border-cyan-200 bg-cyan-50 px-3 text-sm font-medium text-cyan-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {availableStatusOptions.map((status) => (
+          {statusChoices(item.status).map((status) => (
             <option key={status} value={status}>
               {toFriendlyLabel(status)}
             </option>
@@ -661,30 +709,32 @@ const ReturnRequests: React.FC = () => {
       className: "text-right",
       render: (item) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && !FINAL_RETURN_STATUSES.includes(item.status) && (<button
             type="button"
             onClick={() => openEdit(item)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openRefundModal(item)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
-            title="Refund"
-          >
-            <ReceiptRefundIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canCreate && !item.refund && item.status === "APPROVED" && (
+            <button
+              type="button"
+              onClick={() => openRefundModal(item)}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600"
+              title="Refund"
+            >
+              <ReceiptRefundIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && DELETABLE_RETURN_STATUSES.includes(item.status) && item.refund?.status !== "PROCESSED" && (<button
             type="button"
             onClick={() => setDeleteReturn(item)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -754,7 +804,7 @@ const ReturnRequests: React.FC = () => {
       <PaginatedPopup
         isOpen={showFormModal}
         title={editingId ? "Edit Return Request" : "Create Return Request"}
-        subtitle="Enter return request details from the API schema"
+        subtitle="Enter the return request details"
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -779,15 +829,20 @@ const ReturnRequests: React.FC = () => {
                 required
                 singleSelection
               />,
-              <FloatingSelect
-                key="status"
-                label="Status"
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={availableStatusOptions.map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
-              />,
+              // A new return always starts PENDING; the status only changes on existing returns
+              ...(editingId
+                ? [
+                    <FloatingSelect
+                      key="status"
+                      label="Status"
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      includeEmptyOption={false}
+                      options={statusChoices(editingStatus).map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
+                    />,
+                  ]
+                : []),
               <FloatingSelect
                 key="reason"
                 label="Reason"
@@ -874,7 +929,7 @@ const ReturnRequests: React.FC = () => {
               />,
               <FloatingInput
                 key="itemRefundAmount"
-                label="Refund Amount"
+                label="Refund Amount (blank = value of the returned items)"
                 name="itemRefundAmount"
                 type="number"
                 min={0}
@@ -959,7 +1014,7 @@ const ReturnRequests: React.FC = () => {
                 value={refundForm.paymentMethod}
                 onChange={handleRefundChange}
                 includeEmptyOption={false}
-                options={paymentMethodOptions.map((method) => ({
+                options={paymentMethods.map((method) => ({
                   id: method,
                   name: toFriendlyLabel(method),
                 }))}

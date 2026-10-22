@@ -25,6 +25,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type LocalTime = { hour: number; minute: number; second: number; nano: number };
 
@@ -239,12 +240,16 @@ function openNativeTimePicker(
   event: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>
 ) {
   const input = event.currentTarget;
-  if (typeof input.showPicker === "function") {
+  if (event.type !== "click" || typeof input.showPicker !== "function") return;
+  try {
     input.showPicker();
+  } catch {
+    // already open or not allowed
   }
 }
 
 const ServiceScheduleNotify: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const navigate = useNavigate();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
@@ -748,15 +753,15 @@ const ServiceScheduleNotify: React.FC = () => {
       className: "text-right",
       render: (schedule) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(schedule)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit / Actions"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteScheduleTarget(schedule)}
             disabled={actionUpdatingId === schedule.id}
@@ -764,7 +769,7 @@ const ServiceScheduleNotify: React.FC = () => {
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -904,7 +909,6 @@ const ServiceScheduleNotify: React.FC = () => {
                   name="startTime"
                   value={form.startTime}
                   onChange={handleSimpleInputChange}
-                  onFocus={openNativeTimePicker}
                   onClick={openNativeTimePicker}
                   className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-900/40"
                 />
@@ -922,7 +926,6 @@ const ServiceScheduleNotify: React.FC = () => {
                   name="endTime"
                   value={form.endTime}
                   onChange={handleSimpleInputChange}
-                  onFocus={openNativeTimePicker}
                   onClick={openNativeTimePicker}
                   className="h-[52px] w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-900/40"
                 />

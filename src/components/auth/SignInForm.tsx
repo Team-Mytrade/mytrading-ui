@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { clearSessionExpiredRedirect, getSessionExpiredRedirect } from "../../utils/sessionRecovery";
-import './Login.css';
+import '../../styles/Login.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 type FormValues = {
@@ -26,23 +26,8 @@ const SignInForm: React.FC = () => {
     setApiError(null);
 
     try {
-      const result = await login(data.email, data.password);
-
-      // Store token in the appropriate storage based on "Keep me logged in"
-      if (result.token) {
-        if (isChecked) {
-          localStorage.setItem("accessToken", result.token);
-        } else {
-          sessionStorage.setItem("accessToken", result.token);
-        }
-      }
-      if (result.user) {
-        if (isChecked) {
-          localStorage.setItem("user", JSON.stringify(result.user));
-        } else {
-          sessionStorage.setItem("user", JSON.stringify(result.user));
-        }
-      }
+      // "Keep me logged in" off: the session ends when the browser is closed
+      await login(data.email, data.password, isChecked);
 
       const redirectPath = getSessionExpiredRedirect() || "/";
       clearSessionExpiredRedirect();

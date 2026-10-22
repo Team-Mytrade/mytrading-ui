@@ -24,6 +24,7 @@ import { useLocation } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type StatutoryIdentifier = {
   id: number;
@@ -59,6 +60,7 @@ type MonthlySummary = {
 };
 
 const StatutoryCompliancesPage: React.FC = () => {
+  const { canCreate, canExport } = usePermissions();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
 
@@ -329,7 +331,7 @@ const StatutoryCompliancesPage: React.FC = () => {
 
             <div className="flex items-center gap-2">
               {isHR && (
-                <button
+                canExport && <button
                   onClick={() => setShowDownloadModal(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -337,20 +339,20 @@ const StatutoryCompliancesPage: React.FC = () => {
                   ECR Report
                 </button>
               )}
-              <button
+              {canExport && (<button
                 onClick={exportExcel}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <FileDown size={16} />
                 Export
-              </button>
-              <button
+              </button>)}
+              {canCreate && (<button
                 onClick={() => setShowForm(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
               >
                 <Plus size={16} />
                 {isHR ? 'Add Record' : 'Add Identifier'}
-              </button>
+              </button>)}
             </div>
           </div>
         </div>

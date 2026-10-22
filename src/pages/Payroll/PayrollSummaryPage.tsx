@@ -7,10 +7,12 @@ import { ToasterService } from "../../Services/ToasterService";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import StatsCard from "../../components/common/Statscard";
+import { usePermissions } from "../../access/usePermissions";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const PayrollSummaryPage: React.FC = () => {
+  const { canExport } = usePermissions();
     const [salaryMonth, setSalaryMonth] = useState(() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -118,13 +120,13 @@ const PayrollSummaryPage: React.FC = () => {
                                 className="text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none bg-transparent cursor-pointer [color-scheme:dark]"
                             />
                         </div>
-                        <button
+                        {canExport && (<button
                             onClick={handleExportDetailedReport}
                             className="flex items-center gap-2 bg-white dark:bg-[#191919] dark:hover:bg-[#222222] px-4 py-2 border border-gray-200 dark:!border-transparent rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
                         >
                             <DocumentArrowDownIcon className="h-5 w-5 text-green-600 dark:text-gray-400" />
                             Export Excel
-                        </button>
+                        </button>)}
                     </div>
                 </div>
 

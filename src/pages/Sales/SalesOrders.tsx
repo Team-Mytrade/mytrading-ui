@@ -1,14 +1,16 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
+  CheckBadgeIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   PencilSquareIcon,
   ShoppingCartIcon,
   TrashIcon,
+  TruckIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -24,6 +26,8 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type Address = {
   id: number;
@@ -69,6 +73,13 @@ type SalesOrderItem = {
   pendingQuantity: number;
 };
 
+type WarehouseOption = {
+  id: number;
+  name?: string;
+  code?: string;
+  active?: boolean;
+};
+
 type SalesOrder = {
   id: number;
   orderNumber: string;
@@ -105,6 +116,46 @@ type SalesOrder = {
   paymentTerms: string;
   dueDate: string;
   items: SalesOrderItem[];
+};
+
+/** What is still left to dispatch on one order line. */
+type DispatchableItem = {
+  salesOrderItemId: number;
+  productId: number;
+  productCode?: string;
+  productName?: string;
+  orderedQuantity: number;
+  dispatchedQuantity: number;
+  /** Held by draft dispatches that are not confirmed yet */
+  draftQuantity?: number;
+  remainingQuantity: number;
+};
+
+type SalesDispatch = {
+  id: number;
+  salesOrderId: number;
+  dispatchNumber: string;
+  dispatchDate: string;
+  status: string;
+  deliveryReference?: string;
+  vehicleNumber?: string;
+  items: Array<{ id: number; salesOrderItemId: number; productName?: string; quantity: number }>;
+};
+
+type DispatchDetails = {
+  deliveryReference: string;
+  transporterName: string;
+  vehicleNumber: string;
+  trackingNumber: string;
+  remarks: string;
+};
+
+const emptyDispatchDetails: DispatchDetails = {
+  deliveryReference: "",
+  transporterName: "",
+  vehicleNumber: "",
+  trackingNumber: "",
+  remarks: "",
 };
 
 type SalesPersonOption = {
@@ -173,6 +224,7 @@ type QuotationOption = {
 
 type OrderItemForm = {
   key: string;
+  id: string;
   quotationItemId: string;
   itemType: string;
   serviceItemId: string;
@@ -189,6 +241,9 @@ type OrderItemForm = {
   taxRate: string;
   taxCode: string;
   remarks: string;
+  status: string;
+  deliveredQuantity: string;
+  pendingQuantity: string;
 };
 
 type OrderForm = {
@@ -220,11 +275,15 @@ type OrderForm = {
   quotationDate: string;
   quotationValidUntil: string;
   billingAddressLine1: string;
+  billingAddressLine2: string;
+  billingStreet: string;
   billingCity: string;
   billingState: string;
   billingCountry: string;
   billingPostalCode: string;
   shippingAddressLine1: string;
+  shippingAddressLine2: string;
+  shippingStreet: string;
   shippingCity: string;
   shippingState: string;
   shippingCountry: string;
@@ -233,10 +292,18 @@ type OrderForm = {
   internalNotes: string;
   customerNotes: string;
   termsAndConditions: string;
+  billingAddressSnapshot: Partial<Address>;
+  shippingAddressSnapshot: Partial<Address>;
   items: OrderItemForm[];
 };
 
 const API_URL = "/v1/api/sales/sales-orders";
+const DISPATCH_API_URL = "/v1/api/sales/dispatch";
+const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
+// Confirmed orders ship in one or more dispatches; a confirmed dispatch issues the stock and can be invoiced
+const DISPATCHABLE_STATUSES = ["CONFIRMED", "PARTIALLY_DELIVERED"];
+const EDITABLE_STATUSES = ["DRAFT"];
+const DELETABLE_STATUSES = ["DRAFT", "CANCELLED"];
 const PAGE_SIZE = 10;
 
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
@@ -259,6 +326,7 @@ function nextItemKey() {
 function itemFromQuotationItem(qItem: QuotationItemOption): OrderItemForm {
   return {
     key: nextItemKey(),
+    id: "0",
     quotationItemId: String(firstPositiveNumber(qItem.id, qItem.quotationItemId)),
     itemType: "PRODUCT",
     serviceItemId: "0",
@@ -275,12 +343,16 @@ function itemFromQuotationItem(qItem: QuotationItemOption): OrderItemForm {
     taxRate: String(qItem.taxRate ?? 0),
     taxCode: qItem.taxCode || "",
     remarks: qItem.remarks || "",
+    status: "NEW",
+    deliveredQuantity: "0",
+    pendingQuantity: String(qItem.quantity ?? 1),
   };
 }
 
 function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
   return {
     key: nextItemKey(),
+    id: String(item.id || 0),
     quotationItemId: String(item.quotationItemId || 0),
     itemType: item.itemType || "PRODUCT",
     serviceItemId: String(item.serviceItemId || 0),
@@ -297,13 +369,16 @@ function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
     taxRate: String(item.taxRate || 0),
     taxCode: item.taxCode || "",
     remarks: item.remarks || "",
+    status: item.status || "NEW",
+    deliveredQuantity: String(item.deliveredQuantity || 0),
+    pendingQuantity: String(item.pendingQuantity ?? item.quantity ?? 0),
   };
 }
 
 const emptyForm: OrderForm = {
   orderNumber: "",
   quotationType: "PRODUCT",
-  orderDate: new Date().toISOString().split("T")[0],
+  orderDate: todayIso(),
   status: "DRAFT",
   quotationId: "",
   quotationNumber: "",
@@ -329,11 +404,15 @@ const emptyForm: OrderForm = {
   quotationDate: "",
   quotationValidUntil: "",
   billingAddressLine1: "",
+  billingAddressLine2: "",
+  billingStreet: "",
   billingCity: "",
   billingState: "",
   billingCountry: "",
   billingPostalCode: "",
   shippingAddressLine1: "",
+  shippingAddressLine2: "",
+  shippingStreet: "",
   shippingCity: "",
   shippingState: "",
   shippingCountry: "",
@@ -342,6 +421,8 @@ const emptyForm: OrderForm = {
   internalNotes: "",
   customerNotes: "",
   termsAndConditions: "",
+  billingAddressSnapshot: {},
+  shippingAddressSnapshot: {},
   items: [],
 };
 
@@ -414,21 +495,22 @@ function customerOptionLabel(customer: CustomerOption) {
 
 function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
+  const snapshot = form[`${prefix}AddressSnapshot` as keyof OrderForm] as Partial<Address>;
   return {
-    id: 0,
+    id: Number(snapshot?.id || 0),
     customerId: toNumber(form.customerId),
-    customerName: "",
-    customerCode: "",
+    customerName: snapshot?.customerName || "",
+    customerCode: snapshot?.customerCode || "",
     type,
     addressLine1: form[`${prefix}AddressLine1` as keyof OrderForm] as string,
-    addressLine2: "",
-    street: "",
+    addressLine2: form[`${prefix}AddressLine2` as keyof OrderForm] as string,
+    street: form[`${prefix}Street` as keyof OrderForm] as string,
     city: form[`${prefix}City` as keyof OrderForm] as string,
     state: form[`${prefix}State` as keyof OrderForm] as string,
     country: form[`${prefix}Country` as keyof OrderForm] as string,
     postalCode: form[`${prefix}PostalCode` as keyof OrderForm] as string,
-    primaryAddress: type === "BILLING",
-    defaultAddress: true,
+    primaryAddress: snapshot?.primaryAddress ?? type === "BILLING",
+    defaultAddress: snapshot?.defaultAddress ?? true,
   };
 }
 
@@ -458,7 +540,7 @@ function computeItemTotals(item: OrderItemForm) {
 function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
   const totals = computeItemTotals(item);
   return {
-    id: 0,
+    id: toNumber(item.id),
     quotationItemId: toNumber(item.quotationItemId),
     itemType: item.itemType,
     serviceItemId: toNumber(item.serviceItemId),
@@ -475,18 +557,20 @@ function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
     taxRate: totals.taxRate,
     taxCode: item.taxCode,
     remarks: item.remarks,
-    status: "NEW",
+    status: item.status || "NEW",
     grossAmount: totals.grossAmount,
     taxableAmount: totals.taxableAmount,
     taxAmount: totals.taxAmount,
     lineTotal: totals.lineTotal,
-    deliveredQuantity: 0,
-    pendingQuantity: totals.quantity,
+    deliveredQuantity: toNumber(item.deliveredQuantity),
+    pendingQuantity: item.pendingQuantity === "" ? totals.quantity : toNumber(item.pendingQuantity),
   };
 }
 
 const SalesOrders: React.FC = () => {
+  const { canCreate, canUpdate, canDelete, canApprove } = usePermissions();
   const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem("accessToken");
   const headers = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : undefined),
@@ -504,12 +588,33 @@ const SalesOrders: React.FC = () => {
   const [salesChannels, setSalesChannels] = useState<SalesChannelOption[]>([]);
   const [quotations, setQuotations] = useState<QuotationOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [customerOrders, setCustomerOrders] = useState<SalesOrder[]>([]);
+  const [confirmOrder, setConfirmOrder] = useState<SalesOrder | null>(null);
+  const [confirmWarehouseId, setConfirmWarehouseId] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [dispatchOrder, setDispatchOrder] = useState<SalesOrder | null>(null);
+  const [dispatchableItems, setDispatchableItems] = useState<DispatchableItem[]>([]);
+  const [dispatchQuantities, setDispatchQuantities] = useState<Record<number, string>>({});
+  const [dispatchDetails, setDispatchDetails] = useState<DispatchDetails>(emptyDispatchDetails);
+  const [orderDispatches, setOrderDispatches] = useState<SalesDispatch[]>([]);
+  const [confirmDispatchNow, setConfirmDispatchNow] = useState(true);
+  const [dispatching, setDispatching] = useState(false);
   const [creditCheck, setCreditCheck] = useState<{
     status: "idle" | "checking" | "ok" | "insufficient" | "error";
     availableCredit?: number;
     message?: string;
   }>({ status: "idle" });
+  const convertedQuotationId = useMemo(() => {
+    const fromQuery = Number(new URLSearchParams(location.search).get("quotationId") || 0);
+    const fromState = Number((location.state as { convertedQuotationId?: number } | null)?.convertedQuotationId || 0);
+    return fromQuery || fromState;
+  }, [location.search, location.state]);
+  const convertedQuotationNumber = (location.state as { convertedQuotationNumber?: string } | null)?.convertedQuotationNumber;
+  const displayedOrders = useMemo(
+    () => convertedQuotationId ? orders.filter((order) => Number(order.quotationId) === convertedQuotationId) : orders,
+    [convertedQuotationId, orders]
+  );
 
   useEffect(() => {
     fetchOrders();
@@ -645,11 +750,12 @@ const SalesOrders: React.FC = () => {
   };
 
   const fetchDropdowns = async () => {
-    const [personsRes, channelsRes, quotationsRes, customersRes] = await Promise.allSettled([
+    const [personsRes, channelsRes, quotationsRes, customersRes, warehousesRes] = await Promise.allSettled([
       axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
       axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
       axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
       axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
+      axios.get<WarehouseOption[]>(WAREHOUSE_API_URL, { headers }),
     ]);
 
     if (personsRes.status === "fulfilled") {
@@ -689,6 +795,16 @@ const SalesOrders: React.FC = () => {
       ToasterService.error(
         "Failed to load customers",
         getErrorMessage(customersRes.reason, "Please try again.")
+      );
+    }
+
+    if (warehousesRes.status === "fulfilled") {
+      const data = warehousesRes.value.data;
+      setWarehouses(Array.isArray(data) ? data : []);
+    } else {
+      ToasterService.error(
+        "Failed to load warehouses",
+        getErrorMessage(warehousesRes.reason, "Please try again.")
       );
     }
   };
@@ -899,12 +1015,11 @@ const SalesOrders: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const openEdit = (order: SalesOrder) => {
-    setEditingId(order.id);
+  const populateOrderForm = (order: SalesOrder) => {
     setForm({
       orderNumber: order.orderNumber || "",
       quotationType: order.quotationType || "PRODUCT",
-      orderDate: order.orderDate || new Date().toISOString().split("T")[0],
+      orderDate: order.orderDate || todayIso(),
       status: order.status || "DRAFT",
       quotationId: String(order.quotationId || ""),
       quotationNumber: order.quotationNumber || "",
@@ -930,11 +1045,15 @@ const SalesOrders: React.FC = () => {
       quotationDate: order.quotationDate || "",
       quotationValidUntil: order.quotationValidUntil || "",
       billingAddressLine1: order.billingAddress?.addressLine1 || "",
+      billingAddressLine2: order.billingAddress?.addressLine2 || "",
+      billingStreet: order.billingAddress?.street || "",
       billingCity: order.billingAddress?.city || "",
       billingState: order.billingAddress?.state || "",
       billingCountry: order.billingAddress?.country || "",
       billingPostalCode: order.billingAddress?.postalCode || "",
       shippingAddressLine1: order.shippingAddress?.addressLine1 || "",
+      shippingAddressLine2: order.shippingAddress?.addressLine2 || "",
+      shippingStreet: order.shippingAddress?.street || "",
       shippingCity: order.shippingAddress?.city || "",
       shippingState: order.shippingAddress?.state || "",
       shippingCountry: order.shippingAddress?.country || "",
@@ -943,9 +1062,206 @@ const SalesOrders: React.FC = () => {
       internalNotes: order.internalNotes || "",
       customerNotes: order.customerNotes || "",
       termsAndConditions: order.termsAndConditions || "",
+      billingAddressSnapshot: order.billingAddress || {},
+      shippingAddressSnapshot: order.shippingAddress || {},
       items: (order.items || []).map(itemFromOrderItem),
     });
-    setShowFormModal(true);
+  };
+
+  const openEdit = async (order: SalesOrder) => {
+    try {
+      setLoading(true);
+      const response = await axios.get<SalesOrder>(`${API_URL}/${order.id}`, { headers });
+      setEditingId(order.id);
+      populateOrderForm(response.data);
+      setShowFormModal(true);
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load sales order",
+        getErrorMessage(error, "Please refresh and try again.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openConfirm = async (order: SalesOrder) => {
+    setConfirmOrder(order);
+    setConfirmWarehouseId("");
+    try {
+      const response = await axios.get<WarehouseOption[]>(WAREHOUSE_API_URL, { headers });
+      const listedWarehouses = Array.isArray(response.data) ? response.data : [];
+      const detailedWarehouses = await Promise.all(
+        listedWarehouses.map(async (warehouse) => {
+          try {
+            const detail = await axios.get<WarehouseOption>(`${WAREHOUSE_API_URL}/${warehouse.id}`, {
+              headers,
+            });
+            return { ...warehouse, ...detail.data };
+          } catch {
+            return { ...warehouse, active: false };
+          }
+        })
+      );
+      const activeWarehouses = detailedWarehouses.filter((warehouse) => warehouse.active === true);
+      setWarehouses(activeWarehouses);
+      if (activeWarehouses.length === 0) {
+        ToasterService.error("No active warehouses", "Create or activate a warehouse before confirming this sales order.");
+      }
+    } catch (error) {
+      ToasterService.error(
+        "Failed to load active warehouses",
+        getErrorMessage(error, "Please refresh and try again.")
+      );
+    }
+  };
+
+  const confirmSalesOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!confirmOrder || !isPositiveNumber(confirmWarehouseId)) {
+      ToasterService.error("Warehouse required", "Select the warehouse that will fulfil this sales order.");
+      return;
+    }
+
+    try {
+      setConfirming(true);
+      const response = await axios.post<SalesOrder>(
+        `${API_URL}/${confirmOrder.id}/confirm`,
+        { warehouseId: toNumber(confirmWarehouseId) },
+        { headers }
+      );
+      upsertOrder(response.data);
+      setConfirmOrder(null);
+      setConfirmWarehouseId("");
+      ToasterService.success("Sales order confirmed");
+    } catch (error) {
+      ToasterService.error("Unable to confirm sales order", getErrorMessage(error, "Please try again."));
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  /** Loads what is left to ship on the order and the dispatches made so far. */
+  const loadDispatchData = async (orderId: number) => {
+    const [itemsRes, dispatchesRes] = await Promise.all([
+      axios.get<DispatchableItem[]>(`${API_URL}/${orderId}/dispatchable-items`, { headers }),
+      axios.get<SalesDispatch[]>(`${DISPATCH_API_URL}/dispatches`, { headers }),
+    ]);
+    const items = (Array.isArray(itemsRes.data) ? itemsRes.data : []).filter(
+      (item) => Number(item.remainingQuantity) > 0
+    );
+    setDispatchableItems(items);
+    setDispatchQuantities(
+      Object.fromEntries(items.map((item) => [item.salesOrderItemId, String(item.remainingQuantity)]))
+    );
+    setOrderDispatches(
+      (Array.isArray(dispatchesRes.data) ? dispatchesRes.data : []).filter(
+        (dispatch) => Number(dispatch.salesOrderId) === orderId
+      )
+    );
+  };
+
+  const refreshOrder = async (orderId: number) => {
+    try {
+      const response = await axios.get<SalesOrder>(`${API_URL}/${orderId}`, { headers });
+      upsertOrder(response.data);
+      return response.data;
+    } catch {
+      return null;
+    }
+  };
+
+  const openDispatch = async (order: SalesOrder) => {
+    setDispatchOrder(order);
+    setDispatchableItems([]);
+    setOrderDispatches([]);
+    setDispatchDetails(emptyDispatchDetails);
+    setConfirmDispatchNow(canApprove);
+    try {
+      await loadDispatchData(Number(order.id));
+    } catch (error) {
+      ToasterService.error("Failed to load the order's dispatch details", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const closeDispatch = () => {
+    setDispatchOrder(null);
+    setDispatchableItems([]);
+    setOrderDispatches([]);
+    setDispatchQuantities({});
+  };
+
+  const confirmDispatch = async (dispatchId: number) => {
+    await axios.post(`${DISPATCH_API_URL}/dispatches/${dispatchId}/confirm`, {}, { headers });
+  };
+
+  const createDispatch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!dispatchOrder) return;
+
+    const lines = dispatchableItems
+      .map((item) => ({ item, quantity: Number(dispatchQuantities[item.salesOrderItemId] || 0) }))
+      .filter((line) => line.quantity > 0);
+    if (lines.length === 0) {
+      ToasterService.error("Nothing to dispatch", "Enter a quantity for at least one item.");
+      return;
+    }
+    const tooMuch = lines.find((line) => line.quantity > Number(line.item.remainingQuantity));
+    if (tooMuch) {
+      ToasterService.error(
+        "Quantity too high",
+        `Only ${tooMuch.item.remainingQuantity} of ${tooMuch.item.productName || "this item"} is left to dispatch.`
+      );
+      return;
+    }
+
+    const orderId = Number(dispatchOrder.id);
+    try {
+      setDispatching(true);
+      const response = await axios.post<SalesDispatch>(
+        `${DISPATCH_API_URL}/orders/${orderId}/dispatches`,
+        {
+          ...dispatchDetails,
+          items: lines.map((line) => ({ salesOrderItemId: line.item.salesOrderItemId, quantity: line.quantity })),
+        },
+        { headers }
+      );
+      if (confirmDispatchNow && canApprove) {
+        try {
+          await confirmDispatch(response.data.id);
+          ToasterService.success(`Dispatch ${response.data.dispatchNumber} confirmed`, "Stock issued; it can now be invoiced.");
+        } catch (error) {
+          ToasterService.error(
+            `Dispatch ${response.data.dispatchNumber} saved as draft`,
+            getErrorMessage(error, "It could not be confirmed. Confirm it from the list below.")
+          );
+        }
+      } else {
+        ToasterService.success(`Dispatch ${response.data.dispatchNumber} created`, "Confirm it once the goods leave the warehouse.");
+      }
+      setDispatchDetails(emptyDispatchDetails);
+      await refreshOrder(orderId);
+      await loadDispatchData(orderId);
+    } catch (error) {
+      ToasterService.error("Unable to create dispatch", getErrorMessage(error, "Please try again."));
+    } finally {
+      setDispatching(false);
+    }
+  };
+
+  const confirmDraftDispatch = async (dispatch: SalesDispatch) => {
+    if (!dispatchOrder) return;
+    try {
+      setDispatching(true);
+      await confirmDispatch(dispatch.id);
+      ToasterService.success(`Dispatch ${dispatch.dispatchNumber} confirmed`, "Stock issued; it can now be invoiced.");
+      await refreshOrder(Number(dispatchOrder.id));
+      await loadDispatchData(Number(dispatchOrder.id));
+    } catch (error) {
+      ToasterService.error("Unable to confirm dispatch", getErrorMessage(error, "Please try again."));
+    } finally {
+      setDispatching(false);
+    }
   };
 
   const closeForm = () => {
@@ -1120,22 +1436,38 @@ const SalesOrders: React.FC = () => {
       className: "text-right",
       render: (order) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
+          {canApprove && order.status === "DRAFT" && (<button
+            type="button"
+            onClick={() => openConfirm(order)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+            title="Confirm order (reserve stock)"
+          >
+            <CheckBadgeIcon className="h-4 w-4" />
+          </button>)}
+          {canCreate && DISPATCHABLE_STATUSES.includes(order.status) && (<button
+            type="button"
+            onClick={() => openDispatch(order)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400"
+            title="Dispatch goods"
+          >
+            <TruckIcon className="h-4 w-4" />
+          </button>)}
+          {canUpdate && EDITABLE_STATUSES.includes(order.status || "DRAFT") && (<button
             type="button"
             onClick={() => openEdit(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && DELETABLE_STATUSES.includes(order.status || "DRAFT") && (<button
             type="button"
             onClick={() => setDeleteOrder(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -1186,8 +1518,17 @@ const SalesOrders: React.FC = () => {
           />
         </div>
 
+        {convertedQuotationId > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200">
+            <span>Showing the sales order created from quotation {convertedQuotationNumber || `#${convertedQuotationId}`}.</span>
+            <button type="button" onClick={() => navigate("/sales-orders")} className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100">
+              Show all orders
+            </button>
+          </div>
+        )}
+
         <ReusableTable
-          data={orders}
+          data={displayedOrders}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -1199,13 +1540,13 @@ const SalesOrders: React.FC = () => {
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
                 No sales orders found
               </p>
-              <button
+              {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 Create your first sales order
-              </button>
+              </button>)}
             </div>
           }
         />
@@ -1778,6 +2119,34 @@ const SalesOrders: React.FC = () => {
                 onChange={handleChange}
               />,
               <FloatingInput
+                key="billingAddressLine2"
+                label="Billing Address Line 2"
+                name="billingAddressLine2"
+                value={form.billingAddressLine2}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingAddressLine2"
+                label="Shipping Address Line 2"
+                name="shippingAddressLine2"
+                value={form.shippingAddressLine2}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="billingStreet"
+                label="Billing Street"
+                name="billingStreet"
+                value={form.billingStreet}
+                onChange={handleChange}
+              />,
+              <FloatingInput
+                key="shippingStreet"
+                label="Shipping Street"
+                name="shippingStreet"
+                value={form.shippingStreet}
+                onChange={handleChange}
+              />,
+              <FloatingInput
                 key="billingCity"
                 label="Billing City"
                 name="billingCity"
@@ -1873,6 +2242,231 @@ const SalesOrders: React.FC = () => {
             ],
           },
         ]}
+      />
+
+      <PaginatedPopup
+        isOpen={!!confirmOrder}
+        title="Confirm Sales Order"
+        subtitle={`Select the fulfilment warehouse for ${confirmOrder?.orderNumber || "this sales order"}.`}
+        onClose={() => {
+          setConfirmOrder(null);
+          setConfirmWarehouseId("");
+        }}
+        onSubmit={confirmSalesOrder}
+        submitLabel="Confirm Order"
+        submitting={confirming}
+        maxWidthClassName="max-w-md"
+        fields={[
+          <FloatingSelect
+            key="warehouseId"
+            label="Warehouse"
+            name="warehouseId"
+            value={confirmWarehouseId}
+            onChange={(event) => setConfirmWarehouseId(event.target.value)}
+            emptyOptionLabel="Select warehouse"
+            options={warehouses.filter((warehouse) => warehouse.active === true).map((warehouse) => ({
+              id: String(warehouse.id),
+              name: warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`,
+            }))}
+            required
+          />,
+        ]}
+      />
+
+      <PaginatedPopup
+        isOpen={!!dispatchOrder}
+        title="Dispatch Goods"
+        subtitle={`Ship items of ${dispatchOrder?.orderNumber || "this sales order"}. A confirmed dispatch issues the stock and is ready to invoice.`}
+        onClose={closeDispatch}
+        maxWidthClassName="max-w-3xl"
+        content={
+          <form onSubmit={createDispatch} noValidate className="flex flex-col">
+            <div className="space-y-5 px-4 py-4 sm:px-5">
+              {orderDispatches.length > 0 && (
+                <section>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Dispatches so far</h4>
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-slate-800">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Dispatch</th>
+                          <th className="px-3 py-2 font-medium">Date</th>
+                          <th className="px-3 py-2 font-medium">Items</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {orderDispatches.map((dispatch) => (
+                          <tr key={dispatch.id}>
+                            <td className="px-3 py-2 font-medium text-gray-900">{dispatch.dispatchNumber}</td>
+                            <td className="px-3 py-2 text-gray-500">{dispatch.dispatchDate}</td>
+                            <td className="px-3 py-2 text-gray-500">
+                              {(dispatch.items || [])
+                                .map((item) => `${item.productName || `Item #${item.salesOrderItemId}`} × ${item.quantity}`)
+                                .join(", ")}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  dispatch.status === "CONFIRMED"
+                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                }`}
+                              >
+                                {dispatch.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {dispatch.status === "DRAFT" && canApprove && (
+                                <button
+                                  type="button"
+                                  disabled={dispatching}
+                                  onClick={() => confirmDraftDispatch(dispatch)}
+                                  className="rounded-lg border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                                >
+                                  Confirm
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              <section>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">New dispatch</h4>
+                {dispatchableItems.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-gray-200 px-3 py-4 text-sm text-gray-500">
+                    {orderDispatches.some((dispatch) => dispatch.status === "DRAFT")
+                      ? "Everything left is already on a draft dispatch. Confirm it above once the goods leave."
+                      : "Nothing is left to dispatch on this order."}
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-slate-800">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Item</th>
+                          <th className="px-3 py-2 text-right font-medium">Ordered</th>
+                          <th className="px-3 py-2 text-right font-medium">Dispatched</th>
+                          <th className="px-3 py-2 text-right font-medium">Left</th>
+                          <th className="px-3 py-2 text-right font-medium">Dispatch now</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {dispatchableItems.map((item) => (
+                          <tr key={item.salesOrderItemId}>
+                            <td className="px-3 py-2 text-gray-900">
+                              {item.productName || `Product #${item.productId}`}
+                              {item.productCode && <span className="ml-1 text-xs text-gray-500">{item.productCode}</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-500">{item.orderedQuantity}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">
+                              {item.dispatchedQuantity}
+                              {Number(item.draftQuantity) > 0 && (
+                                <span className="ml-1 text-xs text-amber-600">+{item.draftQuantity} draft</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-500">{item.remainingQuantity}</td>
+                            <td className="px-3 py-2 text-right">
+                              <input
+                                type="number"
+                                min={0}
+                                max={item.remainingQuantity}
+                                step="any"
+                                aria-label={`Quantity of ${item.productName || "item"} to dispatch`}
+                                value={dispatchQuantities[item.salesOrderItemId] ?? ""}
+                                onChange={(event) =>
+                                  setDispatchQuantities((current) => ({
+                                    ...current,
+                                    [item.salesOrderItemId]: event.target.value,
+                                  }))
+                                }
+                                className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {dispatchableItems.length > 0 && (
+                <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <FloatingInput
+                    label="Delivery Note / Reference"
+                    name="deliveryReference"
+                    value={dispatchDetails.deliveryReference}
+                    onChange={(event) => setDispatchDetails((current) => ({ ...current, deliveryReference: event.target.value }))}
+                  />
+                  <FloatingInput
+                    label="Transporter"
+                    name="transporterName"
+                    value={dispatchDetails.transporterName}
+                    onChange={(event) => setDispatchDetails((current) => ({ ...current, transporterName: event.target.value }))}
+                  />
+                  <FloatingInput
+                    label="Vehicle Number"
+                    name="vehicleNumber"
+                    value={dispatchDetails.vehicleNumber}
+                    onChange={(event) => setDispatchDetails((current) => ({ ...current, vehicleNumber: event.target.value }))}
+                  />
+                  <FloatingInput
+                    label="Tracking Number"
+                    name="trackingNumber"
+                    value={dispatchDetails.trackingNumber}
+                    onChange={(event) => setDispatchDetails((current) => ({ ...current, trackingNumber: event.target.value }))}
+                  />
+                  <div className="md:col-span-2">
+                    <FloatingTextarea
+                      label="Remarks"
+                      name="remarks"
+                      value={dispatchDetails.remarks}
+                      onChange={(event) => setDispatchDetails((current) => ({ ...current, remarks: event.target.value }))}
+                      rows={2}
+                    />
+                  </div>
+                  {canApprove && (
+                    <label className="flex items-center gap-2 text-sm text-gray-900 md:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={confirmDispatchNow}
+                        onChange={(event) => setConfirmDispatchNow(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                      />
+                      Confirm now: the goods are leaving, issue the stock and make it ready to invoice
+                    </label>
+                  )}
+                </section>
+              )}
+            </div>
+
+            <div className="flex flex-col justify-end gap-2 border-t border-gray-100 px-4 py-4 sm:flex-row sm:px-5">
+              <button
+                type="button"
+                onClick={closeDispatch}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:text-slate-200"
+              >
+                Close
+              </button>
+              {dispatchableItems.length > 0 && (
+                <button
+                  type="submit"
+                  disabled={dispatching}
+                  className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {dispatching ? "Saving..." : confirmDispatchNow && canApprove ? "Dispatch & Confirm" : "Create Dispatch"}
+                </button>
+              )}
+            </div>
+          </form>
+        }
       />
 
       <DynamicPopup

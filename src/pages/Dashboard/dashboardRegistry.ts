@@ -1,4 +1,5 @@
 import { lazy, type ComponentType } from "react";
+import { type AccessInfo, hasModule } from "../../access/access";
 import {
   BarChart3,
   Box,
@@ -12,14 +13,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-
-export type MinimalUser = {
-  superAdmin?: boolean;
-  roles?: string[];
-  role?: string;
-  userType?: string;
-  permissions?: string[];
-} | null;
 
 export type DashboardEntry = {
   key: string;
@@ -50,27 +43,22 @@ export const dashboardRegistry: DashboardEntry[] = [
   { key: "Attendance", label: "Attendance", description: "Punch, leave, shifts & approvals", icon: Calendar, tone: "emerald", Component: AttendanceDashboard },
 ];
 
-export function isAdminUser(user: MinimalUser): boolean {
-  if (!user) return false;
-  const roles = (user.roles ?? []).map((r) => r.toUpperCase());
-  const role = (user.role ?? "").toUpperCase().replace(/[\s_]+/g, "");
-  const userType = (user.userType ?? "").toUpperCase();
-  const admin =
-    user.superAdmin === true ||
-    roles.includes("SUPER_ADMIN") ||
-    roles.includes("ADMIN") ||
-    role === "SUPER_ADMIN" ||
-    role === "ADMIN";
-  const restricted = userType === "USER" || userType === "EMPLOYEE";
-  return admin && !restricted;
-}
+// Modules that unlock each dashboard tile (any one is enough)
+const DASHBOARD_MODULES: Record<string, string[]> = {
+  Reports: ["SALES", "INVENTORY", "PURCHASE", "INVOICE", "CRM"],
+  CRM: ["CRM"],
+  Common: ["CRM", "INVOICE"],
+  Sales: ["SALES"],
+  Inventory: ["INVENTORY"],
+  Purchase: ["PURCHASE"],
+  Invoice: ["INVOICE"],
+  Delivery: ["DELIVERY"],
+  HRMS: ["HRM"],
+  Attendance: ["ATTENDANCE"],
+};
 
-export function getAccessibleDashboards(user: MinimalUser): DashboardEntry[] {
-  if (isAdminUser(user)) return dashboardRegistry;
-  const permissions = (user?.permissions ?? []).map((p) => p.trim().toUpperCase());
-  if (!permissions.length) return dashboardRegistry;
-  const allowed = dashboardRegistry.filter((module) =>
-    permissions.some((permission) => permission === module.key.toUpperCase() || permission.includes(module.key.toUpperCase()))
+export function getAccessibleDashboards(access: AccessInfo): DashboardEntry[] {
+  return dashboardRegistry.filter((entry) =>
+    (DASHBOARD_MODULES[entry.key] ?? []).some((module) => hasModule(access, module)),
   );
-  return allowed.length ? allowed : dashboardRegistry;
 }

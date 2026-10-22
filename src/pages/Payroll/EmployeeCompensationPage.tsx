@@ -23,6 +23,8 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 // API endpoints
 const COMPENSATION_API_URL = "/v1/api/payroll/employee";
@@ -49,6 +51,7 @@ interface CompensationFormData {
 }
 
 const EmployeeCompensationPage: React.FC = () => {
+  const { canDelete, canExport, canUpdate } = usePermissions();
     const [compensations, setCompensations] = useState<CompensationItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
@@ -279,7 +282,7 @@ const EmployeeCompensationPage: React.FC = () => {
                 headStyles: { fillColor: [41, 128, 185] },
             });
         }
-        doc.save(`CompensationReport_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`CompensationReport_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -297,7 +300,7 @@ const EmployeeCompensationPage: React.FC = () => {
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Compensations");
-        XLSX.writeFile(wb, `CompensationReport_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `CompensationReport_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
@@ -389,20 +392,20 @@ const EmployeeCompensationPage: React.FC = () => {
             className: "text-right",
             render: (row) => (
                 <div className="flex items-center justify-end gap-2">
-                    <button
+                    {canUpdate && (<button
                         onClick={() => handleEdit(row.rawItem)}
                         className="p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-gray-100 dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 rounded-lg transition-colors cursor-pointer"
                         title="Edit"
                     >
                         <PencilSquareIcon className="h-4 w-4" />
-                    </button>
-                    <button
+                    </button>)}
+                    {canDelete && (<button
                         onClick={() => handleDelete(row.employeeRole)}
                         className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                         title="Delete"
                     >
                         <TrashIcon className="h-4 w-4" />
-                    </button>
+                    </button>)}
                 </div>
             ),
         },
@@ -438,13 +441,13 @@ const EmployeeCompensationPage: React.FC = () => {
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                         {!showForm && (
                             <div className="relative flex h-10 items-center">
-                                <button
+                                {canExport && (<button
                                     onClick={() => setShowExportMenu(!showExportMenu)}
                                     className="h-10 w-10 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
                                     disabled={compensations.length === 0}
                                 >
                                     <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </button>
+                                </button>)}
                                 {showExportMenu && (
                                     <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
                                         <button

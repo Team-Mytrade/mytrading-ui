@@ -25,6 +25,8 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 /**
  * =====================================================================================
@@ -143,7 +145,8 @@ type Warehouse = {
 // ============ CONSTANTS ============
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/purchase/products";
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_API_URL = "/v1/api/product/products";
 // Confirmed real endpoint (see note at top of file) — returns a flat array of
 // { batchId, batchNumber, warehouseId, productId, quantity, reserved, available }.
 // A batch's quantity/reserved/available live ONLY here, never on the Batch
@@ -155,17 +158,13 @@ const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const BATCH_ROUTE = "/batch";
 
-// TODO: replace with real values pulled from your auth/session context.
-const STATIC_CREATED_BY = "system-admin";
-const STATIC_TENANT_ID = "tenant-001";
-
 const SUPPLIER_STORAGE_KEY = "batchSupplierNames";
 
 const FALLBACK_STATUS = ["GOOD", "EXPIRING_SOON", "EXPIRED", "EMPTY"];
 
 const emptyForm: BatchForm = {
   batchNumber: "",
-  manufacturingDate: new Date().toISOString().split("T")[0],
+  manufacturingDate: todayIso(),
   expiryDate: "",
   productId: "",
   warehouse: "",
@@ -282,6 +281,7 @@ function getLocalSupplierName(id: number): string {
 
 // ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const navigate = useNavigate();
 
   const [searchParams] = useSearchParams();
@@ -382,7 +382,7 @@ const BatchManagement: React.FC = () => {
     // batchNumber intentionally left blank — assumed server-generated on
     // create. CONFIRM with backend; if POST actually requires it, this needs
     // a real input added back.
-    setForm({ ...emptyForm, manufacturingDate: new Date().toISOString().split("T")[0] });
+    setForm({ ...emptyForm, manufacturingDate: todayIso() });
     setShowFormModal(true);
   };
 
@@ -418,9 +418,8 @@ const BatchManagement: React.FC = () => {
   const buildPayload = () => {
     const selectedWarehouse = warehouses.find((w) => String(w.id) === form.warehouse);
 
+    // Tenant and creator come from the signed-in user on the server
     const payload: any = {
-      createdBy: STATIC_CREATED_BY,
-      tenantId: STATIC_TENANT_ID,
       manufacturingDate: form.manufacturingDate,
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
@@ -918,20 +917,20 @@ const BatchManagement: React.FC = () => {
           className="flex justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          {canUpdate && (<button
             onClick={() => openEdit(batch)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
             title="Edit"
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             onClick={() => setDeleteBatch(batch)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -1025,6 +1024,17 @@ const BatchManagement: React.FC = () => {
           defaultSortOrder="asc"
           enableRowDetails={true}
           rowDetailsTitle="Batch Details"
+          suspendRowDetails={showFormModal}
+          rowDetailsActions={(batch) => (
+            canUpdate && <button
+              type="button"
+              onClick={() => openEdit(batch)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+              Edit
+            </button>
+          )}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
@@ -1096,7 +1106,6 @@ const BatchManagement: React.FC = () => {
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                // emptyOptionLabel="Select product"
                 options={products.map((p) => ({
                   id: String(p.id || p.productId || 0),
                   name: normalizeProductLabel(p),
@@ -1109,7 +1118,6 @@ const BatchManagement: React.FC = () => {
                 name="warehouse"
                 value={form.warehouse}
                 onChange={handleChange}
-                // emptyOptionLabel="Select warehouse"
                 options={warehouses.map((w) => ({
                   id: String(w.id),
                   name: `${w.code || ""} - ${w.name || ""}`,

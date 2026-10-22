@@ -4,6 +4,9 @@ import { jsPDF } from "jspdf";
 import autoTable, { RowInput, UserOptions } from "jspdf-autotable";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingDateRangePicker } from "../inputfeild/FloatingInput";
+import { todayIso } from "../../utils/localDate";
+import { publicAsset } from "../../utils/assets";
+import { usePermissions } from "../../access/usePermissions";
 
 type Primitive = string | number | boolean | null | undefined | Date;
 type ExportRangePreset = "all" | "1m" | "3m" | "6m" | "custom";
@@ -69,8 +72,8 @@ const toTitle = (value: string) =>
 
 const formatValue = (value: Primitive): string => {
   if (value == null || value === "") return "-";
-  if (value instanceof Date) return value.toLocaleDateString();
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (value instanceof Date) return value.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  if (typeof value === "boolean") return value ? "Active" : "Inactive";
   return String(value);
 };
 
@@ -181,7 +184,8 @@ const getFilterSummary = (metadata?: PdfExportMeta[]) => {
   return [rangeText, otherText].filter(Boolean).join(" | ");
 };
 
-const loadImageAsDataUrl = (src: string) => {
+/** Loads a public branding image for reuse in all PDF exports. */
+export const loadImageAsDataUrl = (src: string) => {
   if (typeof window === "undefined") return Promise.resolve<string | null>(null);
 
   return new Promise<string | null>((resolve) => {
@@ -250,7 +254,10 @@ const drawHeader = <T extends object>(
     doc.text(options.subtitle, 14, 38.5);
   }
 
-  const generated = `Generated ${new Date().toLocaleString()}`;
+  // e.g. "Generated 13 Oct 2026, 05:45 PM"
+  const generated = `Generated ${new Date()
+    .toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
+    .replace(/\b(am|pm)\b/i, (part) => part.toUpperCase())}`;
   doc.setTextColor(...BRAND.muted);
   doc.setFontSize(8);
   doc.text(generated, pageWidth - 14, 32, { align: "right" });
@@ -304,7 +311,7 @@ export function exportListingPdf<T extends object>({
   subtitle,
   companyName = "My Trading",
   generatedBy = getStoredUserName(),
-  logoSrc = "/images/logo/logo.png",
+  logoSrc = publicAsset("images/logo/logo.png"),
   reportLabel = "Listing Export",
   metadata = [],
   orientation = "landscape",
@@ -328,7 +335,8 @@ export function exportListingPdf<T extends object>({
     data.length > 0
       ? data.map((row, index) => [
           ...(includeSerialNumber ? [String(index + 1)] : []),
-          ...exportColumns.map((column) => formatValue(getColumnValue(row, column, index))),
+          // The built-in PDF font has no ₹ sign, so amounts print as "Rs. 25,000.00".
+          ...exportColumns.map((column) => formatValue(getColumnValue(row, column, index)).replace(/₹\s?/g, "Rs. ")),
         ])
       : [[emptyMessage]];
 
@@ -343,9 +351,13 @@ export function exportListingPdf<T extends object>({
     );
 
     const columnStyles: UserOptions["columnStyles"] = {};
+    // Amount columns (values like "Rs. 25,000.00") line up on the right.
+    const isAmountColumn = (column: PdfExportColumn<T>) =>
+      data.length > 0 &&
+      data.every((row, rowIndex) => /^(₹|Rs\.)\s?[\d,]+(\.\d+)?$|^-+$/.test(formatValue(getColumnValue(row, column, rowIndex))));
     exportColumns.forEach((column, index) => {
       columnStyles[(includeSerialNumber ? index + 1 : index).toString()] = {
-        halign: column.align ?? "left",
+        halign: column.align ?? (isAmountColumn(column) ? "right" : "left"),
         cellWidth: column.width,
       };
     });
@@ -393,7 +405,7 @@ export function exportListingPdf<T extends object>({
 
     drawFooter(doc, pageWidth, pageHeight, generatedBy);
 
-    doc.save(`${fileSafe(fileName || title)}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`${fileSafe(fileName || title)}_${todayIso()}.pdf`);
   });
 }
 
@@ -417,6 +429,7 @@ export function ListingPdfExportButton<T extends object>({
   buttonClassName = "",
   dateAccessor,
 }: ListingPdfExportButtonProps<T>) {
+  const { canExport } = usePermissions();
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportPreset, setExportPreset] = useState<ExportRangePreset>("all");
   const [exportFromDate, setExportFromDate] = useState<Date | null>(null);
@@ -517,6 +530,9 @@ export function ListingPdfExportButton<T extends object>({
     });
     setShowExportModal(false);
   };
+
+  // Exporting needs the page module's EXPORT permission
+  if (!canExport) return null;
 
   return (
     <>

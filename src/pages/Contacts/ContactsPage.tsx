@@ -72,8 +72,8 @@ const ContactsPage: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="React.js Contacts Dashboard | TailAdmin - Next.js Admin Dashboard Template"
-        description="This is React.js Contacts Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        title="Contacts | myTrading"
+        description="Customer contacts"
       />
       <PageBreadcrumb pageTitle="Contacts" />
     <div className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded shadow border dark:bg-boxdark dark:border-stroke">

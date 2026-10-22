@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
+import { usePermissions } from '../../access/usePermissions';
 
 // --- Types & Interfaces ---
 
@@ -351,10 +352,10 @@ const ItDeclarationPage: React.FC = () => {
     // Query Params
     const queryId = searchParams.get('id');
     const queryName = searchParams.get('employeeName');
-    const designation = searchParams.get('designation') || '';
 
-    // Role State
-    const isHR = designation?.toUpperCase() === 'HR' || designation?.toUpperCase() === 'ADMIN' || designation?.toUpperCase() === 'Human Resources';
+    // HR view (verify, approve, lock): someone else's declaration (?id=) opened by a user with HRM:APPROVE
+    const { canApprove } = usePermissions("HRM");
+    const isHR = canApprove && Boolean(queryId);
 
     const { user } = useContext(AuthContext);
     const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);

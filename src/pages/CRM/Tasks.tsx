@@ -29,6 +29,8 @@ import {
   FloatingSelect1 as FloatingSelect,
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
+import { useUserDirectory, userOptions } from "../../access/useUserDirectory";
+import { usePermissions } from "../../access/usePermissions";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import DynamicPopup from "../../components/common/Popup";
@@ -37,6 +39,15 @@ import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
+import {
+  ACTIVITY_STATUS_OPTIONS,
+  ACTIVITY_TYPE_OPTIONS,
+  PRIORITY_OPTIONS,
+  apiError,
+  contactsOfCustomers,
+  toDateTimeInput,
+  toLocalDateTime,
+} from "./crmShared";
 
 const API_BASE = "/v1/api/crm/activities";
 const LEADS_API = "/v1/api/crm/leads";
@@ -81,6 +92,7 @@ const getCustomerLabel = (c?: Customer | null) =>
   c?.customerName || c?.name || "";
 
 const Tasks: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [form, setForm] = useState<Partial<Activity>>({});
   const [showFormModal, setShowFormModal] = useState(false);
@@ -98,6 +110,7 @@ const Tasks: React.FC = () => {
   const [selectedStatus] = useState<string>("");
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { users: directoryUsers } = useUserDirectory();
 
   useEffect(() => {
     if (showFormModal || showViewModal || showDeleteConfirm) {
@@ -150,9 +163,7 @@ const Tasks: React.FC = () => {
         .get(CONTACTS_API)
         .catch(() => ({ data: [] as Contact[] }));
       const customersList = custRes.data || [];
-      const customerContacts = customersList.flatMap(
-        (customer: Customer) => customer.contacts || []
-      );
+      const customerContacts = contactsOfCustomers(customersList);
       setActivities(actRes.data || []);
       setLeads(leadRes.data || []);
       setCustomers(customersList);
@@ -168,13 +179,14 @@ const Tasks: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
+  // Kept as the service's local date-time text ("2026-10-15T10:30:00"), never converted to UTC
   const setDateField = (
     field: "scheduledTime" | "completedTime",
-    date: Date | null
+    value: string
   ) =>
     setForm((f) => ({
       ...f,
-      [field]: date ? date.toISOString() : undefined,
+      [field]: value ? `${value}:00` : undefined,
     }));
 
   const getActivityPayload = (a: Partial<Activity>) => ({
@@ -183,12 +195,8 @@ const Tasks: React.FC = () => {
     activityType: a.activityType?.toUpperCase(),
     priority: a.priority?.toUpperCase(),
     status: a.status?.toUpperCase(),
-    scheduledTime: a.scheduledTime
-      ? new Date(a.scheduledTime).toISOString()
-      : undefined,
-    completedTime: a.completedTime
-      ? new Date(a.completedTime).toISOString()
-      : undefined,
+    scheduledTime: a.scheduledTime || undefined,
+    completedTime: a.completedTime || undefined,
     assignedTo: a.assignedTo,
   });
 
@@ -208,6 +216,15 @@ const Tasks: React.FC = () => {
       ToasterService.error("Title is required");
       return;
     }
+    if (!form.activityType) {
+      ToasterService.error("Choose the activity type");
+      return;
+    }
+    if (form.scheduledTime && form.completedTime
+        && new Date(form.completedTime).getTime() < new Date(form.scheduledTime).getTime()) {
+      ToasterService.error("Completed time can't be before the scheduled time");
+      return;
+    }
     try {
       setIsSaving(true);
       const payload = getActivityPayload(form);
@@ -224,9 +241,7 @@ const Tasks: React.FC = () => {
       resetForm();
     } catch (err: any) {
       console.error("Error saving activity:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to save activity"
-      );
+      ToasterService.error(apiError(err, "Failed to save activity"));
     } finally {
       setIsSaving(false);
     }
@@ -261,9 +276,7 @@ const Tasks: React.FC = () => {
       ToasterService.success("Activity deleted successfully!");
     } catch (err: any) {
       console.error("Delete error:", err);
-      ToasterService.error(
-        err.response?.data?.message || "Failed to delete activity"
-      );
+      ToasterService.error(apiError(err, "Failed to delete activity"));
     } finally {
       setShowDeleteConfirm(false);
       setDeleteConfirmId(null);
@@ -284,10 +297,12 @@ const Tasks: React.FC = () => {
         getActivityPayload(next)
       );
       ToasterService.success("Activity status updated successfully!");
+      // Completing records the completed time on the server
+      await fetchAll();
     } catch (err) {
       console.error("Error updating activity status:", err);
       setActivities(previous);
-      ToasterService.error("Failed to update activity status");
+      ToasterService.error(apiError(err, "Failed to update activity status"));
     } finally {
       setStatusUpdatingId(null);
     }
@@ -312,6 +327,8 @@ const Tasks: React.FC = () => {
       ? "bg-green-100 text-green-800 border-green-200"
       : status === "PENDING"
       ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+      : status === "CANCELLED"
+      ? "bg-red-50 text-red-700 border-red-200"
       : "bg-gray-100 text-gray-800 border-gray-200";
 
   const getTypeIcon = (type?: string) => {
@@ -381,7 +398,11 @@ const Tasks: React.FC = () => {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (a) => (
+      render: (a) => !canUpdate ? (
+        <span className={`inline-flex w-[112px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStatusBadgeColor(a.status)}`}>
+          {ACTIVITY_STATUS_OPTIONS.find((option) => option.id === (a.status || "PENDING"))?.name ?? a.status}
+        </span>
+      ) : (
         <div onClick={(e) => e.stopPropagation()}>
           <select
             value={a.status || "PENDING"}
@@ -395,8 +416,9 @@ const Tasks: React.FC = () => {
                 : "cursor-pointer"
             }`}
           >
-            <option value="PENDING">Pending</option>
-            <option value="COMPLETED">Completed</option>
+            {ACTIVITY_STATUS_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
           </select>
         </div>
       ),
@@ -472,22 +494,26 @@ const Tasks: React.FC = () => {
           className="flex items-center justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => handleEdit(a)}
-            className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => confirmDelete(a.id)}
-            className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          {canUpdate && (
+            <button
+              type="button"
+              onClick={() => handleEdit(a)}
+              className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
+              title="Edit"
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => confirmDelete(a.id)}
+              className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+              title="Delete"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -496,19 +522,20 @@ const Tasks: React.FC = () => {
   return (
     <>
       <PageMeta title="Activities" description="Manage your activities" />
-      <PageBreadcrumb pageTitle="Activities" />
-
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 mx-4 flex justify-start sm:justify-end lg:-mt-[134px]">
+      <PageBreadcrumb
+        pageTitle="Activities"
+        actions={
           <AddButton
             onClick={() => {
-              setForm({});
-                setShowFormModal(true);
+              setForm({ activityType: "TASK", priority: "MEDIUM", status: "PENDING" });
+              setShowFormModal(true);
             }}
             label="New Activity"
           />
-        </div>
+        }
+      />
 
+      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard
@@ -575,16 +602,18 @@ const Tasks: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-2">
                   No activities found
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm({});
-                    setShowFormModal(true);
-                  }}
-                  className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
-                >
-                  Add your first activity
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm({ activityType: "TASK", priority: "MEDIUM", status: "PENDING" });
+                      setShowFormModal(true);
+                    }}
+                    className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
+                  >
+                    Add your first activity
+                  </button>
+                )}
               </div>
             }
           />
@@ -800,11 +829,12 @@ const Tasks: React.FC = () => {
           />
         </div>,
         <div key="assignedTo" className="md:col-span-2">
-          <FloatingInput
+          <FloatingSelect
             label="Assigned To"
             name="assignedTo"
             value={form.assignedTo || ""}
             onChange={handleChange}
+            options={userOptions(directoryUsers, form.assignedTo)}
           />
         </div>,
       ],
@@ -818,12 +848,8 @@ const Tasks: React.FC = () => {
           name="activityType"
           value={form.activityType || ""}
           onChange={handleChange}
-          options={[
-            { id: "CALL", name: "Call" },
-            { id: "MEETING", name: "Meeting" },
-            { id: "EMAIL", name: "Email" },
-            { id: "OTHER", name: "Other" },
-          ]}
+          options={ACTIVITY_TYPE_OPTIONS}
+          required
         />,
         <FloatingSelect
           key="priority"
@@ -831,11 +857,7 @@ const Tasks: React.FC = () => {
           name="priority"
           value={form.priority || ""}
           onChange={handleChange}
-          options={[
-            { id: "LOW", name: "Low" },
-            { id: "MEDIUM", name: "Medium" },
-            { id: "HIGH", name: "High" },
-          ]}
+          options={PRIORITY_OPTIONS}
         />,
         <FloatingSelect
           key="status"
@@ -843,10 +865,7 @@ const Tasks: React.FC = () => {
           name="status"
           value={form.status || ""}
           onChange={handleChange}
-          options={[
-            { id: "PENDING", name: "Pending" },
-            { id: "COMPLETED", name: "Completed" },
-          ]}
+          options={ACTIVITY_STATUS_OPTIONS}
         />,
         <div className="hidden md:block" key="spacer" />,
         <FloatingInput
@@ -854,34 +873,16 @@ const Tasks: React.FC = () => {
           type="datetime-local"
           label="Scheduled Time"
           name="scheduledTime"
-          value={
-            form.scheduledTime
-              ? new Date(form.scheduledTime).toISOString().slice(0, 16)
-              : ""
-          }
-          onChange={(e) =>
-            setDateField(
-              "scheduledTime",
-              e.target.value ? new Date(e.target.value) : null
-            )
-          }
+          value={toDateTimeInput(form.scheduledTime)}
+          onChange={(e) => setDateField("scheduledTime", e.target.value)}
         />,
         <FloatingInput
           key="completedTime"
           type="datetime-local"
           label="Completed Time"
           name="completedTime"
-          value={
-            form.completedTime
-              ? new Date(form.completedTime).toISOString().slice(0, 16)
-              : ""
-          }
-          onChange={(e) =>
-            setDateField(
-              "completedTime",
-              e.target.value ? new Date(e.target.value) : null
-            )
-          }
+          value={toDateTimeInput(form.completedTime)}
+          onChange={(e) => setDateField("completedTime", e.target.value)}
         />,
       ],
     },

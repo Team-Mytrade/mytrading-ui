@@ -1,6 +1,6 @@
 import React, { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
+import "./styles/index.css";
 import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
 import App from "./App.tsx";
@@ -9,9 +9,10 @@ import { ThemeProvider } from "./context/ThemeContext.tsx";
 import AppPreloader from "./components/common/AppPreloader.tsx";
 import PageLoader from "./components/common/PageLoader.tsx";
 
+import { AUTH_BOOTSTRAP_COMPLETE_EVENT, isAuthBootstrapComplete } from "./utils/authBootstrap";
+
 const LOGIN_PRELOADER_SHOWN_KEY = "loginPreloaderShown";
 const LOGIN_SUCCESS_EVENT = "app-login-success";
-const AUTH_BOOTSTRAP_COMPLETE_EVENT = "app-auth-bootstrap-complete";
 
 function Root() {
   const hasStoredSession = !!localStorage.getItem("accessToken");
@@ -46,6 +47,10 @@ function Root() {
 
     window.addEventListener(LOGIN_SUCCESS_EVENT, handleLoginSuccess);
     window.addEventListener(AUTH_BOOTSTRAP_COMPLETE_EVENT, handleBootstrapComplete);
+    // The check may already have finished before this listener existed
+    if (isAuthBootstrapComplete()) {
+      handleBootstrapComplete();
+    }
 
     return () => {
       window.removeEventListener(LOGIN_SUCCESS_EVENT, handleLoginSuccess);

@@ -31,6 +31,8 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { todayIso } from "../../utils/localDate";
+import { usePermissions } from "../../access/usePermissions";
 
 type LeaveRequest = {
     id: number;
@@ -52,6 +54,8 @@ const API_URL = "/v1/api/payroll/leave-requests";
 const PAGE_SIZE = 10;
 
 const LeaveRequestsPage: React.FC = () => {
+  // Approving or rejecting is a PATCH of the request (HRM:UPDATE)
+  const { canExport, canUpdate } = usePermissions();
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
@@ -137,7 +141,7 @@ const LeaveRequestsPage: React.FC = () => {
             styles: { fontSize: 8 },
             headStyles: { fillColor: [6, 182, 212] },
         });
-        doc.save(`Leave_Requests_${new Date().toISOString().split("T")[0]}.pdf`);
+        doc.save(`Leave_Requests_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
 
@@ -156,7 +160,7 @@ const LeaveRequestsPage: React.FC = () => {
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Leave Requests");
-        XLSX.writeFile(wb, `Leave_Requests_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(wb, `Leave_Requests_${todayIso()}.xlsx`);
         setShowExportMenu(false);
     };
 
@@ -311,13 +315,13 @@ const LeaveRequestsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
-                            <button
+                            {canExport && (<button
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                                 disabled={requests.length === 0}
                             >
                                 <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                            </button>)}
 
                             {showExportMenu && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
@@ -528,7 +532,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                             </button>
                                                         )}
                                                     </Menu.Item>
-                                                    {request.status === "Pending" && (
+                                                    {request.status === "Pending" && canUpdate && (
                                                         <>
                                                             <Menu.Item>
                                                                 {({ active }) => (
@@ -751,7 +755,7 @@ const LeaveRequestsPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    {selectedRequest.status === "Pending" && (
+                                    {selectedRequest.status === "Pending" && canUpdate && (
                                         <>
                                             <button
                                                 type="button"

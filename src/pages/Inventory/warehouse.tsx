@@ -22,6 +22,7 @@ import {
   FloatingSelect1 as FloatingSelect,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
+import { usePermissions } from "../../access/usePermissions";
 
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
@@ -43,9 +44,11 @@ type Warehouse = {
   stockEntries?: any[];
   stockCount?: number;
   status?: WarehouseStatus;
+  active?: boolean;
 };
 
 type WarehouseForm = {
+  code: string;
   name: string;
   locationType: string;
   status: string;
@@ -61,12 +64,8 @@ const WAREHOUSE_ROUTE = "/warehouse";
 const FALLBACK_LOCATION_TYPES = ["MAIN", "DISTRIBUTION", "TRANSIT", "RETURN_CENTER"];
 const FALLBACK_STATUS = ["ACTIVE", "INACTIVE"];
 
-const STATIC_CREATED_BY = "system-admin";
-const STATIC_TENANT_ID = "tenant-001";
-
-const LOCAL_STATUS_STORAGE_KEY = "warehouseLocalStatus";
-
 const emptyForm: WarehouseForm = {
+  code: "",
   name: "",
   locationType: "",
   status: "ACTIVE",
@@ -121,38 +120,11 @@ function getStatusColor(status: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Local-only status storage
-// ---------------------------------------------------------------------------
-
-function loadLocalStatusMap(): Record<number, WarehouseStatus> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_STATUS_STORAGE_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveLocalStatus(id: number, status: WarehouseStatus) {
-  if (typeof id !== "number" || !Number.isFinite(id)) return;
-  const all = loadLocalStatusMap();
-  all[id] = status;
-  try {
-    localStorage.setItem(LOCAL_STATUS_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // fail silently
-  }
-}
-
-function getDisplayStatus(id: number): WarehouseStatus {
-  return loadLocalStatusMap()[id] ?? "ACTIVE";
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const WarehousePage: React.FC = () => {
+  const { canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
 
   // ── NEW: read URL filter params ─────────────────────────────────
@@ -250,43 +222,24 @@ const WarehousePage: React.FC = () => {
         ? response.data
         : (response.data as any)?.content || (response.data as any)?.data || [];
 
-      const enrichedData = await Promise.all(
-        rawData.map(async (warehouse) => {
-          let fullData: Warehouse = warehouse;
+      // The list already carries each warehouse's stock total; no per-warehouse detail calls
+      const enrichedData = rawData.map((warehouse) => {
+        const stockCount =
+          warehouse.stockCount ??
+          warehouse.stockLevels?.reduce(
+            (sum: number, level: any) => sum + (Number(level?.quantity) || 0),
+            0
+          ) ??
+          0;
 
-          if (!Array.isArray(warehouse.stockLevels)) {
-            try {
-              const detailRes = await axios.get(`${API_URL}/${warehouse.id}`, {
-                headers,
-                signal,
-              });
-              fullData = detailRes.data;
-            } catch (detailError) {
-              if (axios.isCancel(detailError)) throw detailError;
-              fullData = warehouse;
-            }
-          }
-
-          const stockCount =
-            fullData.stockLevels?.reduce(
-              (sum: number, level: any) => sum + (Number(level?.quantity) || 0),
-              0
-            ) || 0;
-
-          const code = resolveWarehouseCode(
-            fullData.code ?? warehouse.code,
-            warehouse.id
-          );
-
-          return {
-            ...fullData,
-            code,
-            locationType: fullData.locationType || warehouse.locationType || "MAIN",
-            stockCount,
-            status: getDisplayStatus(warehouse.id),
-          };
-        })
-      );
+        return {
+          ...warehouse,
+          code: resolveWarehouseCode(warehouse.code, warehouse.id),
+          locationType: warehouse.locationType || "MAIN",
+          stockCount,
+          status: warehouse.active === false ? "INACTIVE" : "ACTIVE",
+        };
+      });
 
       setWarehouses(enrichedData);
     } catch (error) {
@@ -309,6 +262,7 @@ const WarehousePage: React.FC = () => {
   const openCreate = (): void => {
     setEditingId(null);
     setForm({
+      code: "",
       name: "",
       locationType: locationTypeOptions[0] || "",
       status: "ACTIVE",
@@ -325,6 +279,7 @@ const WarehousePage: React.FC = () => {
   const openEdit = (warehouse: Warehouse): void => {
     setEditingId(warehouse.id);
     setForm({
+      code: warehouse.code ?? "",
       name: warehouse.name ?? "",
       locationType: warehouse.locationType ?? "",
       status: warehouse.status || "ACTIVE",
@@ -352,13 +307,23 @@ const WarehousePage: React.FC = () => {
     if (!previous) return;
 
     if (field === "status") {
-      saveLocalStatus(id, value);
+      savingRowsRef.current.add(id);
+      try {
+        await axios.put(
+          `${API_URL}/${id}`,
+          { id, code: previous.code, name: previous.name, locationType: previous.locationType, active: value === "ACTIVE" },
+          { headers }
+        );
+      } catch (error) {
+        ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
+        return;
+      } finally {
+        savingRowsRef.current.delete(id);
+      }
       setWarehouses((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, status: value } : w))
+        prev.map((w) => (w.id === id ? { ...w, status: value, active: value === "ACTIVE" } : w))
       );
-      ToasterService.success(
-        "Status updated (saved locally — not yet supported by the server)"
-      );
+      ToasterService.success("Warehouse status updated successfully");
       return;
     }
 
@@ -372,10 +337,10 @@ const WarehousePage: React.FC = () => {
         `${API_URL}/${id}`,
         {
           id,
-          createdBy: previous.createdBy || STATIC_CREATED_BY,
-          tenantId: previous.tenantId || STATIC_TENANT_ID,
+          code: previous.code,
           name: previous.name,
           locationType: value,
+          active: previous.active !== false,
         },
         { headers }
       );
@@ -399,10 +364,10 @@ const WarehousePage: React.FC = () => {
 
   const buildPayload = () => {
     const base = {
-      createdBy: STATIC_CREATED_BY,
-      tenantId: STATIC_TENANT_ID,
+      code: form.code.trim(),
       name: form.name.trim(),
       locationType: form.locationType,
+      active: form.status === "ACTIVE",
     };
     return editingId ? { id: editingId, ...base } : base;
   };
@@ -411,6 +376,12 @@ const WarehousePage: React.FC = () => {
     e.preventDefault();
 
     const trimmedName = form.name.trim();
+    const trimmedCode = form.code.trim();
+
+    if (!trimmedCode) {
+      ToasterService.error("Warehouse Code is required");
+      return;
+    }
 
     if (!trimmedName) {
       ToasterService.error("Warehouse Name is required");
@@ -443,17 +414,16 @@ const WarehousePage: React.FC = () => {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Warehouse updated successfully");
 
-        saveLocalStatus(editingId, form.status);
-
         setWarehouses((prev) =>
           prev.map((w) => {
             if (w.id !== editingId) return w;
             return {
               ...w,
+              code: payload.code,
               name: payload.name,
               locationType: payload.locationType,
               status: form.status,
-              code: resolveWarehouseCode(w.code, w.id),
+              active: payload.active,
             };
           })
         );
@@ -463,15 +433,12 @@ const WarehousePage: React.FC = () => {
 
         const code = resolveWarehouseCode(response.data?.code, response.data?.id);
 
-        if (typeof response.data?.id === "number") {
-          saveLocalStatus(response.data.id, form.status || "ACTIVE");
-        }
-
         const newWarehouse: Warehouse = {
           ...response.data,
           code,
           locationType: payload.locationType,
           status: form.status || "ACTIVE",
+          active: payload.active,
         };
         setWarehouses((prev) => [newWarehouse, ...prev]);
       }
@@ -582,7 +549,11 @@ const WarehousePage: React.FC = () => {
       key: "locationType",
       label: "Location Type",
       sortable: true,
-      render: (warehouse) => (
+      render: (warehouse) => !canUpdate ? (
+        <span className={`inline-flex w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(warehouse.locationType)}`}>
+          {warehouse.locationType}
+        </span>
+      ) : (
         <select
           aria-label={`Location type for ${warehouse.name}`}
           value={warehouse.locationType}
@@ -606,6 +577,13 @@ const WarehousePage: React.FC = () => {
       sortable: true,
       render: (warehouse) => {
         const status = warehouse.status || "ACTIVE";
+        if (!canUpdate) {
+          return (
+            <span className={`inline-flex w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getStatusColor(status)}`}>
+              {status}
+            </span>
+          );
+        }
         return (
           <select
             aria-label={`Status for ${warehouse.name}`}
@@ -647,7 +625,7 @@ const WarehousePage: React.FC = () => {
           className="flex justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          {canUpdate && (<button
             type="button"
             onClick={() => openEdit(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
@@ -655,8 +633,8 @@ const WarehousePage: React.FC = () => {
             aria-label={`Edit ${warehouse.name}`}
           >
             <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button
+          </button>)}
+          {canDelete && (<button
             type="button"
             onClick={() => setDeleteWarehouse(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
@@ -664,7 +642,7 @@ const WarehousePage: React.FC = () => {
             aria-label={`Delete ${warehouse.name}`}
           >
             <TrashIcon className="h-4 w-4" />
-          </button>
+          </button>)}
         </div>
       ),
     },
@@ -790,6 +768,14 @@ const WarehousePage: React.FC = () => {
             label: "Warehouse Details",
             fields: [
               <FloatingInput
+                key="code"
+                label="Warehouse Code"
+                name="code"
+                value={form.code}
+                onChange={handleChange}
+                required
+              />,
+              <FloatingInput
                 key="name"
                 label="Name"
                 name="name"
@@ -819,8 +805,7 @@ const WarehousePage: React.FC = () => {
                 key="status-hint"
                 className="text-xs text-amber-600 dark:text-amber-400"
               >
-                ⚠ Status is currently stored locally in this browser only — the
-                backend does not yet have a field to persist it server-side.
+                Status is saved to the warehouse API as <code>active: true</code> or <code>active: false</code>.
               </p>,
             ],
           },
