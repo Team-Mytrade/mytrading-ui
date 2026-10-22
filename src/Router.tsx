@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import PageLoading from "./components/common/PageLoading";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
+import AuthLayout from "./pages/AuthPages/AuthPageLayout";
 const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const Forget = lazy(() => import("./pages/AuthPages/Forget"));
 const ResetPasswordPage = lazy(() => import("./pages/AuthPages/ResetPasswordPage"));
@@ -104,7 +105,6 @@ const IntegrationsPage = lazy(() => import("./pages/Settings/IntegrationsPage"))
 const RoleConfiguration = lazy(() => import("./pages/Role/role"));
 const Alert = lazy(() => import("./pages/Notification/Alerts"));
 const UserPreferences = lazy(() => import("./pages/Notification/UserPreferences"));
-import AuthLayout from "./pages/AuthPages/AuthPageLayout";
 const CrmViewPage = lazy(() => import("./pages/CRM/CrmViewPage"));
 const SalesChannels = lazy(() => import("./pages/Sales/SalesChannels"));
 const AttendanceRecordPage = lazy(() => import("./pages/Attendance/AttendanceRecordPage"));

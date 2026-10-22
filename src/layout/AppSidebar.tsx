@@ -588,8 +588,6 @@ const AppSidebar: React.FC = () => {
             <span className="app-nav__meta">{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
           </div>
         </div>
-          </div>
-        </div>
 
         <div className="app-nav__list">
           {!nav.subItems && renderLink(nav.name, nav.path, nav.icon)}
