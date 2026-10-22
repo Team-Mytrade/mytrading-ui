@@ -1219,9 +1219,10 @@ export function ReusableTable<T extends { id?: number | string }>({
           {!isLoading && sorted.length > 0 && (
             <div className="flex flex-col items-center justify-between gap-2.5 px-4 py-3 sm:flex-row sm:items-center border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs text-gray-500 shrink-0 dark:text-gray-400">
+                {/* "Showing 1–9 of 13 results" (first and last row on this page) */}
                 Showing{" "}
                 <span className="font-medium text-gray-700 dark:text-gray-200">
-                  {(safePage - 1) * effectivePageSize + 1}
+                  {(safePage - 1) * effectivePageSize + 1}–{(safePage - 1) * effectivePageSize + paginated.length}
                 </span>{" "}
                 of{" "}
                 <span className="font-medium text-gray-700 dark:text-gray-200">

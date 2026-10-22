@@ -655,13 +655,21 @@ export default function GoodsReceiptEditor({
                     {item.orderedQuantity != null && ` · Ordered ${item.orderedQuantity}`}
                     {max != null && ` · Can receive ${max}`}
                   </span>
-                  <h4>{item.productName || "Product"}</h4>
+                  <h4 className="!font-semibold text-gray-900 dark:text-gray-100">{item.productName || "Product"}</h4>
                 </div>
               </header>
               <div className="goods-receipt-editor__quantities">
                 <label>
                   Ordered quantity
-                  <input value={item.orderedQuantity ?? ""} readOnly aria-readonly="true" title="Quantity from the purchase order" />
+                  {/* Grey, so it doesn't look like a box you can type in. */}
+                  <input
+                    value={item.orderedQuantity ?? ""}
+                    readOnly
+                    tabIndex={-1}
+                    aria-readonly="true"
+                    title="Quantity from the purchase order"
+                    className="!cursor-default !bg-gray-50 !text-gray-500 dark:!bg-gray-800/60 dark:!text-gray-400"
+                  />
                 </label>
                 <label>
                   Received quantity
@@ -687,10 +695,9 @@ export default function GoodsReceiptEditor({
                     onKeyDown={(event) => ["-", "+", "e", "E"].includes(event.key) && event.preventDefault()}
                     onWheel={(event) => (event.target as HTMLInputElement).blur()}
                     onChange={(event) => updateAccepted(index, event.target.value)}
+                    // Hint moved to a tooltip, so all four boxes stay the same height.
+                    title="Rejected quantity updates automatically"
                   />
-                  <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">
-                    Changing accepted updates rejected quantity.
-                  </span>
                 </label>
                 <label>
                   Rejected quantity

@@ -1101,7 +1101,25 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
     {
       key: "receivedQuantity",
       label: "Accepted / Received",
+      // Accepted / received in THIS receipt. When the GRN lines carry the PO quantity,
+      // a second line shows it ("of 100 ordered"), so a partial delivery is clear.
       render: (row) => {
+        const items: PurchaseRecord[] = Array.isArray(row.items) ? row.items : [];
+        const received = items.reduce((t, i) => t + toNumberOrZero(i.receivedQuantity), 0);
+        const accepted = items.reduce((t, i) => t + toNumberOrZero(i.acceptedQuantity), 0);
+        const ordered = items.reduce(
+          (t, i) => t + toNumberOrZero(i.orderedQuantity ?? i.purchaseOrderLineItem?.quantity),
+          0
+        );
+        if (ordered <= 0) return `${accepted} / ${received}`;
+        return (
+          <div className="leading-snug">
+            <div>{`${accepted} / ${received}`}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">of {ordered} ordered</div>
+          </div>
+        );
+      },
+      exportValue: (row) => {
         const items: PurchaseRecord[] = Array.isArray(row.items) ? row.items : [];
         const received = items.reduce((t, i) => t + toNumberOrZero(i.receivedQuantity), 0);
         const accepted = items.reduce((t, i) => t + toNumberOrZero(i.acceptedQuantity), 0);
