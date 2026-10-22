@@ -125,6 +125,13 @@ type Warehouse = {
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/product/products";
+<<<<<<< HEAD
+=======
+// Confirmed real endpoint (see note at top of file) — returns a flat array of
+// { batchId, batchNumber, warehouseId, productId, quantity, reserved, available }.
+// A batch's quantity/reserved/available live ONLY here, never on the Batch
+// entity itself.
+>>>>>>> b06ffb948dcd1c12b86b7d788c0fa25539853e2a
 const BATCH_STOCK_API_URL = "/v1/api/inventory/batches/stock-details";
 const PAGE_SIZE = 10;
 

@@ -380,8 +380,8 @@ const PurchaseInvoices: React.FC = () => {
         actions={canCreate ? <AddButton className="-mr-5" label="Add Purchase Invoice" onClick={openCreate} /> : undefined}
       />
 
-      <div className="w-full max-w-none px-0 py-8">
-        <div className="py-5 px-3">
+      <div className="w-full max-w-none px-0">
+        <div className="px-3">
         {/* Clickable cards + toolbar (columns, export, search, filter, refresh) */}
         <StatsCardFilter {...cardFilterProps} />
 
