@@ -97,8 +97,8 @@ const AttendancePunchPage: React.FC = () => {
   // Table Filter Tabs
   const [logFilterTab, setLogFilterTab] = useState<'ALL' | 'CHECK_IN' | 'CHECK_OUT'>('ALL');
 
-  // Employee Directory state
-  const [employees, setEmployees] = useState<EmployeeItem[]>([]);
+  // Only ever the signed-in employee (see below)
+  const employees: EmployeeItem[] = useMemo(() => [], []);
 
   // Live ticking clock
   useEffect(() => {
@@ -121,37 +121,8 @@ const AttendancePunchPage: React.FC = () => {
 
   const [punchLogs, setPunchLogs] = useState<PunchLogEntry[]>([]);
 
-  // Safe string extractor
-  const extractString = (val: any, fallback: string): string => {
-    if (!val) return fallback;
-    if (typeof val === 'string') return val;
-    if (typeof val === 'object') {
-      return val.name || val.title || val.departmentName || val.designationName || fallback;
-    }
-    return String(val);
-  };
-
-  // Fetch Employee Directory
-  useEffect(() => {
-    const loadEmployees = async () => {
-      try {
-        const res = await axios.get('/v1/api/payroll/employee/all');
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          const list: EmployeeItem[] = res.data.map((e: any) => ({
-            id: Number(e.id),
-            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || e.fullName || `Employee #${e.id}`,
-            code: e.employeeCode || `EMP-${e.id}`,
-            department: extractString(e.departmentName || e.department, 'Operations'),
-            designation: extractString(e.designationName || e.designation, 'Staff')
-          }));
-          setEmployees(list);
-        }
-      } catch (e) {
-        setEmployees([]);
-      }
-    };
-    loadEmployees();
-  }, []);
+  // Punches are always the signed-in employee's own (the server takes the employee from the token),
+  // so no employee directory is loaded; plain employees may not read it anyway
 
   const selectedEmployee = useMemo(() => {
     if (!formData.employeeId) return null;

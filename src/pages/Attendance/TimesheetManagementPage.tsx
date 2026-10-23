@@ -1,291 +1,211 @@
 import { useCurrentEmployee } from "../../access/useCurrentEmployee";
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { ChevronLeft, ChevronRight, X, Search, Calendar, AlertCircle, Clock, CalendarDays, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Search, Calendar, AlertCircle, Clock, FileText } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
+import { todayIso } from '../../utils/localDate';
+import { apiError, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, timeOf } from './attendanceApi';
 
-const REQUESTS_URL = '/v1/api/attendance/requests';
+// Attendance regularization: the employee states the correct check-in / check-out times of a past day;
+// an approver applies them to the day.
+const REGULARIZATION_URL = '/v1/api/attendance/regularization';
+
+type ReasonType = 'FORGOT_IN' | 'FORGOT_OUT' | 'BOTH';
 
 interface DateRequestCardState {
-  dateStr: string;
-  fromDate: string;
-  toDate: string;
-  reasonType: 'FORGOT_IN' | 'FORGOT_OUT' | 'BOTH';
-  startHours: string;
-  startMinutes: string;
-  endHours: string;
-  endMinutes: string;
-  clientName?: string;
-  visitLocation?: string;
-  purpose?: string;
-  remarks?: string;
+  date: string; // yyyy-MM-dd
+  reasonType: ReasonType;
+  inTime: string; // HH:mm
+  outTime: string;
+  reason: string;
 }
+
+interface RegularizationRow {
+  id: number;
+  attendanceDate: string;
+  requestedInTime?: string | null;
+  requestedOutTime?: string | null;
+  reason: string;
+  status: string;
+  rejectionReason?: string | null;
+  actionBy?: string | null;
+  createdDate?: string;
+}
+
+const REASON_LABEL: Record<ReasonType, string> = {
+  FORGOT_IN: 'Forgot check-in',
+  FORGOT_OUT: 'Forgot check-out',
+  BOTH: 'Forgot both punches',
+};
+
+const displayDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
 const TimesheetManagementPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  const now = useMemo(() => new Date(), []);
-  const todayDate = useMemo(() => `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`, [now]);
-
-  // Date Range selection state - default to today matching Leave Requests and On Duty Requests
-  const [firstClickDate, setFirstClickDate] = useState<string | null>(null);
-  const [selectedCards, setSelectedCards] = useState<DateRequestCardState[]>([
-    {
-      dateStr: todayDate,
-      fromDate: todayDate,
-      toDate: todayDate,
-      reasonType: 'BOTH',
-      startHours: '09',
-      startMinutes: '00',
-      endHours: '18',
-      endMinutes: '00'
-    }
-  ]);
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [viewPunchesDate, setViewPunchesDate] = useState<string | null>(null);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [regularizationLogs, setRegularizationLogs] = useState<any[]>([]);
-
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const getNumericEmployeeId = (val: any): number => {
-    if (typeof val === 'number' && !isNaN(val) && val > 0 && val < 1000000) {
-      return val;
-    }
-    if (typeof val === 'string') {
-      const num = parseInt(val, 10);
-      if (!isNaN(num) && num > 0 && num < 1000000) {
-        return num;
-      }
-    }
-    return 12;
-  };
-
-  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(12);
+  const today = todayIso();
 
   // Own employee identity from the login token (no hard-coded ids)
   const currentUser = useCurrentEmployee();
 
-  useEffect(() => {
-    const resolveUserEmployeeId = async () => {
-      try {
-        const empRes = await axios.get('/v1/api/payroll/employee/all');
-        if (Array.isArray(empRes.data) && empRes.data.length > 0) {
-          const userStr = localStorage.getItem("user");
-          const user = userStr ? JSON.parse(userStr) : {};
-          const uName = (user.fullName || user.name || user.username || '').toLowerCase();
-          const uEmail = (user.email || '').toLowerCase();
-
-          const match = empRes.data.find((e: any) => {
-            const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
-            const eEmail = (e.email || '').toLowerCase();
-            return (uName && (eName.includes(uName) || uName.includes(eName))) || (uEmail && eEmail === uEmail);
-          });
-
-          if (match && match.id) {
-            setActiveEmployeeId(Number(match.id));
-          } else if (empRes.data[0]?.id) {
-            setActiveEmployeeId(Number(empRes.data[0].id));
-          }
-        }
-      } catch (e) {}
-    };
-    resolveUserEmployeeId();
-  }, []);
-
-  const fetchRegularizationLogs = async () => {
-    try {
-      const res = await axios.get(`${REQUESTS_URL}/my/${currentUser.id}`);
-      if (Array.isArray(res.data)) {
-        const list = res.data.map((r: any) => {
-          const detail = (Array.isArray(r.requestDetails) && r.requestDetails[0]) || 
-                         (Array.isArray(r.responseDetails) && r.responseDetails[0]) || {};
-          const rawStatus = r.approvalStatus || r.status || r.overallStatus || r.requestStatus || detail.approvalStatus || detail.status || 'PENDING';
-          const fromD = r.fromDate || detail.fromDate;
-          const toD = r.toDate || detail.toDate;
-          const datesStr = fromD ? `${fromD}${toD && toD !== fromD ? ` to ${toD}` : ''}` : 'Regularization Request';
-          return {
-            id: r.id,
-            date: datesStr,
-            type: r.reason || detail.reason || r.requestType || 'Attendance Regularization',
-            hours: detail.checkInTime && detail.checkOutTime 
-              ? `${String(detail.checkInTime).slice(11, 16)} - ${String(detail.checkOutTime).slice(11, 16)}` 
-              : '09:00 - 18:00',
-            status: String(rawStatus).toUpperCase()
-          };
-        });
-        setRegularizationLogs(list);
-      }
-    } catch (e) {}
-  };
-
-  useEffect(() => {
-    fetchRegularizationLogs();
-  }, [currentUser.id]);
-
-  const absentDates: string[] = [];
-
-  const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+  const [firstClickDate, setFirstClickDate] = useState<string | null>(null);
+  const [selectedCards, setSelectedCards] = useState<DateRequestCardState[]>([]);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [viewPunchesDate, setViewPunchesDate] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [regularizationLogs, setRegularizationLogs] = useState<RegularizationRow[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  // Days of the shown month (and any selected month) as the server sees them
+  const [days, setDays] = useState<Record<string, CalendarDay>>({});
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+  const fetchRegularizationLogs = useCallback(async () => {
+    if (!currentUser.hasEmployee) return;
+    try {
+      const res = await axios.get(`${REGULARIZATION_URL}/my`);
+      setRegularizationLogs(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, 'Could not load your regularization requests.'));
+    }
+  }, [currentUser.hasEmployee]);
+
+  useEffect(() => {
+    fetchRegularizationLogs();
+  }, [fetchRegularizationLogs]);
+
+  const loadMonth = useCallback(async (year: number, month1: number) => {
+    if (!currentUser.hasEmployee) return;
+    try {
+      const list = await fetchMonth(year, month1);
+      setDays((prev) => ({ ...prev, ...Object.fromEntries(list.map((d) => [d.date, d])) }));
+    } catch {
+      // The calendar still works without day details
+    }
+  }, [currentUser.hasEmployee]);
+
+  useEffect(() => {
+    loadMonth(currentYear, currentMonth + 1);
+  }, [loadMonth, currentYear, currentMonth]);
+
+  const pendingDates = useMemo(
+    () => new Set(regularizationLogs.filter((r) => r.status === 'PENDING').map((r) => r.attendanceDate)),
+    [regularizationLogs],
+  );
+
+  const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+
   const handlePrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
 
-  const toIso = (str: string) => {
-    if (!str) return '';
-    const parts = str.split('/');
-    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    return str;
+  // A new card starts from what the day already has: a missing check-out keeps the real check-in
+  const newCard = (date: string): DateRequestCardState => {
+    const day = days[date];
+    const hasIn = Boolean(day?.inTime);
+    const hasOut = Boolean(day?.outTime) && day?.status !== 'CHECKED_IN';
+    const reasonType: ReasonType = hasIn && !hasOut ? 'FORGOT_OUT' : !hasIn && hasOut ? 'FORGOT_IN' : 'BOTH';
+    return {
+      date,
+      reasonType,
+      inTime: timeOf(day?.inTime) || '09:00',
+      outTime: hasOut ? timeOf(day?.outTime) : '18:00',
+      reason: '',
+    };
   };
 
-  const getDatesInRange = (startFormatted: string, endFormatted: string): string[] => {
-    const startIso = toIso(startFormatted);
-    const endIso = toIso(endFormatted);
-    
-    const minIso = startIso < endIso ? startIso : endIso;
-    const maxIso = startIso < endIso ? endIso : startIso;
+  // Past working days only; one request per day while another is pending
+  const selectable = (date: string) => {
+    const day = days[date];
+    return date <= today && !pendingDates.has(date) && !(day?.holidayName || day?.weeklyOff || day?.status === 'ON_LEAVE');
+  };
 
-    const dates: string[] = [];
-    let curr = new Date(minIso);
-    const end = new Date(maxIso);
-
-    while (curr <= end) {
-      const y = curr.getFullYear();
-      const m = String(curr.getMonth() + 1).padStart(2, '0');
-      const d = String(curr.getDate()).padStart(2, '0');
-      dates.push(`${d}/${m}/${y}`);
-      curr.setDate(curr.getDate() + 1);
+  const datesBetween = (a: string, b: string) => {
+    const [from, to] = a < b ? [a, b] : [b, a];
+    const out: string[] = [];
+    for (let d = new Date(`${from}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (key > to) break;
+      out.push(key);
     }
-    return dates;
+    return out;
   };
 
-  const handleDateClick = (dayStr: string) => {
+  const handleDateClick = (date: string) => {
     if (!firstClickDate) {
-      // Step 1: First click selects 1 date
-      setFirstClickDate(dayStr);
-      setSelectedCards([{
-        dateStr: dayStr,
-        fromDate: dayStr,
-        toDate: dayStr,
-        reasonType: 'BOTH',
-        startHours: '09',
-        startMinutes: '00',
-        endHours: '18',
-        endMinutes: '00'
-      }]);
-    } else {
-      // Step 2: Second click creates range from firstClickDate to dayStr
-      const dates = getDatesInRange(firstClickDate, dayStr);
-      const rangeStart = dates[0];
-      const rangeEnd = dates[dates.length - 1];
-      
-      const cardMap = new Map(selectedCards.map(c => [c.dateStr, c]));
-      const newCards = dates.map(d => {
-        const existing = cardMap.get(d);
-        if (existing) {
-          return { ...existing, fromDate: rangeStart, toDate: rangeEnd };
-        }
-        return {
-          dateStr: d,
-          fromDate: rangeStart,
-          toDate: rangeEnd,
-          reasonType: 'BOTH' as const,
-          startHours: '09',
-          startMinutes: '00',
-          endHours: '18',
-          endMinutes: '00'
-        };
-      });
-
-      setSelectedCards(newCards);
-      setFirstClickDate(null);
+      setFirstClickDate(date);
+      setSelectedCards(selectable(date) ? [newCard(date)] : []);
+      return;
     }
-  };
-
-  const handleDateDoubleClick = (dayStr: string) => {
+    const existing = new Map(selectedCards.map((c) => [c.date, c]));
+    setSelectedCards(datesBetween(firstClickDate, date).filter(selectable).map((d) => existing.get(d) ?? newCard(d)));
     setFirstClickDate(null);
-    setSelectedCards([{
-      dateStr: dayStr,
-      fromDate: dayStr,
-      toDate: dayStr,
-      reasonType: 'BOTH',
-      startHours: '09',
-      startMinutes: '00',
-      endHours: '18',
-      endMinutes: '00'
-    }]);
   };
 
-  const removeCard = (dateStr: string) => {
-    const updated = selectedCards.filter(c => c.dateStr !== dateStr);
+  const handleDateDoubleClick = (date: string) => {
+    setFirstClickDate(null);
+    setSelectedCards(selectable(date) ? [newCard(date)] : []);
+  };
+
+  const removeCard = (date: string) => {
+    const updated = selectedCards.filter((c) => c.date !== date);
     setSelectedCards(updated);
-    if (updated.length === 0) {
-      setFirstClickDate(null);
-    }
+    if (updated.length === 0) setFirstClickDate(null);
   };
 
-  const updateCardState = (dateStr: string, field: keyof DateRequestCardState, value: any) => {
-    setSelectedCards(prev => prev.map(c => c.dateStr === dateStr ? { ...c, [field]: value } : c));
+  const updateCardState = <K extends keyof DateRequestCardState>(date: string, field: K, value: DateRequestCardState[K]) => {
+    setSelectedCards((prev) => prev.map((c) => (c.date === date ? { ...c, [field]: value } : c)));
   };
 
-  const selectedIsoList = useMemo(() => {
-    return selectedCards.map(c => toIso(c.dateStr)).sort();
-  }, [selectedCards]);
-
-  const minSelectedIso = selectedIsoList.length > 0 ? selectedIsoList[0] : null;
-  const maxSelectedIso = selectedIsoList.length > 0 ? selectedIsoList[selectedIsoList.length - 1] : null;
+  const selectedDates = useMemo(() => new Set(selectedCards.map((c) => c.date)), [selectedCards]);
 
   const renderCalendar = () => {
-    const days = daysInMonth(currentMonth, currentYear);
+    const total = daysInMonth(currentMonth, currentYear);
     const firstDay = firstDayOfMonth(currentMonth, currentYear);
     const prevMonthDays = daysInMonth(currentMonth - 1, currentYear);
-    const calendarDays = [];
+    const cells = [];
 
-    // Previous month filler
     for (let i = firstDay - 1; i >= 0; i--) {
-      calendarDays.push(
+      cells.push(
         <div key={`prev-${i}`} className="flex items-center justify-center p-0.5">
           <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{prevMonthDays - i}</div>
         </div>
       );
     }
 
-    // Current month days
-    for (let i = 1; i <= days; i++) {
-      const dayFormatted = `${String(i).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
-      const currIso = toIso(dayFormatted);
-      
-      const isStart = minSelectedIso === currIso;
-      const isEnd = maxSelectedIso === currIso;
-      const isInRange = minSelectedIso && maxSelectedIso && currIso >= minSelectedIso && currIso <= maxSelectedIso;
-      const isFirstClick = firstClickDate === dayFormatted;
-      const isSelected = isStart || isEnd || isInRange || isFirstClick || selectedCards.some(c => c.dateStr === dayFormatted);
+    for (let i = 1; i <= total; i++) {
+      const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      const day = days[date];
+      const kind = dayKind(day);
+      const missingPunch = date < today && (kind === 'ABSENT' || kind === 'HALF_DAY' || (day?.inTime && !day?.outTime));
+      const isSelected = selectedDates.has(date) || firstClickDate === date;
+      const disabled = !selectable(date);
+      const title = pendingDates.has(date) ? 'A request is already pending'
+        : day?.holidayName || (day?.weeklyOff ? 'Weekly off' : DAY_KIND_LABEL[kind]) || undefined;
 
-      const isAbsent = absentDates.includes(dayFormatted);
-      const isToday = todayDate === dayFormatted;
-
-      calendarDays.push(
+      cells.push(
         <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
           <button
             type="button"
-            onClick={() => handleDateClick(dayFormatted)}
-            onDoubleClick={() => handleDateDoubleClick(dayFormatted)}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            title={title}
+            disabled={disabled && !isSelected}
+            onClick={() => handleDateClick(date)}
+            onDoubleClick={() => handleDateDoubleClick(date)}
+            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all ${
               isSelected
-                ? 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20'
-                : isAbsent
-                ? 'border border-rose-400 dark:border-rose-500/60 text-rose-600 dark:text-rose-400 font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30'
-                : isToday
-                ? 'border border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold'
-                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
+                ? 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20 cursor-pointer'
+                : disabled
+                ? 'text-slate-300 dark:text-gray-600 cursor-not-allowed'
+                : pendingDates.has(date)
+                ? 'border border-amber-400 text-amber-600 cursor-not-allowed'
+                : missingPunch
+                ? 'border border-rose-400 dark:border-rose-500/60 text-rose-600 dark:text-rose-400 font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer'
+                : date === today
+                ? 'border border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold cursor-pointer'
+                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222] cursor-pointer'
             }`}
           >
             {i}
@@ -294,75 +214,67 @@ const TimesheetManagementPage: React.FC = () => {
       );
     }
 
-    // Next month filler
-    const totalCells = Math.ceil((days + firstDay) / 7) * 7;
-    for (let i = 1; i <= totalCells - (days + firstDay); i++) {
-      calendarDays.push(
+    const totalCells = Math.ceil((total + firstDay) / 7) * 7;
+    for (let i = 1; i <= totalCells - (total + firstDay); i++) {
+      cells.push(
         <div key={`next-${i}`} className="flex items-center justify-center p-0.5">
           <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{i}</div>
         </div>
       );
     }
 
-    return calendarDays;
+    return cells;
   };
 
   const handleSubmitAll = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCards.length === 0) return ToasterService.error("Please select date(s) from the calendar");
+    const missing = selectedCards.find((c) => !c.reason.trim());
+    if (missing) return ToasterService.error(`Please give a reason for ${displayDate(missing.date)}`);
+    const badTimes = selectedCards.find((c) => c.reasonType === 'BOTH' && c.outTime <= c.inTime);
+    if (badTimes) return ToasterService.error(`Check-out must be after check-in on ${displayDate(badTimes.date)}`);
 
+    setIsSubmitting(true);
+    const failed: DateRequestCardState[] = [];
+    let sent = 0;
+    for (const card of selectedCards) {
+      try {
+        await axios.post(REGULARIZATION_URL, {
+          attendanceDate: card.date,
+          inTime: card.reasonType !== 'FORGOT_OUT' ? `${card.date}T${card.inTime}:00` : null,
+          outTime: card.reasonType !== 'FORGOT_IN' ? `${card.date}T${card.outTime}:00` : null,
+          attendanceMode: 'OFFICE',
+          reason: `${REASON_LABEL[card.reasonType]}: ${card.reason.trim()}`,
+        });
+        sent++;
+      } catch (err) {
+        failed.push(card);
+        ToasterService.error(`${displayDate(card.date)}: ${apiError(err, 'could not be submitted')}`);
+      }
+    }
+    if (sent) ToasterService.success(`${sent} regularization request(s) sent for approval.`);
+    setSelectedCards(failed);
+    setFirstClickDate(null);
+    await fetchRegularizationLogs();
+    setIsSubmitting(false);
+  };
+
+  const handleWithdraw = async (row: RegularizationRow) => {
+    if (!window.confirm(`Withdraw the regularization request for ${displayDate(row.attendanceDate)}?`)) return;
     try {
-      setIsSubmitting(true);
-
-      const requestDetails = selectedCards.map(card => {
-        const isoDate = toIso(card.dateStr);
-        const startTime = `${card.startHours.padStart(2, '0')}:${card.startMinutes.padStart(2, '0')}:00`;
-        const endTime = `${card.endHours.padStart(2, '0')}:${card.endMinutes.padStart(2, '0')}:00`;
-        const reasonStr = card.reasonType === 'BOTH' ? 'Forgot In/Out Punch' : card.reasonType === 'FORGOT_IN' ? 'Forgot In Punch' : 'Forgot Out Punch';
-
-        return {
-          fromDate: toIso(card.fromDate),
-          toDate: toIso(card.toDate),
-          shiftDate: isoDate,
-          checkInTime: `${isoDate}T${startTime}`,
-          checkOutTime: `${isoDate}T${endTime}`,
-          shiftInTime: `${isoDate}T09:00:00`,
-          shiftOutTime: `${isoDate}T18:00:00`,
-          projectTaskId: 5001,
-          projectTaskName: "Attendance Regularization",
-          remarks: card.remarks?.trim() || `Regularization request (${reasonStr})`,
-          clientName: card.clientName?.trim() || null,
-          visitLocation: card.visitLocation?.trim() || null,
-          purpose: card.purpose?.trim() || null,
-          requestType: "WORK_FROM_HOME",
-          reason: reasonStr
-        };
-      });
-
-      const payload = {
-        employeeId: currentUser.id,
-        requestDetails
-      };
-
-      await axios.post(REQUESTS_URL, payload);
-
-      ToasterService.success(`Submitted ${selectedCards.length} Regularization Request(s) successfully!`);
-      await fetchRegularizationLogs();
-
-      setSelectedCards([]);
-      setFirstClickDate(null);
-    } catch (err: any) {
-      console.error(err);
-      const errMsg = err.response?.data?.error || err.response?.data?.message || "Failed to submit regularization requests";
-      ToasterService.error(errMsg);
-    } finally {
-      setIsSubmitting(false);
+      await axios.put(`${REGULARIZATION_URL}/${row.id}/cancel`);
+      ToasterService.success('Request withdrawn.');
+      fetchRegularizationLogs();
+    } catch (err) {
+      ToasterService.error(apiError(err, 'Could not withdraw the request.'));
     }
   };
 
-  const filteredLogs = regularizationLogs.filter(l =>
+  const filteredLogs = regularizationLogs.filter((l) =>
     JSON.stringify(l).toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const punchesDay = viewPunchesDate ? days[viewPunchesDate] : undefined;
 
   return (
     <>
@@ -373,7 +285,7 @@ const TimesheetManagementPage: React.FC = () => {
       <PageBreadcrumb pageTitle="Attendance Regularization" />
 
       <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200 mt-1">
-        
+
         {/* User Profile Banner matching Punch Station theme */}
         <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:!border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 transition-all">
           <div className="flex items-center gap-3.5">
@@ -407,22 +319,19 @@ const TimesheetManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Selection Hint Badge when range is active */}
         {firstClickDate && (
           <div className="mb-3">
             <span className="text-cyan-700 dark:text-cyan-300 font-bold bg-cyan-50 dark:bg-[#222222] px-3 py-1 rounded-xl border border-cyan-200 dark:!border-transparent text-xs inline-block shadow-2xs">
-              Selected start: {firstClickDate}. Click end date to finish range!
+              Selected start: {displayDate(firstClickDate)}. Click an end date to pick a range.
             </span>
           </div>
         )}
 
-        {/* Main 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start mb-4">
-          
+
           {/* Left Column: Interactive Calendar */}
           <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
             <div>
-              {/* Month Header */}
               <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:!border-transparent pb-2.5">
                 <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
                   <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
@@ -435,248 +344,158 @@ const TimesheetManagementPage: React.FC = () => {
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick Date Range</span>
+                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick date(s)</span>
               </div>
 
-              {/* Weekday Labels */}
               <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
                 <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
               </div>
 
-              {/* Dates Grid */}
               <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
                 {renderCalendar()}
               </div>
             </div>
 
-            {/* Bottom Legend */}
             <div className="mt-3 pt-3 border-t border-slate-100 dark:!border-transparent space-y-1.5">
               <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
                 <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-purple-500 bg-purple-500/20 inline-block"></span> Half day</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Missing punch</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-amber-500 bg-amber-500/20 inline-block"></span> Request pending</span>
               </div>
               <div className="text-[11px] text-slate-400 dark:text-gray-500">
-                Double click any date to select single day
+                Past working days only. Double click a date to select just that day.
               </div>
             </div>
           </div>
 
-          {/* Right Column: Multi-Card Container */}
+          {/* Right Column: one card per selected day */}
           <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent overflow-hidden min-h-[380px] flex flex-col justify-between">
-            
+
             {selectedCards.length === 0 ? (
-              /* State 1: Placeholder before selecting date */
               <div className="p-8 text-center flex flex-col items-center justify-center my-auto">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:!border-transparent flex items-center justify-center text-slate-400 dark:text-gray-500 mb-3 shadow-2xs">
                   <Calendar className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg md:text-xl font-bold text-slate-700 dark:text-gray-300 tracking-tight max-w-xs leading-snug">
-                  Please select AR date from calendar
+                  Pick the day to correct
                 </h3>
                 <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">
-                  Click or drag across calendar dates to request regularization
+                  Days with a missing punch are marked in red
                 </p>
               </div>
             ) : (
-              /* State 2: Cards for each selected date in range */
               <form onSubmit={handleSubmitAll} className="flex flex-col h-full justify-between overflow-hidden">
-                
-                {/* Scrollable Cards Container */}
-                <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-3 border-b border-slate-100 dark:!border-transparent max-h-[360px]">
-                  {selectedCards.map((card) => (
-                    <div key={card.dateStr} className="bg-slate-50/50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs overflow-hidden relative">
-                      
-                      {/* Top Bar with Request Date and Remove Button */}
-                      <div className="bg-slate-100/80 dark:bg-[#191919] border-b border-slate-200/80 dark:!border-transparent px-3.5 py-2 flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 dark:text-white">
-                          Request for <span className="font-mono text-cyan-600 dark:text-cyan-400">{card.dateStr}</span>
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setViewPunchesDate(card.dateStr)}
-                            className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
-                          >
-                            View Punches
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeCard(card.dateStr)}
-                            className="w-5 h-5 rounded-full bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] text-slate-400 hover:text-rose-600 border border-slate-200 dark:!border-transparent flex items-center justify-center transition-colors cursor-pointer"
-                            title="Remove date"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
 
-                      <div className="p-3 space-y-2.5">
-                        {/* Shift info header row */}
-                        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-300 font-medium bg-white dark:bg-[#191919] px-3 py-1.5 rounded-lg border border-slate-200/60 dark:!border-transparent">
-                          <div>
-                            Shift: <span className="font-bold text-slate-900 dark:text-white font-mono">09:00 - 18:00</span>
-                          </div>
-                          <div>
-                            Check in: <span className="text-slate-400 dark:text-gray-500 font-mono">--:--</span>
-                          </div>
-                          <div>
-                            Check out: <span className="text-slate-400 dark:text-gray-500 font-mono">--:--</span>
+                <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-3 border-b border-slate-100 dark:!border-transparent max-h-[420px]">
+                  {selectedCards.map((card) => {
+                    const day = days[card.date];
+                    return (
+                      <div key={card.date} className="bg-slate-50/50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs overflow-hidden relative">
+
+                        <div className="bg-slate-100/80 dark:bg-[#191919] border-b border-slate-200/80 dark:!border-transparent px-3.5 py-2 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 dark:text-white">
+                            Request for <span className="font-mono text-cyan-600 dark:text-cyan-400">{displayDate(card.date)}</span>
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setViewPunchesDate(card.date)}
+                              className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                            >
+                              View Punches
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeCard(card.date)}
+                              className="w-5 h-5 rounded-full bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] text-slate-400 hover:text-rose-600 border border-slate-200 dark:!border-transparent flex items-center justify-center transition-colors cursor-pointer"
+                              title="Remove date"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Radio Choices */}
-                        <div className="flex items-center justify-center gap-5 py-0.5">
-                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-gray-300">
-                            <input
-                              type="radio"
-                              name={`reasonType-${card.dateStr}`}
-                              checked={card.reasonType === 'FORGOT_IN'}
-                              onChange={() => updateCardState(card.dateStr, 'reasonType', 'FORGOT_IN')}
-                              className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] cursor-pointer"
-                            />
-                            <span>Forgot In</span>
-                          </label>
+                        <div className="p-3 space-y-2.5">
+                          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-300 font-medium bg-white dark:bg-[#191919] px-3 py-1.5 rounded-lg border border-slate-200/60 dark:!border-transparent">
+                            <div>
+                              Status: <span className="font-bold text-slate-900 dark:text-white">{DAY_KIND_LABEL[dayKind(day)] || 'No record'}</span>
+                            </div>
+                            <div>
+                              Check in: <span className="font-mono">{timeOf(day?.inTime) || '--:--'}</span>
+                            </div>
+                            <div>
+                              Check out: <span className="font-mono">{day?.status === 'CHECKED_IN' ? '--:--' : timeOf(day?.outTime) || '--:--'}</span>
+                            </div>
+                          </div>
 
-                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-gray-300">
-                            <input
-                              type="radio"
-                              name={`reasonType-${card.dateStr}`}
-                              checked={card.reasonType === 'FORGOT_OUT'}
-                              onChange={() => updateCardState(card.dateStr, 'reasonType', 'FORGOT_OUT')}
-                              className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] cursor-pointer"
-                            />
-                            <span>Forgot Out</span>
-                          </label>
+                          <div className="flex items-center justify-center gap-5 py-0.5">
+                            {(['FORGOT_IN', 'FORGOT_OUT', 'BOTH'] as ReasonType[]).map((type) => (
+                              <label key={type} className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-gray-300">
+                                <input
+                                  type="radio"
+                                  name={`reasonType-${card.date}`}
+                                  checked={card.reasonType === type}
+                                  onChange={() => updateCardState(card.date, 'reasonType', type)}
+                                  className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] cursor-pointer"
+                                />
+                                <span>{type === 'FORGOT_IN' ? 'Forgot In' : type === 'FORGOT_OUT' ? 'Forgot Out' : 'Both'}</span>
+                              </label>
+                            ))}
+                          </div>
 
-                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-900 dark:text-white">
-                            <input
-                              type="radio"
-                              name={`reasonType-${card.dateStr}`}
-                              checked={card.reasonType === 'BOTH'}
-                              onChange={() => updateCardState(card.dateStr, 'reasonType', 'BOTH')}
-                              className="text-cyan-600 focus:ring-cyan-500 dark:bg-[#191919] cursor-pointer"
-                            />
-                            <span>Both</span>
-                          </label>
-                        </div>
-
-                        {/* Form Inputs Grid */}
-                        <div className="space-y-2">
                           <div className="grid grid-cols-2 gap-2.5">
                             <div>
                               <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-300 mb-1">
-                                <span className="text-rose-500">*</span> From date
+                                {card.reasonType !== 'FORGOT_OUT' && <span className="text-rose-500">*</span>} Correct check-in
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="date"
-                                  value={toIso(card.fromDate)}
-                                  onClick={(e) => {
-                                    try { e.currentTarget.showPicker(); } catch {}
-                                  }}
-                                  onChange={(e) => {
-                                    const parts = e.target.value.split('-');
-                                    if (parts.length === 3) {
-                                      const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                                      updateCardState(card.dateStr, 'fromDate', formatted);
-                                    }
-                                  }}
-                                  className="w-full h-8 pl-3 pr-8 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-medium text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all cursor-pointer"
-                                />
-                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute right-2 top-2 pointer-events-none" />
-                              </div>
+                              <input
+                                type="time"
+                                value={card.inTime}
+                                disabled={card.reasonType === 'FORGOT_OUT'}
+                                onChange={(e) => updateCardState(card.date, 'inTime', e.target.value)}
+                                className="w-full h-8 px-3 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-40"
+                              />
                             </div>
-
                             <div>
                               <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-300 mb-1">
-                                <span className="text-rose-500">*</span> To date
+                                {card.reasonType !== 'FORGOT_IN' && <span className="text-rose-500">*</span>} Correct check-out
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="date"
-                                  value={toIso(card.toDate)}
-                                  onClick={(e) => {
-                                    try { e.currentTarget.showPicker(); } catch {}
-                                  }}
-                                  onChange={(e) => {
-                                    const parts = e.target.value.split('-');
-                                    if (parts.length === 3) {
-                                      const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                                      updateCardState(card.dateStr, 'toDate', formatted);
-                                    }
-                                  }}
-                                  className="w-full h-8 pl-3 pr-8 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-medium text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all cursor-pointer"
-                                />
-                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute right-2 top-2 pointer-events-none" />
-                              </div>
+                              <input
+                                type="time"
+                                value={card.outTime}
+                                disabled={card.reasonType === 'FORGOT_IN'}
+                                onChange={(e) => updateCardState(card.date, 'outTime', e.target.value)}
+                                className="w-full h-8 px-3 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-40"
+                              />
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-4 gap-2">
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
-                                <span className="text-rose-500">*</span> Start Hours
-                              </label>
-                              <input
-                                type="text"
-                                value={card.startHours}
-                                onChange={(e) => updateCardState(card.dateStr, 'startHours', e.target.value)}
-                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
-                                <span className="text-rose-500">*</span> Start Mins
-                              </label>
-                              <input
-                                type="text"
-                                value={card.startMinutes}
-                                onChange={(e) => updateCardState(card.dateStr, 'startMinutes', e.target.value)}
-                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
-                                <span className="text-rose-500">*</span> End Hours
-                              </label>
-                              <input
-                                type="text"
-                                value={card.endHours}
-                                onChange={(e) => updateCardState(card.dateStr, 'endHours', e.target.value)}
-                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
-                                <span className="text-rose-500">*</span> End Mins
-                              </label>
-                              <input
-                                type="text"
-                                value={card.endMinutes}
-                                onChange={(e) => updateCardState(card.dateStr, 'endMinutes', e.target.value)}
-                                className="w-full h-8 px-2 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
-                              />
-                            </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-300 mb-1">
+                              <span className="text-rose-500">*</span> Reason
+                            </label>
+                            <input
+                              type="text"
+                              value={card.reason}
+                              maxLength={200}
+                              placeholder="e.g. Biometric was down, punched in the register"
+                              onChange={(e) => updateCardState(card.date, 'reason', e.target.value)}
+                              className="w-full h-8 px-3 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
+                            />
                           </div>
                         </div>
-
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
-                {/* Fixed Bottom Submit Bar */}
                 <div className="bg-slate-50 dark:bg-[#191919] p-3 flex justify-center shrink-0 border-t border-slate-200/80 dark:!border-transparent">
                   <button
                     type="submit"
                     disabled={isSubmitting}
                     className="inline-flex items-center justify-center h-9 px-8 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-xs disabled:opacity-50 cursor-pointer min-w-[140px]"
                   >
-                    {isSubmitting ? 'Submitting...' : 'SUBMIT ALL'}
+                    {isSubmitting ? 'Submitting...' : selectedCards.length > 1 ? `SUBMIT ${selectedCards.length} REQUESTS` : 'SUBMIT'}
                   </button>
                 </div>
               </form>
@@ -686,12 +505,11 @@ const TimesheetManagementPage: React.FC = () => {
 
         </div>
 
-      {/* Sleek Slide-Over Drawer for Regularization Request History */}
+      {/* Slide-over drawer: request history */}
       {isHistoryDrawerOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-end z-50 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:!border-transparent animate-in slide-in-from-right duration-300">
-            
-            {/* Drawer Header */}
+
             <div className="p-4 border-b border-slate-200 dark:!border-transparent bg-slate-50 dark:bg-[#222222] flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white">Regularization Requests History</h2>
@@ -706,7 +524,6 @@ const TimesheetManagementPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Drawer Search & List Body */}
             <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-3">
               <div className="relative mb-3">
                 <Search className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute left-3 top-3" />
@@ -718,6 +535,10 @@ const TimesheetManagementPage: React.FC = () => {
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl text-xs text-slate-800 dark:text-white outline-none focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
                 />
               </div>
+
+              {filteredLogs.length === 0 && (
+                <p className="text-xs text-slate-400 dark:text-gray-500 text-center py-6">No regularization requests yet.</p>
+              )}
 
               <div className="space-y-2.5">
                 {filteredLogs.map((row) => {
@@ -732,25 +553,39 @@ const TimesheetManagementPage: React.FC = () => {
                   }
 
                   return (
-                    <div key={row.id} className="p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs hover:border-cyan-500/50 transition-all flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 font-bold">#{row.id}</span>
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">{row.date}</span>
+                    <div key={row.id} className="p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs hover:border-cyan-500/50 transition-all">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 font-bold">#{row.id}</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">{displayDate(row.attendanceDate)}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 dark:text-gray-300 font-medium mt-0.5">
+                            In {timeOf(row.requestedInTime) || '—'} · Out {timeOf(row.requestedOutTime) || '—'}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-600 dark:text-gray-300 font-medium mt-0.5">{row.type} ({row.hours})</div>
+                        <div className="flex items-center gap-2">
+                          {status === 'PENDING' && (
+                            <button type="button" onClick={() => handleWithdraw(row)}
+                              className="text-[10px] font-semibold text-rose-600 hover:underline cursor-pointer">Withdraw</button>
+                          )}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs ${badgeClass}`}>
+                            {status}
+                          </span>
+                        </div>
                       </div>
-
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs ${badgeClass}`}>
-                        {status}
-                      </span>
+                      <div className="text-[11px] text-slate-500 dark:text-gray-400 mt-1">{row.reason}</div>
+                      {row.rejectionReason && (
+                        <div className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                          Rejected{row.actionBy ? ` by ${row.actionBy}` : ''}: {row.rejectionReason}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Drawer Footer */}
             <div className="p-3.5 border-t border-slate-200 dark:!border-transparent bg-slate-50 dark:bg-[#222222] flex justify-end">
               <button
                 type="button"
@@ -767,14 +602,14 @@ const TimesheetManagementPage: React.FC = () => {
 
       </div>
 
-      {/* View Punches Modal */}
+      {/* The day's recorded punches */}
       {viewPunchesDate && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 dark:!border-transparent">
             <div className="bg-amber-50/80 dark:bg-[#222222] border-b border-amber-200/60 dark:!border-transparent p-4 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
                 <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>Punch Details for {viewPunchesDate}</span>
+                <span>Punch Details for {displayDate(viewPunchesDate)}</span>
               </div>
               <button
                 type="button"
@@ -787,30 +622,36 @@ const TimesheetManagementPage: React.FC = () => {
             <div className="p-4 space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/60 dark:!border-transparent">
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Assigned Shift</span>
-                  <span className="font-bold text-slate-900 dark:text-white text-xs font-mono">09:00 - 18:00</span>
+                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Status</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">{DAY_KIND_LABEL[dayKind(punchesDay)] || 'No record'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Shift Duration</span>
-                  <span className="font-bold text-slate-900 dark:text-white text-xs font-mono">9 Hours</span>
+                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Worked</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-xs font-mono">{hoursOf(punchesDay?.workedMinutes)}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:!border-transparent bg-slate-50/50 dark:bg-[#222222]">
-                  <span className="text-slate-600 dark:text-gray-300 font-medium">Check-In Punch</span>
-                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold text-xs">--:-- (Missing)</span>
+                  <span className="text-slate-600 dark:text-gray-300 font-medium">First check-in</span>
+                  <span className={`font-mono font-bold text-xs ${punchesDay?.inTime ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'}`}>
+                    {timeOf(punchesDay?.inTime) || '--:-- (Missing)'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:!border-transparent bg-slate-50/50 dark:bg-[#222222]">
-                  <span className="text-slate-600 dark:text-gray-300 font-medium">Check-Out Punch</span>
-                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold text-xs">--:-- (Missing)</span>
+                  <span className="text-slate-600 dark:text-gray-300 font-medium">Last check-out</span>
+                  <span className={`font-mono font-bold text-xs ${punchesDay?.outTime && punchesDay?.status !== 'CHECKED_IN' ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'}`}>
+                    {punchesDay?.outTime && punchesDay?.status !== 'CHECKED_IN' ? timeOf(punchesDay.outTime) : '--:-- (Missing)'}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-[#222222] p-3 rounded-xl border border-rose-200 dark:!border-transparent text-[11px] font-medium">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                <span>No punch records found for this date. Submit Attendance Regularization to request manual punch entry.</span>
-              </div>
+              {!punchesDay?.inTime && (
+                <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-[#222222] p-3 rounded-xl border border-rose-200 dark:!border-transparent text-[11px] font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <span>No punches recorded for this date. Submit a regularization with the correct times.</span>
+                </div>
+              )}
             </div>
             <div className="bg-slate-50 dark:bg-[#222222] p-3.5 border-t border-slate-200 dark:!border-transparent flex justify-end">
               <button

@@ -173,7 +173,7 @@ const ShiftPage: React.FC = () => {
           return rowItem;
         });
 
-        setShifts(cleaned);
+        setShifts(cleaned as ShiftModel[]);
       } else {
         setShifts([]);
       }
@@ -239,8 +239,8 @@ const ShiftPage: React.FC = () => {
           startTime: formatTime(form.startTime),
           endTime: formatTime(form.endTime),
           workingHours: computedWorkingMinutes,
-          breakMinutes: Number(form.breakMinutes) || 60,
-          gracePeriodMinutes: Number(form.gracePeriodMinutes) || 15,
+          breakMinutes: Math.max(0, Number(form.breakMinutes) || 0),
+          gracePeriodMinutes: Math.max(0, Number(form.gracePeriodMinutes) || 0),
           nightShift: Boolean(computedNightShift),
           overtimeAllowed: Boolean(form.overtimeAllowed),
           active: Boolean(form.active)
@@ -255,8 +255,8 @@ const ShiftPage: React.FC = () => {
           shiftName: form.shiftName.trim(),
           startTime: formatTime(form.startTime),
           endTime: formatTime(form.endTime),
-          breakMinutes: Number(form.breakMinutes) || 60,
-          gracePeriodMinutes: Number(form.gracePeriodMinutes) || 15,
+          breakMinutes: Math.max(0, Number(form.breakMinutes) || 0),
+          gracePeriodMinutes: Math.max(0, Number(form.gracePeriodMinutes) || 0),
           overtimeAllowed: Boolean(form.overtimeAllowed),
           attendanceFinalizeBufferMinutes: Number(form.attendanceFinalizeBufferMinutes) || 360,
           active: Boolean(form.active)

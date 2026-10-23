@@ -11,6 +11,7 @@ import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "./attendanceApi";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -200,7 +201,7 @@ const HolidayCalendarPage: React.FC = () => {
         });
       }
 
-      ToasterService.success(`Calendar duplicated for ${nextYear} as '${newCode}'!`);
+      ToasterService.success(`Calendar copied to ${nextYear} as '${newCode}'. Check the dates: festivals fall on different days each year.`);
       fetchCalendars();
     } catch (err: any) {
       handleApiError(err, "Failed to duplicate calendar.");
@@ -345,6 +346,7 @@ const HolidayCalendarPage: React.FC = () => {
     try {
       const existingItems = validHolidays.filter(h => h.id);
       const newItems = validHolidays.filter(h => !h.id);
+      const failures: string[] = [];
 
       for (const hItem of existingItems) {
         try {
@@ -363,7 +365,7 @@ const HolidayCalendarPage: React.FC = () => {
             putPayload
           );
         } catch (putErr: any) {
-          console.warn(`Failed to PUT update holiday ${hItem.id}:`, putErr);
+          failures.push(`${hItem.holidayName}: ${apiError(putErr, 'not saved')}`);
         }
       }
 
@@ -385,8 +387,12 @@ const HolidayCalendarPage: React.FC = () => {
         await axios.post(`${BASE_CALENDAR_URL}/${activeCalendarForHolidays.id}/holidays`, bulkPayload);
       }
 
-      ToasterService.success("Holidays saved successfully!");
-      setIsHolidayManageModalOpen(false);
+      if (failures.length) {
+        failures.forEach((f) => ToasterService.error(f));
+      } else {
+        ToasterService.success("Holidays saved.");
+        setIsHolidayManageModalOpen(false);
+      }
       fetchCalendars();
     } catch (err: any) {
       handleApiError(err, "Failed to save holidays.");
@@ -400,9 +406,10 @@ const HolidayCalendarPage: React.FC = () => {
     if (activeCalendarForHolidays?.id && hItem.id) {
       try {
         await axios.delete(`${BASE_CALENDAR_URL}/${activeCalendarForHolidays.id}/holidays/${hItem.id}`);
-        ToasterService.success("Holiday removed from backend!");
+        ToasterService.success(`${hItem.holidayName} removed.`);
       } catch (e) {
-        console.warn("Single holiday delete endpoint not available, will sync on save:", e);
+        ToasterService.error(apiError(e, "Could not remove the holiday."));
+        return;
       }
     }
     removeHolidayRow(idx);

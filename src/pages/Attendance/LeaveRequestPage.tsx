@@ -1,248 +1,185 @@
 import { useCurrentEmployee } from "../../access/useCurrentEmployee";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Calendar, User, Clock, CheckCircle2, AlertCircle, Plus, Send, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Send, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import TableToolbar from "../../components/common/TableToolbar";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import {
+  apiError, CalendarDay, fetchLeaveBalances, fetchMonth, formatDays, freeDays, LeaveBalance, leaveTypeLabel,
+} from "./attendanceApi";
 
-interface Employee {
-  id: number;
-  firstName: string;
-  lastName: string;
-  employeeCode?: string;
-}
-
-interface LeaveType {
-  id: number;
-  name: string;
-}
-
-interface LeaveBalance {
-  id?: number;
-  employeeId: number;
-  leaveTypeId?: number;
-  leaveType?: string;
-  leaveTypeName?: string;
-  name?: string;
-  remaining?: number;
-  remainingLeaves?: number;
-  availableLeaves?: number;
-  balance?: number;
-  allocatedLeaves?: number;
-}
-
-const EMPLOYEE_URL = "/v1/api/payroll/employee";
-const LEAVE_BALANCE_URL = "/v1/api/attendance/employee-leave-balances";
 const LEAVE_API_URL = "/v1/api/attendance/leave-requests";
 
+interface LeaveRow {
+  id: number;
+  leaveType: string;
+  fromDate: string;
+  toDate: string;
+  totalDays: number;
+  halfDay?: boolean;
+  halfDaySession?: string | null;
+  approvalStatus: string;
+  reason?: string;
+  approverRemarks?: string | null;
+  actionBy?: string | null;
+  createdDate?: string;
+}
+
+const DAY_TYPES = [
+  { label: "Full Day", session: null },
+  { label: "First half", session: "FIRST_HALF" },
+  { label: "Second half", session: "SECOND_HALF" },
+] as const;
+
+// Months (year, month1) touched by a date range
+const monthsBetween = (from: string, to: string) => {
+  const out: [number, number][] = [];
+  let y = Number(from.slice(0, 4));
+  let m = Number(from.slice(5, 7));
+  const endKey = Number(to.slice(0, 4)) * 12 + Number(to.slice(5, 7));
+  while (y * 12 + m <= endKey && out.length < 13) {
+    out.push([y, m]);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return out;
+};
+
 const LeaveRequestPage: React.FC = () => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
-  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
-  
-  // Own employee identity from the login token (no hard-coded ids)
+  // Own employee identity from the login token; leave is always applied for yourself
   const currentUser = useCurrentEmployee();
+  const employeeId = currentUser.id;
 
-  const [activeEmployeeId, setActiveEmployeeId] = useState<number>(12);
-  const [employeeCode, setEmployeeCode] = useState<string>("TEC-EMP-0001");
-  const [employeeName, setEmployeeName] = useState<string>("Lakshmii Kanthh");
-
-  useEffect(() => {
-    const resolveUserEmployeeId = async () => {
-      try {
-        const empRes = await axios.get('/v1/api/payroll/employee/all');
-        if (Array.isArray(empRes.data) && empRes.data.length > 0) {
-          const uName = (currentUser.name || '').toLowerCase();
-          const uEmail = (currentUser.email || '').toLowerCase();
-
-          const match = empRes.data.find((e: any) => {
-            const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').toLowerCase();
-            const eEmail = (e.email || '').toLowerCase();
-            return (uName && (eName.includes(uName) || uName.includes(eName))) || (uEmail && eEmail === uEmail);
-          });
-
-          const selected = match || empRes.data.find((e: any) => Number(e.id) === 12) || empRes.data[0];
-
-          if (selected && selected.id) {
-            setActiveEmployeeId(Number(selected.id));
-            setEmployeeCode(selected.employeeCode || `EMP-${selected.id}`);
-            setEmployeeName(`${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.name || currentUser.name);
-          }
-        }
-      } catch (e) {}
-    };
-    resolveUserEmployeeId();
-  }, [currentUser]);
-
-  const selectedEmployeeId = activeEmployeeId;
-  
+  const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [fromDate, setFromDate] = useState(todayIso());
   const [toDate, setToDate] = useState(todayIso());
-  const [dayType, setDayType] = useState("Full Day");
-  const [leaveTypeId, setLeaveTypeId] = useState<number | "">("");
+  const [dayType, setDayType] = useState<string>("Full Day");
+  const [leaveType, setLeaveType] = useState<string>("");
   const [comments, setComments] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [myLeaves, setMyLeaves] = useState<any[]>([]);
+  const [myLeaves, setMyLeaves] = useState<LeaveRow[]>([]);
   const [activeTab, setActiveTab] = useState<'apply' | 'history'>('apply');
-
   const [currentDate, setCurrentDate] = useState(new Date());
+  // Weekly offs and holidays by date, for the picker and the day estimate
+  const [offDays, setOffDays] = useState<Record<string, string>>({});
+
+  const loadMyLeaves = useCallback(async () => {
+    if (!currentUser.hasEmployee) return;
+    try {
+      const res = await axios.get(`${LEAVE_API_URL}/employee/${employeeId}`);
+      setMyLeaves(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not load your leave requests."));
+    }
+  }, [currentUser.hasEmployee, employeeId]);
+
+  const loadLeaveBalances = useCallback(async () => {
+    if (!currentUser.hasEmployee) return;
+    try {
+      setBalances(await fetchLeaveBalances(employeeId));
+    } catch {
+      setBalances([]);
+    }
+  }, [currentUser.hasEmployee, employeeId]);
 
   useEffect(() => {
-    loadEmployees();
-    loadLeaveTypes();
     loadMyLeaves();
-  }, []);
+    loadLeaveBalances();
+  }, [loadMyLeaves, loadLeaveBalances]);
 
+  // Default to the first leave type the employee has
   useEffect(() => {
-    if (selectedEmployeeId) {
-      loadLeaveBalances(Number(selectedEmployeeId));
-    } else {
-      setLeaveBalances([]);
+    if (balances.length && !balances.some((b) => b.leaveType === leaveType)) {
+      setLeaveType(balances[0].leaveType);
     }
-  }, [selectedEmployeeId]);
+  }, [balances, leaveType]);
+
+  // Off days for the shown month and the selected range
+  useEffect(() => {
+    if (!currentUser.hasEmployee) return;
+    const months = new Map<string, [number, number]>();
+    months.set(`${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`, [currentDate.getFullYear(), currentDate.getMonth() + 1]);
+    if (fromDate && toDate && fromDate <= toDate) {
+      monthsBetween(fromDate, toDate).forEach(([y, m]) => months.set(`${y}-${m}`, [y, m]));
+    }
+    let cancelled = false;
+    Promise.all([...months.values()].map(([y, m]) => fetchMonth(y, m).catch(() => [] as CalendarDay[])))
+      .then((all) => {
+        if (cancelled) return;
+        const map: Record<string, string> = {};
+        all.flat().forEach((d) => {
+          if (d.holidayName) map[d.date] = d.holidayName;
+          else if (d.weeklyOff) map[d.date] = "Weekly off";
+        });
+        setOffDays((prev) => ({ ...prev, ...map }));
+      });
+    return () => { cancelled = true; };
+  }, [currentUser.hasEmployee, currentDate, fromDate, toDate]);
 
   useEffect(() => {
-    if (fromDate && toDate && fromDate !== toDate) {
-      if (dayType !== "Full Day") {
-        setDayType("Full Day");
-      }
+    if (fromDate && toDate && fromDate !== toDate && dayType !== "Full Day") {
+      setDayType("Full Day");
     }
   }, [fromDate, toDate, dayType]);
 
-  const loadMyLeaves = async (empId: number = selectedEmployeeId) => {
-    const numericId = Number(empId) || currentUser.id;
-    try {
-      const res = await axios.get(`/v1/api/attendance/leave-requests/employee/${numericId}`);
-      if (Array.isArray(res.data)) {
-        setMyLeaves(res.data);
-      }
-    } catch (err) {}
-  };
+  const isHalfDay = dayType !== "Full Day";
 
-  const loadEmployees = async () => {
-    try {
-      const res = await axios.get<Employee[]>(`${EMPLOYEE_URL}/all`);
-      setEmployees(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const loadLeaveTypes = () => {
-    const defaults = [
-      { id: 1, name: "Casual Leave" },
-      { id: 2, name: "Sick Leave" },
-      { id: 3, name: "Earned Leave" }
-    ];
-    setLeaveTypes(defaults);
-    setLeaveTypeId(prev => prev || defaults[0].id);
-  };
-
-  const loadLeaveBalances = async (empId: number) => {
-    try {
-      const res = await axios.get<LeaveBalance[]>(`${LEAVE_BALANCE_URL}/${empId}`);
-      if (Array.isArray(res.data)) {
-        setLeaveBalances(res.data);
-      }
-    } catch (err) {
-      setLeaveBalances([
-        { id: 101, employeeId: empId, leaveType: 'CASUAL', remainingLeaves: 12 },
-        { id: 102, employeeId: empId, leaveType: 'SICK', remainingLeaves: 12 },
-        { id: 103, employeeId: empId, leaveType: 'EARNED', remainingLeaves: 18 }
-      ]);
-    }
-  };
-
-  const getBalanceForType = (typeKey: string) => {
-    if (!Array.isArray(leaveBalances) || leaveBalances.length === 0) {
-      return typeKey === 'CASUAL' ? 12 : typeKey === 'SICK' ? 12 : 18;
-    }
-    const item = leaveBalances.find(b => {
-      const name = String(b.leaveType || b.leaveTypeName || b.name || '').toUpperCase();
-      return name.includes(typeKey);
-    });
-    if (item) {
-      return item.remainingLeaves ?? item.availableLeaves ?? item.remaining ?? item.balance ?? item.allocatedLeaves ?? (typeKey === 'CASUAL' ? 12 : typeKey === 'SICK' ? 12 : 18);
-    }
-    return typeKey === 'CASUAL' ? 12 : typeKey === 'SICK' ? 12 : 18;
-  };
-
+  // Estimate only; the server counts the working days when the request is sent
   const totalDays = useMemo(() => {
-    if (!fromDate || !toDate) return 0;
-    const start = new Date(fromDate);
-    const end = new Date(toDate);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
-    if (end < start) return 0;
-    
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    
-    return dayType !== "Full Day" && diffDays === 1 ? 0.5 : diffDays;
-  }, [fromDate, toDate, dayType]);
+    if (!fromDate || !toDate || toDate < fromDate) return 0;
+    let count = 0;
+    for (let d = new Date(`${fromDate}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (key > toDate) break;
+      if (!offDays[key]) count += 1;
+    }
+    return isHalfDay && count > 0 ? 0.5 : count;
+  }, [fromDate, toDate, isHalfDay, offDays]);
+
+  const selectedBalance = balances.find((b) => b.leaveType === leaveType);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEmployeeId) return ToasterService.error("Please select an employee");
-    if (!leaveTypeId) return ToasterService.error("Please select a Leave Type");
+    if (!currentUser.hasEmployee) return ToasterService.error("No employee record is linked to your account.");
+    if (!leaveType) return ToasterService.error("Please select a leave type");
     if (!fromDate || !toDate) return ToasterService.error("Please select valid dates");
-    if (new Date(toDate) < new Date(fromDate)) return ToasterService.error("End Date cannot be before Start Date");
-
-    const matchedType = leaveTypes.find(t => t.id === Number(leaveTypeId));
-    const leaveTypeNameStr = (matchedType?.name || "CASUAL").toUpperCase().replace(/\s+/g, '_');
-
-    const payload = {
-      employeeId: Number(selectedEmployeeId),
-      employeeCode: employeeCode || `EMP-${selectedEmployeeId}`,
-      employeeName: employeeName || currentUser.name || "Lakshmii Kanthh",
-      leaveType: leaveTypeNameStr.includes("SICK") ? "SICK" : leaveTypeNameStr.includes("EARNED") ? "EARNED" : "CASUAL",
-      fromDate: fromDate,
-      toDate: toDate,
-      totalDays: Number(totalDays),
-      reason: comments || "Family Function"
-    };
+    if (toDate < fromDate) return ToasterService.error("End Date cannot be before Start Date");
+    if (!comments.trim()) return ToasterService.error("Please give a reason");
 
     try {
       setIsSubmitting(true);
-
-      try {
-        await axios.post("/v1/api/attendance/leave-requests", payload);
-      } catch (firstErr: any) {
-        const errMsg = (firstErr.response?.data?.message || firstErr.response?.data?.error || '').toLowerCase();
-        
-        // Auto-assign leave policy if balance not found
-        if (errMsg.includes("balance") || errMsg.includes("policy") || firstErr.response?.status === 400 || firstErr.response?.status === 404) {
-          try {
-            await axios.post("/v1/api/attendance/employee-leave-balances/assign-policy", {
-              employeeIds: [Number(selectedEmployeeId), 12],
-              leavePolicyId: 1
-            });
-            await axios.post("/v1/api/attendance/leave-requests", payload);
-          } catch (retryErr) {
-            throw firstErr;
-          }
-        } else {
-          throw firstErr;
-        }
-      }
-
-      ToasterService.success("Leave request submitted successfully!");
+      const res = await axios.post(LEAVE_API_URL, {
+        leaveType,
+        fromDate,
+        toDate,
+        halfDay: isHalfDay,
+        halfDaySession: DAY_TYPES.find((t) => t.label === dayType)?.session ?? null,
+        reason: comments.trim(),
+      });
+      ToasterService.success(`Leave request for ${formatDays(res.data?.totalDays)} day(s) sent for approval.`);
       setComments("");
-      setLeaveTypeId("");
       loadMyLeaves();
-      loadLeaveBalances(Number(selectedEmployeeId));
+      loadLeaveBalances();
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error;
-      if (msg && msg.toLowerCase().includes("balance not found")) {
-        ToasterService.error("Employee Leave Balance not found. Please assign a Leave Policy first under Leave Management.");
-      } else {
-        ToasterService.error(msg || "Failed to submit leave request");
-      }
+      ToasterService.error(apiError(err, "Failed to submit leave request"));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCancel = async (row: LeaveRow) => {
+    if (!window.confirm(`Withdraw your ${leaveTypeLabel(row.leaveType).toLowerCase()} leave request for ${row.fromDate}${row.toDate !== row.fromDate ? ` to ${row.toDate}` : ""}?`)) return;
+    try {
+      await axios.delete(`${LEAVE_API_URL}/${row.id}`);
+      ToasterService.success("Leave request withdrawn.");
+      loadMyLeaves();
+      loadLeaveBalances();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not withdraw the request."));
     }
   };
 
@@ -273,15 +210,17 @@ const LeaveRequestPage: React.FC = () => {
     for (let i = 1; i <= days; i++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
       const isSelected = dateStr >= fromDate && dateStr <= toDate;
+      const off = offDays[dateStr];
 
       calendarDays.push(
         <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
           <button 
             type="button"
+            title={off || undefined}
             className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               isSelected 
-                ? 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20' 
-                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
+                ? (off ? 'bg-cyan-600/40 text-white' : 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20')
+                : off ? 'text-slate-400 dark:text-gray-600 line-through' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
             }`}
             onClick={() => {
               if (dateStr < fromDate) {
@@ -314,41 +253,52 @@ const LeaveRequestPage: React.FC = () => {
     return calendarDays;
   };
 
-  const historyColumns: ColumnDef<any>[] = [
+  const today = todayIso();
+  const canWithdraw = (row: LeaveRow) => row.approvalStatus === 'PENDING' || (row.approvalStatus === 'APPROVED' && row.fromDate > today);
+
+  const historyColumns: ColumnDef<LeaveRow>[] = [
     { key: 'id', label: 'Req ID', sortable: true, render: (row) => <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">#{row.id}</span> },
-    { key: 'leaveType', label: 'Leave Type', sortable: true, render: (row) => <span className="font-bold text-xs text-slate-900 dark:text-white">{row.leaveType || 'CASUAL'}</span> },
+    { key: 'leaveType', label: 'Leave Type', sortable: true, render: (row) => <span className="font-bold text-xs text-slate-900 dark:text-white">{leaveTypeLabel(row.leaveType)}{row.halfDay ? ` (${row.halfDaySession === 'SECOND_HALF' ? 'second' : 'first'} half)` : ''}</span> },
     { 
       key: 'fromDate', 
       label: 'Dates', 
       sortable: true, 
-      render: (row) => {
-        const start = row.fromDate || row.startDate || '-';
-        const end = row.toDate || row.endDate || '-';
-        return <span className="text-slate-700 dark:text-gray-300 font-mono text-xs whitespace-nowrap">{start} &rarr; {end}</span>;
-      } 
+      render: (row) => <span className="text-slate-700 dark:text-gray-300 font-mono text-xs whitespace-nowrap">{row.fromDate}{row.toDate !== row.fromDate && <> &rarr; {row.toDate}</>}</span>
     },
     { 
       key: 'totalDays', 
       label: 'Days', 
       sortable: true, 
-      render: (row) => <span className="font-bold font-mono text-xs text-slate-900 dark:text-white">{row.totalDays ?? row.days ?? 1} {Number(row.totalDays ?? row.days ?? 1) === 1 ? 'day' : 'days'}</span> 
+      render: (row) => <span className="font-bold font-mono text-xs text-slate-900 dark:text-white">{formatDays(row.totalDays)} {Number(row.totalDays) === 1 ? 'day' : 'days'}</span> 
     },
-    { key: 'reason', label: 'Reason', sortable: true, render: (row) => <span className="text-xs text-slate-600 dark:text-gray-400 max-w-[220px] truncate block">{row.reason || '-'}</span> },
+    { key: 'reason', label: 'Reason', sortable: true, render: (row) => <span className="text-xs text-slate-600 dark:text-gray-400 max-w-[220px] truncate block" title={row.reason}>{row.reason || '-'}</span> },
     { 
-      key: 'status', 
+      key: 'approvalStatus', 
       label: 'Status', 
       sortable: true, 
       render: (row) => {
-        const st = String(row.status || 'PENDING').toUpperCase();
-        const badgeStyle = st.includes('APPROV') ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
-          st.includes('REJECT') ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent' :
+        const st = String(row.approvalStatus || 'PENDING').toUpperCase();
+        const badgeStyle = st === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
+          st === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent' :
+          st === 'CANCELLED' ? 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-transparent dark:text-gray-500 dark:border-transparent' :
           'bg-amber-50 text-amber-700 border-amber-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent';
         return (
-          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badgeStyle}`}>
-            {st}
+          <span title={row.approverRemarks ? `${row.actionBy ? `${row.actionBy}: ` : ''}${row.approverRemarks}` : undefined}
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badgeStyle}`}>
+            {st.charAt(0) + st.slice(1).toLowerCase()}
           </span>
         );
       } 
+    },
+    {
+      key: 'actions',
+      label: '',
+      render: (row) => canWithdraw(row) ? (
+        <button type="button" onClick={() => handleCancel(row)}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 cursor-pointer">
+          <XCircle className="w-3.5 h-3.5" /> Withdraw
+        </button>
+      ) : null,
     },
   ];
 
@@ -387,7 +337,7 @@ const LeaveRequestPage: React.FC = () => {
             </button>
             <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl px-3 py-1.5 text-right">
               <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode || `EMP-${selectedEmployeeId}`}</span>
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{currentUser.code || '—'}</span>
             </div>
           </div>
         </div>
@@ -447,23 +397,25 @@ const LeaveRequestPage: React.FC = () => {
                     {/* Leave Type Dropdown */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Leave Type *</label>
-                      <select
-                        value={leaveTypeId}
-                        onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
-                        required
-                      >
-                        <option value="" className="dark:bg-[#222222] text-gray-400">-- Select Leave Type --</option>
-                        {leaveTypes.map((lt) => {
-                          const typeKey = lt.name.toLowerCase().includes("casual") ? "CASUAL" : lt.name.toLowerCase().includes("sick") ? "SICK" : "EARNED";
-                          const bal = getBalanceForType(typeKey);
-                          return (
-                            <option key={lt.id} value={lt.id} className="dark:bg-[#222222] dark:text-white">
-                              {lt.name} — ({bal} days balance)
+                      {balances.length === 0 ? (
+                        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-xl">
+                          No leave policy is assigned to you yet. Ask HR to assign one before applying.
+                        </p>
+                      ) : (
+                        <select
+                          value={leaveType}
+                          onChange={(e) => setLeaveType(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
+                          required
+                        >
+                          {balances.map((b) => (
+                            <option key={b.id} value={b.leaveType} className="dark:bg-[#222222] dark:text-white">
+                              {leaveTypeLabel(b.leaveType)} leave — {formatDays(freeDays(b))} of {formatDays(b.allocatedLeaves)} days free
+                              {b.pendingApprovalLeaves ? ` (${formatDays(b.pendingApprovalLeaves)} waiting for approval)` : ''}
                             </option>
-                          );
-                        })}
-                      </select>
+                          ))}
+                        </select>
+                      )}
                     </div>
 
                     {/* Duration Summary */}
@@ -471,8 +423,10 @@ const LeaveRequestPage: React.FC = () => {
                       <span className="text-xs text-slate-600 dark:text-gray-300">
                         Duration: <strong className="text-slate-900 dark:text-white font-mono">{fromDate || '---'}</strong> to <strong className="text-slate-900 dark:text-white font-mono">{toDate || '---'}</strong>
                       </span>
-                      <span className="px-2.5 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-lg text-[11px] font-bold shadow-2xs font-mono">
-                        {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
+                      <span title="Working days only; weekly offs and holidays are not counted"
+                        className={`px-2.5 py-0.5 bg-white dark:bg-cyan-500/20 border dark:!border-transparent rounded-lg text-[11px] font-bold shadow-2xs font-mono ${
+                          selectedBalance && totalDays > freeDays(selectedBalance) ? 'text-rose-700 border-rose-200' : 'text-cyan-700 dark:text-cyan-300 border-cyan-200'}`}>
+                        {formatDays(totalDays)} {totalDays === 1 ? 'Day' : 'Days'}
                       </span>
                     </div>
 

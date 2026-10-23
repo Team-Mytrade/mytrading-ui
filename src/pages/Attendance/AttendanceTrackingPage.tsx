@@ -63,7 +63,7 @@ const formatMinutesToHoursStr = (totalMins: number = 0): string => {
 };
 
 const AttendanceTrackingPage: React.FC = () => {
-  const { canExport } = usePermissions();
+  const { canExport, can } = usePermissions();
   const { user } = useContext(AuthContext);
 
   // Own employee identity from the login token (no hard-coded ids)
@@ -72,7 +72,7 @@ const AttendanceTrackingPage: React.FC = () => {
   // ── Dynamic States ──────────────────────────────────────────────────────
   const [currentDate, setCurrentDate] = useState<Date>(new Date()); // Dynamic current system date
   const [employeeList, setEmployeeList] = useState<{ id: number; name: string; code: string }[]>([]);
-  const [selectedEmpId, setSelectedEmpId] = useState<number>(0);
+  const [selectedEmpId, setSelectedEmpId] = useState<number>(currentUser.id);
   const [selectedDayRecord, setSelectedDayRecord] = useState<CalendarDayModel | null>(null);
   const [calendarData, setCalendarData] = useState<MyCalendarResponseModel | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,31 +83,31 @@ const AttendanceTrackingPage: React.FC = () => {
   const selectedYear = currentDate.getFullYear();
   const selectedMonth = currentDate.getMonth() + 1; // 1-12
 
-  // ── Fetch Employee Master Dropdown ─────────────────────────────────────
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const res = await axios.get('/v1/api/payroll/employee/all');
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          const mapped = res.data.map((e: any) => ({
-            id: Number(e.id),
-            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || e.fullName || `Employee #${e.id}`,
-            code: e.employeeCode || `EMP-${e.id}`
-          }));
-          setEmployeeList(mapped);
+  // Approvers and HR may look at anyone; everybody else sees their own calendar
+  const canSeeOthers = can("APPROVE");
 
-          // Find match for logged-in user or select first employee
-          const uName = (currentUser.name || '').toLowerCase().trim();
-          const match = mapped.find(e => e.name.toLowerCase().includes(uName) || uName.includes(e.name.toLowerCase()));
-          const initialId = match ? match.id : (currentUser.id || mapped[0].id);
-          setSelectedEmpId(initialId);
-        }
-      } catch (e) {
-        console.warn("Failed to fetch employee list:", e);
-      }
-    };
-    fetchEmployees();
-  }, [currentUser]);
+  useEffect(() => {
+    if (!selectedEmpId && currentUser.id) setSelectedEmpId(currentUser.id);
+  }, [currentUser.id, selectedEmpId]);
+
+  // ── Employee picker (attendance service, needs ATTENDANCE:VIEW) ─────────
+  useEffect(() => {
+    if (!canSeeOthers) {
+      setEmployeeList(currentUser.hasEmployee ? [{ id: currentUser.id, name: currentUser.name, code: currentUser.code }] : []);
+      return;
+    }
+    axios.get('/v1/api/attendance/employees')
+      .then((res) => {
+        const mapped = (Array.isArray(res.data) ? res.data : []).map((e: any) => ({
+          id: Number(e.id),
+          name: e.name || `Employee #${e.id}`,
+          code: e.employeeCode || ''
+        }));
+        setEmployeeList(mapped);
+        if (!currentUser.hasEmployee && mapped.length) setSelectedEmpId((prev) => prev || mapped[0].id);
+      })
+      .catch(() => setEmployeeList([]));
+  }, [canSeeOthers, currentUser.hasEmployee, currentUser.id, currentUser.name, currentUser.code]);
 
   // ── API: GET ATTENDANCE CALENDAR RECORDS BY EMPLOYEE ID ───────────────
   // GET -> /v1/api/attendance/records/my-calendar/{employeeId}?employeeId={empId}&year={year}&month={month}
@@ -134,7 +134,7 @@ const AttendanceTrackingPage: React.FC = () => {
         setCalendarData(null);
       }
     } catch (err: any) {
-      console.warn("Failed to fetch attendance calendar records:", err);
+      ToasterService.error(err?.response?.data?.message || "Could not load the attendance calendar.");
       setCalendarData(null);
     } finally {
       setLoading(false);
@@ -160,13 +160,13 @@ const AttendanceTrackingPage: React.FC = () => {
   const kpiStats = useMemo(() => {
     const days = calendarData?.days || [];
     const totalDays = days.length;
-    const presentDays = days.filter(d => String(d.status).toUpperCase() === 'PRESENT').length;
+    const presentDays = days.filter(d => ['PRESENT', 'ON_DUTY', 'WFH', 'HALF_DAY'].includes(String(d.status).toUpperCase())).length;
     const absentDays = days.filter(d => String(d.status).toUpperCase() === 'ABSENT').length;
     const lateDays = days.filter(d => Boolean(d.lateMinutes && d.lateMinutes > 0));
     const totalLateMinutes = lateDays.reduce((acc, d) => acc + (d.lateMinutes || 0), 0);
     const totalOvertimeMinutes = days.reduce((acc, d) => acc + (d.overtimeMinutes || 0), 0);
     const totalWorkedMinutes = days.reduce((acc, d) => acc + (d.workedMinutes || 0), 0);
-    const leaveDays = days.filter(d => Boolean(d.leaveType || d.holidayName)).length;
+    const leaveDays = days.filter(d => String(d.status).toUpperCase() === 'ON_LEAVE').length;
 
     return {
       totalDays,
@@ -191,10 +191,10 @@ const AttendanceTrackingPage: React.FC = () => {
 
       const st = String(d.status).toUpperCase();
       let matchesStatus = true;
-      if (statusFilter === 'PRESENT') matchesStatus = st === 'PRESENT';
+      if (statusFilter === 'PRESENT') matchesStatus = ['PRESENT', 'ON_DUTY', 'WFH', 'HALF_DAY'].includes(st);
       if (statusFilter === 'ABSENT') matchesStatus = st === 'ABSENT';
       if (statusFilter === 'LATE') matchesStatus = Boolean(d.lateMinutes && d.lateMinutes > 0);
-      if (statusFilter === 'LEAVE') matchesStatus = Boolean(d.leaveType || d.holidayName);
+      if (statusFilter === 'LEAVE') matchesStatus = st === 'ON_LEAVE' || st === 'HOLIDAY';
 
       return matchesSearch && matchesStatus;
     });

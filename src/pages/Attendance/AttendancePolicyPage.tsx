@@ -9,6 +9,7 @@ import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "./attendanceApi";
 
 const ATTENDANCE_POLICY_URL = '/v1/api/attendance/attendance-policies';
 const ASSIGNMENT_API_URL = '/v1/api/attendance/employee-attendance-policy-assignments';
@@ -35,9 +36,9 @@ export interface EmployeePolicyAssignment {
   employeeId: number;
   attendancePolicyId: number;
   effectiveFrom: string;
-  effectiveTo: string;
-  employeeName?: string;
-  policyName?: string;
+  effectiveTo?: string | null;
+  attendancePolicyName?: string;
+  active?: boolean;
 }
 
 const AttendancePolicyPage: React.FC = () => {
@@ -71,6 +72,7 @@ const AttendancePolicyPage: React.FC = () => {
   // Policy Assignment States
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignments, setAssignments] = useState<EmployeePolicyAssignment[]>([]);
+  const [employees, setEmployees] = useState<{ id: number; name: string; employeeCode?: string }[]>([]);
 
   const [assignForm, setAssignForm] = useState<{
     employeeId: number | string;
@@ -81,7 +83,7 @@ const AttendancePolicyPage: React.FC = () => {
     employeeId: '',
     attendancePolicyId: '',
     effectiveFrom: todayIso(),
-    effectiveTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    effectiveTo: ''
   });
 
   // Search & Query States
@@ -91,39 +93,46 @@ const AttendancePolicyPage: React.FC = () => {
   const [isQuerying, setIsQuerying] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
 
+  const employeeName = (id: number) => employees.find((e) => e.id === id)?.name ?? `Employee #${id}`;
+
   const loadPolicies = async () => {
     setLoading(true);
     try {
       const res = await axios.get(ATTENDANCE_POLICY_URL);
-      if (Array.isArray(res.data)) {
-        setSavedPolicies(res.data);
-      }
-    } catch (e) {}
-    setLoading(false);
+      setSavedPolicies(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not load attendance policies."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadAssignments = async () => {
     setLoading(true);
     try {
       const res = await axios.get(ASSIGNMENT_API_URL);
-      if (Array.isArray(res.data)) {
-        setAssignments(res.data);
-      }
-    } catch (e) {}
-    setLoading(false);
+      setAssignments(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not load policy assignments."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Access follows the ATTENDANCE module permissions (route guard and buttons), not the old role names
   useEffect(() => {
     loadPolicies();
     loadAssignments();
+    axios.get('/v1/api/attendance/employees')
+      .then((res) => setEmployees(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setEmployees([]));
   }, []);
 
   // Handle Policy Master CRUD
   const openCreateModal = () => {
     setEditingPolicy(null);
     setForm({
-      policyName: "General Attendance Policy",
+      policyName: "",
       fullDayMinimumMinutes: 480,
       halfDayMinimumMinutes: 240,
       gracePeriodMinutes: 15,
@@ -135,7 +144,7 @@ const AttendancePolicyPage: React.FC = () => {
       allowRegularization: true,
       allowOnDuty: true,
       permissionHoursPerMonth: 8,
-      active: true
+      active: savedPolicies.every((p) => !p.active)
     });
     setIsModalOpen(true);
   };
@@ -151,48 +160,49 @@ const AttendancePolicyPage: React.FC = () => {
     if (!form.policyName.trim()) {
       return ToasterService.error("Policy Name is required");
     }
+    if (form.halfDayMinimumMinutes > form.fullDayMinimumMinutes) {
+      return ToasterService.error("The half-day minimum can't be more than the full-day minimum.");
+    }
 
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      let resId = editingPolicy?.id || Date.now();
-
-      try {
-        if (editingPolicy?.id) {
-          await axios.put(`${ATTENDANCE_POLICY_URL}/${editingPolicy.id}`, form);
-        } else {
-          const res = await axios.post(ATTENDANCE_POLICY_URL, form);
-          resId = res.data?.id || resId;
-        }
-      } catch (err: any) {}
-
-      const updatedRecord: AttendancePolicyModel = {
-        ...form,
-        id: resId
-      };
-
+      const payload = { ...form, policyName: form.policyName.trim() };
       if (editingPolicy?.id) {
-        setSavedPolicies(prev => prev.map(p => p.id === editingPolicy.id ? updatedRecord : p));
-        ToasterService.success("Attendance policy updated successfully!");
+        await axios.put(`${ATTENDANCE_POLICY_URL}/${editingPolicy.id}`, payload);
+        ToasterService.success("Attendance policy updated.");
       } else {
-        setSavedPolicies(prev => [updatedRecord, ...prev]);
-        ToasterService.success("Attendance policy created successfully!");
+        await axios.post(ATTENDANCE_POLICY_URL, payload);
+        ToasterService.success("Attendance policy created.");
       }
-
       setIsModalOpen(false);
-    } catch (err: any) {
-      ToasterService.error("Failed to save attendance policy.");
+      loadPolicies();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to save the attendance policy."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSoftDelete = async (policy: AttendancePolicyModel) => {
+  // Only one policy is the company default (used for everyone without an assignment)
+  const handleMakeDefault = async (policy: AttendancePolicyModel) => {
     try {
-      const updated = { ...policy, active: false };
-      await axios.put(`${ATTENDANCE_POLICY_URL}/${policy.id}`, updated);
-    } catch (e) {}
-    setSavedPolicies(prev => prev.map(p => p.id === policy.id ? { ...p, active: false } : p));
-    ToasterService.success(`Policy '${policy.policyName}' deactivated successfully`);
+      await axios.put(`${ATTENDANCE_POLICY_URL}/${policy.id}`, { ...policy, active: true });
+      ToasterService.success(`'${policy.policyName}' is now the company default.`);
+      loadPolicies();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not change the default policy."));
+    }
+  };
+
+  const handleSoftDelete = async (policy: AttendancePolicyModel) => {
+    if (!window.confirm(`Stop using '${policy.policyName}' as the company default? Employees without an assigned policy won't be able to punch until another policy is the default.`)) return;
+    try {
+      await axios.delete(`${ATTENDANCE_POLICY_URL}/${policy.id}`);
+      ToasterService.success(`'${policy.policyName}' is no longer the default.`);
+      loadPolicies();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not change the policy."));
+    }
   };
 
   // Handle Policy Assignments API calls
@@ -201,121 +211,65 @@ const AttendancePolicyPage: React.FC = () => {
     const empIdNum = Number(assignForm.employeeId);
     const polIdNum = Number(assignForm.attendancePolicyId);
 
-    if (!empIdNum || isNaN(empIdNum)) {
-      return ToasterService.error("Valid Employee ID is required");
+    if (!empIdNum) return ToasterService.error("Choose an employee");
+    if (!polIdNum) return ToasterService.error("Choose a policy");
+    if (!assignForm.effectiveFrom) return ToasterService.error("Effective from is required");
+    if (assignForm.effectiveTo && assignForm.effectiveTo < assignForm.effectiveFrom) {
+      return ToasterService.error("Effective to can't be before effective from");
     }
-    if (!polIdNum || isNaN(polIdNum)) {
-      return ToasterService.error("Please select a policy");
-    }
-    if (!assignForm.effectiveFrom || !assignForm.effectiveTo) {
-      return ToasterService.error("Effective dates are required");
-    }
-
-    const payload = {
-      employeeId: empIdNum,
-      attendancePolicyId: polIdNum,
-      effectiveFrom: assignForm.effectiveFrom,
-      effectiveTo: assignForm.effectiveTo
-    };
 
     setIsSubmitting(true);
     try {
-      let createdAssignment: EmployeePolicyAssignment;
-      try {
-        const res = await axios.post(ASSIGNMENT_API_URL, payload);
-        createdAssignment = res.data;
-      } catch (err) {
-        // Fallback simulated response
-        const matchedPol = savedPolicies.find(p => p.id === polIdNum);
-        createdAssignment = {
-          id: Date.now(),
-          ...payload,
-          employeeName: `Employee #${empIdNum}`,
-          policyName: matchedPol?.policyName || `Policy #${polIdNum}`
-        };
-      }
-
-      setAssignments(prev => [createdAssignment, ...prev.filter(a => a.id !== createdAssignment.id)]);
-      ToasterService.success(`Policy assigned to Employee #${empIdNum} successfully!`);
+      await axios.post(ASSIGNMENT_API_URL, {
+        employeeId: empIdNum,
+        attendancePolicyId: polIdNum,
+        effectiveFrom: assignForm.effectiveFrom,
+        effectiveTo: assignForm.effectiveTo || null
+      });
+      ToasterService.success(`Policy assigned to ${employeeName(empIdNum)}.`);
       setIsAssignModalOpen(false);
-    } catch (err: any) {
-      ToasterService.error("Failed to assign attendance policy to employee.");
+      loadAssignments();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Failed to assign the attendance policy."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // GET -> /v1/api/attendance/employee-attendance-policy-assignments/employee/{employeeId}
   const handleFetchEmployeeAssignments = async () => {
-    const empIdNum = Number(searchEmployeeId.trim());
-    if (!empIdNum || isNaN(empIdNum)) {
-      return ToasterService.error("Enter a valid numerical Employee ID");
-    }
+    const empIdNum = Number(searchEmployeeId);
+    if (!empIdNum) return ToasterService.error("Choose an employee");
 
     setIsQuerying(true);
     setQueryError(null);
     setCurrentPolicyResult(null);
     setQueriedAssignments(null);
-
     try {
-      try {
-        const res = await axios.get(`${ASSIGNMENT_API_URL}/employee/${empIdNum}`);
-        const data = Array.isArray(res.data) ? res.data : [res.data];
-        setQueriedAssignments(data);
-        ToasterService.success(`Found ${data.length} policy assignment(s) for Employee #${empIdNum}`);
-      } catch (e: any) {
-        // Fallback local search
-        const localMatches = assignments.filter(a => a.employeeId === empIdNum);
-        if (localMatches.length > 0) {
-          setQueriedAssignments(localMatches);
-          ToasterService.success(`Found ${localMatches.length} assignment(s) for Employee #${empIdNum}`);
-        } else {
-          setQueriedAssignments([]);
-          setQueryError(`No policy assignment history found for Employee #${empIdNum}`);
-        }
-      }
+      const res = await axios.get(`${ASSIGNMENT_API_URL}/employee/${empIdNum}`);
+      const data = Array.isArray(res.data) ? res.data : [];
+      setQueriedAssignments(data);
+      if (data.length === 0) setQueryError(`${employeeName(empIdNum)} has no policy assignments; the company default applies.`);
     } catch (err) {
-      setQueryError("Failed to fetch policy assignment history.");
+      setQueryError(apiError(err, "Failed to fetch policy assignment history."));
     } finally {
       setIsQuerying(false);
     }
   };
 
-  // GET -> /v1/api/attendance/employee-attendance-policy-assignments/employee/{employeeId}/current
   const handleFetchCurrentEmployeePolicy = async () => {
-    const empIdNum = Number(searchEmployeeId.trim());
-    if (!empIdNum || isNaN(empIdNum)) {
-      return ToasterService.error("Enter a valid numerical Employee ID");
-    }
+    const empIdNum = Number(searchEmployeeId);
+    if (!empIdNum) return ToasterService.error("Choose an employee");
 
     setIsQuerying(true);
     setQueryError(null);
     setCurrentPolicyResult(null);
     setQueriedAssignments(null);
-
     try {
-      try {
-        const res = await axios.get(`${ASSIGNMENT_API_URL}/employee/${empIdNum}/current`);
-        setCurrentPolicyResult(res.data);
-        ToasterService.success(`Current active policy loaded for Employee #${empIdNum}`);
-      } catch (e: any) {
-        // Fallback active date search
-        const todayStr = todayIso();
-        const localMatch = assignments.find(a => 
-          a.employeeId === empIdNum &&
-          a.effectiveFrom <= todayStr &&
-          a.effectiveTo >= todayStr
-        ) || assignments.find(a => a.employeeId === empIdNum);
-
-        if (localMatch) {
-          setCurrentPolicyResult(localMatch);
-          ToasterService.success(`Current active policy found for Employee #${empIdNum}`);
-        } else {
-          setQueryError(`No active policy assignment found for Employee #${empIdNum} on today's date (${todayStr})`);
-        }
-      }
-    } catch (err) {
-      setQueryError("Failed to fetch current policy assignment.");
+      const res = await axios.get(`${ASSIGNMENT_API_URL}/employee/${empIdNum}/current`);
+      setCurrentPolicyResult(res.data);
+    } catch {
+      const fallback = savedPolicies.find((p) => p.active);
+      setQueryError(`${employeeName(empIdNum)} has no assigned policy today, so ${fallback ? `the company default '${fallback.policyName}'` : 'no policy (none is set as default)'} applies.`);
     } finally {
       setIsQuerying(false);
     }
@@ -324,15 +278,10 @@ const AttendancePolicyPage: React.FC = () => {
   // Confirmation Modal State for Delete Assignment
   const [deletingAssignmentId, setDeletingAssignmentId] = useState<number | null>(null);
 
-  // DELETE -> /v1/api/attendance/employee-attendance-policy-assignments/{assignmentId}
   const confirmDeleteAssignment = async () => {
     if (!deletingAssignmentId) return;
-
     try {
-      try {
-        await axios.delete(`${ASSIGNMENT_API_URL}/${deletingAssignmentId}`);
-      } catch (e) {}
-
+      await axios.delete(`${ASSIGNMENT_API_URL}/${deletingAssignmentId}`);
       setAssignments(prev => prev.filter(a => a.id !== deletingAssignmentId));
       if (queriedAssignments) {
         setQueriedAssignments(prev => prev ? prev.filter(a => a.id !== deletingAssignmentId) : null);
@@ -340,14 +289,13 @@ const AttendancePolicyPage: React.FC = () => {
       if (currentPolicyResult?.id === deletingAssignmentId) {
         setCurrentPolicyResult(null);
       }
-      ToasterService.success("Policy assignment deleted successfully");
+      ToasterService.success("Policy assignment removed");
     } catch (err) {
-      ToasterService.error("Failed to delete policy assignment");
+      ToasterService.error(apiError(err, "Failed to remove the policy assignment"));
     } finally {
       setDeletingAssignmentId(null);
     }
   };
-
   const policyColumns: ColumnDef<AttendancePolicyModel>[] = [
     { 
       key: 'policyName', 
@@ -407,11 +355,11 @@ const AttendancePolicyPage: React.FC = () => {
       sortable: true, 
       render: (row) => (
         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shadow-2xs whitespace-nowrap border ${
-          row.active !== false 
+          row.active
             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' 
             : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
         }`}>
-          {row.active !== false ? 'Active' : 'Inactive'}
+          {row.active ? 'Company default' : 'Assignable'}
         </span>
       ) 
     },
@@ -436,12 +384,22 @@ const AttendancePolicyPage: React.FC = () => {
           >
             <Edit className="w-3.5 h-3.5" />
           </button>)}
-          {row.active !== false && (
+          {!row.active && canUpdate && (
+            <button
+              type="button"
+              onClick={() => handleMakeDefault(row)}
+              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-[#222222] border border-emerald-200/80 dark:!border-transparent rounded-lg text-emerald-700 dark:text-gray-400 text-[10px] font-bold transition-colors"
+              title="Use this policy for everyone without an assigned policy"
+            >
+              Make default
+            </button>
+          )}
+          {row.active && (
             canUpdate && <button
               type="button"
               onClick={() => handleSoftDelete(row)}
               className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] border border-rose-200/80 dark:!border-transparent rounded-lg text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 transition-colors"
-              title="Deactivate Policy"
+              title="Stop using as the company default"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -467,11 +425,11 @@ const AttendancePolicyPage: React.FC = () => {
       render: (row) => (
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-cyan-100 dark:bg-[#222222] text-cyan-800 dark:text-gray-300 flex items-center justify-center font-bold text-xs">
-            {row.employeeId}
+            {employeeName(row.employeeId).charAt(0)}
           </div>
           <div>
             <span className="font-bold text-xs text-gray-900 dark:text-white block">
-              {row.employeeName || `Employee #${row.employeeId}`}
+              {employeeName(row.employeeId)}
             </span>
             <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">ID: {row.employeeId}</span>
           </div>
@@ -487,7 +445,7 @@ const AttendancePolicyPage: React.FC = () => {
         return (
           <div>
             <span className="font-bold text-xs text-cyan-900 dark:text-cyan-300 block">
-              {row.policyName || matchedPol?.policyName || `Policy #${row.attendancePolicyId}`}
+              {row.attendancePolicyName || matchedPol?.policyName || `Policy #${row.attendancePolicyId}`}
             </span>
             <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">Policy ID: #{row.attendancePolicyId}</span>
           </div>
@@ -503,7 +461,7 @@ const AttendancePolicyPage: React.FC = () => {
           <Calendar className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
           <span>{row.effectiveFrom}</span>
           <span className="text-gray-400 dark:text-gray-500">→</span>
-          <span>{row.effectiveTo}</span>
+          <span>{row.effectiveTo || 'ongoing'}</span>
         </div>
       )
     },
@@ -584,16 +542,16 @@ const AttendancePolicyPage: React.FC = () => {
                 <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-cyan-600 dark:text-cyan-400" />
-                    <input
-                      type="number"
+                    <select
                       value={searchEmployeeId}
                       onChange={(e) => setSearchEmployeeId(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleFetchEmployeeAssignments();
-                      }}
-                      placeholder="Enter Employee ID (e.g. 12)..."
                       className="w-full pl-9 pr-3 h-8 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-[#191919] focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all"
-                    />
+                    >
+                      <option value="">Choose an employee to look up...</option>
+                      {employees.map((e) => (
+                        <option key={e.id} value={e.id}>{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -646,7 +604,7 @@ const AttendancePolicyPage: React.FC = () => {
                         employeeId: '',
                         attendancePolicyId: savedPolicies[0]?.id || '',
                         effectiveFrom: todayIso(),
-                        effectiveTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                        effectiveTo: ''
                       });
                       setIsAssignModalOpen(true);
                     }}
@@ -664,7 +622,7 @@ const AttendancePolicyPage: React.FC = () => {
                 <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200 dark:!border-transparent rounded-xl space-y-2 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Current Active Policy for Employee #{currentPolicyResult.employeeId}
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Current policy of {employeeName(currentPolicyResult.employeeId)}
                     </div>
                     <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold uppercase">Active Today</span>
                   </div>
@@ -679,11 +637,11 @@ const AttendancePolicyPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-gray-400 dark:text-gray-500 block text-[10px]">POLICY ID</span>
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400">#{currentPolicyResult.attendancePolicyId} ({currentPolicyResult.policyName || 'Assigned Policy'})</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">{currentPolicyResult.attendancePolicyName || `#${currentPolicyResult.attendancePolicyId}`}</span>
                     </div>
                     <div>
                       <span className="text-gray-400 dark:text-gray-500 block text-[10px]">EFFECTIVE DATES</span>
-                      <span className="font-bold text-slate-800 dark:text-white">{currentPolicyResult.effectiveFrom} to {currentPolicyResult.effectiveTo}</span>
+                      <span className="font-bold text-slate-800 dark:text-white">{currentPolicyResult.effectiveFrom} to {currentPolicyResult.effectiveTo || 'ongoing'}</span>
                     </div>
                   </div>
                 </div>
@@ -793,15 +751,18 @@ const AttendancePolicyPage: React.FC = () => {
             <form onSubmit={handleAssignPolicySubmit} className="space-y-3.5 text-xs">
               
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Employee ID *</label>
-                <input
-                  type="number"
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Employee *</label>
+                <select
                   value={assignForm.employeeId}
                   onChange={(e) => setAssignForm(p => ({ ...p, employeeId: e.target.value }))}
                   className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
-                  placeholder="e.g. 12"
                   required
-                />
+                >
+                  <option value="">Choose an employee</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -814,7 +775,7 @@ const AttendancePolicyPage: React.FC = () => {
                 >
                   {savedPolicies.map(pol => (
                     <option key={pol.id} value={pol.id}>
-                      {pol.policyName} (ID: #{pol.id})
+                      {pol.policyName}{pol.active ? ' (company default)' : ''}
                     </option>
                   ))}
                 </select>
@@ -832,13 +793,13 @@ const AttendancePolicyPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective To *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective To (blank = ongoing)</label>
                   <input
                     type="date"
                     value={assignForm.effectiveTo}
+                    min={assignForm.effectiveFrom}
                     onChange={(e) => setAssignForm(p => ({ ...p, effectiveTo: e.target.value }))}
                     className="w-full py-2 px-2.5 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
-                    required
                   />
                 </div>
               </div>
