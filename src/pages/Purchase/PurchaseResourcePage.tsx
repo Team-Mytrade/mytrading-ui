@@ -166,6 +166,8 @@ export type PurchaseResourceConfig = {
   canEditRow?: (row: PurchaseRecord) => boolean;
   /** Per-row check: return false to hide the Delete button for that row. */
   canDeleteRow?: (row: PurchaseRecord) => boolean;
+  /** Wording for the Delete button and its popup when the server cancels instead of deleting (e.g. a GRN). */
+  deleteWording?: { action: string; question: string; done: string };
   columns: ResourceColumn[];
   fields: FieldConfig[];
   searchFields?: string[];
@@ -190,6 +192,10 @@ export type PurchaseResourceConfig = {
     defaultValue?: string;
     /** Permission needed to change it (e.g. "APPROVE"). Without it the dropdown is shown read-only. */
     permission?: PermissionAction;
+    /** Whether this row's value can still change (e.g. approval only while the order is a draft). */
+    canChangeRow?: (row: PurchaseRecord) => boolean;
+    /** Tooltip when canChangeRow says no. */
+    lockedTitle?: string;
     /** Handles field changes that use an endpoint other than the resource update URL. */
     onChange?: (row: PurchaseRecord, nextValue: string) => Promise<void> | void;
   }>;
@@ -832,7 +838,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ? config.deleteEndpoint(deleteRow)
         : `${config.endpoint}/${deleteRow.id}`;
       await axios.delete(url, { params: config.getRequestParams?.() });
-      ToasterService.success(`${config.title} deleted`);
+      ToasterService.success(config.deleteWording?.done ?? `${config.title} deleted`);
       setDeleteRow(null);
       loadRows();
     } catch (error: any) {
@@ -907,6 +913,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         await inlineSelectConfig.onChange(row, nextValue);
         updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
         ToasterService.success(`${config.title} updated`);
+        // Its own endpoint may change more than this field (approving moves a PO out of draft)
+        await loadRows();
         return;
       }
       const rowForUpdate = await resolveRowForUpdate(row);
@@ -1031,20 +1039,21 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         );
         if (inlineSelectConfig) {
           const currentValue = String(value ?? inlineSelectConfig.defaultValue ?? "");
+          const noPermission = Boolean(inlineSelectConfig.permission && !can(inlineSelectConfig.permission));
+          const locked = inlineSelectConfig.canChangeRow ? !inlineSelectConfig.canChangeRow(row) : false;
           return (
             <select
               value={currentValue}
               onChange={(event) =>
                 handleInlineSelectChange(row, column.key, event.target.value)
               }
-              disabled={
-                inlineUpdatingId === `${row.id}-${column.key}` ||
-                Boolean(inlineSelectConfig.permission && !can(inlineSelectConfig.permission))
-              }
+              disabled={inlineUpdatingId === `${row.id}-${column.key}` || noPermission || locked}
               title={
-                inlineSelectConfig.permission && !can(inlineSelectConfig.permission)
+                noPermission
                   ? "You don't have permission to change this"
-                  : undefined
+                  : locked
+                    ? inlineSelectConfig.lockedTitle
+                    : undefined
               }
               className={[
                 inlineSelectConfig.widthClassName || "w-24",
@@ -1097,7 +1106,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 type="button"
                 onClick={() => setDeleteRow(row)}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                title="Delete"
+                title={config.deleteWording?.action ?? "Delete"}
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
@@ -1577,10 +1586,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         setIsPopupOpen={(open) => !open && setDeleteRow(null)}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100 dark:bg-red-950/50"
-        innerText={`Delete ${config.title}`}
-        subText="Are you sure you want to delete this record? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        innerText={config.deleteWording ? `${config.deleteWording.action}?` : `Delete ${config.title}`}
+        subText={
+          config.deleteWording?.question ??
+          "Are you sure you want to delete this record? This action cannot be undone."
+        }
+        confirmLabel={config.deleteWording?.action ?? "Delete"}
+        cancelLabel={config.deleteWording ? "Keep it" : "Cancel"}
         onConfirm={confirmDelete}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
