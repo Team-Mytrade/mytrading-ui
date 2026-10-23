@@ -65,7 +65,6 @@ const asArray = <T,>(value: any): T[] => {
   return [];
 };
 
-const apiError = (err: any, fallback: string) => err?.response?.data?.message || err?.response?.data?.error || fallback;
 
 /** "18" → "18%", "2.5" → "2.5%" */
 const rateText = (rate?: number) => (rate == null ? "--" : `${Number(rate).toLocaleString("en-IN", { maximumFractionDigits: 2 })}%`);
@@ -204,8 +203,6 @@ const TaxTypes: React.FC = () => {
       setShowDelete(false);
       setToDelete(null);
       fetchTaxTypes();
-    } catch (err) {
-      ToasterService.error(apiError(err, "Failed to delete tax type"));
     } catch (err: any) {
       console.error("Error deleting tax type", err);
       // A tax type used by tax details / records can't be deleted: suggest deactivating it instead
@@ -318,40 +315,6 @@ const TaxTypes: React.FC = () => {
         actions={canCreate ? <AddButton className="-mr-5" label="Add Tax Type" onClick={openCreate} /> : undefined}
       />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Tax Type" />}
-        </div>
-        <div className="grid my-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Tax Types"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Active"
-            value={stats.active}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Inactive"
-            value={stats.inactive}
-            gradient="from-red-50 to-rose-50"
-            borderColor="border-red-100"
-            labelColor="text-red-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredTaxTypes.length}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-        </div>
       {/* Same wrapper as the Invoice pages (no py), so the spacing matches */}
       <div className="w-full max-w-none px-0">
         <div className="px-3">

@@ -93,7 +93,6 @@ const asArray = <T,>(value: any): T[] => {
   return [];
 };
 
-const apiError = (err: any, fallback: string) => err?.response?.data?.message || err?.response?.data?.error || fallback;
 const toPaise = (value: unknown) => Math.round((Number(value) || 0) * 100);
 
 /** What is still owed to the vendor = sum of the balances of its payables. */
@@ -468,40 +467,6 @@ const Vendors: React.FC = () => {
         actions={canCreate ? <AddButton className="-mr-5" label="Add Vendor" onClick={openCreate} /> : undefined}
       />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 ">
-        <div className="mb-6 mr-3 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Vendor" />}
-        </div>
-        <div className="my-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard
-            label="Total Vendors"
-            value={stats.totalVendors}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="With Credit Limit"
-            value={stats.withCredit}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="No Credit Limit"
-            value={stats.noCredit}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
-          <StatsCard
-            label="Filtered"
-            value={filteredVendors.length}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-        </div>
       {/* Same wrapper as the Invoice pages (no py), so the spacing matches */}
       <div className="w-full max-w-none px-0">
         <div className="px-3">

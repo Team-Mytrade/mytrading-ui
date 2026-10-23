@@ -108,7 +108,6 @@ const asArray = <T,>(value: any): T[] => {
   return [];
 };
 
-const apiError = (err: any, fallback: string) => err?.response?.data?.message || err?.response?.data?.error || fallback;
 
 const toPaise = (value: unknown) => Math.round((Number(value) || 0) * 100);
 const fromPaise = (paise: number) => paise / 100;
@@ -320,10 +319,7 @@ const TaxDetails: React.FC = () => {
       closeForm();
       fetchDetails();
     } catch (err) {
-<<<<<<< HEAD
-=======
       console.error("Error saving tax detail", err);
->>>>>>> 28f721687fb8e135a8cd2916bfdd1e2fa179e52b
       ToasterService.error(apiError(err, "Failed to save tax detail"));
     } finally {
       setSubmitting(false);
@@ -342,14 +338,10 @@ const TaxDetails: React.FC = () => {
       setToDelete(null);
       fetchDetails();
     } catch (err) {
-<<<<<<< HEAD
-      ToasterService.error(apiError(err, "Failed to delete tax detail"));
-=======
       console.error("Error deleting tax detail", err);
       ToasterService.error(apiError(err, "Failed to delete tax detail"));
     } finally {
       setDeleting(false);
->>>>>>> 28f721687fb8e135a8cd2916bfdd1e2fa179e52b
     }
   };
 
@@ -479,47 +471,10 @@ const TaxDetails: React.FC = () => {
         actions={canCreate ? <AddButton className="-mr-5" label="Add Tax Detail" onClick={openCreate} /> : undefined}
       />
 
-<<<<<<< HEAD
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Tax Detail" />}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 my-5">
-          <StatsCard
-            label="Total Tax Details"
-            value={stats.total}
-            gradient="from-cyan-50 to-blue-50"
-            borderColor="border-cyan-100"
-            labelColor="text-cyan-600"
-          />
-          <StatsCard
-            label="Input Tax"
-            value={stats.input}
-            gradient="from-green-50 to-emerald-50"
-            borderColor="border-green-100"
-            labelColor="text-green-600"
-          />
-          <StatsCard
-            label="Output Tax"
-            value={stats.output}
-            gradient="from-orange-50 to-yellow-50"
-            borderColor="border-orange-100"
-            labelColor="text-orange-600"
-          />
-          <StatsCard
-            label="Total Tax Amount"
-            value={stats.totalTax.toLocaleString()}
-            gradient="from-purple-50 to-pink-50"
-            borderColor="border-purple-100"
-            labelColor="text-purple-600"
-          />
-        </div>
-=======
       {/* Same wrapper as the Invoice pages (no py), so the spacing matches */}
       <div className="w-full max-w-none px-0">
         <div className="px-3">
           <StatsCardFilter {...cardFilterProps} />
->>>>>>> 28f721687fb8e135a8cd2916bfdd1e2fa179e52b
 
           {/* What is owed to / claimable from the government */}
           {details.length > 0 && (
