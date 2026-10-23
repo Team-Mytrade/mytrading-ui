@@ -10,12 +10,14 @@ import {
 } from "./PurchaseResourcePage";
 import LineItemsEditor, { LineItem, taxRateFromCode } from "../Purchase/LineItemsEditor";
 import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
+import GoodsReceiptSyncAction from "../purchase-service/GoodsReceiptSyncAction";
 import RequisitionWorkflowActions from "./RequisitionWorkflowActions";
 import { todayIso } from "../../utils/localDate";
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 
 const PURCHASE = "/v1/api/purchase";
-const CATEGORIES = "/v1/api/purchase/product-categories";
+// Products and categories live in the product catalogue (the purchase service has neither)
+const CATEGORIES = "/v1/api/product/product-categories";
 const PRODUCT_CATALOGUE_PRODUCTS = "/v1/api/product/products";
 
 const boolText = (value: boolean, onText = "Enabled", offText = "Disabled") => (
@@ -50,7 +52,7 @@ const statusBadge = (value: string) => {
   if (!status) return <span className="text-gray-400">--</span>;
   // One colour per meaning, with dark-mode variants.
   const tone =
-    ["APPROVED", "RECEIVED", "ACTIVE", "ISSUED"].includes(status)
+    ["APPROVED", "RECEIVED", "ACTIVE", "ISSUED", "ACCEPTED"].includes(status)
       ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300"
       : ["REJECTED", "INACTIVE"].includes(status)
         ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
@@ -88,37 +90,9 @@ const dateOnly = (value: unknown): string => {
   if (dayFirst) return `${dayFirst[3]}-${dayFirst[2]}-${dayFirst[1]}`;
   return "";
 };
-const currentLocalDateTime = () => {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-};
 const EMPTY_OPTIONS: SelectOption[] = [];
 const EMPTY_LINE_ITEMS: LineItem[] = [];
 
-const getStoredUser = () => {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem("user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const getSessionMeta = () => {
-  const storedUser = getStoredUser();
-  return {
-    userId: storedUser?.userId || storedUser?.id || "system",
-    tenantId: storedUser?.tenantId || "TENANT_1",
-  };
-};
-
-/** Returns the most useful display name available for the signed-in user. */
-const getLoggedInUserName = () => {
-  const user = getStoredUser();
-  return user?.fullName || user?.name || user?.username || user?.userName || user?.email || user?.userId || user?.id || "System";
-};
 
 type RequisitionItemsEditorProps = {
   form: PurchaseRecord;
@@ -219,8 +193,8 @@ export const vendorConfig: PurchaseResourceConfig = {
 // ─────────────────────────────────────────────────────────────
 export const termsConfig: PurchaseResourceConfig = {
   title: "Terms and Conditions",
-  formSubtitle:"Add a product to the purchase catalog.",
-  description: "Maintain purchase terms and conditions exactly as exposed by the terms controller.",
+  formSubtitle: "Terms that can be attached to a purchase order.",
+  description: "Maintain the terms and conditions used on purchase orders.",
   endpoint: `${PURCHASE}/terms`,
   allowInlineActiveToggle: true,
   columns: [
@@ -379,49 +353,6 @@ const todayLocal = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
 
-/** Reads the payload (middle part) of a JWT, or null if it isn't a readable JWT. */
-const decodeJwtPayload = (token: unknown) => {
-  try {
-    const part = String(token || "").replace(/^Bearer\s+/i, "").split(".")[1];
-    if (!part) return null;
-    const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
-  } catch {
-    return null;
-  }
-};
-
-/** First positive numeric user id found on an object (stored user or JWT payload). */
-const pickUserId = (source: any) =>
-  [source?.userId, source?.id, source?.user_id, source?.user?.userId, source?.user?.id]
-    .map((value) => toNumberOrZero(value))
-    .find((value) => value > 0) ?? 0;
-
-/**
- * Numeric id of the signed-in user, or 0 if it can't be found.
- * 1. localStorage "user" (userId / id).  2. userId inside the login token (JWT).
- */
-const getLoggedInUserId = () => {
-  if (typeof window === "undefined") return 0;
-  const fromUser = pickUserId(getStoredUser());
-  if (fromUser > 0) return fromUser;
-
-  const storage = window.localStorage;
-  for (let index = 0; index < storage.length; index += 1) {
-    const raw = storage.getItem(storage.key(index) || "") || "";
-    let fromToken = pickUserId(decodeJwtPayload(raw));
-    if (fromToken > 0) return fromToken;
-    try {
-      const parsed = JSON.parse(raw);
-      fromToken = pickUserId(decodeJwtPayload(parsed?.token ?? parsed?.accessToken ?? parsed?.jwt));
-      if (fromToken > 0) return fromToken;
-    } catch {
-      // not JSON, ignore
-    }
-  }
-  return 0;
-};
-
 /** PR status in upper case; a PR without a status is treated as DRAFT. */
 /** A PO can be changed only while it is waiting for approval and nothing has been received. */
 const isPoEditable = (row: PurchaseRecord) => {
@@ -541,15 +472,15 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
         return date < todayLocal() ? "Required-by date cannot be in the past" : null;
       },
     },
-    // Pre-filled with the signed-in user; can be typed if it could not be found.
+    // The requester is an employee. Blank = the signed-in user's own employee record (set by the
+    // server); only approvers may raise a requisition for someone else.
     {
       name: "userId", section: "Requisition Details",
-      label: "User ID",
+      label: "Requester Employee ID (blank = you)",
       type: "number",
-      required: true,
       min: 1,
       decimals: 0,
-      validate: (value) => (value !== "" && toNumberOrZero(value) <= 0 ? "Enter a valid User ID" : null),
+      validate: (value) => (value !== "" && value != null && toNumberOrZero(value) <= 0 ? "Enter a valid employee ID" : null),
     },
     // Shown as "Remarks"; the API field is still `notes`.
     { name: "notes", section: "Requisition Details", label: "Remarks", type: "textarea", gridClassName: "md:col-span-2" },
@@ -565,7 +496,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   searchFields: ["requisitionNumber", "notes", "status", "userId"],
   initialFormState: {
     requiredByDate: "",
-    userId: getLoggedInUserId() || "",
+    userId: "",
     notes: "",
     items: [],
   },
@@ -580,7 +511,6 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
     const requiredByDate = String(form.requiredByDate || "");
     if (!requiredByDate) return "Select the required-by date.";
     if (requiredByDate < todayLocal()) return "Required-by date cannot be in the past.";
-    if (toNumberOrZero(form.userId) <= 0) return "Enter a valid User ID.";
 
     const items = Array.isArray(form.items) ? (form.items as LineItem[]) : [];
     if (!items.length) return "Add at least one product.";
@@ -600,7 +530,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   // No status: it changes only through the workflow buttons (Submit/Approve/Reject/Cancel).
   buildPayload: (form, editingRow) => ({
     requiredByDate: form.requiredByDate,
-    userId: toNumberOrZero(form.userId),
+    userId: toNumberOrZero(form.userId) || null,
     notes: String(form.notes || "").trim() || null,
     items: (Array.isArray(form.items) ? form.items : [])
       .filter((item) => item.productId && Number(item.quantity) > 0)
@@ -654,11 +584,10 @@ export const requisitionLineItemConfig: PurchaseResourceConfig = {
   description: "Manage line items for purchase requisitions.",
   formSubtitle:"Add a product line to this requisition.",
   endpoint: `${PURCHASE}/requisition-line-items`,
+  // Lines change only while their requisition is a draft (the server refuses otherwise)
   columns: [
-    // { key: "id", label: "ID" },
-    // { key: "requisition.id", label: "Requisition" },
-    { key: "product.productName", label: "Product" },
-    { key: "category.categoryName", label: "Category" },
+    { key: "productName", label: "Product" },
+    { key: "productCode", label: "Code" },
     { key: "quantity", label: "Quantity" },
     { key: "unitOfMeasure", label: "UOM" },
   ],
@@ -670,40 +599,36 @@ export const requisitionLineItemConfig: PurchaseResourceConfig = {
       required: true,
       optionsEndpoint: `${PURCHASE}/purchase-requisitions`,
       optionLabel: (row) => row.requisitionNumber || row.notes || "Requisition",
+      getOptions: ({ form, options }) =>
+        (options.requisitionId || []).filter(
+          (option) =>
+            String(option.raw?.status || "").toUpperCase() === "DRAFT" ||
+            String(option.value) === String(form.requisitionId ?? "")
+        ),
     },
     {
       name: "productId",
       label: "Product",
       type: "select",
       required: true,
-      optionsEndpoint: `${PURCHASE}/products`,
+      optionsEndpoint: PRODUCT_CATALOGUE_PRODUCTS,
       optionLabel: "productName",
     },
-    {
-      name: "categoryId",
-      label: "Category",
-      type: "select",
-      optionsEndpoint: CATEGORIES,
-      getOptionsParams: () => ({ tenantId: getSessionMeta().tenantId }),
-      optionLabel: "categoryName",
-    },
     { name: "quantity", label: "Quantity", type: "number", required: true, defaultValue: 1 },
-    { name: "unitOfMeasure", label: "Unit Of Measure", required: true },
+    { name: "unitOfMeasure", label: "Unit Of Measure (blank = product's unit)" },
     { name: "remarks", label: "Remarks", type: "textarea", gridClassName: "md:col-span-2" },
   ],
-  searchFields: ["id", "unitOfMeasure", "remarks"],
+  searchFields: ["productName", "productCode", "unitOfMeasure", "remarks"],
   normalizeForm: (row) => ({
-    requisitionId: row.requisition?.id ?? "",
-    productId: row.product?.id ?? "",
-    categoryId: row.category?.id ?? "",
+    requisitionId: row.requisitionId ?? row.requisition?.id ?? "",
+    productId: row.productId ?? row.product?.id ?? "",
     quantity: row.quantity ?? 1,
     unitOfMeasure: row.unitOfMeasure || "",
     remarks: row.remarks || "",
   }),
   buildPayload: (form) => ({
     requisition: makeRelation(form.requisitionId),
-    product: makeRelation(form.productId),
-    category: makeRelation(form.categoryId),
+    productId: toNumberOrZero(form.productId) || null,
     quantity: toNumberOrZero(form.quantity),
     unitOfMeasure: form.unitOfMeasure,
     remarks: form.remarks,
@@ -788,8 +713,10 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
         label: value.charAt(0) + value.slice(1).toLowerCase(),
       })),
       widthClassName: "w-[136px]",
-      // Approval-status changes need PURCHASE:APPROVE
+      // Approval-status changes need PURCHASE:APPROVE, and are decided only while the PO is a draft
       permission: "APPROVE",
+      canChangeRow: (row) => String(row.status || "DRAFT").toUpperCase() === "DRAFT",
+      lockedTitle: "Already decided: the order has moved on from draft",
       onChange: async (row, status) => {
         await axios.put(`${PURCHASE}/approval-status/${row.id}/${status}`);
       },
@@ -1041,21 +968,42 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       items,
     };
   },
-  afterSubmit: async ({ savedRow, isCreate }) => {
-    if (!isCreate || !savedRow.id) return;
-
-    await axios.post(`${PURCHASE}/approval-status`, {
-      purchaseOrderId: toNumberOrZero(savedRow.id),
-      approvedBy: getLoggedInUserName(),
-      status: "PENDING",
-      approvalDate: currentLocalDateTime(),
-    });
-  },
+  // No approval record is posted after create: a new PO is already PENDING on the server, and that
+  // endpoint needs PURCHASE:APPROVE, so a buyer would get an error after the order was saved.
 };
 
 // ─────────────────────────────────────────────────────────────
 // GOODS RECEIPT NOTES
 // ─────────────────────────────────────────────────────────────
+const grnStatus = (row: PurchaseRecord) => String(row.status || "").toUpperCase();
+const grnSync = (row: PurchaseRecord) => String(row.inventorySyncStatus || "").toUpperCase();
+/** Accepted, but the goods did not reach Inventory (it was down): Retry posts them. */
+const grnNotInStock = (row: PurchaseRecord) => grnStatus(row) === "ACCEPTED" && grnSync(row) !== "SYNCED";
+
+const grnStockText = (row: PurchaseRecord) => {
+  if (grnStatus(row) === "CANCELLED") return "--";
+  if (grnSync(row) === "SYNCED") return "In stock";
+  return grnSync(row) === "FAILED" ? "Not posted" : "Waiting";
+};
+
+const grnStockBadge = (row: PurchaseRecord) => {
+  const text = grnStockText(row);
+  if (text === "--") return <span className="text-gray-400">--</span>;
+  const tone =
+    text === "In stock"
+      ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+      : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}
+      // The reason Inventory gave (e.g. not reachable) is on hover
+      title={text === "In stock" ? undefined : String(row.inventorySyncError || "Not sent to Inventory yet")}
+    >
+      {text}
+    </span>
+  );
+};
+
 export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   title: "Goods Receipt Notes",
   formMaxWidthClassName: "max-w-3xl",
@@ -1074,8 +1022,19 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       { key: "ALL", label: "All Receipts", match: () => true, tone: "cyan" },
       { key: "CLEAN", label: "Fully Accepted", match: (row) => rejectedQty(row) === 0, tone: "green" },
       { key: "REJECTS", label: "With Rejections", match: (row) => rejectedQty(row) > 0, tone: "red" },
+      { key: "NOT_IN_STOCK", label: "Not In Stock Yet", match: (row) => grnNotInStock(row), tone: "red" },
     ];
   },
+  // A receipt is posted when it is saved: it can't be edited, only cancelled while its goods are not in stock
+  canEditRow: (row) => grnStatus(row) === "DRAFT",
+  canDeleteRow: (row) => grnStatus(row) !== "CANCELLED" && grnSync(row) !== "SYNCED",
+  deleteWording: {
+    action: "Cancel receipt",
+    question:
+      "Its quantities count as pending on the purchase order again. Goods already in stock can't be cancelled; return them with a Supplier Return stock movement.",
+    done: "Goods receipt cancelled",
+  },
+  renderRowActions: (row, { refreshRows }) => <GoodsReceiptSyncAction row={row} refreshRows={refreshRows} />,
   columns: [
     { key: "receiptNumber", label: "GRN Number" },
     {
@@ -1097,6 +1056,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       },
       sortValueGetter: (row) => dateOnly(row.receiptDate),
     },
+    { key: "vendorName", label: "Vendor" },
     { key: "items", label: "Items", render: (row) => String(row.items?.length ?? row.lineItems?.length ?? 0) },
     {
       key: "receivedQuantity",
@@ -1107,6 +1067,22 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
         const accepted = items.reduce((t, i) => t + toNumberOrZero(i.acceptedQuantity), 0);
         return `${accepted} / ${received}`;
       },
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => statusBadge(row.status),
+      exportValue: (row) => statusLabel(row.status),
+      filterOptions: [
+        { label: "Accepted", value: "ACCEPTED" },
+        { label: "Cancelled", value: "CANCELLED" },
+      ],
+    },
+    {
+      key: "inventorySyncStatus",
+      label: "Stock",
+      render: (row) => grnStockBadge(row),
+      exportValue: (row) => grnStockText(row),
     },
   ],
   fields: [
@@ -1141,7 +1117,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
     },
     { name: "items", label: "Items", defaultValue: [], showOnCreate: false, showOnEdit: false },
   ],
-  searchFields: ["id", "poNumber", "receiptDate"],
+  searchFields: ["receiptNumber", "poNumber", "vendorName", "receiptDate"],
   normalizeForm: (row) => ({
     purchaseOrderId: row.purchaseOrder?.id ?? row.purchaseOrderId ?? "",
     // Shown as text on edit (the PO may no longer be in the dropdown once fully received).
@@ -1178,13 +1154,10 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
     })),
   }),
   renderCustomForm: ({ form, setForm, options, editingRow, onClose, onSubmit, submitting }) => {
-    // Only approved POs that still have goods to receive. A fully received, closed or
-    // cancelled PO has nothing pending, so the backend would reject the GRN.
-    const approvedPurchaseOrders = (options.purchaseOrderId || []).filter((option) => {
-      const approval = String(option.raw?.approvalStatus || "").toUpperCase();
-      const status = String(option.raw?.status || "").toUpperCase();
-      return approval === "APPROVED" && !["RECEIVED", "CLOSED", "CANCELLED"].includes(status);
-    });
+    // Only the POs the server accepts a receipt for: approved and still waiting for goods
+    const approvedPurchaseOrders = (options.purchaseOrderId || []).filter((option) =>
+      ["APPROVED", "SENT", "PARTIALLY_RECEIVED"].includes(String(option.raw?.status || "").toUpperCase())
+    );
 
     return (
       <GoodsReceiptEditor
@@ -1209,27 +1182,26 @@ export const deliveryConfig: PurchaseResourceConfig = {
   description: "Manage purchase deliveries by vendor, order, and delivery date.",
   formSubtitle:"Track delivery of a purchase order.",
   endpoint: `${PURCHASE}/deliveries`,
+  // The vendor is always the purchase order's vendor (the server copies it)
   columns: [
-    // { key: "id", label: "Delivery ID" },
     { key: "purchaseOrder.poNumber", label: "PO Number" },
-    { key: "vendor.name", label: "Vendor" },
-    { key: "deliveryDate", label: "Delivery Date" },
+    { key: "vendorName", label: "Vendor" },
+    { key: "deliveryDate", label: "Delivery Date", sortValueGetter: (row) => dateOnly(row.deliveryDate) },
+    {
+      key: "purchaseOrder.status",
+      label: "PO Status",
+      render: (row) => statusBadge(row.purchaseOrder?.status),
+      exportValue: (row) => statusLabel(row.purchaseOrder?.status),
+    },
   ],
   fields: [
     {
       name: "purchaseOrderId",
       label: "Purchase Order",
       type: "select",
-      optionsEndpoint: `${PURCHASE}/purchase-orders`,
-      optionLabel: "poNumber",
-    },
-    {
-      name: "vendorId",
-      label: "Vendor",
-      type: "select",
       required: true,
-      optionsEndpoint: `${PURCHASE}/vendors`,
-      optionLabel: "name",
+      optionsEndpoint: `${PURCHASE}/purchase-orders`,
+      optionLabel: (row) => [row.poNumber, row.vendor?.name ?? row.vendorName].filter(Boolean).join(" · ") || `PO #${row.id}`,
     },
     {
       name: "deliveryDate",
@@ -1239,15 +1211,13 @@ export const deliveryConfig: PurchaseResourceConfig = {
       defaultValue: todayIso(),
     },
   ],
-  searchFields: ["id", "deliveryDate"],
+  searchFields: ["purchaseOrder.poNumber", "vendorName", "deliveryDate"],
   normalizeForm: (row) => ({
     purchaseOrderId: row.purchaseOrder?.id ?? "",
-    vendorId: row.vendor?.id ?? "",
     deliveryDate: dateOnly(row.deliveryDate),
   }),
   buildPayload: (form) => ({
     purchaseOrder: makeRelation(form.purchaseOrderId),
-    vendor: makeRelation(form.vendorId),
     deliveryDate: form.deliveryDate,
   }),
 };

@@ -25,6 +25,7 @@ import { ToasterService } from "../../Services/ToasterService";
 type TurnaroundRow = {
   id?: number;
   purchaseOrderId: number;
+  poNumber?: string;
   vendor: string;
   orderDate: string;
   receivedDate: string;
@@ -52,9 +53,18 @@ type MonthlySpendRow = {
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   }).format(Number(value || 0));
+
+/** "2026-10" → "Oct 2026" (the server sends the last 12 months, oldest first); other keys are shown as they are. */
+function monthLabel(key: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(key || ""));
+  if (!match) return key;
+  return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+}
 
 const monthRanks: Record<string, number> = {
   january: 1,
@@ -198,16 +208,17 @@ export default function PurchaseReports() {
     [report.purchaseByVendor]
   );
 
+  // Keys are "2026-10" in date order (an older server sent month names, ranked Jan..Dec)
   const monthRows = useMemo<MonthlySpendRow[]>(
     () =>
       Object.entries(report.monthlyPurchaseTotals || {})
         .map(([month, total], index) => ({
           id: index + 1,
-          month,
+          month: monthLabel(month),
           total: Number(total || 0),
-          monthRank: getMonthRank(month),
+          monthRank: /^\d{4}-\d{2}$/.test(month) ? Number(month.replace("-", "")) : getMonthRank(month),
         }))
-        .sort((a, b) => a.monthRank - b.monthRank || b.total - a.total),
+        .sort((a, b) => a.monthRank - b.monthRank),
     [report.monthlyPurchaseTotals]
   );
 
@@ -222,13 +233,13 @@ export default function PurchaseReports() {
 
   const totalSpend = vendorRows.reduce((sum, row) => sum + row.total, 0);
   const totalVendors = vendorRows.length;
-  const totalMonths = monthRows.length;
   const averageTurnaround =
     turnaroundRows.length > 0
       ? turnaroundRows.reduce((sum, row) => sum + Number(row.turnaroundDays || 0), 0) / turnaroundRows.length
       : 0;
 
-  const bestMonth = [...monthRows].sort((a, b) => b.total - a.total)[0];
+  // A month with no orders is not a "best month"
+  const bestMonth = [...monthRows].filter((row) => row.total > 0).sort((a, b) => b.total - a.total)[0];
 
   const vendorChartData = vendorRows.slice(0, 6).map((row) => ({
     name: row.vendor,
@@ -281,10 +292,12 @@ export default function PurchaseReports() {
 
   const turnaroundColumns: ColumnDef<TurnaroundRow>[] = [
     {
-      key: "purchaseOrderId",
-      label: "PO ID",
+      key: "poNumber",
+      label: "PO Number",
       sortable: true,
-      render: (_row, value) => <span className="font-semibold text-slate-900">#{String(value ?? "--")}</span>,
+      render: (row) => (
+        <span className="font-semibold text-slate-900">{row.poNumber || `#${row.purchaseOrderId}`}</span>
+      ),
     },
     { key: "vendor", label: "Vendor", sortable: true },
     {
@@ -321,10 +334,10 @@ export default function PurchaseReports() {
 
       <div className="space-y-6 px-0 py-6">
         <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Purchase Reports</h1>
-            <p className="mt-1 text-sm text-slate-500">Vendor totals, monthly totals, and turnaround details.</p>
-          </div>
+          <p className="text-sm text-slate-500">
+            Approved orders (drafts and cancelled orders are left out): spend by vendor, the last 12 months, and how
+            long fully received orders took to arrive.
+          </p>
 
           <button
             type="button"
@@ -442,14 +455,16 @@ export default function PurchaseReports() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-slate-900">Turnaround Report</h3>
-            <span className="text-sm text-slate-500">{totalMonths} month{totalMonths === 1 ? "" : "s"} in report</span>
+            <span className="text-sm text-slate-500">
+              {turnaroundRows.length} fully received order{turnaroundRows.length === 1 ? "" : "s"}
+            </span>
           </div>
           <ReusableTable
             data={turnaroundRows}
             columns={turnaroundColumns}
             loading={loading}
             searchable
-            searchFields={["vendor", "purchaseOrderId"]}
+            searchFields={["vendor", "poNumber"]}
             pageSize={8}
             defaultSortKey="turnaroundDays"
             defaultSortOrder="asc"

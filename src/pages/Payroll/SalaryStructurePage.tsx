@@ -1,47 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import {
-    EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
-    ArrowUpIcon,
-    ArrowDownIcon,
     BuildingOfficeIcon,
-    CheckCircleIcon,
-    XCircleIcon,
     DocumentArrowDownIcon,
     TableCellsIcon,
-    EyeIcon,
     CurrencyDollarIcon,
-    UserGroupIcon,
     BanknotesIcon,
     CalendarIcon,
-    BriefcaseIcon,
-    HomeIcon,
-    GiftIcon,
-    ShieldCheckIcon,
-    PrinterIcon,
     DocumentTextIcon,
     ChartBarIcon,
 } from "@heroicons/react/24/outline";
-import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
+import PaginatedPopup from "../../components/common/unpopup";
+import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
+import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 
+// Amounts are YEARLY, as payroll stores them; a month pays one twelfth
 type SalaryStructure = {
     id: number;
     employeeId: string;
+    employeeName?: string;
     basic: number;
     hra: number;
     allowances: number;
@@ -49,86 +42,109 @@ type SalaryStructure = {
     netSalary: number;
     ctc: number;
     effectiveFrom: string;
-    createdAt?: string;
-    updatedAt?: string;
 };
 
+type EmployeeOption = { id: number; employeeCode?: string; firstName?: string; lastName?: string };
+
 const API_URL = "/v1/api/payroll/salary-structures";
+const EMPLOYEE_API_URL = "/v1/api/payroll/employee/all";
 const PAGE_SIZE = 10;
+
+const emptyForm = { employeeId: '', basic: 0, hra: 0, allowances: 0, ctc: 0, effectiveFrom: todayIso() };
+
+const rupees = (value: number) => `₹${Math.round(value || 0).toLocaleString("en-IN")}`;
+const lakhs = (value: number) => `₹${((value || 0) / 100000).toFixed(1)}L`;
 
 const SalaryStructurePage: React.FC = () => {
   const { canDelete, canExport, canUpdate } = usePermissions();
     const [data, setData] = useState<SalaryStructure[]>([]);
+    const [employees, setEmployees] = useState<EmployeeOption[]>([]);
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
-
-    const [form, setForm] = useState({
-        employeeId: '',
-        basic: 0,
-        hra: 0,
-        allowances: 0,
-        deductions: 0,
-        effectiveFrom: todayIso(),
-    });
+    const [form, setForm] = useState(emptyForm);
 
     useEffect(() => {
         fetchAll();
+        axios.get(EMPLOYEE_API_URL)
+            .then(res => setEmployees(Array.isArray(res.data) ? res.data : []))
+            .catch(() => setEmployees([]));
     }, []);
 
     const fetchAll = async () => {
         setLoading(true);
         try {
             const response = await axios.get(API_URL);
-            setData(response.data);
+            setData(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
-            console.error("Error loading salary structures:", err);
-            ToasterService.error("Failed to load salary structures");
+            ToasterService.error(apiError(err, "Failed to load salary structures"));
             setData([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (name === 'employeeId' || name === 'effectiveFrom') {
             setForm(prev => ({ ...prev, [name]: value }));
-        } else {
-            const raw = String(value).replace(/^0+(?=\d)/, "");
-            const num = raw === "" ? 0 : Number(raw);
-            setForm(prev => ({ ...prev, [name]: isNaN(num) ? 0 : num }));
+            return;
         }
+        const raw = String(value).replace(/^0+(?=\d)/, "");
+        const num = raw === "" ? 0 : Number(raw);
+        setForm(prev => {
+            const next = { ...prev, [name]: isNaN(num) ? 0 : num };
+            // CTC follows the components until it is typed in (it may include employer contributions)
+            const prevSum = prev.basic + prev.hra + prev.allowances;
+            if (name !== 'ctc' && (prev.ctc === 0 || prev.ctc === prevSum)) {
+                next.ctc = next.basic + next.hra + next.allowances;
+            }
+            return next;
+        });
     };
+
+    const gross = form.basic + form.hra + form.allowances;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        const netSalary = form.basic + form.hra + form.allowances - form.deductions;
-        const ctc = (form.basic + form.hra + form.allowances) * 12;
-        
-        const payload = { 
-            ...form, 
-            netSalary, 
-            ctc, 
-            totalDeductions: form.deductions 
-        };
-
+        if (!form.employeeId) {
+            ToasterService.error("Choose the employee");
+            return;
+        }
+        if (form.basic <= 0) {
+            ToasterService.error("Enter the yearly basic salary");
+            return;
+        }
+        if (form.ctc < gross) {
+            ToasterService.error("The yearly CTC can't be less than the components");
+            return;
+        }
+        const payload = { ...form, totalDeductions: 0 };
+        setSaving(true);
         try {
             if (editingId !== null) {
                 await axios.put(`${API_URL}/${editingId}`, payload);
-                ToasterService.success("Salary structure updated successfully");
+                ToasterService.success("Salary structure updated");
             } else {
                 await axios.post(API_URL, payload);
-                ToasterService.success("Salary structure created successfully");
+                ToasterService.success("Salary structure saved");
             }
             await fetchAll();
             closeForm();
-        } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Save failed");
+        } catch (err) {
+            ToasterService.error(apiError(err, "Save failed"));
+        } finally {
+            setSaving(false);
         }
+    };
+
+    const openCreate = () => {
+        setEditingId(null);
+        setForm({ ...emptyForm, effectiveFrom: todayIso() });
+        setShowForm(true);
     };
 
     const openEdit = (record: SalaryStructure) => {
@@ -137,8 +153,8 @@ const SalaryStructurePage: React.FC = () => {
             basic: record.basic,
             hra: record.hra,
             allowances: record.allowances,
-            deductions: record.totalDeductions || 0,
-            effectiveFrom: record.effectiveFrom,
+            ctc: record.ctc,
+            effectiveFrom: record.effectiveFrom || todayIso(),
         });
         setEditingId(record.id);
         setShowForm(true);
@@ -147,14 +163,7 @@ const SalaryStructurePage: React.FC = () => {
     const closeForm = () => {
         setShowForm(false);
         setEditingId(null);
-        setForm({ 
-            employeeId: '', 
-            basic: 0, 
-            hra: 0, 
-            allowances: 0, 
-            deductions: 0, 
-            effectiveFrom: todayIso() 
-        });
+        setForm({ ...emptyForm, effectiveFrom: todayIso() });
     };
 
     const handleDelete = async (id: number) => {
@@ -164,15 +173,17 @@ const SalaryStructurePage: React.FC = () => {
             variant: "danger",
         });
         if (!ok) return;
-        
+
         try {
             await axios.delete(`${API_URL}/${id}`);
-            ToasterService.success("Salary structure deleted successfully");
+            ToasterService.success("Salary structure deleted");
             await fetchAll();
-        } catch (err: any) {
-            ToasterService.error(err.response?.data?.message || "Delete failed");
+        } catch (err) {
+            ToasterService.error(apiError(err, "Delete failed"));
         }
     };
+
+    const label = (s: SalaryStructure) => s.employeeName || `Employee ${s.employeeId}`;
 
     const exportPDF = (record: SalaryStructure) => {
         const doc = new jsPDF();
@@ -180,20 +191,19 @@ const SalaryStructurePage: React.FC = () => {
         doc.setTextColor(31, 41, 55);
         doc.text("Compensation Schedule", 14, 20);
         doc.setFontSize(10);
-        doc.text(`Employee ID: ${record.employeeId}`, 14, 28);
-        doc.text(`Effective From: ${new Date(record.effectiveFrom).toLocaleDateString()}`, 14, 34);
+        doc.text(`Employee: ${label(record)}`, 14, 28);
+        doc.text(`Effective From: ${record.effectiveFrom ? new Date(record.effectiveFrom).toLocaleDateString() : "-"}`, 14, 34);
         doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
 
+        const monthly = (value: number) => Math.round((value || 0) / 12).toLocaleString("en-IN");
         autoTable(doc, {
             head: [['Component', 'Monthly Value (INR)', 'Annual Value (INR)']],
             body: [
-                ['Basic Salary', record.basic.toLocaleString(), (record.basic * 12).toLocaleString()],
-                ['House Rent Allowance (HRA)', record.hra.toLocaleString(), (record.hra * 12).toLocaleString()],
-                ['Other Allowances', record.allowances.toLocaleString(), (record.allowances * 12).toLocaleString()],
-                ['Gross Earnings', (record.basic + record.hra + record.allowances).toLocaleString(), ((record.basic + record.hra + record.allowances) * 12).toLocaleString()],
-                ['Total Deductions', (record.totalDeductions || 0).toLocaleString(), ((record.totalDeductions || 0) * 12).toLocaleString()],
-                ['Net Take-Home', record.netSalary.toLocaleString(), (record.netSalary * 12).toLocaleString()],
-                ['Annual CTC', '', record.ctc.toLocaleString()],
+                ['Basic Salary', monthly(record.basic), record.basic.toLocaleString("en-IN")],
+                ['House Rent Allowance (HRA)', monthly(record.hra), record.hra.toLocaleString("en-IN")],
+                ['Other Allowances', monthly(record.allowances), record.allowances.toLocaleString("en-IN")],
+                ['Gross Earnings', monthly(record.netSalary), record.netSalary.toLocaleString("en-IN")],
+                ['Annual CTC', '', record.ctc.toLocaleString("en-IN")],
             ],
             startY: 50,
             theme: 'striped',
@@ -201,29 +211,27 @@ const SalaryStructurePage: React.FC = () => {
             styles: { fontSize: 10 },
         });
         doc.save(`Salary_Structure_${record.employeeId}_${todayIso()}.pdf`);
-        setShowExportMenu(false);
     };
 
     const exportAllPDF = () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.setTextColor(31, 41, 55);
-        doc.text("Salary Structures Report", 14, 20);
+        doc.text("Salary Structures Report (yearly amounts)", 14, 20);
         doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
         doc.text(`Total Records: ${data.length}`, 14, 34);
 
         autoTable(doc, {
-            head: [['Employee ID', 'Basic', 'HRA', 'Allowances', 'Deductions', 'Net Salary', 'CTC (Annual)', 'Effective From']],
+            head: [['Employee', 'Basic', 'HRA', 'Allowances', 'Gross', 'CTC', 'Effective From']],
             body: data.map(s => [
-                s.employeeId,
-                `₹${s.basic.toLocaleString()}`,
-                `₹${s.hra.toLocaleString()}`,
-                `₹${s.allowances.toLocaleString()}`,
-                `₹${(s.totalDeductions || 0).toLocaleString()}`,
-                `₹${s.netSalary.toLocaleString()}`,
-                `₹${s.ctc.toLocaleString()}`,
-                new Date(s.effectiveFrom).toLocaleDateString(),
+                label(s),
+                s.basic.toLocaleString("en-IN"),
+                s.hra.toLocaleString("en-IN"),
+                s.allowances.toLocaleString("en-IN"),
+                s.netSalary.toLocaleString("en-IN"),
+                s.ctc.toLocaleString("en-IN"),
+                s.effectiveFrom ? new Date(s.effectiveFrom).toLocaleDateString() : "-",
             ]),
             startY: 45,
             styles: { fontSize: 8 },
@@ -235,15 +243,14 @@ const SalaryStructurePage: React.FC = () => {
 
     const exportExcel = () => {
         const worksheet = XLSX.utils.json_to_sheet(data.map(s => ({
+            'Employee': label(s),
             'Employee ID': s.employeeId,
-            'Basic Salary': s.basic,
-            'HRA': s.hra,
-            'Other Allowances': s.allowances,
-            'Total Deductions': s.totalDeductions || 0,
-            'Net Salary': s.netSalary,
+            'Basic (yearly)': s.basic,
+            'HRA (yearly)': s.hra,
+            'Other Allowances (yearly)': s.allowances,
+            'Gross (yearly)': s.netSalary,
             'Annual CTC': s.ctc,
-            'Effective From': new Date(s.effectiveFrom).toLocaleDateString(),
-            'Created At': s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '',
+            'Effective From': s.effectiveFrom ? new Date(s.effectiveFrom).toLocaleDateString() : "",
         })));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Salary Structures');
@@ -251,117 +258,98 @@ const SalaryStructurePage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const filtered = data;
+    const employeeOptions = useMemo(() => employees.map(e => ({
+        id: String(e.id),
+        name: `${`${e.firstName || ''} ${e.lastName || ''}`.trim() || `Employee ${e.id}`}${e.employeeCode ? ` (${e.employeeCode})` : ''}`,
+    })), [employees]);
 
     const columns: ColumnDef<SalaryStructure>[] = [
         {
-            key: "employeeId",
-            label: "Employee ID",
+            key: "employeeName",
+            label: "Employee",
             sortable: true,
+            sortValueGetter: (row) => label(row),
             render: (row) => (
-                <div className="flex items-center">
-                    <div className="h-8 w-8 rounded-full bg-cyan-100 flex items-center justify-center mr-3">
-                        <span className="text-xs font-medium text-cyan-700">
-                            {row.employeeId.charAt(0)}
-                        </span>
+                <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-50 text-xs font-medium text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+                        {label(row).charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-sm font-medium text-gray-900">{row.employeeId}</span>
+                    <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{label(row)}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">ID: #{row.employeeId}</p>
+                    </div>
                 </div>
             )
         },
         {
             key: "basic",
-            label: "Basic",
+            label: "Basic (yearly)",
             sortable: true,
-            render: (row) => <span className="text-sm text-gray-900">₹{row.basic.toLocaleString()}</span>
+            render: (row) => <span className="text-sm text-slate-700 dark:text-slate-300">{rupees(row.basic)}</span>
         },
         {
             key: "hra",
             label: "HRA",
             sortable: true,
-            render: (row) => <span className="text-sm text-gray-900">₹{row.hra.toLocaleString()}</span>
+            render: (row) => <span className="text-sm text-slate-700 dark:text-slate-300">{rupees(row.hra)}</span>
         },
         {
             key: "allowances",
             label: "Allowances",
             sortable: true,
-            render: (row) => <span className="text-sm text-green-600">₹{row.allowances.toLocaleString()}</span>
-        },
-        {
-            key: "totalDeductions",
-            label: "Deductions",
-            sortable: true,
-            render: (row) => <span className="text-sm text-red-600">₹{(row.totalDeductions || 0).toLocaleString()}</span>
+            render: (row) => <span className="text-sm text-slate-700 dark:text-slate-300">{rupees(row.allowances)}</span>
         },
         {
             key: "netSalary",
-            label: "Net Salary",
+            label: "Gross (yearly)",
             sortable: true,
-            render: (row) => <span className="text-sm font-bold text-cyan-600">₹{row.netSalary.toLocaleString()}</span>
+            render: (row) => (
+                <div>
+                    <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">{rupees(row.netSalary)}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{rupees(row.netSalary / 12)} / month</p>
+                </div>
+            )
         },
         {
             key: "ctc",
             label: "Annual CTC",
             sortable: true,
-            render: (row) => <span className="text-sm text-purple-600 font-medium">₹{(row.ctc / 100000).toFixed(1)}L</span>
+            render: (row) => <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{lakhs(row.ctc)}</span>
         },
         {
             key: "effectiveFrom",
             label: "Effective From",
             sortable: true,
             render: (row) => (
-                <div className="flex items-center">
-                    <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
-                    <span className="text-sm text-gray-600">
-                        {new Date(row.effectiveFrom).toLocaleDateString()}
-                    </span>
-                </div>
+                <span className="inline-flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
+                    <CalendarIcon className="h-4 w-4 text-slate-400" />
+                    {row.effectiveFrom ? new Date(row.effectiveFrom).toLocaleDateString() : "-"}
+                </span>
             )
         },
         {
             key: "actions",
             label: "Actions",
+            headerClassName: "text-right",
+            className: "text-right",
             render: (row) => (
-                <Menu as="div" className="relative inline-block text-left">
-                    <Menu.Button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <EllipsisVerticalIcon className="h-5 w-5 text-gray-500" />
-                    </Menu.Button>
-                    <Menu.Items className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-[100]">
-                        {canExport && (<Menu.Item>
-                            {({ active }) => (
-                                <button
-                                    onClick={() => exportPDF(row)}
-                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
-                                >
-                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                    Export PDF
-                                </button>
-                            )}
-                        </Menu.Item>)}
-                        {canUpdate && (<Menu.Item>
-                            {({ active }) => (
-                                <button
-                                    onClick={() => openEdit(row)}
-                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-cyan-600`}
-                                >
-                                    <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                    Edit
-                                </button>
-                            )}
-                        </Menu.Item>)}
-                        {canDelete && (<Menu.Item>
-                            {({ active }) => (
-                                <button
-                                    onClick={() => handleDelete(row.id)}
-                                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
-                                >
-                                    <TrashIcon className="h-4 w-4" />
-                                    Delete
-                                </button>
-                            )}
-                        </Menu.Item>)}
-                    </Menu.Items>
-                </Menu>
+                <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    {canExport && (
+                        <button type="button" onClick={() => exportPDF(row)} className={ROW_ICON_BUTTON} title="Export PDF">
+                            <DocumentArrowDownIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    {canUpdate && (
+                        <button type="button" onClick={() => openEdit(row)} className={ROW_ICON_BUTTON} title="Edit">
+                            <PencilSquareIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    {canDelete && (
+                        <button type="button" onClick={() => handleDelete(row.id)} className={ROW_ICON_BUTTON_DANGER} title="Delete">
+                            <TrashIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
             )
         }
     ];
@@ -369,234 +357,133 @@ const SalaryStructurePage: React.FC = () => {
     // Calculate stats from real data
     const totalCTC = data.reduce((sum, s) => sum + s.ctc, 0);
     const avgBasic = data.length > 0 ? data.reduce((sum, s) => sum + s.basic, 0) / data.length : 0;
-    const avgNet = data.length > 0 ? data.reduce((sum, s) => sum + s.netSalary, 0) / data.length : 0;
-
-
+    const avgGross = data.length > 0 ? data.reduce((sum, s) => sum + s.netSalary, 0) / data.length : 0;
 
     return (
         <>
             <PageMeta title="Salary Structures" description="Manage employee salary structures and compensation" />
-            <PageBreadcrumb pageTitle="Salary Structures" />
-
-            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label="Add Structure" onClick={() => setShowForm(true)} />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <StatsCard label="Total Structures" value={data.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
-                    <StatsCard label="Total CTC Value" value={"Rs " + (totalCTC / 100000).toFixed(1) + "L"} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ChartBarIcon className="h-6 w-6" />} />
-                    <StatsCard label="Avg Basic Salary" value={"Rs " + Math.round(avgBasic).toLocaleString()} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                    <StatsCard label="Avg Net Salary" value={"Rs " + Math.round(avgNet).toLocaleString()} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
-                </div>
-
-                {/* Toolbar */}
-                <div className="mb-6 flex justify-end items-center">
-                    {/* Export Menu */}
-                    <div className="relative">
-                        {canExport && (<button
-                            onClick={() => setShowExportMenu(!showExportMenu)}
-                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                            disabled={data.length === 0}
-                        >
-                            <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                        </button>)}
-
-                        {showExportMenu && (
-                            <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+            <PageBreadcrumb
+                pageTitle="Salary Structures"
+                actions={
+                    <div className="flex items-center gap-2">
+                        {canExport && (
+                            <div className="relative">
                                 <button
-                                    onClick={exportAllPDF}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
+                                    type="button"
+                                    onClick={() => setShowExportMenu(!showExportMenu)}
+                                    className={TOOL_BUTTON}
+                                    disabled={data.length === 0}
                                 >
-                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                    All Records (PDF)
+                                    <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                                    Export
                                 </button>
-                                <button
-                                    onClick={exportExcel}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
-                                >
-                                    <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                    Export to Excel
-                                </button>
+                                {showExportMenu && (
+                                    <div className="absolute right-0 top-9 z-50 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-transparent dark:bg-[#191919]">
+                                        <button
+                                            type="button"
+                                            onClick={exportAllPDF}
+                                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-[#222222]"
+                                        >
+                                            <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
+                                            All Records (PDF)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={exportExcel}
+                                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-[#222222]"
+                                        >
+                                            <TableCellsIcon className="h-4 w-4 text-green-600" />
+                                            Export to Excel
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
+                        <AddButton label="Add Structure" onClick={openCreate} />
                     </div>
+                }
+            />
+
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
+                    <StatsCard label="Total Structures" value={data.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label="Total CTC Value" value={lakhs(totalCTC)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ChartBarIcon className="h-5 w-5" />} />
+                    <StatsCard label="Avg Basic (yearly)" value={rupees(avgBasic)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-5 w-5" />} />
+                    <StatsCard label="Avg Gross / Month" value={rupees(avgGross / 12)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} />
                 </div>
 
-                {/* Table */}
                 <ReusableTable
-                    data={filtered}
+                    data={data}
                     columns={columns}
                     loading={loading}
-                    searchable={false}
-                    pageSize={10}
+                    pageSize={PAGE_SIZE}
                     defaultSortKey="effectiveFrom"
                     defaultSortOrder="desc"
                     emptyState={
-                        <div className="flex flex-col items-center">
-                            <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                            <p className="text-gray-500 text-sm mb-2">No salary structures found</p>
-                            <p className="text-gray-400 text-xs">Click "Add Structure" to create one</p>
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <BuildingOfficeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+                            <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No salary structures found</p>
+                            <p className="text-xs text-gray-400 dark:text-slate-500">Click "Add Structure" to create one</p>
                         </div>
                     }
                 />
-
-                {/* Form Modal */}
-                {showForm && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
-                        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={closeForm}></div>
-                            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                    <div className="sm:flex sm:items-start">
-                                        <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {editingId ? "Edit Salary Structure" : "Add Salary Structure"}
-                                            </h3>
-                                            <form onSubmit={handleSubmit} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Employee ID</label>
-                                                    <input
-                                                        type="text"
-                                                        name="employeeId"
-                                                        value={form.employeeId}
-                                                        onChange={handleChange}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Basic Salary</label>
-                                                        <input
-                                                            type="number"
-                                                            name="basic"
-                                                            value={form.basic === 0 ? "" : form.basic}
-                                                            onChange={handleChange}
-                                                            placeholder="0"
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">HRA</label>
-                                                        <input
-                                                            type="number"
-                                                            name="hra"
-                                                            value={form.hra === 0 ? "" : form.hra}
-                                                            onChange={handleChange}
-                                                            placeholder="0"
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Allowances</label>
-                                                        <input
-                                                            type="number"
-                                                            name="allowances"
-                                                            value={form.allowances === 0 ? "" : form.allowances}
-                                                            onChange={handleChange}
-                                                            placeholder="0"
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Deductions</label>
-                                                        <input
-                                                            type="number"
-                                                            name="deductions"
-                                                            value={form.deductions === 0 ? "" : form.deductions}
-                                                            onChange={handleChange}
-                                                            placeholder="0"
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Effective From</label>
-                                                    <input
-                                                        type="date"
-                                                        name="effectiveFrom"
-                                                        value={form.effectiveFrom}
-                                                        onChange={handleChange}
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                                                        required
-                                                    />
-                                                </div>
-
-                                                {/* Preview Section */}
-                                                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                    <h4 className="text-sm font-medium text-gray-700 mb-3">Salary Preview</h4>
-                                                    <div className="space-y-2 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Gross Monthly:</span>
-                                                            <span className="font-medium text-gray-900">
-                                                                ₹{(form.basic + form.hra + form.allowances).toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Total Deductions:</span>
-                                                            <span className="font-medium text-red-600">
-                                                                ₹{form.deductions.toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between pt-2 border-t border-gray-200">
-                                                            <span className="text-gray-700 font-medium">Net Salary:</span>
-                                                            <span className="font-bold text-cyan-600 text-lg">
-                                                                ₹{(form.basic + form.hra + form.allowances - form.deductions).toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Annual CTC:</span>
-                                                            <span className="font-medium text-purple-600">
-                                                                ₹{((form.basic + form.hra + form.allowances) * 12).toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                    <button
-                                        type="submit"
-                                        onClick={handleSubmit}
-                                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        {editingId ? "Update" : "Save"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={closeForm}
-                                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <ConfirmDialog
-                    isOpen={confirmState.isOpen}
-                    title={confirmState.title}
-                    message={confirmState.message}
-                    confirmLabel={confirmState.confirmLabel}
-                    cancelLabel={confirmState.cancelLabel}
-                    variant={confirmState.variant}
-                    onConfirm={handleConfirm}
-                    onCancel={handleCancel}
-                />
             </div>
+
+            <PaginatedPopup
+                isOpen={showForm}
+                title={editingId ? "Edit Salary Structure" : "Add Salary Structure"}
+                subtitle="Yearly amounts; payroll pays one twelfth each month"
+                onClose={closeForm}
+                onSubmit={handleSubmit}
+                submitting={saving}
+                submitLabel={editingId ? "Update Structure" : "Save Structure"}
+                maxWidthClassName="max-w-2xl"
+                tabs={[
+                    {
+                        label: "Salary Details",
+                        fields: [
+                            <FloatingSelect
+                                key="employeeId"
+                                label="Employee"
+                                name="employeeId"
+                                value={form.employeeId}
+                                onChange={handleChange}
+                                options={employeeOptions}
+                                disabled={editingId !== null}
+                                required
+                            />,
+                            <FloatingInput key="effectiveFrom" label="Effective From" name="effectiveFrom" type="date" value={form.effectiveFrom} onChange={handleChange} required />,
+                            <FloatingInput key="basic" label="Basic (yearly)" name="basic" type="number" min={0} value={form.basic === 0 ? "" : form.basic} onChange={handleChange} required />,
+                            <FloatingInput key="hra" label="HRA (yearly)" name="hra" type="number" min={0} value={form.hra === 0 ? "" : form.hra} onChange={handleChange} />,
+                            <FloatingInput key="allowances" label="Other Allowances (yearly)" name="allowances" type="number" min={0} value={form.allowances === 0 ? "" : form.allowances} onChange={handleChange} />,
+                            <FloatingInput key="ctc" label="Annual CTC" name="ctc" type="number" min={0} value={form.ctc === 0 ? "" : form.ctc} onChange={handleChange} required />,
+                            <div key="preview" className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-gray-700 dark:bg-[#222222]">
+                                <div className="flex justify-between text-slate-600 dark:text-gray-400">
+                                    <span>Gross per year</span>
+                                    <span className="font-medium text-slate-900 dark:text-white">{rupees(gross)}</span>
+                                </div>
+                                <div className="mt-1 flex justify-between text-slate-600 dark:text-gray-400">
+                                    <span>Gross per month</span>
+                                    <span className="font-semibold text-cyan-600 dark:text-cyan-400">{rupees(gross / 12)}</span>
+                                </div>
+                            </div>,
+                        ],
+                    },
+                ]}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                cancelLabel={confirmState.cancelLabel}
+                variant={confirmState.variant}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+            />
         </>
     );
 };
 
 export default SalaryStructurePage;
-
-
-
