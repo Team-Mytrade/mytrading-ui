@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
-import { PencilSquareIcon, TrashIcon, BuildingOffice2Icon } from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, BuildingOffice2Icon, PhoneIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -98,6 +98,30 @@ const toPaise = (value: unknown) => Math.round((Number(value) || 0) * 100);
 /** What is still owed to the vendor = sum of the balances of its payables. */
 const outstandingOf = (v: Vendor) => (v.accountsPayables || []).reduce((t, p) => t + toPaise(p.balance), 0) / 100;
 const isOverLimit = (v: Vendor) => Number(v.creditLimit || 0) > 0 && Number(v.outstanding || 0) > Number(v.creditLimit || 0);
+
+/* Clickable contact details with an icon. Phone opens the dialer, email opens the mail app. */
+const LINK_CLASS = "group inline-flex min-w-0 max-w-full items-center gap-1 text-sm text-slate-600 hover:text-cyan-700";
+const ICON_CLASS = "h-3.5 w-3.5 flex-shrink-0 text-slate-400 group-hover:text-cyan-600";
+
+const PhoneLink = ({ value }: { value?: string }) =>
+  value ? (
+    <a href={`tel:${value.replace(/[^\d+]/g, "")}`} className={LINK_CLASS} title={`Call ${value}`}>
+      <PhoneIcon className={ICON_CLASS} />
+      <span className="truncate">{value}</span>
+    </a>
+  ) : (
+    <span className="text-sm text-slate-400">--</span>
+  );
+
+const EmailLink = ({ value }: { value?: string }) =>
+  value ? (
+    <a href={`mailto:${value}`} className={LINK_CLASS} title={`Email ${value}`}>
+      <EnvelopeIcon className={ICON_CLASS} />
+      <span className="truncate">{value}</span>
+    </a>
+  ) : (
+    <span className="text-sm text-slate-400">--</span>
+  );
 
 /** Address box that starts as one line and grows as you type. */
 const AutoGrowTextarea = (props: React.ComponentProps<typeof FloatingTextarea>) => {
@@ -325,18 +349,25 @@ const Vendors: React.FC = () => {
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 shadow-sm">
             <span className="text-sm font-semibold text-cyan-700">{v.name ? v.name.charAt(0).toUpperCase() : "V"}</span>
           </div>
-          <div className="min-w-0 leading-snug">
-            <span className="block truncate text-sm font-semibold text-slate-900">{v.name || "--"}</span>
-            {v.email && <span className="block truncate text-xs text-slate-500">{v.email}</span>}
-          </div>
+          <span className="truncate text-sm font-semibold leading-snug text-slate-900">{v.name || "--"}</span>
         </div>
       ),
     },
     {
+      // Click to send an email
+      key: "email",
+      label: "Email",
+      sortable: true,
+      detailFormatter: (v) => <EmailLink value={v.email} />,
+      render: (v) => <EmailLink value={v.email} />,
+    },
+    {
+      // Click to call
       key: "phone",
       label: "Phone",
       sortable: true,
-      render: (v) => <span className="text-sm text-slate-600">{v.phone || "--"}</span>,
+      detailFormatter: (v) => <PhoneLink value={v.phone} />,
+      render: (v) => <PhoneLink value={v.phone} />,
     },
     {
       key: "taxIdentificationNumber",
