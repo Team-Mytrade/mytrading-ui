@@ -112,8 +112,4 @@ export const toDateInput = (value?: string | null): string => (value ? value.sli
 
 /* ================= Errors ================= */
 
-export const apiError = (err: any, fallback: string): string =>
-  err?.response?.data?.message ||
-  err?.response?.data?.error ||
-  // A refusal without a message (e.g. from the gateway) is still a permission problem, not a failed save
-  (err?.response?.status === 403 ? "You don't have permission for this action. Ask your administrator for access." : fallback);
+export { apiError } from "../../utils/apiError";

@@ -1,4 +1,3 @@
-import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { Calendar, User, Clock, CheckCircle2, AlertCircle, Plus, Send, FileText, ChevronLeft, ChevronRight } from "lucide-react";
@@ -7,7 +6,16 @@ import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import TableToolbar from "../../components/common/TableToolbar";
 import { ToasterService } from "../../Services/ToasterService";
-import { todayIso } from "../../utils/localDate";
+import { fetchAttendanceEnums, EnumItem } from "../../Services/AttendanceEnumService";
+
+const DEFAULT_LEAVE_TYPE_ENUMS: EnumItem[] = [
+  { code: 'CASUAL', label: 'Casual Leave' },
+  { code: 'SICK', label: 'Sick Leave' },
+  { code: 'EARNED', label: 'Earned Leave' },
+  { code: 'MATERNITY', label: 'Maternity Leave' },
+  { code: 'PATERNITY', label: 'Paternity Leave' },
+  { code: 'UNPAID', label: 'Unpaid Leave (LOP)' }
+];
 
 interface Employee {
   id: number;
@@ -39,13 +47,32 @@ const EMPLOYEE_URL = "/v1/api/payroll/employee";
 const LEAVE_BALANCE_URL = "/v1/api/attendance/employee-leave-balances";
 const LEAVE_API_URL = "/v1/api/attendance/leave-requests";
 
-const LeaveRequestPage: React.FC = () => {
+interface LeaveRequestPageProps {
+  isEmbedded?: boolean;
+}
+
+const LeaveRequestPage: React.FC<LeaveRequestPageProps> = ({ isEmbedded = false }) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   
-  // Own employee identity from the login token (no hard-coded ids)
-  const currentUser = useCurrentEmployee();
+  const currentUser = useMemo(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        return {
+          id: parsed.id || parsed.userId || 12,
+          name: parsed.fullName || parsed.name || parsed.username || "System Admin",
+          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
+          email: parsed.email || parsed.username || "super@admin.com"
+        };
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    }
+    return { id: 12, name: "System Admin", role: "SUPER_ADMIN", email: "super@admin.com" };
+  }, []);
 
   const [activeEmployeeId, setActiveEmployeeId] = useState<number>(12);
   const [employeeCode, setEmployeeCode] = useState<string>("TEC-EMP-0001");
@@ -80,8 +107,8 @@ const LeaveRequestPage: React.FC = () => {
 
   const selectedEmployeeId = activeEmployeeId;
   
-  const [fromDate, setFromDate] = useState(todayIso());
-  const [toDate, setToDate] = useState(todayIso());
+  const [fromDate, setFromDate] = useState(new Date().toISOString().split('T')[0]);
+  const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]);
   const [dayType, setDayType] = useState("Full Day");
   const [leaveTypeId, setLeaveTypeId] = useState<number | "">("");
   const [comments, setComments] = useState("");
@@ -114,7 +141,7 @@ const LeaveRequestPage: React.FC = () => {
   }, [fromDate, toDate, dayType]);
 
   const loadMyLeaves = async (empId: number = selectedEmployeeId) => {
-    const numericId = Number(empId) || currentUser.id;
+    const numericId = Number(empId) || 12;
     try {
       const res = await axios.get(`/v1/api/attendance/leave-requests/employee/${numericId}`);
       if (Array.isArray(res.data)) {
@@ -132,14 +159,16 @@ const LeaveRequestPage: React.FC = () => {
     }
   };
 
-  const loadLeaveTypes = () => {
-    const defaults = [
-      { id: 1, name: "Casual Leave" },
-      { id: 2, name: "Sick Leave" },
-      { id: 3, name: "Earned Leave" }
-    ];
-    setLeaveTypes(defaults);
-    setLeaveTypeId(prev => prev || defaults[0].id);
+  const loadLeaveTypes = async () => {
+    const fetchedEnums = await fetchAttendanceEnums('LEAVE_TYPE', DEFAULT_LEAVE_TYPE_ENUMS);
+    if (Array.isArray(fetchedEnums) && fetchedEnums.length > 0) {
+      const items: LeaveType[] = fetchedEnums.map((enumItem, idx) => ({
+        id: idx + 1,
+        name: enumItem.label || enumItem.code
+      }));
+      setLeaveTypes(items);
+      setLeaveTypeId(prev => prev || items[0].id);
+    }
   };
 
   const loadLeaveBalances = async (empId: number) => {
@@ -264,8 +293,8 @@ const LeaveRequestPage: React.FC = () => {
 
     for (let i = firstDay - 1; i >= 0; i--) {
       calendarDays.push(
-        <div key={`prev-${i}`} className="flex items-center justify-center p-0.5">
-          <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{prevMonthDays - i}</div>
+        <div key={`prev-${i}`} className="flex items-center justify-center py-0.2 sm:py-0.5">
+          <div className="w-full max-w-[28px] sm:max-w-[32px] aspect-square flex items-center justify-center text-slate-300 dark:text-gray-700 text-[10px] font-medium">{prevMonthDays - i}</div>
         </div>
       );
     }
@@ -275,10 +304,10 @@ const LeaveRequestPage: React.FC = () => {
       const isSelected = dateStr >= fromDate && dateStr <= toDate;
 
       calendarDays.push(
-        <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
+        <div key={`curr-${i}`} className="flex items-center justify-center py-0.2 sm:py-0.5">
           <button 
             type="button"
-            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`w-full max-w-[28px] sm:max-w-[32px] aspect-square flex items-center justify-center rounded-md text-[11px] sm:text-xs font-semibold transition-all cursor-pointer ${
               isSelected 
                 ? 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20' 
                 : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
@@ -305,8 +334,8 @@ const LeaveRequestPage: React.FC = () => {
     const totalCells = Math.ceil((days + firstDay) / 7) * 7;
     for (let i = 1; i <= totalCells - (days + firstDay); i++) {
       calendarDays.push(
-        <div key={`next-${i}`} className="flex items-center justify-center p-0.5">
-          <div className="w-8 h-8 flex items-center justify-center text-slate-300 dark:text-gray-700 text-xs font-medium">{i}</div>
+        <div key={`next-${i}`} className="flex items-center justify-center py-0.2 sm:py-0.5">
+          <div className="w-full max-w-[28px] sm:max-w-[32px] aspect-square flex items-center justify-center text-slate-300 dark:text-gray-700 text-[10px] font-medium">{i}</div>
         </div>
       );
     }
@@ -354,147 +383,149 @@ const LeaveRequestPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Leave Request" description="Submit and track leave applications" />
-      <PageBreadcrumb pageTitle="Leave Request" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Leave Request" description="Submit and track leave applications" />
+          <PageBreadcrumb pageTitle="Leave Request" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200 mt-1">
+      <div className="w-full pb-1 animate-in fade-in duration-200 space-y-1.5 sm:space-y-2">
         
-        {/* User Banner matching Punch Station theme */}
-        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:!border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 transition-all">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-cyan-600 text-white font-bold text-sm shadow-2xs flex items-center justify-center shrink-0">
+        {/* User Banner - Fluid & Compact */}
+        <div className="w-full bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-xl px-3 py-1.5 sm:py-2 border border-slate-200/80 dark:!border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 transition-all">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-cyan-600 text-white font-bold text-xs shadow-2xs flex items-center justify-center shrink-0">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h2>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:border-transparent uppercase tracking-wider">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight leading-none truncate">{currentUser.name}</h2>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:border-transparent uppercase tracking-wider leading-none shrink-0">
                   {currentUser.role.replace(/_/g, " ")}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">{currentUser.email}</p>
+              <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-none truncate">{currentUser.email}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'history' ? 'apply' : 'history')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 text-[11px] font-semibold shadow-2xs transition-all cursor-pointer"
             >
-              <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <FileText className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
               <span>{activeTab === 'history' ? 'Back to Apply' : `Request History (${myLeaves.length})`}</span>
             </button>
-            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl px-3 py-1.5 text-right">
-              <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{employeeCode || `EMP-${selectedEmployeeId}`}</span>
+            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg px-2 py-0.5 text-right">
+              <span className="text-[8px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider leading-none">Employee ID</span>
+              <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-gray-200 leading-tight">#{employeeCode || `EMP-${selectedEmployeeId || 12}`}</span>
             </div>
           </div>
         </div>
 
         {/* APPLY TAB */}
         {activeTab === 'apply' && (
-          <div>
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start mb-4">
+          <div className="w-full">
+            <form onSubmit={handleSubmit} className="w-full">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-2.5 items-stretch">
                 
                 {/* Left Column: Interactive Calendar */}
-                <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
+                <div className="lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-2.5 sm:p-3 flex flex-col justify-between h-full">
                   <div>
                     {/* Month Header */}
-                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:!border-transparent pb-2.5">
-                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
-                        <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
-                          <ChevronLeft className="w-4 h-4" />
+                    <div className="flex items-center justify-between mb-1 border-b border-slate-100 dark:!border-transparent pb-1">
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-1.5 py-0.5 rounded-lg border border-slate-200/80 dark:!border-transparent shadow-2xs">
+                        <button type="button" onClick={handlePrevMonth} className="p-0.5 hover:bg-white dark:hover:bg-[#2a2a2a] rounded text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                          <ChevronLeft className="w-3 h-3" />
                         </button>
-                        <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[120px] text-center">
+                        <span className="text-[10.5px] font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[95px] text-center">
                           {monthNames[currentMonth]} {currentYear}
                         </span>
-                        <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
-                          <ChevronRight className="w-4 h-4" />
+                        <button type="button" onClick={handleNextMonth} className="p-0.5 hover:bg-white dark:hover:bg-[#2a2a2a] rounded text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                          <ChevronRight className="w-3 h-3" />
                         </button>
                       </div>
-                      <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick Date Range</span>
+                      <span className="text-[9px] font-medium text-slate-400 dark:text-gray-500">Pick Date Range</span>
                     </div>
 
                     {/* Weekday Labels */}
-                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
+                    <div className="grid grid-cols-7 gap-0.5 text-center text-[9px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-0.5 max-w-xs mx-auto">
                       <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                     </div>
 
                     {/* Dates Grid */}
-                    <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
+                    <div className="grid grid-cols-7 gap-0.5 max-w-xs mx-auto">
                       {renderCalendar()}
                     </div>
                   </div>
 
                   {/* Bottom Legend */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 dark:!border-transparent space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-purple-500 bg-purple-500/20 inline-block"></span> Half day</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 dark:text-gray-500">
-                      Double click any date to select single day
-                    </div>
+                  <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:!border-transparent flex items-center justify-between text-[9px] text-slate-500 dark:text-gray-400">
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border border-rose-500 bg-rose-500/20 inline-block"></span> Absent</span>
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border border-purple-500 bg-purple-500/20 inline-block"></span> Half day</span>
+                    <span className="text-[8.5px] text-slate-400 dark:text-gray-500">Double click for 1 day</span>
                   </div>
                 </div>
 
                 {/* Right Column: Leave Application Desk */}
-                <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 flex flex-col justify-between min-h-[380px]">
-                  <div className="space-y-3">
-                    {/* Leave Type Dropdown */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Leave Type *</label>
-                      <select
-                        value={leaveTypeId}
-                        onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
-                        required
-                      >
-                        <option value="" className="dark:bg-[#222222] text-gray-400">-- Select Leave Type --</option>
-                        {leaveTypes.map((lt) => {
-                          const typeKey = lt.name.toLowerCase().includes("casual") ? "CASUAL" : lt.name.toLowerCase().includes("sick") ? "SICK" : "EARNED";
-                          const bal = getBalanceForType(typeKey);
-                          return (
-                            <option key={lt.id} value={lt.id} className="dark:bg-[#222222] dark:text-white">
-                              {lt.name} — ({bal} days balance)
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
+                <div className="lg:col-span-7 xl:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-2.5 sm:p-3 flex flex-col justify-between h-full">
+                  <div className="space-y-2.5">
+                    {/* Top Row: Leave Type & Duration banner responsive */}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                      <div className="sm:col-span-7">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1">Leave Type *</label>
+                        <select
+                          value={leaveTypeId}
+                          onChange={(e) => setLeaveTypeId(e.target.value ? Number(e.target.value) : "")}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-semibold text-slate-800 dark:text-white cursor-pointer"
+                          required
+                        >
+                          <option value="" className="dark:bg-[#222222] text-gray-400">-- Select Leave Type --</option>
+                          {leaveTypes.map((lt) => {
+                            const typeKey = lt.name.toLowerCase().includes("casual") ? "CASUAL" : lt.name.toLowerCase().includes("sick") ? "SICK" : "EARNED";
+                            const bal = getBalanceForType(typeKey);
+                            return (
+                              <option key={lt.id} value={lt.id} className="dark:bg-[#222222] dark:text-white">
+                                {lt.name} — ({bal} days balance)
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
 
-                    {/* Duration Summary */}
-                    <div className="p-2.5 px-3.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
-                      <span className="text-xs text-slate-600 dark:text-gray-300">
-                        Duration: <strong className="text-slate-900 dark:text-white font-mono">{fromDate || '---'}</strong> to <strong className="text-slate-900 dark:text-white font-mono">{toDate || '---'}</strong>
-                      </span>
-                      <span className="px-2.5 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-lg text-[11px] font-bold shadow-2xs font-mono">
-                        {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
-                      </span>
+                      {/* Duration Summary */}
+                      <div className="sm:col-span-5 py-1.5 px-2.5 bg-slate-50/80 dark:bg-[#222222] rounded-lg border border-slate-200/80 dark:!border-transparent flex items-center justify-between text-xs min-h-[34px]">
+                        <span className="text-[11px] text-slate-600 dark:text-gray-300 truncate">
+                          Duration: <strong className="text-slate-900 dark:text-white font-mono">{fromDate || '---'}</strong> to <strong className="text-slate-900 dark:text-white font-mono">{toDate || '---'}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-md text-[10px] font-bold shadow-2xs font-mono shrink-0 ml-1">
+                          {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Date Inputs */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">From Date *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1">From Date *</label>
                         <input 
                           type="date"
                           value={fromDate}
                           onChange={(e) => setFromDate(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">To Date *</label>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1">To Date *</label>
                         <input 
                           type="date"
                           value={toDate}
                           onChange={(e) => setToDate(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
                         />
                       </div>
@@ -502,13 +533,13 @@ const LeaveRequestPage: React.FC = () => {
 
                     {/* Day Portion Radio Choice */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Day Portion</label>
-                      <div className="flex items-center gap-4">
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1">Day Portion</label>
+                      <div className="flex items-center gap-3 flex-wrap">
                         {["Full Day", "First half", "Second half"].map((type) => {
                           const isHalfDay = type !== "Full Day";
                           const isDisabled = isHalfDay && fromDate !== toDate;
                           return (
-                            <label key={type} className={`flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-300 ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+                            <label key={type} className={`flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-gray-300 ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
                               <input 
                                 type="radio" 
                                 name="dayType" 
@@ -526,19 +557,19 @@ const LeaveRequestPage: React.FC = () => {
 
                     {/* Comments */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Reason / Comments</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1">Reason / Comments</label>
                       <textarea 
                         rows={2}
                         placeholder="Provide details for your leave request..."
                         value={comments}
                         onChange={(e) => setComments(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
+                        className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 resize-none"
                       />
                     </div>
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="pt-3 border-t border-slate-100 dark:!border-transparent flex items-center justify-end gap-2.5 shrink-0 mt-3">
+                  <div className="pt-2 border-t border-slate-100 dark:!border-transparent flex items-center justify-end gap-2 shrink-0 mt-2">
                     <button 
                       type="button"
                       onClick={() => {
@@ -546,14 +577,14 @@ const LeaveRequestPage: React.FC = () => {
                         setToDate("");
                         setComments("");
                       }}
-                      className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
                     >
                       Clear Form
                     </button>
                     <button 
                       type="submit"
                       disabled={isSubmitting}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       <Send className="w-3.5 h-3.5" />
                       {isSubmitting ? 'Submitting...' : 'Submit Leave Request'}

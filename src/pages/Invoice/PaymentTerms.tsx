@@ -12,6 +12,7 @@ import { ICON_BUTTON_CLASS } from "../../components/common/CloseButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "./invoiceShared";
 
 interface PaymentTerm {
   id: number;

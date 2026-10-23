@@ -8,15 +8,12 @@ import {
   ClipboardDocumentListIcon,
   CubeIcon,
   EyeIcon,
-  PencilSquareIcon,
-  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import DynamicPopup from "../../components/common/Popup";
 import PaginatedPopup from "../../components/common/unpopup";
 import {
   FloatingInput,
@@ -47,7 +44,20 @@ type Warehouse = {
   name?: string;
   code?: string;
   locationType?: string;
+  active?: boolean;
 };
+
+// Which warehouses a movement type uses (the server applies the same rule). Types not listed here
+// (stock adjustment/correction) are posted on the Stock Adjustment screen.
+const INBOUND_TYPES = ["GRN", "PURCHASE_RECEIPT", "RETURN", "CUSTOMER_RETURN"];
+const OUTBOUND_TYPES = ["ISSUE", "SALES_ISSUE", "SUPPLIER_RETURN", "DAMAGE"];
+const TRANSFER_TYPES = ["TRANSFER", "WAREHOUSE_TRANSFER"];
+
+const movementDirection = (type: string): "in" | "out" | "transfer" | null =>
+  INBOUND_TYPES.includes(type) ? "in"
+    : OUTBOUND_TYPES.includes(type) ? "out"
+    : TRANSFER_TYPES.includes(type) ? "transfer"
+    : null;
 
 type Batch = {
   id: number;
@@ -214,24 +224,6 @@ function resolveWarehouseId(
   return match?.id != null ? String(match.id) : "";
 }
 
-function getBatchId(batch: Batch | string | null | undefined, batches: Batch[]) {
-  if (!batch) return "";
-  if (typeof batch !== "string") return batch.id != null ? String(batch.id) : "";
-  const match = batches.find((item) => item.batchNumber === batch);
-  return match?.id != null ? String(match.id) : "";
-}
-
-function getSerialId(
-  serialNumber: SerialNumber | string | null | undefined,
-  serialNumbers: SerialNumber[]
-) {
-  if (!serialNumber) return "";
-  if (typeof serialNumber !== "string")
-    return serialNumber.id != null ? String(serialNumber.id) : "";
-  const match = serialNumbers.find((item) => item.serial === serialNumber);
-  return match?.id != null ? String(match.id) : "";
-}
-
 function normalizeEnumOptions(raw: any): EnumOption[] {
   const list = Array.isArray(raw) ? raw : raw?.content || raw?.data || raw?.result || [];
   if (!Array.isArray(list)) return [];
@@ -260,7 +252,7 @@ function getMovementTypeLabel(type: string | undefined | null, options: EnumOpti
 
 // ======================== MAIN COMPONENT ========================
 const StockMovementsManager: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { canCreate } = usePermissions();
   const token = localStorage.getItem("accessToken");
   const headers = token
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
@@ -280,7 +272,6 @@ const StockMovementsManager: React.FC = () => {
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [deletingMovement, setDeletingMovement] = useState<StockMovement | null>(null);
   const [viewingMovement, setViewingMovement] = useState<StockMovement | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
@@ -398,12 +389,13 @@ const StockMovementsManager: React.FC = () => {
     const fromWarehouse = warehouses.find((w) => String(w.id) === form.fromWarehouseId);
     const toWarehouse = warehouses.find((w) => String(w.id) === form.toWarehouseId);
 
+    // Warehouses go by id; only the side(s) the movement type uses are sent
     const payload: Record<string, unknown> = {
       movementDate: form.movementDate,
       movementType: form.movementType,
       quantity: toNumber(form.quantity),
-      fromLocation: fromWarehouse ? fromWarehouse.code || fromWarehouse.name || "" : "",
-      toLocation: toWarehouse ? toWarehouse.code || toWarehouse.name || "" : "",
+      fromLocation: needsFrom && fromWarehouse ? String(fromWarehouse.id) : "",
+      toLocation: needsTo && toWarehouse ? String(toWarehouse.id) : "",
       reference: form.reference,
       productId: toNumber(form.productId),
     };
@@ -412,9 +404,6 @@ const StockMovementsManager: React.FC = () => {
       payload.id = editingId;
     }
 
-    if (form.toWarehouseId) {
-      payload.warehouse = { id: toNumber(form.toWarehouseId) };
-    }
     if (form.batchId) {
       payload.batch = { id: toNumber(form.batchId) };
     }
@@ -441,11 +430,19 @@ const StockMovementsManager: React.FC = () => {
       ToasterService.error("Required field missing", "Movement type is required.");
       return;
     }
-    if (!form.fromWarehouseId || !form.toWarehouseId) {
+    if ((needsFrom && !form.fromWarehouseId) || (needsTo && !form.toWarehouseId)) {
       ToasterService.error(
         "Required field missing",
-        "From and to warehouse are both required."
+        direction === "transfer"
+          ? "Choose the warehouse the stock leaves and the one receiving it."
+          : needsFrom
+            ? "Choose the warehouse the stock leaves."
+            : "Choose the warehouse receiving the stock."
       );
+      return;
+    }
+    if (direction === "transfer" && form.fromWarehouseId === form.toWarehouseId) {
+      ToasterService.error("Same warehouse", "A transfer needs two different warehouses.");
       return;
     }
     if (!form.productId) {
@@ -486,31 +483,6 @@ const StockMovementsManager: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const openEdit = (movement: StockMovement) => {
-    if (!lookupsLoaded) {
-      ToasterService.error(
-        "Reference data still loading",
-        "Please wait a moment for warehouses, batches, and serial numbers to finish loading, then try again."
-      );
-      return;
-    }
-    setEditingId(movement.id);
-    setForm({
-      movementDate: movement.movementDate || emptyForm.movementDate,
-      movementType: movement.movementType || "",
-      quantity: String(movement.quantity || 0),
-      fromWarehouseId: resolveWarehouseId(movement.fromLocation, warehouses),
-      toWarehouseId:
-        resolveWarehouseId(movement.toLocation, warehouses) ||
-        resolveWarehouseId(movement.warehouse, warehouses),
-      reference: movement.reference || "",
-      productId: String(movement.productId || movement.product?.id || ""),
-      batchId: getBatchId(movement.batch, batches),
-      serialNumberId: getSerialId(movement.serialNumber, serialNumbers),
-    });
-    setShowFormModal(true);
-  };
-
   const openView = (movement: StockMovement) => {
     setViewingMovement(movement);
     setShowViewModal(true);
@@ -520,25 +492,6 @@ const StockMovementsManager: React.FC = () => {
     setEditingId(null);
     setForm(emptyForm);
     setShowFormModal(false);
-  };
-
-  const confirmDelete = async () => {
-    if (!deletingMovement) return;
-
-    try {
-      await axios.delete(`${API_URL}/${deletingMovement.id}`, { headers });
-      ToasterService.success("Stock movement deleted");
-      setStockMovements((current) =>
-        current.filter((item) => item.id !== deletingMovement.id)
-      );
-    } catch (error) {
-      ToasterService.error(
-        "Failed to delete stock movement",
-        getErrorMessage(error, "Please try again.")
-      );
-    } finally {
-      setDeletingMovement(null);
-    }
   };
 
   const stats = useMemo(() => {
@@ -566,10 +519,15 @@ const StockMovementsManager: React.FC = () => {
     return set;
   }, [stockLevels]);
 
+  const direction = movementDirection(form.movementType);
+  const needsFrom = direction === "out" || direction === "transfer";
+  const needsTo = direction === "in" || direction === "transfer";
+
   const productOptions = useMemo(() => {
+    // Receipts can bring in any product; issues and transfers need stock to exist
     const filtered = products.filter((product) => {
       const id = product.id ?? product.productId;
-      return id != null && productIdsWithStockLevel.has(String(id));
+      return id != null && (direction === "in" || productIdsWithStockLevel.has(String(id)));
     });
 
     const currentId = form.productId;
@@ -586,7 +544,7 @@ const StockMovementsManager: React.FC = () => {
         name: getProductName(product) || `Product #${id ?? "?"}`,
       };
     });
-  }, [products, productIdsWithStockLevel, form.productId]);
+  }, [products, productIdsWithStockLevel, form.productId, direction]);
 
   const warehouseIdsByProduct = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -635,10 +593,14 @@ const StockMovementsManager: React.FC = () => {
     [warehouses, warehouseIdsByProduct, form.productId, form.fromWarehouseId]
   );
 
+  // Stock can be received into any active warehouse, even one that never held the product
   const toWarehouseOptions = useMemo(
-    () => buildWarehouseOptions(form.toWarehouseId),
+    () =>
+      warehouses
+        .filter((w) => w.active !== false || String(w.id) === form.toWarehouseId)
+        .map((warehouse) => ({ id: String(warehouse.id), name: formatWarehouseLabel(warehouse) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [warehouses, warehouseIdsByProduct, form.productId, form.toWarehouseId]
+    [warehouses, form.toWarehouseId]
   );
 
   const productHasNoStockLevelAnywhere =
@@ -880,23 +842,7 @@ const StockMovementsManager: React.FC = () => {
           >
             <EyeIcon className="h-4 w-4" />
           </button>
-          {canUpdate && (<button
-            type="button"
-            onClick={() => openEdit(movement)}
-            disabled={!lookupsLoaded}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title={lookupsLoaded ? "Edit" : "Loading reference data..."}
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            type="button"
-            onClick={() => setDeletingMovement(movement)}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+          {/* Movements are posted to stock and kept as history: no edit or delete, post a correcting movement */}
         </div>
       ),
     },
@@ -1004,7 +950,7 @@ const StockMovementsManager: React.FC = () => {
                 name="movementType"
                 value={form.movementType}
                 onChange={handleChange}
-                options={movementTypeOptions}
+                options={movementTypeOptions.filter((option) => movementDirection(option.id) !== null)}
                 required
               />,
               <FloatingSelect
@@ -1016,14 +962,15 @@ const StockMovementsManager: React.FC = () => {
                 options={productOptions}
                 required
               />,
-              <p
-                key="product-hint"
-                className="text-xs text-gray-500 dark:text-slate-400"
-              >
-                Only products with an existing stock level are shown. To move a
-                product that isn't listed here, create a stock level for it
-                first on the Stock Levels page.
-              </p>,
+              direction !== "in" && (
+                <p
+                  key="product-hint"
+                  className="text-xs text-gray-500 dark:text-slate-400"
+                >
+                  Only products that are in stock are shown for issues and
+                  transfers. Receive a product first to move it.
+                </p>
+              ),
               <FloatingInput
                 key="quantity"
                 label="Quantity"
@@ -1034,25 +981,29 @@ const StockMovementsManager: React.FC = () => {
                 onChange={handleChange}
                 required
               />,
-              <FloatingSelect
-                key="fromWarehouseId"
-                label="From Warehouse"
-                name="fromWarehouseId"
-                value={form.fromWarehouseId}
-                onChange={handleChange}
-                options={fromWarehouseOptions}
-                required
-              />,
-              <FloatingSelect
-                key="toWarehouseId"
-                label="To Warehouse"
-                name="toWarehouseId"
-                value={form.toWarehouseId}
-                onChange={handleChange}
-                options={toWarehouseOptions}
-                required
-              />,
-              productHasNoStockLevelAnywhere && (
+              needsFrom && (
+                <FloatingSelect
+                  key="fromWarehouseId"
+                  label="From Warehouse"
+                  name="fromWarehouseId"
+                  value={form.fromWarehouseId}
+                  onChange={handleChange}
+                  options={fromWarehouseOptions}
+                  required
+                />
+              ),
+              needsTo && (
+                <FloatingSelect
+                  key="toWarehouseId"
+                  label="To Warehouse"
+                  name="toWarehouseId"
+                  value={form.toWarehouseId}
+                  onChange={handleChange}
+                  options={toWarehouseOptions}
+                  required
+                />
+              ),
+              direction !== "in" && productHasNoStockLevelAnywhere && (
                 <p
                   key="no-stock-warning"
                   className="text-xs text-amber-600 dark:text-amber-400"
@@ -1122,26 +1073,6 @@ const StockMovementsManager: React.FC = () => {
             ],
           },
         ]}
-      />
-
-      <DynamicPopup
-        isPopupOpen={!!deletingMovement}
-        setIsPopupOpen={(open: boolean) => {
-          if (!open) setDeletingMovement(null);
-        }}
-        icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
-        iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Stock Movement"
-        subText={
-          deletingMovement
-            ? `Are you sure you want to delete movement #${deletingMovement.id}? This action cannot be undone.`
-            : "Are you sure you want to delete this stock movement?"
-        }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletingMovement(null)}
-        confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
     </>
   );

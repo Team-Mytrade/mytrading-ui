@@ -352,7 +352,18 @@ const VendorPayments: React.FC = () => {
 
   /* ---------------- Table ---------------- */
 
-  const tableColumns: ColumnDef<VendorPayment>[] = [
+  const stats = useMemo(() => {
+    const month = todayInput().slice(0, 7);
+    return {
+      count: payments.length,
+      total: payments.reduce((sum, payment) => sum + Number(payment.amountPaid || 0), 0),
+      thisMonth: payments.filter((payment) => payment.paymentDate?.startsWith(month)).reduce((sum, payment) => sum + Number(payment.amountPaid || 0), 0),
+      toPay: payables.reduce((sum, row) => sum + Math.max(Number(row.balance || 0), 0), 0),
+    };
+  }, [payments, payables]);
+
+  const columns: ColumnDef<VendorPayment>[] = [
+    { key: "paymentDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.paymentDate)}</span> },
     {
       key: "paymentReference",
       label: "Payment Reference",
@@ -377,16 +388,18 @@ const VendorPayments: React.FC = () => {
       ),
     },
     {
-      key: "invoiceNumber",
-      label: "Invoice",
+      key: "invoice",
+      label: "Bill",
       sortable: true,
       headerClassName: "w-[13%] text-left",
       className: "w-[13%]",
       render: (p) => <span className="text-sm text-slate-600 truncate">{p.invoiceNumber || "--"}</span>,
     },
+    { key: "paymentMethod", label: "Method", sortable: true, render: (row) => <span className="text-sm text-slate-600">{paymentMethodLabel(row.paymentMethod)}</span> },
+    { key: "paymentReference", label: "Reference", sortable: true, render: (row) => <span className="text-sm text-slate-600">{row.paymentReference || "—"}</span> },
     {
       key: "amountPaid",
-      label: "Amount Paid",
+      label: "Amount",
       sortable: true,
       filterable: false,
       headerClassName: "w-[13%] text-right",
@@ -622,6 +635,63 @@ const VendorPayments: React.FC = () => {
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         />
       </div>
+
+      <PaginatedPopup
+        isOpen={formOpen}
+        title={editing ? "Edit vendor payment" : "Pay a bill"}
+        subtitle="The payment settles the bill's payable"
+        onClose={() => setFormOpen(false)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={save} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingSelect1
+                label="Vendor"
+                name="vendorId"
+                required
+                value={form.vendorId}
+                options={vendors.map((vendor) => ({ id: String(vendor.id), name: vendor.name }))}
+                onChange={(event) => setForm((current) => ({ ...current, vendorId: event.target.value, invoiceId: "" }))}
+              />
+              <FloatingSelect1
+                label="Bill"
+                name="invoiceId"
+                required
+                value={form.invoiceId}
+                options={billOptions.map(({ row, available }) => ({
+                  id: String(row.purchaseInvoice?.id),
+                  name: `${row.purchaseInvoice?.invoiceNumber ?? row.id} · ${money(available, row.purchaseInvoice?.currency)} due ${dateLabel(row.dueDate)}`,
+                }))}
+                onChange={(event) => chooseBill(event.target.value)}
+              />
+              {form.vendorId && billOptions.length === 0 && (
+                <p className="text-xs text-amber-700 sm:col-span-2">This vendor has no unpaid bills. Add the bill under Purchase Invoices first.</p>
+              )}
+              <FloatingInput label="Amount paid" name="amountPaid" type="number" required value={form.amountPaid}
+                onChange={(event) => setForm((current) => ({ ...current, amountPaid: event.target.value }))} />
+              <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
+                onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
+              <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
+              <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
+                onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
+              <FloatingInput label="Paid by" name="paidBy" value={form.paidBy}
+                onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record payment"} busy={busy} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleting)}
+        title="Delete payment"
+        message={`Delete the ${money(deleting?.amountPaid)} payment to ${deleting?.vendor?.name ?? "the vendor"}? Bill ${deleting?.invoice?.invoiceNumber ?? ""} will show that amount as due again.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
     </>
   );
 };

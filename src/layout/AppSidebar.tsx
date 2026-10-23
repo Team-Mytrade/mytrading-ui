@@ -1,21 +1,86 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useContext } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
-  LayoutDashboard,
-  Users,
-  ShoppingCart,
-  Package,
-  Truck,
-  FileText,
-  CreditCard,
+  Activity,
+  ArrowLeftRight,
+  BadgeCheck,
+  Banknote,
+  BarChart3,
+  BellRing,
+  BookMarked,
+  BookOpen,
+  BookmarkCheck,
+  Boxes,
+  Briefcase,
+  Building,
+  Building2,
   Calendar,
-  UserCircle,
+  CalendarCheck,
+  CalendarClock,
+  CalendarDays,
+  CalendarRange,
+  CalendarX,
+  Car,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
-  BarChart3,
-  Briefcase,
-  Building2,
+  ClipboardCheck,
+  ClipboardList,
+  ClipboardPen,
+  Clock,
+  Coins,
+  Contact,
+  CreditCard,
+  Database,
+  FileCheck,
+  FileText,
+  Fingerprint,
+  FolderOpen,
+  FolderTree,
+  Gauge,
+  HandCoins,
+  Handshake,
+  KeyRound,
+  Landmark,
+  Layers,
+  LayoutDashboard,
+  ListTodo,
+  LogOut,
+  MapPin,
+  MessagesSquare,
+  Network,
+  NotebookText,
+  Package,
+  PackageCheck,
+  PackageMinus,
+  Percent,
+  PieChart,
+  Receipt,
+  ReceiptText,
+  Route,
+  Scale,
+  ScanBarcode,
+  ScrollText,
+  Settings2,
+  ShieldCheck,
+  ShoppingBag,
+  ShoppingCart,
+  SlidersHorizontal,
+  Store,
+  Tags,
+  Target,
+  Truck,
+  Undo2,
+  UserCheck,
+  UserCircle,
+  UserPlus,
+  UserRound,
+  Users,
+  Radar,
+  Smartphone,
+  Wallet,
+  Warehouse,
+  type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
@@ -28,8 +93,12 @@ import { publicAsset } from "../utils/assets";
 type SubItem = {
   name: string;
   path?: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: { name: string; path: string; icon?: LucideIcon; roles?: string[] }[];
   permission?: string;
+  // Shown before the item; consecutive items with the same section are grouped under one heading
+  icon?: LucideIcon;
+  section?: string;
+  roles?: string[];
 };
 
 type NavItem = {
@@ -69,44 +138,44 @@ export const navItems: NavItem[] = [
     name: "Reports",
     subItems: [
       // Static demo reports removed; CRM reports live under CRM
-      { name: "Inventory Report", path: "/inventory-report" },
-      { name: "Purchase Reports", path: "/purchase-reports" },
-      { name: "Finance Report", path: "/financeReport" },
-      { name: "Tax Report", path: "/taxReport" },
+      { name: "Inventory Report", path: "/inventory-report", icon: Boxes },
+      { name: "Purchase Reports", path: "/purchase-reports", icon: ClipboardList },
+      { name: "Finance Report", path: "/financeReport", icon: Landmark },
+      { name: "Tax Report", path: "/taxReport", icon: Percent },
     ],
   },
   {
     icon: <Users className="w-5 h-5" />,
     name: "CRM",
     subItems: [
-      { name: "Segments", path: "/customer-segment" },
-      { name: "Key Contacts", path: "/contactPerson" },
-      { name: "Leads", path: "/leads" },
-      { name: "Deals", path: "/opportunities" },
-      { name: "Interactions", path: "/communication-history" },
-      { name: "Tasks", path: "/activities" },
-      { name: "Reports", path:"/crm-reports"},
+      { name: "Segments", path: "/customer-segment", icon: PieChart, section: "Customers" },
+      { name: "Key Contacts", path: "/contactPerson", icon: Contact, section: "Customers" },
+      { name: "Leads", path: "/leads", icon: Target, section: "Pipeline" },
+      { name: "Deals", path: "/opportunities", icon: Handshake, section: "Pipeline" },
+      { name: "Interactions", path: "/communication-history", icon: MessagesSquare, section: "Activity" },
+      { name: "Tasks", path: "/activities", icon: ListTodo, section: "Activity" },
+      { name: "Reports", path: "/crm-reports", icon: BarChart3, section: "Activity" },
     ],
   },
 
   {
-    icon: <Package className="w-5 h-5" />,
+    icon: <Database className="w-5 h-5" />,
     name: "Common",
     subItems: [
-      { name: "Customers", path: "/customer-management" },
-      { name: "Invoice Vendors", path: "/invoiceVendors" },
-      { name: "Tax Types", path: "/taxTypes" },
-      { name: "Tax Details", path: "/taxDetails" },
+      { name: "Customers", path: "/customer-management", icon: Users },
+      { name: "Invoice Vendors", path: "/invoiceVendors", icon: Store },
+      { name: "Tax Types", path: "/taxTypes", icon: Percent },
+      { name: "Tax Details", path: "/taxDetails", icon: FileText },
     ],
   },
 
   {
-    icon: <Package className="w-5 h-5" />,
+    icon: <Tags className="w-5 h-5" />,
     name: "Product Catalogue",
     subItems: [
-      { name: "Vendors", path: "/product-catalogue/vendors" },
-      { name: "Categories", path: "/product-catalogue/categories" },
-      { name: "Products", path: "/product-catalogue/products" },
+      { name: "Vendors", path: "/product-catalogue/vendors", icon: Store },
+      { name: "Categories", path: "/product-catalogue/categories", icon: FolderTree },
+      { name: "Products", path: "/product-catalogue/products", icon: Package },
     ],
   },
 
@@ -129,27 +198,27 @@ export const navItems: NavItem[] = [
   },
 
   {
-    icon: <Package className="w-5 h-5" />,
+    icon: <Boxes className="w-5 h-5" />,
     name: "Inventory",
     subItems: [
-      { name: "Warehouse", path: "/warehouse" },
-      { name: "Quality Inspection", path: "/quality-inspection" },
-      { name: "Batch", path: "/batch" },
-      { name: "Serial Number", path: "/serial-number" },
-      { name: "Inventory Stock", path: "/inventory" },
-      { name: "Stock Level", path: "/stock-level" },
-      { name: "Inventory Reservation", path: "/inventory-reservation" },
-      { name: "Stock Adjustment", path: "/stock-adjustment" },
-      { name: "Stock Movement", path: "/stock-movement" },
+      { name: "Warehouse", path: "/warehouse", icon: Warehouse, section: "Stock" },
+      { name: "Inventory Stock", path: "/inventory", icon: Boxes, section: "Stock" },
+      { name: "Stock Level", path: "/stock-level", icon: Gauge, section: "Stock" },
+      { name: "Stock Movement", path: "/stock-movement", icon: ArrowLeftRight, section: "Movements" },
+      { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal, section: "Movements" },
+      { name: "Inventory Reservation", path: "/inventory-reservation", icon: BookmarkCheck, section: "Movements" },
+      { name: "Quality Inspection", path: "/quality-inspection", icon: ShieldCheck, section: "Quality & tracking" },
+      { name: "Batch", path: "/batch", icon: Layers, section: "Quality & tracking" },
+      { name: "Serial Number", path: "/serial-number", icon: ScanBarcode, section: "Quality & tracking" },
     ],
   },
   {
-    icon: <FileText className="w-5 h-5" />,
+    icon: <ShoppingBag className="w-5 h-5" />,
     name: "Purchase Service",
     subItems: [
-      { name: "Purchase Requisitions", path: "/purchase-service/requisitions" },
-      { name: "Purchase Orders", path: "/purchase-service/orders" },
-      { name: "Goods Receipt Notes", path: "/purchase-service/goods-receipt-notes" },
+      { name: "Purchase Requisitions", path: "/purchase-service/requisitions", icon: ClipboardList },
+      { name: "Purchase Orders", path: "/purchase-service/orders", icon: ShoppingBag },
+      { name: "Goods Receipt Notes", path: "/purchase-service/goods-receipt-notes", icon: PackageCheck },
     ],
   },
 
@@ -175,16 +244,18 @@ export const navItems: NavItem[] = [
     icon: <Truck className="w-5 h-5" />,
     name: "Delivery",
     subItems: [
-      { name: "Transporters", path: "/transporter" },
-      { name: "Routes", path: "/route" },
-      { name: "Vehicles", path: "/vehicle" },
-      { name: "Customer Address", path: "/customerAddress" },
-      { name: "Schedule", path: "/schedule" },
-      { name: "Delivery Note", path: "/delivery-note" },
-      { name: "Shipment", path: "/shipment" },
-      { name: "Goods Issue", path: "/goodsIssue" },
-      { name: "Delivery Order", path: "/deliveryOrder" },
-      { name: "Delivery Status", path: "/deliveryStatus" },
+      { name: "Delivery Order", path: "/deliveryOrder", icon: Truck, section: "Orders" },
+      { name: "Delivery Status", path: "/deliveryStatus", icon: Activity, section: "Orders" },
+      { name: "Delivery Note", path: "/delivery-note", icon: NotebookText, section: "Orders" },
+      { name: "Shipment", path: "/shipment", icon: PackageCheck, section: "Orders" },
+      { name: "Goods Issue", path: "/goodsIssue", icon: PackageMinus, section: "Orders" },
+      { name: "Schedule", path: "/schedule", icon: CalendarRange, section: "Planning" },
+      { name: "Routes", path: "/route", icon: Route, section: "Planning" },
+      { name: "Customer Address", path: "/customerAddress", icon: MapPin, section: "Planning" },
+      { name: "Live Tracking", path: "/vehicle-tracking", icon: Radar, section: "Fleet" },
+      { name: "Vehicles", path: "/vehicle", icon: Car, section: "Fleet" },
+      { name: "Transporters", path: "/transporter", icon: Building2, section: "Fleet" },
+      { name: "Driver Mode", path: "/driver", permission: "DELIVERY:UPDATE", icon: Smartphone, section: "Fleet" },
     ],
   },
 
@@ -192,67 +263,59 @@ export const navItems: NavItem[] = [
     icon: <Briefcase className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
-      { name: "Department", path: "/employeeDepartments" },
-      { name: "Compensation", path: "/employeeCompensation" },
-      { name: "Records", path: "/employeeRecords" },
-      { name: "Salary", path: "/employeeSalary" },
-      { name: "Payslips", path: "/employeePayslips" },
+      { name: "Records", path: "/employeeRecords", icon: Users, section: "People" },
+      { name: "Department", path: "/employeeDepartments", icon: Building2, section: "People" },
+      { name: "Documents", path: "/employeeDocuments", icon: FolderOpen, section: "People" },
+      { name: "Salary", path: "/employeeSalary", icon: Banknote, section: "Payroll" },
+      { name: "Salary Structure", path: "/salaryStructure", icon: Layers, section: "Payroll" },
+      { name: "Compensation", path: "/employeeCompensation", icon: Coins, section: "Payroll" },
+      { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
+      { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
+      { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
       {
         name: "Reports",
+        icon: BarChart3,
+        section: "Payroll",
         subItems: [
-          { name: "Payroll Summary", path: "/payrollSummary" },
-          { name: "Department Summary", path: "/departmentSummary" },
+          { name: "Payroll Summary", path: "/payrollSummary", icon: PieChart },
+          { name: "Department Summary", path: "/departmentSummary", icon: Building },
         ],
       },
-      { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE" },
-      { name: "IT Declaration", path: "/it-declaration" },
-      { name: "Salary Structure", path: "/salaryStructure" },
-      { name: "Documents", path: "/employeeDocuments" },
-      { name: "Exit Approvals", path: "/exitApprovals", permission: "HRM:APPROVE" },
-      { name: "Exit Management", path: "/exit-management" },
+      { name: "Exit Management", path: "/exit-management", icon: LogOut, section: "Exits" },
+      { name: "Exit Approvals", path: "/exitApprovals", permission: "HRM:APPROVE", icon: UserCheck, section: "Exits" },
     ],
   },
   {
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      // 1. Dashboards & Calendars
-      { name: "Employee Self Service", path: "/att_selfService" },
-      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", permission: "ATTENDANCE:APPROVE" },
-      { name: "Attendance Tracking", path: "/att_attendanceTracking" },
-      { name: "Holiday Calendar", path: "/att_holidayCalendar" },
+      { name: "Employee Self Service", path: "/att_selfService", icon: UserRound, section: "Overview" },
+      { name: "Request Center", path: "/att_requestCenter", icon: ClipboardPen, section: "Overview" },
+      { name: "Approvals Desk", path: "/att_leaveManagerDashboard", permission: "ATTENDANCE:APPROVE", icon: LayoutDashboard, section: "Overview" },
+      { name: "Attendance Tracking", path: "/att_attendanceTracking", icon: Activity, section: "Overview" },
+      { name: "Holiday Calendar", path: "/att_holidayCalendar", icon: CalendarDays, section: "Overview" },
 
-      // 2. Employee Requests & Punch
-      { name: "Attendance Punch", path: "/att_punch" },
-      { name: "Leave Requests", path: "/att_leaveRequest" },
-      { name: "Attendance Regularization", path: "/att_timesheetManagement" },
-      { name: "On-Duty Requests", path: "/att_requests" },
+      { name: "Attendance Punch", path: "/att_punch", icon: Fingerprint, section: "Requests" },
+      { name: "Leave Requests", path: "/att_leaveRequest", icon: CalendarX, section: "Requests" },
+      { name: "Attendance Regularization", path: "/att_timesheetManagement", icon: ClipboardPen, section: "Requests" },
+      { name: "On-Duty Requests", path: "/att_requests", icon: Briefcase, section: "Requests" },
 
-      // 3. Shift & Roster Management
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE" },
-      { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN" },
+      { name: "Shift & Roster", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE", icon: CalendarClock, section: "Shifts" },
 
-      // 4. Policy & Configuration
-      { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN" },
-      { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN" },
+      { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN", icon: ScrollText, section: "Policies" },
+      { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN", icon: BookOpen, section: "Policies" },
 
-      // 5. Approvals Desk
-      { name: "Leave Approvals", path: "/att_attendanceApproval", permission: "ATTENDANCE:APPROVE" },
-      { name: "Regularization Approvals", path: "/att_regularizationApproval", permission: "ATTENDANCE:APPROVE" },
-      { name: "On-Duty Approvals", path: "/att_onDutyApproval", permission: "ATTENDANCE:APPROVE" },
-
-      // 6. Reports
-      { name: "Attendance Reports", path: "/att_reports" },
+      { name: "Attendance Reports", path: "/att_reports", icon: BarChart3, section: "Reports" },
     ],
   },
   {
     icon: <UserCircle className="w-5 h-5" />,
     name: "Profile",
     subItems: [
-      { name: "My Profile", path: "/profile" },
-      { name: "Create User", path: "/role_config" },
-      { name: "Role", path: "/rolesPermissions" },
-      { name: "User Access", path: "/role_config/access", permission: "USERS:UPDATE" },
+      { name: "My Profile", path: "/profile", icon: UserRound, section: "Account" },
+      { name: "Create User", path: "/role_config", icon: UserPlus, section: "Users & roles" },
+      { name: "Role", path: "/rolesPermissions", icon: ShieldCheck, section: "Users & roles" },
+      { name: "User Access", path: "/role_config/access", permission: "USERS:UPDATE", icon: KeyRound, section: "Users & roles" },
     ],
   },
   {
@@ -260,7 +323,7 @@ export const navItems: NavItem[] = [
     name: "Platform",
     superAdminOnly: true,
     subItems: [
-      { name: "Tenants & Modules", path: "/platform/tenants" },
+      { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2 },
     ],
   },
 ];
@@ -323,12 +386,7 @@ const AppSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { user, access, loading: authLoading, profileImage: sharedProfileImage, hasProfileImage } = useContext(AuthContext);
   const visibleNavItems = useMemo(() => filterNavItems(navItems, access), [access]);
-  const [tooltipVisible, setTooltipVisible] = useState<number | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSidebarManuallyToggledRef = useRef(false);
-
-  const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
 
   const [openSubSubmenu, setOpenSubSubmenu] = useState<string | null>(null);
   const [selectedModuleIndex, setSelectedModuleIndex] = useState(0);
@@ -364,23 +422,6 @@ const AppSidebar: React.FC = () => {
     [location.pathname]
   );
 
-  // FIX (#1): a parent nav item ("Inventory", "CRM", ...) is only "active" when the
-  // current route actually matches one of its children (at any depth) — expanding
-  // the submenu no longer counts as "active" on its own.
-  const isParentActive = useCallback(
-    (nav: NavItem) => {
-      if (!nav.subItems) return false;
-      return nav.subItems.some((sub) => {
-        if (sub.path && isActive(sub.path)) return true;
-        if (sub.subItems) {
-          return sub.subItems.some((ss) => ss.path && isActive(ss.path));
-        }
-        return false;
-      });
-    },
-    [isActive]
-  );
-
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -393,7 +434,7 @@ const AppSidebar: React.FC = () => {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(220, Math.min(300, e.clientX));
+      const newWidth = Math.max(245, Math.min(300, e.clientX));
       setSidebarWidth(newWidth);
     };
 
@@ -417,7 +458,6 @@ const AppSidebar: React.FC = () => {
         nav.subItems.forEach((subItem, subIndex) => {
           // Check level 2 items
           if (subItem.path && isActive(subItem.path)) {
-            setOpenSubmenu(index);
             setSelectedModuleIndex(index);
             // Close sub-submenus if we match a level 2 item
             setOpenSubSubmenu(null);
@@ -427,7 +467,6 @@ const AppSidebar: React.FC = () => {
           if (subItem.subItems) {
             subItem.subItems.forEach((ssItem) => {
               if (ssItem.path && isActive(ssItem.path)) {
-                setOpenSubmenu(index);
                 setSelectedModuleIndex(index);
                 setOpenSubSubmenu(`${index}-${subIndex}`);
                 submenuMatched = true;
@@ -438,7 +477,6 @@ const AppSidebar: React.FC = () => {
       }
     });
     if (!submenuMatched) {
-      setOpenSubmenu(null);
       setOpenSubSubmenu(null);
       const directRouteIndex = visibleNavItems.findIndex((nav) => nav.path && isActive(nav.path));
       if (directRouteIndex >= 0) setSelectedModuleIndex(directRouteIndex);
@@ -455,15 +493,6 @@ const AppSidebar: React.FC = () => {
     const firstPath = getFirstVisibleSubmenuPath(nav);
     if (firstPath && !isActive(firstPath)) {
       navigate(firstPath);
-    }
-  };
-
-  const handleSubmenuToggle = (index: number) => {
-    const isOpening = openSubmenu !== index;
-    setOpenSubmenu(isOpening ? index : null);
-    if (isOpening) {
-      setOpenSubSubmenu(null);
-      selectFirstSubmenu(visibleNavItems[index]);
     }
   };
 
@@ -484,7 +513,6 @@ const AppSidebar: React.FC = () => {
     } else if (!isExpanded) {
       expandSidebar();
     }
-    setOpenSubmenu(index);
     setOpenSubSubmenu(null);
     selectFirstSubmenu(nav);
   };
@@ -519,173 +547,92 @@ const AppSidebar: React.FC = () => {
     setRailTooltip({ name: nav.name, top: rect.top + rect.height / 2, left: rect.right + 12 });
   };
 
-  const handleTooltipEnter = (index: number, event: React.MouseEvent<HTMLElement>) => {
-    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-    const target = event.currentTarget;
-    const rect = target.getBoundingClientRect();
-    setTooltipPosition({
-      top: rect.top + rect.height / 2,
-      left: rect.right + 12,
-    });
-    setTooltipVisible(index);
+  const closeMobileDrawer = () => {
+    if (isMobileOpen) toggleMobileSidebar();
   };
 
-  const handleTooltipLeave = () => {
-    hideTimeoutRef.current = setTimeout(() => {
-      setTooltipVisible(null);
-    }, 200);
+  const renderLink = (name: string, path: string | undefined, icon: React.ReactNode, nested = false) => {
+    const active = !!path && isActive(path);
+    return (
+      <Link
+        key={name}
+        to={path || "#"}
+        onClick={closeMobileDrawer}
+        aria-current={active ? "page" : undefined}
+        className={`app-nav__link${nested ? " app-nav__link--nested" : ""}${active ? " is-active" : ""}`}
+      >
+        {icon && <span className="app-nav__icon" aria-hidden="true">{icon}</span>}
+        <span className="app-nav__label">{name}</span>
+      </Link>
+    );
   };
 
-  // Render menu item with tooltip
-  const renderMenuItem = (nav: NavItem, index: number) => {
-    const isCollapsed = !isExpanded && !isMobileOpen;
+  // The panel shows the module picked in the rail: a header, then its pages grouped by section
+  const renderModulePanel = (nav: NavItem, index: number) => {
+    const subItems = nav.subItems ?? [];
+    const pageCount = subItems.length
+      ? subItems.reduce((count, sub) => count + (sub.subItems?.length ?? 1), 0)
+      : 1;
 
-    if (nav.subItems) {
-      // FIX (#1): "active" (route match) and "expanded" (submenu open) are now
-      // visually distinct states instead of sharing the same highlight class.
-      const parentActive = isParentActive(nav);
-      const parentExpanded = openSubmenu === index;
-
-      const buttonClass = parentActive
-        ? "bg-cyan-50 text-cyan-600"
-        : parentExpanded || (isCollapsed && tooltipVisible === index)
-        ? "bg-gray-100 text-gray-900"
-        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900";
-
-      return (
-        <div key={nav.name} className="relative">
-          <button
-            onClick={() => handleSubmenuToggle(index)}
-            onMouseEnter={(e) => isCollapsed && handleTooltipEnter(index, e)}
-            onMouseLeave={handleTooltipLeave}
-            className={`
-              w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 relative
-              ${buttonClass}
-              ${isCollapsed ? "justify-center" : ""}
-            `}
-          >
-            <div className="flex items-center gap-3">
-              <span className="app-sidebar__menu-icon flex-shrink-0">{nav.icon}</span>
-              {(isExpanded || isMobileOpen) && <span className="text-sm">{nav.name}</span>}
-            </div>
-            {(isExpanded || isMobileOpen) && (
-              <ChevronDown
-                className={`w-4 h-4 transition-transform duration-200 ${
-                  parentExpanded ? "rotate-180" : ""
-                }`}
-              />
-            )}
-          </button>
-
-          {(isExpanded || isMobileOpen) && (
-            <div
-              className={`grid transition-all duration-300 ease-in-out ${parentExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-            >
-              <div className="overflow-hidden">
-                <div className="mt-1 space-y-0.5 px-1">
-                {nav.subItems.map((subItem, subIndex) => {
-                  const subKey = `${index}-${subIndex}`;
-                  const hasSubSubItems = subItem.subItems && subItem.subItems.length > 0;
-
-                  if (hasSubSubItems) {
-                    return (
-                      <div key={subItem.name} className="relative mt-0.5">
-                        <button
-                          onClick={(e) => handleSubSubmenuToggle(subKey, e)}
-                          className={`
-                            w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-all duration-200
-                            ${openSubSubmenu === subKey
-                              ? "bg-cyan-50 text-cyan-600"
-                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                            }
-                          `}
-                        >
-                          <span>{subItem.name}</span>
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openSubSubmenu === subKey ? "rotate-180" : ""}`} />
-                        </button>
-
-                        <div
-                          className={`grid transition-all duration-300 ease-in-out ${openSubSubmenu === subKey ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-                        >
-                          <div className="overflow-hidden">
-                            <div className="ml-4 pl-2 mt-1 space-y-0.5">
-                            {subItem.subItems!.map((ssItem) => (
-                              <Link
-                                key={ssItem.name}
-                                to={ssItem.path || "#"}
-                                className={`
-                                  block px-3 py-1.5 text-xs rounded-md transition-all duration-200
-                                  ${isActive(ssItem.path || "")
-                                    ? "bg-cyan-50 text-cyan-600"
-                                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                `}
-                              >
-                                {ssItem.name}
-                              </Link>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <Link
-                      key={subItem.name}
-                      to={subItem.path || "#"}
-                      onClick={() => isMobileOpen && toggleMobileSidebar()}
-                      className={`
-                        block px-3 py-1.5 text-sm rounded-md transition-all duration-200 ease-in-out transform active:scale-95
-                        ${isActive(subItem.path || "")
-                          ? "bg-cyan-50 text-cyan-600 font-semibold shadow-2xs translate-x-0.5 border-l-2 border-cyan-600"
-                          : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/60 hover:translate-x-0.5"
-                        }
-                      `}
-                    >
-                      {subItem.name}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+    return (
+      <div key={nav.name} className="app-nav">
+        <div className="app-nav__header">
+          <span className="app-nav__header-icon" aria-hidden="true">{nav.icon}</span>
+          <div className="app-nav__header-text">
+            <span className="app-nav__title">{nav.name}</span>
+            <span className="app-nav__meta">{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
           </div>
-        )}
+        </div>
+
+        <div className="app-nav__list">
+          {!nav.subItems && renderLink(nav.name, nav.path, nav.icon)}
+
+          {subItems.map((sub, subIndex) => {
+            const SubIcon = sub.icon;
+            const heading = sub.section && sub.section !== subItems[subIndex - 1]?.section ? sub.section : null;
+
+            let entry: React.ReactNode;
+            if (sub.subItems?.length) {
+              const groupKey = `${index}-${subIndex}`;
+              const open = openSubSubmenu === groupKey;
+              const childActive = sub.subItems.some((ss) => isActive(ss.path));
+              entry = (
+                <div className="app-nav__group">
+                  <button
+                    type="button"
+                    onClick={(e) => handleSubSubmenuToggle(groupKey, e)}
+                    aria-expanded={open}
+                    className={`app-nav__link app-nav__toggle${childActive ? " has-active" : ""}`}
+                  >
+                    {SubIcon && <span className="app-nav__icon" aria-hidden="true"><SubIcon /></span>}
+                    <span className="app-nav__label">{sub.name}</span>
+                    <ChevronDown className={`app-nav__chevron${open ? " is-open" : ""}`} aria-hidden="true" />
+                  </button>
+                  <div className={`app-nav__children${open ? " is-open" : ""}`}>
+                    <div className="app-nav__children-inner">
+                      {sub.subItems.map((ss) => {
+                        const ChildIcon = ss.icon;
+                        return renderLink(ss.name, ss.path, ChildIcon ? <ChildIcon /> : null, true);
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            } else {
+              entry = renderLink(sub.name, sub.path, SubIcon ? <SubIcon /> : null);
+            }
+
+            return (
+              <Fragment key={sub.name}>
+                {heading && <p className="app-nav__section">{heading}</p>}
+                {entry}
+              </Fragment>
+            );
+          })}
+        </div>
       </div>
     );
-  }
-
-    if (nav.path) {
-      const linkElement = (
-        <Link
-          to={nav.path}
-          className={`
-            flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 relative
-            ${
-              isActive(nav.path) || (isCollapsed && tooltipVisible === index)
-                ? "bg-cyan-50 text-cyan-600"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-            }
-            ${isCollapsed ? "justify-center" : ""}
-          `}
-          onMouseEnter={(e) => isCollapsed && handleTooltipEnter(index, e)}
-          onMouseLeave={handleTooltipLeave}
-        >
-          <div className="flex items-center gap-3">
-            <span className="app-sidebar__menu-icon flex-shrink-0">{nav.icon}</span>
-            {(isExpanded || isMobileOpen) && <span className="text-sm">{nav.name}</span>}
-          </div>
-        </Link>
-      );
-
-      return <div key={nav.name}>{linkElement}</div>;
-    }
-
-    return null;
   };
-
-  const activeTooltipItem = tooltipVisible !== null ? visibleNavItems[tooltipVisible] : undefined;
 
   return (
     <>
@@ -725,7 +672,7 @@ const AppSidebar: React.FC = () => {
                 <button
                   key={nav.name}
                   type="button"
-                  className={`app-sidebar__rail-button ${active ? "is-active" : ""}`}
+                  className={`app-sidebar__rail-button${active ? " is-active" : ""}`}
                   onClick={() => handleRailNavigation(nav, index)}
                   onMouseEnter={(event) => handleRailTooltip(nav, event)}
                   onMouseLeave={() => setRailTooltip(null)}
@@ -757,13 +704,9 @@ const AppSidebar: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <div className="app-sidebar__navigation flex-1 overflow-y-auto py-4 px-2">
-          <div className="app-sidebar__menu space-y-1">
-            {visibleNavItems.filter((_, index) => index === selectedModuleIndex).map((nav) =>
-              renderMenuItem(nav, selectedModuleIndex)
-            )}
-          </div>
-        </div>
+        <nav className="app-sidebar__navigation flex-1 overflow-y-auto" aria-label="Module pages">
+          {visibleNavItems[selectedModuleIndex] && renderModulePanel(visibleNavItems[selectedModuleIndex], selectedModuleIndex)}
+        </nav>
 
         {/* User Profile */}
         <div className="app-sidebar__profile p-3 mt-auto border-t border-gray-200">
@@ -810,82 +753,6 @@ const AppSidebar: React.FC = () => {
       {railTooltip && (
         <div className="app-sidebar__rail-tooltip" style={{ top: railTooltip.top, left: railTooltip.left }} role="tooltip">
           {railTooltip.name}
-        </div>
-      )}
-
-      {/* Global Tooltip Portal / Hover Submenu */}
-      {tooltipVisible !== null && !isExpanded && !isMobileOpen && (
-        <div
-          className="fixed z-[100] bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-xl shadow-xl p-1.5 min-w-[150px] transition-all duration-150 animate-fadeIn"
-          style={{
-            top: tooltipPosition.top,
-            left: tooltipPosition.left,
-            transform: "translateY(-50%)",
-          }}
-          onMouseEnter={() => {
-            if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-          }}
-          onMouseLeave={handleTooltipLeave}
-        >
-          {activeTooltipItem?.subItems ? (
-            <div className="flex flex-col gap-0.5">
-              {activeTooltipItem.subItems.map((subItem) => (
-                <div key={subItem.name}>
-                  {subItem.path ? (
-                    <Link
-                      to={subItem.path}
-                      className={`
-                        px-3 py-2 text-sm rounded-lg transition-all duration-200 block whitespace-nowrap text-left
-                        ${isActive(subItem.path)
-                          ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                        }
-                      `}
-                      onClick={() => setTooltipVisible(null)}
-                    >
-                      {subItem.name}
-                    </Link>
-                  ) : (
-                    <div className="px-3 py-2 text-sm rounded-lg block whitespace-nowrap text-left text-gray-800 dark:text-gray-200 font-semibold bg-gray-100 dark:bg-gray-800">
-                      {subItem.name}
-                    </div>
-                  )}
-                  {subItem.subItems && (
-                    <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-gray-200 dark:border-gray-700 pl-2">
-                      {subItem.subItems.map((ssItem) => (
-                        <Link
-                          key={ssItem.name}
-                          to={ssItem.path || "#"}
-                          className={`
-                            px-3 py-1.5 text-xs rounded-lg transition-all duration-200 block whitespace-nowrap text-left
-                            ${isActive(ssItem.path || "")
-                              ? "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400 font-semibold"
-                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                            }
-                          `}
-                          onClick={() => setTooltipVisible(null)}
-                        >
-                          {ssItem.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-              {activeTooltipItem?.name}
-            </div>
-          )}
-
-          {/* Subtle triangle tail connecting to the sidebar */}
-          <div
-            className="absolute top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white dark:bg-gray-800 border-l border-b border-gray-100 dark:border-gray-700/80 rotate-45"
-            style={{
-              left: "0px",
-            }}
-          />
         </div>
       )}
     </>

@@ -13,6 +13,8 @@ import ReusableTable, { ColumnDef, formatMoney } from "../../components/common/T
 import { FloatingInput, FloatingTextarea, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { toSelectOptions, useInvoiceEnum } from "./invoiceEnums";
 import { usePermissions } from "../../access/usePermissions";
+import { ACCOUNT_TYPE_OPTIONS, GeneralAccount, INVOICE_API, apiError, isDebitNormal, labelOf, money } from "./invoiceShared";
+import { DialogFooter, StatusBadge } from "./invoiceUi";
 
 interface GeneralAccount {
   id: number;
@@ -41,8 +43,10 @@ interface GeneralAccountPayload {
   allowTransactions: boolean;
 }
 
-const API_URL = "/v1/api/invoice/general-accounts";
-const PAGE_SIZE = 10;
+// The invoice service's Currency enum
+const CURRENCY_OPTIONS = ["INR", "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "CNY", "JPY", "SGD", "NZD", "SEK", "NOK", "DKK", "PLN", "TRY", "ZAR", "BRL", "MXN", "KRW", "RUB"].map(
+  (id) => ({ id, name: id })
+);
 
 /** Used until the ACCOUNT_TYPE enum API answers (or if it fails). */
 const ACCOUNT_TYPE_FALLBACK = ["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE", "OTHER"];
@@ -74,6 +78,30 @@ const STATS_CARDS: StatsCardOption<GeneralAccount>[] = [
 const GeneralAccounts: React.FC = () => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
 
+const emptyForm = () => ({
+  accountCode: "",
+  accountName: "",
+  accountType: "",
+  currency: "INR",
+  openingBalance: "",
+  description: "",
+  isActive: true,
+  allowTransactions: true,
+});
+
+const Toggle = ({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) => (
+  <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+    <span className="text-sm text-slate-700">
+      {label}
+      <span className="block text-xs text-slate-500">{hint}</span>
+    </span>
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+  </label>
+);
+
+const GeneralAccounts: React.FC = () => {
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
   const [accounts, setAccounts] = useState<GeneralAccount[]>([]);
   const [form, setForm] = useState<Partial<GeneralAccount>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -181,10 +209,19 @@ const GeneralAccounts: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const closeModal = () => {
-    setShowFormModal(false);
-    setEditingId(null);
-    setForm({});
+  const openEdit = (account: GeneralAccount) => {
+    setEditing(account);
+    setForm({
+      accountCode: account.accountCode ?? "",
+      accountName: account.accountName ?? "",
+      accountType: account.accountType ?? "",
+      currency: account.currency || "INR",
+      openingBalance: account.openingBalance != null ? String(account.openingBalance) : "",
+      description: account.description ?? "",
+      isActive: account.isActive !== false,
+      allowTransactions: account.allowTransactions !== false,
+    });
+    setFormOpen(true);
   };
 
   const handleDelete = (account: GeneralAccount) => {
@@ -212,7 +249,7 @@ const GeneralAccounts: React.FC = () => {
   const tableColumns: ColumnDef<GeneralAccount>[] = [
     {
       key: "accountName",
-      label: "Account Name",
+      label: "Account",
       sortable: true,
       headerClassName: "w-[25%] text-left",
       className: "w-[25%]",
@@ -256,9 +293,10 @@ const GeneralAccounts: React.FC = () => {
         </span>
       ),
     },
+    { key: "accountType", label: "Type", sortable: true, render: (row) => <StatusBadge status={row.accountType} tones={TYPE_TONES} /> },
     {
       key: "openingBalance",
-      label: "Opening Balance",
+      label: "Opening balance",
       sortable: true,
       filterable: false,
       headerClassName: "w-[15%] text-right",
@@ -494,6 +532,54 @@ const GeneralAccounts: React.FC = () => {
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         />
       </div>
+
+      <PaginatedPopup
+        isOpen={formOpen}
+        title={editing ? `Edit ${editing.accountCode}` : "Add account"}
+        subtitle="Codes are unique within your company"
+        onClose={() => setFormOpen(false)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={save} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingInput label="Code" name="accountCode" required value={form.accountCode}
+                onChange={(event) => setForm((current) => ({ ...current, accountCode: event.target.value }))} />
+              <FloatingInput label="Name" name="accountName" required value={form.accountName}
+                onChange={(event) => setForm((current) => ({ ...current, accountName: event.target.value }))} />
+              <FloatingSelect1 label="Type" name="accountType" required value={form.accountType} options={ACCOUNT_TYPE_OPTIONS}
+                onChange={(event) => setForm((current) => ({ ...current, accountType: event.target.value }))} />
+              <FloatingSelect1 label="Currency" name="currency" value={form.currency} options={CURRENCY_OPTIONS}
+                onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} />
+              <FloatingInput label="Opening balance" name="openingBalance" type="number" value={form.openingBalance}
+                onChange={(event) => setForm((current) => ({ ...current, openingBalance: event.target.value }))} />
+              <p className="self-center text-xs text-slate-500">
+                {form.accountType
+                  ? `${labelOf(form.accountType)} accounts hold a ${isDebitNormal(form.accountType) ? "debit" : "credit"} balance; enter it as a positive amount.`
+                  : "Choose the type to see which side the balance sits on."}
+              </p>
+              <div className="sm:col-span-2">
+                <FloatingTextarea label="Description" name="description" rows={2} value={form.description}
+                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+              </div>
+              <Toggle label="Active" hint="Inactive accounts are hidden from pickers" checked={form.isActive}
+                onChange={(isActive) => setForm((current) => ({ ...current, isActive }))} />
+              <Toggle label="Accepts postings" hint="Turn off for heading accounts that only group others" checked={form.allowTransactions}
+                onChange={(allowTransactions) => setForm((current) => ({ ...current, allowTransactions }))} />
+            </div>
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Add account"} busy={busy} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleting)}
+        title="Delete account"
+        message={`Delete ${deleting?.accountCode ?? ""} ${deleting?.accountName ?? ""}? Accounts with postings can't be deleted; make them inactive instead.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
     </>
   );
 };

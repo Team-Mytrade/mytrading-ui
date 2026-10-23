@@ -440,12 +440,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Renew first when the access token has expired, the user is missing, or the session is
       // browser-only (its cookie is gone after the browser was closed)
       const browserOnly = localStorage.getItem(SESSION_PERSISTENT_KEY) === 'false';
-      if (isTokenExpired(token) || !rawUser || browserOnly) {
+      const expired = isTokenExpired(token);
+      if (expired || !rawUser || browserOnly) {
         const result = await refreshAccessToken();
         if (result.status === 'ok') {
           token = result.token;
           rawUser = { ...(rawUser ?? {}), ...((result.user as object) ?? {}) };
-        } else if (result.status === 'rejected' || !rawUser) {
+        } else if ((result.status === 'rejected' && expired) || !rawUser) {
+          // A still-valid access token is kept even when the renewal is refused (e.g. a server still
+          // on an older version); the session then ends when that token expires
           // Nothing to recover: show sign-in straight away and come back to this page afterwards
           saveReturnPath(getCurrentAppLocation());
           localStorage.removeItem('accessToken');

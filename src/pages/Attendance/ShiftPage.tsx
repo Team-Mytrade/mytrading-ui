@@ -9,7 +9,6 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
-import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base URLs (routing via Vite dev proxy)
 const BASE_SHIFT_URL = '/v1/api/attendance/shifts';
@@ -50,8 +49,11 @@ export interface ShiftModel {
   [key: string]: any;
 }
 
-const ShiftPage: React.FC = () => {
-  const { canCreate, canDelete, canUpdate } = usePermissions();
+export interface ShiftPageProps {
+  isEmbedded?: boolean;
+}
+
+const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [shifts, setShifts] = useState<ShiftModel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -490,14 +492,14 @@ const ShiftPage: React.FC = () => {
           >
             <CalendarDays className="w-3.5 h-3.5" />
           </button>
-          {canUpdate && (<button
+          <button
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:!border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors cursor-pointer"
             title="Edit Shift Master"
           >
             <Edit2 className="w-3.5 h-3.5" />
-          </button>)}
+          </button>
         </div>
       )
     }
@@ -505,10 +507,14 @@ const ShiftPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Shift Master" description="Configure work shift timings and weekly off rules" />
-      <PageBreadcrumb pageTitle="Shift Master" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Shift Master" description="Configure work shift timings and weekly off rules" />
+          <PageBreadcrumb pageTitle="Shift Master" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={`${isEmbedded ? 'w-full' : 'max-w-6xl mx-auto'} pb-6 animate-in fade-in duration-200 mt-1 space-y-4`}>
         
         {/* Header Bar */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -523,13 +529,13 @@ const ShiftPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            {canCreate && (<button
+            <button
               type="button"
               onClick={openCreateModal}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Create Shift
-            </button>)}
+            </button>
             <button
               type="button"
               onClick={fetchShifts}
@@ -796,7 +802,7 @@ const ShiftPage: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       {wo.id && (
-                        canUpdate && <button
+                        <button
                           type="button"
                           onClick={() => {
                             setEditingWeeklyOffId(wo.id!);
@@ -809,7 +815,7 @@ const ShiftPage: React.FC = () => {
                         </button>
                       )}
                       {wo.id && (
-                        canDelete && <button
+                        <button
                           type="button"
                           onClick={() => handleDeleteWeeklyOff(wo.id!)}
                           className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-800 cursor-pointer"

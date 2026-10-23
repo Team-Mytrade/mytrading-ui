@@ -230,7 +230,36 @@ const Invoices: React.FC = () => {
 
   /* ---------------- Load ---------------- */
 
-  const fetchInvoices = async () => {
+  // Opened with ?invoiceId= (e.g. from a receipt): show that invoice once the list is in
+  useEffect(() => {
+    const invoiceId = Number(searchParams.get("invoiceId"));
+    if (!invoiceId || !invoices.length) return;
+    const invoice = invoices.find((item) => item.id === invoiceId);
+    if (invoice) openDetail(invoice);
+    searchParams.delete("invoiceId");
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices]);
+
+  const loadDetailExtras = async (invoice: Invoice) => {
+    setCreditNotes([]);
+    setDocuments([]);
+    if (invoice.status === "DRAFT") return;
+    const [notes, docs] = await Promise.allSettled([
+      axios.get<CreditNote[]>(`${INVOICE_API}/credit-notes`, { params: { invoiceId: invoice.id } }),
+      canExport ? axios.get<InvoiceDocument[]>(`${API_URL}/${invoice.id}/documents`) : Promise.resolve({ data: [] as InvoiceDocument[] }),
+    ]);
+    if (notes.status === "fulfilled") setCreditNotes(Array.isArray(notes.value.data) ? notes.value.data : []);
+    if (docs.status === "fulfilled") setDocuments(Array.isArray(docs.value.data) ? docs.value.data : []);
+  };
+
+  const openDetail = (invoice: Invoice) => {
+    setSelected(invoice);
+    loadDetailExtras(invoice);
+  };
+
+  const refreshSelected = async (invoiceId: number) => {
+    await fetchInvoices();
     try {
       setIsLoading(true);
       const res = await axios.get(API_URL);
@@ -407,7 +436,7 @@ const Invoices: React.FC = () => {
       console.error("Error saving invoice", err);
       ToasterService.error(apiError(err, "Failed to save invoice"));
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
   };
 
@@ -617,10 +646,20 @@ const Invoices: React.FC = () => {
     render: (i) => <span className="text-sm text-slate-600">{i[key] ? formatDisplayDate(i[key] as string) : "--"}</span>,
   });
 
-  const tableColumns: ColumnDef<Invoice>[] = [
+  const stats = useMemo(() => {
+    const open = invoices.filter((invoice) => isOpenInvoice(invoice.status));
+    return {
+      drafts: invoices.filter((invoice) => invoice.status === "DRAFT").length,
+      outstanding: open.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0),
+      overdue: invoices.filter((invoice) => invoice.status === "OVERDUE").length,
+      paid: invoices.filter((invoice) => invoice.status === "PAID").length,
+    };
+  }, [invoices]);
+
+  const columns: ColumnDef<Invoice>[] = [
     {
       key: "invoiceNumber",
-      label: "Invoice Number",
+      label: "Invoice",
       sortable: true,
       headerClassName: "w-[14%] text-left",
       className: "w-[14%]",
@@ -915,6 +954,194 @@ const Invoices: React.FC = () => {
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         />
       </div>
+
+      <PaginatedPopup
+        isOpen={Boolean(selected) && !dialog && !confirm}
+        title="Invoice"
+        subtitle={selected ? `${selected.customerName ?? ""} · ${labelOf(selected.status)}` : ""}
+        onClose={() => setSelected(null)}
+        maxWidthClassName="max-w-4xl"
+        content={detail || undefined}
+      />
+
+      {/* Generate from a confirmed dispatch */}
+      <PaginatedPopup
+        isOpen={dialog === "generate"}
+        title="Generate invoice"
+        subtitle="From a confirmed sales dispatch. The invoice starts as a draft you can check before issuing."
+        onClose={() => setDialog(null)}
+        maxWidthClassName="max-w-2xl"
+        content={
+          <form onSubmit={generate} className="flex flex-col">
+            <div className="max-h-[60dvh] space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+              {pendingDispatches === null ? (
+                <p className="text-sm text-slate-500">Loading dispatches…</p>
+              ) : pendingDispatches.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+                  <TruckIcon className="mx-auto mb-2 h-8 w-8 text-slate-400" />
+                  No confirmed dispatches are waiting for an invoice.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {pendingDispatches.map((dispatch) => (
+                    <label
+                      key={dispatch.id}
+                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm transition ${generateForm.dispatchId === String(dispatch.id) ? "border-cyan-500 bg-cyan-50/60" : "border-slate-200 hover:bg-slate-50"}`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="dispatch"
+                          checked={generateForm.dispatchId === String(dispatch.id)}
+                          onChange={() => setGenerateForm((form) => ({ ...form, dispatchId: String(dispatch.id) }))}
+                        />
+                        <span>
+                          <span className="block font-semibold text-slate-800">{dispatch.dispatchNumber}</span>
+                          <span className="block text-xs text-slate-500">{dispatch.customerName} · {dispatch.salesOrderNumber}</span>
+                        </span>
+                      </span>
+                      <span className="text-xs text-slate-500">{dateLabel(dispatch.dispatchDate)}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FloatingInput label="Invoice date" name="invoiceDate" type="date" value={generateForm.invoiceDate}
+                  onChange={(event) => setGenerateForm((form) => ({ ...form, invoiceDate: event.target.value }))} />
+                <FloatingInput label="Remarks" name="remarks" value={generateForm.remarks}
+                  onChange={(event) => setGenerateForm((form) => ({ ...form, remarks: event.target.value }))} />
+              </div>
+            </div>
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Create draft" busy={busy} disabled={!generateForm.dispatchId} />
+          </form>
+        }
+      />
+
+      {/* Edit draft */}
+      <PaginatedPopup
+        isOpen={dialog === "edit"}
+        title={`Edit draft ${selected?.invoiceNumber ?? ""}`}
+        subtitle="Lines, prices and taxes come from the sales order and dispatch."
+        onClose={() => setDialog(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={saveDraft} className="flex flex-col">
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              <FloatingInput label="Invoice date" name="invoiceDate" type="date" value={editForm.invoiceDate}
+                onChange={(event) => setEditForm((form) => ({ ...form, invoiceDate: event.target.value }))} />
+              <FloatingTextarea label="Remarks" name="remarks" rows={3} value={editForm.remarks}
+                onChange={(event) => setEditForm((form) => ({ ...form, remarks: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Save" busy={busy} />
+          </form>
+        }
+      />
+
+      {/* Cancel an issued invoice without payments */}
+      <PaginatedPopup
+        isOpen={dialog === "cancel"}
+        title={`Cancel ${selected?.invoiceNumber ?? ""}`}
+        subtitle="The receivable is closed and the invoice stays on record as cancelled."
+        onClose={() => setDialog(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={cancelInvoice} className="flex flex-col">
+            <div className="px-4 py-4 sm:px-5">
+              <FloatingTextarea label="Reason" name="reason" rows={3} required value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)} />
+            </div>
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Cancel invoice" busy={busy} danger />
+          </form>
+        }
+      />
+
+      {/* Credit note */}
+      <PaginatedPopup
+        isOpen={dialog === "creditNote"}
+        title={`Credit note for ${selected?.invoiceNumber ?? ""}`}
+        subtitle={`Reduces what the customer owes on this invoice (balance ${money(selected?.balanceAmount, selected?.currencyCode)}). Any amount beyond the balance becomes customer credit.`}
+        onClose={() => setDialog(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={createCreditNote} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingInput label="Amount" name="amount" type="number" required value={creditNoteForm.amount}
+                onChange={(event) => setCreditNoteForm((form) => ({ ...form, amount: event.target.value }))} />
+              <FloatingSelect1 label="Type" name="creditNoteType" value={creditNoteForm.creditNoteType} options={CREDIT_NOTE_TYPE_OPTIONS}
+                includeEmptyOption={false} onChange={(event) => setCreditNoteForm((form) => ({ ...form, creditNoteType: event.target.value }))} />
+              <div className="sm:col-span-2">
+                <FloatingTextarea label="Reason" name="reason" rows={3} required value={creditNoteForm.reason}
+                  onChange={(event) => setCreditNoteForm((form) => ({ ...form, reason: event.target.value }))} />
+              </div>
+            </div>
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Issue credit note" busy={busy} />
+          </form>
+        }
+      />
+
+      {/* Apply an advance / overpayment / credit-note credit */}
+      <PaginatedPopup
+        isOpen={dialog === "applyCredit"}
+        title={`Apply customer credit to ${selected?.invoiceNumber ?? ""}`}
+        subtitle={`Balance due ${money(selected?.balanceAmount, selected?.currencyCode)}`}
+        onClose={() => setDialog(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={applyCredit} className="flex flex-col">
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              {credits.length === 0 ? (
+                <p className="text-sm text-slate-500">This customer has no unused credit.</p>
+              ) : (
+                <>
+                  <FloatingSelect1
+                    label="Credit"
+                    name="creditId"
+                    value={applyForm.creditId}
+                    options={credits.map((credit) => ({
+                      id: String(credit.id),
+                      name: `${labelOf(credit.creditType)} ${credit.reference ? `(${credit.reference})` : ""} · ${money(credit.remainingAmount, selected?.currencyCode)} left`,
+                    }))}
+                    onChange={(event) => {
+                      const credit = credits.find((item) => String(item.id) === event.target.value);
+                      const amount = credit ? Math.min(Number(credit.remainingAmount), Number(selected?.balanceAmount || 0)) : 0;
+                      setApplyForm((form) => ({ ...form, creditId: event.target.value, amount: amount ? String(amount) : "" }));
+                    }}
+                  />
+                  <FloatingInput label="Amount to apply" name="amount" type="number" value={applyForm.amount}
+                    onChange={(event) => setApplyForm((form) => ({ ...form, amount: event.target.value }))} />
+                  {selectedCredit && (
+                    <p className="text-xs text-slate-500">
+                      Up to {money(Math.min(Number(selectedCredit.remainingAmount), Number(selected?.balanceAmount || 0)), selected?.currencyCode)}
+                    </p>
+                  )}
+                  <FloatingInput label="Remarks" name="remarks" value={applyForm.remarks}
+                    onChange={(event) => setApplyForm((form) => ({ ...form, remarks: event.target.value }))} />
+                </>
+              )}
+            </div>
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Apply credit" busy={busy} disabled={!credits.length} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={confirm === "issue"}
+        title={`Issue ${selected?.invoiceNumber ?? "invoice"}?`}
+        message={`The invoice becomes final and ${money(selected?.grandTotal, selected?.currencyCode)} is due from ${selected?.customerName ?? "the customer"} by ${dateLabel(selected?.dueDate)}. Issued invoices can't be edited.`}
+        confirmLabel={busy ? "Issuing…" : "Issue"}
+        variant="info"
+        onConfirm={issue}
+        onCancel={() => setConfirm(null)}
+      />
+      <ConfirmDialog
+        isOpen={confirm === "delete"}
+        title={`Delete draft ${selected?.invoiceNumber ?? ""}?`}
+        message="The dispatch becomes available to invoice again."
+        confirmLabel={busy ? "Deleting…" : "Delete"}
+        variant="danger"
+        onConfirm={deleteDraft}
+        onCancel={() => setConfirm(null)}
+      />
     </>
   );
 };

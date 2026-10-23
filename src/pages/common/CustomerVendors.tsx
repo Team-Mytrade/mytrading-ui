@@ -21,6 +21,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingTextarea } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
 
 interface Vendor {
   id: number;
@@ -94,8 +95,7 @@ const Vendors: React.FC = () => {
         await fetchVendors();
       }
     } catch (err) {
-      console.error("Error submitting vendor", err);
-      ToasterService.error("Failed to save vendor");
+      ToasterService.error(apiError(err, "Failed to save vendor"));
     } finally {
       setSubmitting(false);
     }
@@ -133,8 +133,7 @@ const Vendors: React.FC = () => {
       setVendorToDelete(null);
       fetchVendors();
     } catch (err) {
-      console.error("Error deleting vendor", err);
-      ToasterService.error("Failed to delete vendor");
+      ToasterService.error(apiError(err, "Failed to delete vendor"));
     }
   };
 
@@ -264,7 +263,7 @@ const Vendors: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 ">
         <div className="mb-6 mr-3 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Vendor" />
+          {canCreate && <AddButton onClick={openCreate} label="Add Vendor" />}
         </div>
         <div className="my-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard

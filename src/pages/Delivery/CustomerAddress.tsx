@@ -24,11 +24,13 @@ import {
   PencilSquareIcon,
   ArrowLeftIcon,
 } from "@heroicons/react/24/solid";
-import { 
+import {
   FunnelIcon,
   TrashIcon,
   CheckIcon
 } from "lucide-react";
+import { useDeliveryLookups } from "./deliveryShared";
+import { usePermissions } from "../../access/usePermissions";
 
 // ================= TYPES =================
 
@@ -133,12 +135,16 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
   customerId: propCustomerId,
   onBack 
 }) => {
-  const { canDelete, canUpdate } = usePermissions();
+  const { canCreate, canDelete, canUpdate } = usePermissions();
   const navigate = useNavigate();
   const { id: urlCustomerId } = useParams<{ id: string }>();
   
   const customerId = propCustomerId || (urlCustomerId ? parseInt(urlCustomerId) : 0);
-  
+  // Opened from the menu there is no customer in context: all addresses are listed, optionally filtered by customer
+  const lookups = useDeliveryLookups(customerId ? [] : ["customers"]);
+  const [customerFilter, setCustomerFilter] = useState("");
+  const scopeId = customerId || Number(customerFilter) || 0;
+
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -194,16 +200,11 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
     }
   };
 
-  // Fetch addresses for a specific customer
+  // One customer's addresses, or every address when no customer is chosen
   const fetchAddresses = async (customerId: number) => {
-    if (!customerId) {
-      setAddresses([]);
-      return;
-    }
-    
     setLoading(true);
     try {
-      const response = await axios.get(API.getAll(customerId));
+      const response = await axios.get(customerId ? API.getAll(customerId) : API_BASE_URL);
       setAddresses(response.data || []);
     } catch (err: any) {
       console.error("Error fetching addresses:", err);
@@ -243,9 +244,7 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
       toast.success("Address deleted successfully!");
       setShowDeleteModal(false);
       setSelectedAddress(null);
-      if (customerId) {
-        await fetchAddresses(customerId);
-      }
+      await fetchAddresses(scopeId);
     } catch (err: any) {
       console.error("Error deleting address:", err);
       toast.error(err.response?.data?.message || "Failed to delete address!");
@@ -258,9 +257,12 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
   useEffect(() => {
     if (customerId) {
       fetchCustomerDetails(customerId);
-      fetchAddresses(customerId);
     }
   }, [customerId]);
+
+  useEffect(() => {
+    fetchAddresses(scopeId);
+  }, [scopeId]);
 
   // ================= HANDLERS =================
 
@@ -279,7 +281,8 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
   }
   
   try {
-    const customerData = await fetchCustomerDetails(selectedId);
+    // Only the form's customer changes here; the page keeps its own context
+    const { data: customerData } = await axios.get(API.getCustomerById(selectedId));
     if (customerData) {
       setSelectedCustomer(customerData);
       const customerNumber = getCustomerNumber(customerData);
@@ -299,8 +302,6 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
         country: defaultAddress?.country || "India",
         postalCode: defaultAddress?.postalCode || "",
       }));
-      
-      fetchAddresses(selectedId);
     }
   } catch (error) {
     console.error("Error selecting customer:", error);
@@ -419,6 +420,8 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
   });
   setSelectedCustomer(null);
   setShowFormModal(true);
+  // Listing one customer's addresses: the new one is theirs
+  if (customerFilter) handleCustomerSelect(Number(customerFilter));
 };
 
   const handleChange = (
@@ -491,9 +494,7 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
       
       setShowFormModal(false);
       setEditingId(null);
-      if (customerId) {
-        await fetchAddresses(customerId);
-      }
+      await fetchAddresses(scopeId);
     } catch (err) {
       // Error already handled
     } finally {
@@ -511,7 +512,7 @@ const CustomerAddress: React.FC<CustomerAddressProps> = ({
     if (onBack) {
       onBack();
     } else {
-      navigate("/customers");
+      navigate(-1);
     }
   };
 
@@ -556,7 +557,23 @@ const stats = getStats();
 
   // ================= TABLE COLUMNS =================
 
+  // Listing several customers' addresses: show whose each one is
+  const customerColumn: ColumnDef<CustomerAddress> = {
+    key: "customerName",
+    label: "Customer",
+    sortable: true,
+    headerClassName: "w-[20%] text-left",
+    className: "w-[20%]",
+    render: (address) => (
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-medium text-slate-700 truncate">{address.customerName || `Customer #${address.customerId}`}</span>
+        {address.customerNumber && <span className="text-xs text-slate-400 truncate">{address.customerNumber}</span>}
+      </div>
+    ),
+  };
+
   const tableColumns: ColumnDef<CustomerAddress>[] = [
+    ...(customerId ? [] : [customerColumn]),
     {
       key: "addressLine1",
       label: "Address",
@@ -686,9 +703,9 @@ const stats = getStats();
 
   return (
     <>
-      <PageMeta 
-        title={`Addresses - ${customer?.customerName || 'Customer'}`} 
-        description={`Manage addresses for ${customer?.customerName || 'customer'}`} 
+      <PageMeta
+        title={customerId ? `Addresses - ${customer?.customerName || 'Customer'}` : "Customer Addresses"}
+        description={customerId ? `Manage addresses for ${customer?.customerName || 'customer'}` : "Delivery and billing addresses of all customers"}
       />
       <PageBreadcrumb pageTitle="Customer Addresses" />
 
@@ -707,14 +724,14 @@ const stats = getStats();
             <div>
               <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <MapPinIcon className="h-6 w-6 text-cyan-600" />
-                {customer?.customerName || 'Customer'} Addresses
+                {customerId ? `${customer?.customerName || 'Customer'} Addresses` : "Customer Addresses"}
               </h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 {addresses.length} address{addresses.length !== 1 ? 'es' : ''} on record
               </p>
             </div>
           </div>
-          <AddButton onClick={handleAddAddress} label="Add Address" className="-mt-[264px]" />
+          <AddButton onClick={handleAddAddress} label="Add Address" />
         </div>
 
         {/* STATS */}
@@ -762,14 +779,28 @@ const stats = getStats();
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search addresses by city, state, or postal code..."
+                placeholder="Search addresses by customer, city, state, or postal code..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
               />
             </div>
           </div>
-        
+
+          {!customerId && lookups.customers.length > 0 && (
+            <select
+              value={customerFilter}
+              onChange={(e) => setCustomerFilter(e.target.value)}
+              className="w-full sm:w-56 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
+              aria-label="Filter by customer"
+            >
+              <option value="">All customers</option>
+              {lookups.customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.customerName}</option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
@@ -846,12 +877,12 @@ const stats = getStats();
               {search || activeFilter !== "ALL" || defaultFilter !== "ALL" ? (
                 <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
               ) : (
-                <button
+                canCreate && <button
                   type="button"
                   onClick={handleAddAddress}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Add first address for this customer
+                  {scopeId ? "Add first address for this customer" : "Add the first address"}
                 </button>
               )}
             </div>
@@ -884,6 +915,35 @@ const stats = getStats();
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* A new address opened from the menu: choose whose it is */}
+                {!editingId && !customerId && (
+                  <div className="col-span-2">
+                    {lookups.customers.length > 0 ? (
+                      <>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                        <select
+                          value={form.customerId || ""}
+                          onChange={(e) => handleCustomerSelect(Number(e.target.value))}
+                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                          required
+                          aria-label="Customer"
+                        >
+                          <option value="">Choose a customer</option>
+                          {lookups.customers.map((c) => (
+                            <option key={c.id} value={c.id}>{c.customerName}</option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      // No access to the customer list: enter the customer by hand
+                      <div className="grid grid-cols-2 gap-4">
+                        <FloatingInput label="Customer ID *" name="customerId" type="number" min={1} value={form.customerId || ""} onChange={handleChange} required />
+                        <FloatingInput label="Customer Name *" name="customerName" value={form.customerName} onChange={handleChange} required />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Customer info - Read-only display */}
                 <div className="col-span-2 bg-gray-50 p-3 rounded-lg mb-2">
                   <div className="flex items-center gap-2">

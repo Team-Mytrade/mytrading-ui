@@ -43,12 +43,12 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
   const [sidebarWidth, setSidebarWidthState] = useState<number>(() => {
     const saved = localStorage.getItem("sidebarWidth");
     const savedWidth = saved ? parseInt(saved, 10) : 260;
-    return Math.max(200, Math.min(260, savedWidth));
+    return Math.max(245, Math.min(280, savedWidth));
   });
   const [isResizing, setIsResizing] = useState(false);
 
   const setSidebarWidth = (width: number) => {
-    const constrainedWidth = Math.max(200, Math.min(260, width));
+    const constrainedWidth = Math.max(245, Math.min(280, width));
     setSidebarWidthState(constrainedWidth);
     localStorage.setItem("sidebarWidth", constrainedWidth.toString());
   };

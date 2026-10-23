@@ -124,9 +124,14 @@ type Warehouse = {
 // ============ CONSTANTS ============
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
+<<<<<<< HEAD
 const PRODUCT_API_URL = "/v1/api/product/products";
 <<<<<<< HEAD
 =======
+=======
+// Products live in the product catalogue (the purchase service no longer serves them)
+const PRODUCT_API_URL = "/v1/api/product/products";
+>>>>>>> 78384b8d1e904b9575946c8f7181c1dd79b85dbc
 // Confirmed real endpoint (see note at top of file) — returns a flat array of
 // { batchId, batchNumber, warehouseId, productId, quantity, reserved, available }.
 // A batch's quantity/reserved/available live ONLY here, never on the Batch
@@ -465,6 +470,7 @@ const BatchManagement: React.FC = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+<<<<<<< HEAD
   // CREATE payload: business fields only. The server sets id, batchNumber,
   // createdBy, tenantId and the timestamps.
   const buildCreatePayload = () => ({
@@ -473,6 +479,33 @@ const BatchManagement: React.FC = () => {
     productId: toNumber(form.productId),
     warehouse: { id: toNumber(form.warehouse) },
   });
+=======
+  const buildPayload = () => {
+    const selectedWarehouse = warehouses.find((w) => String(w.id) === form.warehouse);
+
+    // Tenant and creator come from the signed-in user on the server
+    const payload: any = {
+      manufacturingDate: form.manufacturingDate,
+      expiryDate: form.expiryDate,
+      productId: toNumber(form.productId),
+      warehouse: selectedWarehouse ? { id: selectedWarehouse.id } : null,
+    };
+
+    // CORRECTED: batchNumber is only meaningful (and only known) once editing
+    // an existing batch — included here so PUT doesn't null it out. Left out
+    // entirely on create, since it's assumed server-generated there.
+    if (editingId) {
+      payload.id = editingId;
+      payload.batchNumber = form.batchNumber;
+    }
+
+    // NOTE: supplierName is deliberately NOT sent — the backend schema has no
+    // field for it. Saved locally instead via saveSupplierName() after a
+    // successful save. See note at top of file.
+
+    return payload;
+  };
+>>>>>>> 78384b8d1e904b9575946c8f7181c1dd79b85dbc
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

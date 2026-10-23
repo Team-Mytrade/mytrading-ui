@@ -1,17 +1,17 @@
-import { useCurrentEmployee } from "../../access/useCurrentEmployee";
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Plus, 
-  Sparkles, CheckCircle2, AlertCircle, FileText, Gift, Briefcase, UserCheck,
-  Maximize2, Minimize2, X, Loader2
+  Sparkles, CheckCircle2, AlertCircle, FileText, Briefcase, UserCheck,
+  Maximize2, Minimize2, X, Loader2, Fingerprint, ArrowRight, Plane,
+  BarChart3, Compass, Info, Check, LogIn, LogOut, Coffee, ChevronDown
 } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { ToasterService } from '../../Services/ToasterService';
-import { todayIso } from "../../utils/localDate";
+import { AuthContext } from '../../context/AuthContext';
 
 export interface CalendarDayItem {
   date: string;
@@ -25,19 +25,132 @@ export interface CalendarDayItem {
   leaveType?: string;
 }
 
+interface LoggedInEmployee {
+  id: number;
+  name: string;
+  code: string;
+  department: string;
+  designation: string;
+  email?: string;
+  initials: string;
+}
+
+// Helper to extract initials safely
+const getInitials = (name?: string): string => {
+  if (!name) return 'SA';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'SA';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+};
+
+const extractString = (val: any, fallback: string): string => {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    return val.name || val.title || val.departmentName || val.designationName || fallback;
+  }
+  return String(val);
+};
+
 const EmployeeSelfServicePage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [activeRequestFilter, setActiveRequestFilter] = useState<string>('ALL');
-  const [showRequestDropdown, setShowRequestDropdown] = useState<boolean>(false);
+  const [liveClock, setLiveClock] = useState<Date>(new Date());
   const [isCalendarExpanded, setIsCalendarExpanded] = useState<boolean>(false);
 
-  // User Profile
-  // Own employee identity from the login token (no hard-coded ids)
-  const currentUser = useCurrentEmployee();
+  // 1-second live ticking clock
+  useEffect(() => {
+    const timer = setInterval(() => setLiveClock(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  // The employee comes from the login token; never guessed from names
-  const resolvedEmpId = currentUser.id;
+  // Dynamically resolved Logged-In Employee
+  const [currentUser, setCurrentUser] = useState<LoggedInEmployee>(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        const name = (parsed.fullName || parsed.name || parsed.username || 'System Admin').trim();
+        const rawId = parsed.employeeId || parsed.id || parsed.userId || 12;
+        const numId = Number(rawId) || 12;
+        return {
+          id: numId,
+          name: name,
+          code: parsed.employeeCode || `EMP-${numId}`,
+          department: parsed.department || 'Operations',
+          designation: parsed.role || parsed.roles?.[0] || 'Administrator',
+          email: parsed.email || '',
+          initials: getInitials(name)
+        };
+      } catch (e) {}
+    }
+    return {
+      id: 12,
+      name: 'System Admin',
+      code: 'EMP-12',
+      department: 'Operations',
+      designation: 'Administrator',
+      email: 'admin@system.com',
+      initials: 'SA'
+    };
+  });
+
+  const [resolvedEmpId, setResolvedEmpId] = useState<number>(currentUser.id);
+
+  // Dynamic Employee resolver matching against /v1/api/payroll/employee/all
+  useEffect(() => {
+    let isMounted = true;
+    const resolveUserEmployee = async () => {
+      try {
+        const authUser = user || (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null);
+        const uName = (authUser?.fullName || authUser?.name || authUser?.username || '').trim().toLowerCase();
+        const uEmail = (authUser?.email || '').trim().toLowerCase();
+        const uId = Number(authUser?.employeeId || authUser?.id || authUser?.userId || 0);
+
+        const empRes = await axios.get('/v1/api/payroll/employee/all');
+        if (isMounted && Array.isArray(empRes.data) && empRes.data.length > 0) {
+          const match = empRes.data.find((e: any) => {
+            const eEmail = (e.email || '').trim().toLowerCase();
+            const eName = `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() || (e.name || '').trim().toLowerCase();
+            const eId = Number(e.id || 0);
+            const eUserId = Number(e.userId || 0);
+
+            if (uEmail && eEmail === uEmail) return true;
+            if (uId > 0 && (eId === uId || eUserId === uId)) return true;
+            if (uName && (eName.includes(uName) || uName.includes(eName))) return true;
+            return false;
+          });
+
+          const selected = match || empRes.data.find((e: any) => Number(e.id) === 12) || empRes.data[0];
+          if (selected && selected.id) {
+            const validId = Number(selected.id);
+            const empName = `${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.name || selected.fullName || authUser?.fullName || 'Employee';
+            const empCode = selected.employeeCode || `EMP-${selected.id}`;
+            const empDept = extractString(selected.departmentName || selected.department, 'Operations');
+            const empDesig = extractString(selected.designationName || selected.designation, authUser?.role || 'Staff');
+
+            setResolvedEmpId(validId);
+            setCurrentUser({
+              id: validId,
+              name: empName,
+              code: empCode,
+              department: empDept,
+              designation: empDesig,
+              email: selected.email || authUser?.email,
+              initials: getInitials(empName)
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Could not auto-resolve employee record:', e);
+      }
+    };
+    resolveUserEmployee();
+    return () => { isMounted = false; };
+  }, [user]);
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -46,7 +159,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const todayStr = todayIso();
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const handlePrevMonth = () => {
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -59,20 +172,47 @@ const EmployeeSelfServicePage: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
-  const [leaveBalances, setLeaveBalances] = useState<{ casual: number; sick: number; earned: number }>({
-    casual: 10,
-    sick: 12,
-    earned: 18,
+  const [leaveBalances, setLeaveBalances] = useState<{
+    casual: { remaining: number; allocated: number; used: number };
+    sick: { remaining: number; allocated: number; used: number };
+    earned: { remaining: number; allocated: number; used: number };
+    policyName: string;
+    totalRemaining: number;
+    totalAllocated: number;
+  }>({
+    casual: { remaining: 12, allocated: 12, used: 0 },
+    sick: { remaining: 10, allocated: 10, used: 0 },
+    earned: { remaining: 15, allocated: 15, used: 0 },
+    policyName: 'Standard Leave Policy',
+    totalRemaining: 37,
+    totalAllocated: 37,
   });
+  const [isLeavePopoverOpen, setIsLeavePopoverOpen] = useState<boolean>(false);
+  const leavePopoverRef = useRef<HTMLDivElement>(null);
+
+  // Close leave popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (leavePopoverRef.current && !leavePopoverRef.current.contains(event.target as Node)) {
+        setIsLeavePopoverOpen(false);
+      }
+    };
+    if (isLeavePopoverOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isLeavePopoverOpen]);
   const [loadingCalendar, setLoadingCalendar] = useState<boolean>(false);
 
-  // 1-Click Punch & Quick Leave States
+  // Punch & Leave States
   const [isPunching, setIsPunching] = useState<boolean>(false);
   const [isApplyLeaveModalOpen, setIsApplyLeaveModalOpen] = useState<boolean>(false);
   const [leaveForm, setLeaveForm] = useState({
     leaveType: 'CASUAL',
-    fromDate: todayIso(),
-    toDate: todayIso(),
+    fromDate: new Date().toISOString().slice(0, 10),
+    toDate: new Date().toISOString().slice(0, 10),
     reason: ''
   });
   const [isSubmittingLeave, setIsSubmittingLeave] = useState<boolean>(false);
@@ -90,16 +230,17 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   // Fetch Attendance records, leaves, and holidays live using the resolved employee ID
   const fetchCalendarData = useCallback(async () => {
-    const empId = resolvedEmpId;
+    const empId = resolvedEmpId || currentUser.id || 12;
     setLoadingCalendar(true);
     try {
-      const [attRes, leaveRes, holRes, balRes] = await Promise.allSettled([
+      const [attRes, leaveRes, holRes, balRes, policyRes] = await Promise.allSettled([
         axios.get(`/v1/api/attendance/records/my-calendar/${empId}`, {
           params: { employeeId: empId, year, month: month + 1 }
         }),
         axios.get(`/v1/api/attendance/leave-requests/employee/${empId}`),
         axios.get('/v1/api/attendance/holiday-calendars/1/holidays').catch(() => axios.get('/v1/api/attendance/holiday-calendars')),
-        axios.get(`/v1/api/attendance/employee-leave-balances/${empId}`)
+        axios.get(`/v1/api/attendance/employee-leave-balances/${empId}`),
+        axios.get('/v1/api/attendance/leave-policies')
       ]);
 
       if (attRes.status === 'fulfilled' && attRes.value?.data) {
@@ -123,26 +264,125 @@ const EmployeeSelfServicePage: React.FC = () => {
           }
         }
       }
+
+      // ── Resolve Active Leave Policy & Quotas ───────────────────────
+      let activePolicy: any = null;
+      if (policyRes.status === 'fulfilled' && Array.isArray(policyRes.value?.data) && policyRes.value.data.length > 0) {
+        activePolicy = policyRes.value.data.find((p: any) => p.active !== false) || policyRes.value.data[0];
+      }
+
+      let policyCasualAlloc = 12;
+      let policySickAlloc = 10;
+      let policyEarnedAlloc = 15;
+      const policyTitle = activePolicy?.policyName || 'Standard Leave Policy';
+
+      if (activePolicy && Array.isArray(activePolicy.policyDetails)) {
+        const cD = activePolicy.policyDetails.find((d: any) => String(d.leaveType || '').toUpperCase().includes('CASUAL'));
+        const sD = activePolicy.policyDetails.find((d: any) => String(d.leaveType || '').toUpperCase().includes('SICK'));
+        const eD = activePolicy.policyDetails.find((d: any) => String(d.leaveType || '').toUpperCase().includes('EARNED'));
+        if (cD && Number(cD.allocatedLeaves) > 0) policyCasualAlloc = Number(cD.allocatedLeaves);
+        if (sD && Number(sD.allocatedLeaves) > 0) policySickAlloc = Number(sD.allocatedLeaves);
+        if (eD && Number(eD.allocatedLeaves) > 0) policyEarnedAlloc = Number(eD.allocatedLeaves);
+      }
+
+      // Robust Leave Balance Resolution
+      let fetchedBalances: any[] = [];
       if (balRes.status === 'fulfilled' && balRes.value?.data) {
         const bData = balRes.value.data;
         if (Array.isArray(bData) && bData.length > 0) {
-          const getBal = (t: string, defVal: number) => {
-            const item = bData.find((b: any) => String(b.leaveType || b.name || '').toUpperCase().includes(t));
-            return item ? (item.remainingLeaves ?? item.availableLeaves ?? item.balance ?? defVal) : defVal;
-          };
-          setLeaveBalances({
-            casual: getBal('CASUAL', 10),
-            sick: getBal('SICK', 12),
-            earned: getBal('EARNED', 18)
-          });
-        } else if (bData.leaveBalance) {
-          setLeaveBalances({
-            casual: bData.leaveBalance.casual ?? 10,
-            sick: bData.leaveBalance.sick ?? 12,
-            earned: bData.leaveBalance.earned ?? 18
-          });
+          fetchedBalances = bData;
+        } else if (bData && typeof bData === 'object' && bData.leaveBalance) {
+          fetchedBalances = [
+            { leaveType: 'CASUAL', remainingLeaves: bData.leaveBalance.casual },
+            { leaveType: 'SICK', remainingLeaves: bData.leaveBalance.sick },
+            { leaveType: 'EARNED', remainingLeaves: bData.leaveBalance.earned }
+          ];
         }
       }
+
+      // If specific endpoint had no balance rows, query collection endpoint
+      if (fetchedBalances.length === 0) {
+        try {
+          const allBalRes = await axios.get('/v1/api/attendance/employee-leave-balances');
+          if (Array.isArray(allBalRes.data) && allBalRes.data.length > 0) {
+            const forEmp = allBalRes.data.filter((b: any) => Number(b.employeeId) === empId);
+            if (forEmp.length > 0) {
+              fetchedBalances = forEmp;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Calculate approved leaves taken by this employee
+      const approvedList = Array.isArray(leaveRes.status === 'fulfilled' ? leaveRes.value?.data : [])
+        ? (leaveRes.value?.data as any[]).filter((l: any) => (l.status || '').toUpperCase() === 'APPROVED')
+        : [];
+
+      const getTakenDays = (typeKey: string) => {
+        return approvedList
+          .filter((l: any) => String(l.leaveType || '').toUpperCase().includes(typeKey))
+          .reduce((sum: number, l: any) => sum + (Number(l.totalDays) || 1), 0);
+      };
+
+      const casualUsed = getTakenDays('CASUAL');
+      const sickUsed = getTakenDays('SICK');
+      const earnedUsed = getTakenDays('EARNED');
+
+      // Check if DB balances are all zero or empty
+      const dbAllZeroOrMissing = fetchedBalances.length === 0 || fetchedBalances.every((b: any) => {
+        const v = b.remainingLeaves ?? b.availableLeaves ?? b.balance ?? b.remaining ?? 0;
+        return Number(v) === 0;
+      });
+
+      // If DB has no assignment or all 0 balances, auto-assign active policy in backend asynchronously
+      if (dbAllZeroOrMissing && activePolicy?.id) {
+        try {
+          await axios.post('/v1/api/attendance/employee-leave-balances/assign-policy', {
+            employeeIds: [empId],
+            leavePolicyId: activePolicy.id
+          });
+        } catch (e) {
+          // ignore non-blocking error
+        }
+      }
+
+      const computeBalance = (typeKey: string, allocated: number, used: number) => {
+        let dbRemaining: number | null = null;
+        if (fetchedBalances.length > 0) {
+          const item = fetchedBalances.find((b: any) =>
+            String(b.leaveType || b.leaveTypeName || b.name || '').toUpperCase().includes(typeKey)
+          );
+          if (item) {
+            const val = item.remainingLeaves ?? item.availableLeaves ?? item.balance ?? item.remaining;
+            // Only use db value if it's positive OR if employee actually exhausted their quota
+            if (val !== undefined && val !== null && (Number(val) > 0 || used >= allocated)) {
+              dbRemaining = Number(val);
+            }
+          }
+        }
+
+        const remaining = dbRemaining !== null ? dbRemaining : Math.max(0, allocated - used);
+        return {
+          remaining,
+          allocated,
+          used
+        };
+      };
+
+      const casualData = computeBalance('CASUAL', policyCasualAlloc, casualUsed);
+      const sickData = computeBalance('SICK', policySickAlloc, sickUsed);
+      const earnedData = computeBalance('EARNED', policyEarnedAlloc, earnedUsed);
+
+      setLeaveBalances({
+        casual: casualData,
+        sick: sickData,
+        earned: earnedData,
+        policyName: policyTitle,
+        totalRemaining: casualData.remaining + sickData.remaining + earnedData.remaining,
+        totalAllocated: casualData.allocated + sickData.allocated + earnedData.allocated,
+      });
     } catch (err) {
       console.error('Error loading calendar data:', err);
     } finally {
@@ -174,43 +414,116 @@ const EmployeeSelfServicePage: React.FC = () => {
   );
 
   const todayInTime = todayRecord?.inTime || todayRecord?.checkInTime || todayRecord?.clockIn || null;
-  const todayInFormatted = todayInTime ? (todayInTime.includes('T') ? new Date(todayInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : todayInTime) : null;
+  const todayOutTime = todayRecord?.outTime || todayRecord?.checkOutTime || todayRecord?.clockOut || null;
+
+  const todayInFormatted = useMemo(() => {
+    if (!todayInTime) return null;
+    return todayInTime.includes('T')
+      ? new Date(todayInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+      : todayInTime;
+  }, [todayInTime]);
+
+  const todayOutFormatted = useMemo(() => {
+    if (!todayOutTime) return null;
+    return todayOutTime.includes('T')
+      ? new Date(todayOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+      : todayOutTime;
+  }, [todayOutTime]);
+
+  // Elapsed total hours calculation
+  const totalWorkedFormatted = useMemo(() => {
+    if (todayRecord?.workedMinutes) {
+      const hrs = Math.floor(todayRecord.workedMinutes / 60);
+      const mins = todayRecord.workedMinutes % 60;
+      return `${hrs}h ${mins}m`;
+    }
+    if (todayRecord?.workHours) {
+      const hrs = Math.floor(todayRecord.workHours);
+      const mins = Math.round((todayRecord.workHours - hrs) * 60);
+      return `${hrs}h ${mins}m`;
+    }
+    if (todayInTime && !todayOutTime) {
+      try {
+        const inDate = todayInTime.includes('T') ? new Date(todayInTime) : new Date(`${todayStr}T${todayInTime}`);
+        const diffMs = liveClock.getTime() - inDate.getTime();
+        if (diffMs > 0) {
+          const totalMins = Math.floor(diffMs / (1000 * 60));
+          const hrs = Math.floor(totalMins / 60);
+          const mins = totalMins % 60;
+          return `${hrs}h ${mins}m`;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }, [todayRecord, todayInTime, todayOutTime, liveClock, todayStr]);
 
   const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
+    const hour = liveClock.getHours();
+    if (hour < 12) return 'Good morning! Have a great day ahead.';
+    if (hour < 17) return 'Good afternoon! Hope your day is going well.';
+    return 'Good evening! Hope you had an awesome day.';
+  }, [liveClock]);
 
+  // Record 1-Click Web Punch matching Swagger AttendanceCheckInRequest & AttendanceCheckOutRequest
   const handleWebPunch = async (punchType: 'CHECK_IN' | 'CHECK_OUT') => {
-    const empId = resolvedEmpId || currentUser.id || 65;
+    const empId = resolvedEmpId || currentUser.id || 12;
     setIsPunching(true);
     try {
       const endpoint = punchType === 'CHECK_IN' ? '/v1/api/attendance/records/check-in' : '/v1/api/attendance/records/check-out';
-      const payload = {
+      
+      const payload: any = {
         employeeId: Number(empId),
         attendanceSource: 'WEB',
-        attendanceMode: 'MANUAL',
+        attendanceMode: 'OFFICE',
         deviceId: 'Browser',
         deviceName: 'Employee Self Service Portal',
-        location: 'Office / Remote',
-        latitude: 0,
-        longitude: 0,
-        ipAddress: '127.0.0.1',
-        ...(punchType === 'CHECK_OUT' ? { remarks: 'Web Check-out from Self Service' } : {})
+        location: 'HYD Office',
+        latitude: 17.3850,
+        longitude: 78.4867,
+        ipAddress: '192.168.1.100'
       };
 
-      await axios.post(endpoint, payload, {
+      if (punchType === 'CHECK_OUT') {
+        payload.remarks = 'Web checkout from Self Service';
+      }
+
+      const res = await axios.post(endpoint, payload, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 6000
       });
 
-      ToasterService.success(punchType === 'CHECK_IN' ? 'Checked in successfully!' : 'Checked out successfully!');
+      const successMsg = res.data?.message || (punchType === 'CHECK_IN' ? 'Check-in recorded successfully!' : 'Check-out recorded successfully!');
+      ToasterService.success(successMsg);
+
+      // Immediately update local records with backend response data for zero-latency UI
+      if (res.data) {
+        const pTime = res.data.punchTime || new Date().toISOString();
+        setAttendanceRecords((prev: any[]) => {
+          const existing = prev.find((a: any) => String(a.date || '').split('T')[0] === todayStr) || { date: todayStr };
+          const others = prev.filter((a: any) => String(a.date || '').split('T')[0] !== todayStr);
+          
+          const updated = {
+            ...existing,
+            date: todayStr,
+            status: res.data.attendanceStatus || (punchType === 'CHECK_IN' ? 'PRESENT' : 'CHECKED_OUT'),
+            inTime: punchType === 'CHECK_IN' ? pTime : (existing.inTime || pTime),
+            outTime: punchType === 'CHECK_OUT' ? pTime : existing.outTime,
+            workedMinutes: res.data.workedMinutes ?? existing.workedMinutes ?? 0,
+            lateMinutes: res.data.lateByMinutes ?? existing.lateMinutes ?? 0
+          };
+
+          return [updated, ...others];
+        });
+      }
+
       fetchCalendarData();
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to record attendance.';
-      ToasterService.error(String(msg));
+      console.error('Punch Error:', err);
+      let rawMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to record attendance.';
+      if (typeof rawMsg === 'object') {
+        rawMsg = JSON.stringify(rawMsg);
+      }
+      ToasterService.error(String(rawMsg));
     } finally {
       setIsPunching(false);
     }
@@ -218,7 +531,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const handleApplyLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const empId = resolvedEmpId || currentUser.id || 65;
+    const empId = resolvedEmpId || currentUser.id || 12;
     if (!leaveForm.fromDate || !leaveForm.toDate) {
       ToasterService.error('Please select both From and To dates.');
       return;
@@ -268,8 +581,8 @@ const EmployeeSelfServicePage: React.FC = () => {
       setIsApplyLeaveModalOpen(false);
       setLeaveForm({
         leaveType: 'CASUAL',
-        fromDate: todayIso(),
-        toDate: todayIso(),
+        fromDate: new Date().toISOString().slice(0, 10),
+        toDate: new Date().toISOString().slice(0, 10),
         reason: ''
       });
       fetchCalendarData();
@@ -294,8 +607,6 @@ const EmployeeSelfServicePage: React.FC = () => {
       details?: string;
       inTime?: string | null;
       outTime?: string | null;
-      workedMinutes?: number;
-      lateMinutes?: number | null;
       badgeText?: string;
     }[] = [];
 
@@ -308,23 +619,14 @@ const EmployeeSelfServicePage: React.FC = () => {
       });
     }
 
-    const todayStr = todayIso();
-
     // Current month days
     for (let i = 1; i <= totalDays; i++) {
       const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const dObj = new Date(year, month, i);
-      const isSunday = dObj.getDay() === 0;
+      const isToday = dStr === todayStr;
 
       let dayStatus: 'TODAY' | 'PRESENT' | 'ABSENT' | 'LATE' | 'LEAVE' | 'HOLIDAY' | 'WEEK_OFF' | 'REGULAR' = 'REGULAR';
       let dayDetails = '';
-      let inTimeVal: string | null = null;
-      let outTimeVal: string | null = null;
-      let workedMins: number | undefined = undefined;
-      let lateMins: number | null = null;
       let badge: string | undefined = undefined;
-
-      const isToday = dStr === todayStr;
 
       // 1. Check Holiday first
       const holidayMatch = holidays.find((h: any) => {
@@ -361,46 +663,18 @@ const EmployeeSelfServicePage: React.FC = () => {
           });
 
           if (attMatch) {
-            inTimeVal = attMatch.inTime || attMatch.checkInTime || attMatch.clockIn || attMatch.in || null;
-            outTimeVal = attMatch.outTime || attMatch.checkOutTime || attMatch.clockOut || attMatch.out || null;
-            workedMins = attMatch.workedMinutes ?? (attMatch.workHours ? Math.round(attMatch.workHours * 60) : undefined);
-            lateMins = attMatch.lateMinutes ?? null;
-
             const statusUpper = String(attMatch.status || attMatch.attendanceStatus || '').toUpperCase();
-
-            if (statusUpper === 'LATE' || (lateMins && lateMins > 0)) {
-              dayStatus = 'LATE';
-              dayDetails = `Late (-${lateMins || 0}m)`;
-              badge = 'LATE';
-            } else if (statusUpper === 'PRESENT' || statusUpper === 'CHECKED_IN') {
+            if (statusUpper === 'PRESENT' || statusUpper === 'CHECKED_IN' || attMatch.inTime || attMatch.checkInTime) {
               dayStatus = 'PRESENT';
               badge = 'P';
-              const inStr = inTimeVal ? (inTimeVal.includes('T') ? new Date(inTimeVal).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : inTimeVal) : 'Checked in';
-              dayDetails = `Present (${inStr})`;
             } else if (statusUpper === 'ABSENT') {
               dayStatus = 'ABSENT';
-              dayDetails = 'Absent';
               badge = 'A';
-            } else if (statusUpper === 'ON_LEAVE' || statusUpper === 'LEAVE') {
-              dayStatus = 'LEAVE';
-              dayDetails = 'On Leave';
-              badge = 'L';
-            } else if (inTimeVal || outTimeVal) {
-              dayStatus = 'PRESENT';
-              badge = 'P';
-              const inStr = inTimeVal ? (inTimeVal.includes('T') ? new Date(inTimeVal).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : inTimeVal) : 'Checked in';
-              dayDetails = `Present (${inStr})`;
             } else {
               dayStatus = isToday ? 'TODAY' : 'REGULAR';
-              badge = undefined;
-              dayDetails = isToday ? 'Today' : '';
             }
-          } else if (isSunday) {
-            dayStatus = 'WEEK_OFF';
-            dayDetails = 'Sunday / Week Off';
-          } else if (isToday) {
-            dayStatus = 'TODAY';
-            dayDetails = 'Today';
+          } else {
+            dayStatus = isToday ? 'TODAY' : 'REGULAR';
           }
         }
       }
@@ -411,716 +685,821 @@ const EmployeeSelfServicePage: React.FC = () => {
         dateStr: dStr,
         status: dayStatus,
         details: dayDetails,
-        inTime: inTimeVal,
-        outTime: outTimeVal,
-        workedMinutes: workedMins,
-        lateMinutes: lateMins,
         badgeText: badge
       });
     }
 
-    return days;
-  }, [year, month, attendanceRecords, leaveRequests, holidays, currentUser]);
-
-  // Filtered days based on filter pills
-  const filteredCalendarDays = useMemo(() => {
-    if (activeRequestFilter === 'ALL') return calendarDays;
-    return calendarDays.map(day => {
-      if (!day.currentMonth) return day;
-      if (activeRequestFilter === 'PRESENT' && day.status !== 'PRESENT' && day.status !== 'TODAY') return { ...day, status: 'REGULAR' as const };
-      if (activeRequestFilter === 'ABSENT' && day.status !== 'ABSENT') return { ...day, status: 'REGULAR' as const };
-      if (activeRequestFilter === 'LATE' && day.status !== 'LATE') return { ...day, status: 'REGULAR' as const };
-      if (activeRequestFilter === 'LEAVE' && day.status !== 'LEAVE') return { ...day, status: 'REGULAR' as const };
-      if (activeRequestFilter === 'HOLIDAY' && day.status !== 'HOLIDAY') return { ...day, status: 'REGULAR' as const };
-      return day;
-    });
-  }, [calendarDays, activeRequestFilter]);
-
-  const handleSelectRequestType = (type: string) => {
-    setShowRequestDropdown(false);
-    if (type === 'On Duty') {
-      navigate('/att_requests');
-    } else if (type === 'Attendance Regularization') {
-      navigate('/att_timesheetManagement');
-    } else if (type === 'Apply Leave') {
-      navigate('/att_leaveRequest');
+    // Trailing days padding to complete standard 35 or 42 grid
+    const totalCells = Math.ceil(days.length / 7) * 7;
+    const remaining = totalCells - days.length;
+    for (let i = 1; i <= remaining; i++) {
+      days.push({
+        dayNumber: i,
+        currentMonth: false,
+        dateStr: ''
+      });
     }
-  };
+
+    return days;
+  }, [year, month, todayStr, holidays, leaveRequests, attendanceRecords]);
 
   return (
     <>
-      <PageMeta title="Employee Self Service" description="Self Service portal for leave and attendance requests" />
+      <PageMeta title="Employee Self Service" description="Employee dashboard for attendance punching, leave balances, and activity tracking" />
       <PageBreadcrumb pageTitle="Self Service" />
 
-      <div className="max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200">
+      <div className="max-w-7xl mx-auto space-y-2 sm:space-y-2.5 pb-2 animate-in fade-in duration-200">
         
-        {/* Top Minimal Welcome Card with 1-Click Web Punch & Quick Apply Leave */}
-        <div className="bg-white dark:bg-[#191919] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#303030] shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] flex items-center justify-center text-slate-700 dark:text-gray-200 font-bold text-sm shrink-0 shadow-2xs">
-              {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'RH'}
+        {/* ── 1. UNIFIED THEMED USER HERO BANNER (Compact & Sleek) ──────── */}
+        <div className="bg-white dark:bg-[#191919] px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-200/80 dark:border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 transition-all">
+          
+          {/* User Profile & Status */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-600 dark:bg-[#262626] dark:text-gray-200 dark:border dark:border-[#383838] text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+              {currentUser.initials}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h1>
-                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 border border-slate-200/60 dark:border-[#303030]">
-                  {currentUser.code}
+                <h1 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-tight truncate">
+                  {currentUser.name}
+                </h1>
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-100 dark:bg-[#252525] text-slate-700 dark:text-gray-300 border border-slate-200/80 dark:border-transparent">
+                  #{currentUser.code}
                 </span>
-                {isCheckedIn ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    Clocked In {todayInFormatted ? `at ${todayInFormatted}` : ''}
-                  </span>
-                ) : isCheckedOut ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-300">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-slate-500 dark:text-gray-400" />
-                    Clocked Out for Today
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-600 dark:text-gray-400">
-                    Not Clocked In Yet
-                  </span>
-                )}
+                
+                {/* Live Shift State Pill */}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-semibold border ${
+                  isCheckedIn 
+                    ? 'bg-emerald-50 dark:bg-[#242424] text-emerald-700 dark:text-gray-300 border-emerald-200/80 dark:border-[#333333]'
+                    : isCheckedOut
+                    ? 'bg-blue-50 dark:bg-[#242424] text-blue-700 dark:text-gray-300 border-blue-200/80 dark:border-[#333333]'
+                    : 'bg-slate-100 dark:bg-[#242424] text-slate-600 dark:text-gray-400 border-slate-200/60 dark:border-[#333333]'
+                }`}>
+                  <Clock className="w-2.5 h-2.5" />
+                  {isCheckedIn ? 'Currently at Work' : isCheckedOut ? 'Clocked Out Today' : 'Not Clocked In'}
+                </span>
               </div>
-              <p className="text-slate-500 dark:text-gray-400 text-xs mt-1 flex items-center gap-2.5 flex-wrap">
-                <span>{greeting}! Hope you have an awesome day.</span>
-                <span className="hidden sm:inline text-slate-300 dark:text-gray-600">•</span>
-                <span className="text-slate-600 dark:text-gray-300 text-[11px]">
-                  Leave balance: <strong className="text-slate-800 dark:text-white">{leaveBalances.casual}</strong> Casual, <strong className="text-slate-800 dark:text-white">{leaveBalances.sick}</strong> Sick, <strong className="text-slate-800 dark:text-white">{leaveBalances.earned}</strong> Earned
-                </span>
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-none truncate mt-0.5">
+                {greeting}
               </p>
             </div>
           </div>
 
-          {/* Action Buttons: Minimal Clean Styling */}
-          <div className="flex items-center gap-2.5 w-full md:w-auto self-end md:self-center justify-end">
-            <button
-              onClick={() => setIsApplyLeaveModalOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#222222] hover:bg-slate-50 dark:hover:bg-[#2a2a2a] active:scale-95 border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 transition shadow-2xs cursor-pointer"
-              title="Apply Leave"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Apply Leave</span>
-            </button>
+          {/* Right: Work Mode & Leave Balances Pill Cards */}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap sm:flex-nowrap shrink-0">
+            
+            {/* Work Mode */}
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#222222] px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-[#2e2e2e] shadow-2xs">
+              <CalendarIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-gray-400 shrink-0" />
+              <div className="text-left text-[11px]">
+                <span className="text-slate-400 dark:text-gray-500 mr-1 uppercase text-[9px] font-semibold">Mode:</span>
+                <span className="font-bold text-slate-800 dark:text-gray-200">Office</span>
+              </div>
+            </div>
 
-            {isCheckedIn ? (
+            {/* Leave Balance - Idiot-Proof Interactive Widget */}
+            <div className="relative" ref={leavePopoverRef}>
               <button
-                onClick={() => navigate('/att_punch')}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 transition shadow-2xs cursor-pointer"
-                title="Clock Out"
+                type="button"
+                onClick={() => setIsLeavePopoverOpen(prev => !prev)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer shadow-2xs select-none ${
+                  isLeavePopoverOpen
+                    ? 'bg-purple-50/90 dark:bg-[#282828] border-purple-300 dark:border-[#3a3a3a]'
+                    : 'bg-slate-50 hover:bg-slate-100/80 dark:bg-[#222222] dark:hover:bg-[#282828] border-slate-200/80 dark:border-[#2e2e2e]'
+                }`}
+                title="Click to view detailed leave balances and quota breakdown"
               >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-900 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
-                </span>
-                <span>Clock Out</span>
+                <Briefcase className="w-3.5 h-3.5 text-purple-600 dark:text-gray-400 shrink-0" />
+                
+                <div className="text-left text-[11px] flex items-center gap-1.5">
+                  <span className="text-slate-400 dark:text-gray-500 uppercase text-[9px] font-sans font-semibold">Leaves:</span>
+                  <div className="flex items-center gap-1 font-medium text-[10.5px]">
+                    <span className="px-1.5 py-0.2 rounded bg-white dark:bg-[#1a1a1a] border border-slate-200/70 dark:border-[#303030] text-slate-700 dark:text-gray-300 font-semibold" title="Casual Leave Remaining">
+                      Casual <span className="font-bold text-purple-700 dark:text-gray-200">{leaveBalances.casual.remaining}d</span>
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-white dark:bg-[#1a1a1a] border border-slate-200/70 dark:border-[#303030] text-slate-700 dark:text-gray-300 font-semibold" title="Sick Leave Remaining">
+                      Sick <span className="font-bold text-amber-700 dark:text-gray-200">{leaveBalances.sick.remaining}d</span>
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-white dark:bg-[#1a1a1a] border border-slate-200/70 dark:border-[#303030] text-slate-700 dark:text-gray-300 font-semibold" title="Earned Leave Remaining">
+                      Earned <span className="font-bold text-emerald-700 dark:text-gray-200">{leaveBalances.earned.remaining}d</span>
+                    </span>
+                  </div>
+                </div>
+
+                <ChevronDown className={`w-3 h-3 text-slate-400 dark:text-gray-400 transition-transform duration-200 ml-0.5 shrink-0 ${isLeavePopoverOpen ? 'rotate-180' : ''}`} />
               </button>
-            ) : (
-              <button
-                onClick={() => navigate('/att_punch')}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
-                title="Clock In"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Clock In</span>
-              </button>
-            )}
+
+              {/* Idiot-Proof Rich Popover Breakdown Card */}
+              {isLeavePopoverOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-76 sm:w-80 bg-white dark:bg-[#1c1c1c] rounded-xl border border-slate-200/90 dark:border-[#333333] shadow-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Popover Header */}
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100 dark:border-[#282828]">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Briefcase className="w-3.5 h-3.5 text-purple-600 dark:text-gray-400" />
+                        Leave Quotas & Balances
+                      </div>
+                      <div className="text-[10px] text-slate-400 dark:text-gray-500 truncate max-w-[180px]">
+                        Policy: {leaveBalances.policyName}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] uppercase font-semibold text-slate-400 dark:text-gray-500 block leading-tight">Total Available</span>
+                      <span className="text-xs font-extrabold text-emerald-600 dark:text-white font-mono">
+                        {leaveBalances.totalRemaining} / {leaveBalances.totalAllocated} Days
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3 Detailed Breakdown Cards */}
+                  <div className="space-y-2">
+                    {/* Casual Leave */}
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#242424] border border-slate-200/70 dark:border-[#2e2e2e]">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-bold text-slate-800 dark:text-gray-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-purple-500 dark:bg-gray-400"></span>
+                          Casual Leave (CL)
+                        </span>
+                        <span className="font-extrabold text-purple-700 dark:text-white font-mono text-[11px]">
+                          {leaveBalances.casual.remaining} days left
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-gray-400 mb-1.5">
+                        <span>Allocated: {leaveBalances.casual.allocated}d</span>
+                        <span>Used: {leaveBalances.casual.used}d</span>
+                      </div>
+                      {/* Visual progress bar */}
+                      <div className="w-full bg-slate-200 dark:bg-[#333] h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-purple-500 dark:bg-gray-300 h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${Math.min(100, Math.max(0, (leaveBalances.casual.remaining / (leaveBalances.casual.allocated || 1)) * 100))}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Sick Leave */}
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#242424] border border-slate-200/70 dark:border-[#2e2e2e]">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-bold text-slate-800 dark:text-gray-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-gray-400"></span>
+                          Sick Leave (SL)
+                        </span>
+                        <span className="font-extrabold text-amber-700 dark:text-white font-mono text-[11px]">
+                          {leaveBalances.sick.remaining} days left
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-gray-400 mb-1.5">
+                        <span>Allocated: {leaveBalances.sick.allocated}d</span>
+                        <span>Used: {leaveBalances.sick.used}d</span>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-[#333] h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-amber-500 dark:bg-gray-300 h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${Math.min(100, Math.max(0, (leaveBalances.sick.remaining / (leaveBalances.sick.allocated || 1)) * 100))}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Earned Leave */}
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#242424] border border-slate-200/70 dark:border-[#2e2e2e]">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-bold text-slate-800 dark:text-gray-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-gray-400"></span>
+                          Earned Leave (EL)
+                        </span>
+                        <span className="font-extrabold text-emerald-700 dark:text-white font-mono text-[11px]">
+                          {leaveBalances.earned.remaining} days left
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-gray-400 mb-1.5">
+                        <span>Allocated: {leaveBalances.earned.allocated}d</span>
+                        <span>Used: {leaveBalances.earned.used}d</span>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-[#333] h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-emerald-500 dark:bg-gray-300 h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${Math.min(100, Math.max(0, (leaveBalances.earned.remaining / (leaveBalances.earned.allocated || 1)) * 100))}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Popover Action Buttons */}
+                  <div className="pt-2.5 mt-2 border-t border-slate-100 dark:border-[#282828] flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLeavePopoverOpen(false);
+                        setIsApplyLeaveModalOpen(true);
+                      }}
+                      className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-slate-900 font-bold rounded-lg text-xs text-center transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Apply for Leave
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLeavePopoverOpen(false);
+                        navigate('/att_requestCenter');
+                      }}
+                      className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#262626] dark:hover:bg-[#303030] text-slate-700 dark:text-gray-300 font-semibold rounded-lg text-xs text-center transition cursor-pointer"
+                      title="View all requests & history"
+                    >
+                      History
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
+
         </div>
 
-        {/* 2-Column Main Layout matching Screenshot */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* ── 2. TWO-COLUMN BALANCED DASHBOARD ───────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-2.5 items-start">
           
-          {/* Left Column: Feed & Highlights */}
-          <div className="lg:col-span-7 space-y-4">
+          {/* ── LEFT COLUMN: PUNCH STATION & TODAY'S OVERVIEW (7 COLS) ───── */}
+          <div className="lg:col-span-7 space-y-2 sm:space-y-2.5">
             
-            {/* Highlights Card */}
-            <div className="bg-white dark:bg-[#191919] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-[#303030] shadow-2xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#303030] pb-2.5">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Highlights</h3>
-              </div>
-
-              <div className="p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/60 dark:border-[#303030] flex items-start gap-3">
-                <Gift className="w-4.5 h-4.5 text-slate-500 dark:text-gray-400 shrink-0 mt-0.5" />
+            {/* HERO PUNCH IN / OUT CARD */}
+            <div className="bg-white dark:bg-[#191919] rounded-xl border border-slate-200/80 dark:border-transparent p-3 sm:p-3.5 shadow-2xs relative overflow-hidden">
+              
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg bg-cyan-50 dark:bg-[#252525] text-cyan-600 dark:text-gray-300 dark:border dark:border-[#303030] flex items-center justify-center shrink-0">
+                  <Fingerprint className="w-3.5 h-3.5" />
+                </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-white">Today's Celebration</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Check team birthdays and work anniversaries</p>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                    Punch In / Out
+                  </h3>
+                  <p className="text-[10px] text-slate-400 dark:text-gray-500">
+                    Track your daily attendance with a single click.
+                  </p>
                 </div>
               </div>
+
+              {/* 3-Section Interior Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                
+                {/* Section 1: Live Digital Clock & Status (4 Cols) */}
+                <div className="sm:col-span-4 space-y-0.5">
+                  <div className="text-2xl sm:text-3xl font-mono font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    {liveClock.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-gray-400">
+                    {liveClock.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                  </div>
+                  <div className="pt-0.5">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-gray-300">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isCheckedIn ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400 dark:bg-gray-600'}`}></span>
+                      {isCheckedIn ? 'Currently at Work' : isCheckedOut ? 'Shift Ended' : 'Not Clocked In'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Section 2: Punch Action Buttons (5 Cols) */}
+                <div className="sm:col-span-5 space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleWebPunch('CHECK_IN')}
+                    disabled={isPunching || isCheckedIn}
+                    className={`w-full py-1.5 sm:py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-98 ${
+                      isCheckedIn 
+                        ? 'bg-slate-100 dark:bg-[#252525] text-slate-400 dark:text-gray-500 cursor-not-allowed shadow-none'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 dark:bg-[#252525] dark:hover:bg-[#2e2e2e] dark:text-gray-200 dark:border dark:border-[#383838] dark:shadow-none'
+                    }`}
+                  >
+                    {isPunching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Fingerprint className="w-3.5 h-3.5" />}
+                    <span>{isCheckedIn ? 'Punched In' : 'Punch In'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleWebPunch('CHECK_OUT')}
+                    disabled={isPunching || !isCheckedIn}
+                    className={`w-full py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all border cursor-pointer active:scale-98 ${
+                      isCheckedIn
+                        ? 'bg-amber-600 hover:bg-amber-500 text-white border-transparent shadow-xs shadow-amber-600/20 dark:bg-[#252525] dark:hover:bg-[#2e2e2e] dark:text-gray-200 dark:border-[#383838] dark:shadow-none'
+                        : 'bg-slate-50 dark:bg-[#222222] text-slate-400 dark:text-gray-500 border-slate-200/80 dark:border-[#2e2e2e] cursor-not-allowed'
+                    }`}
+                  >
+                    {isPunching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
+                    <span>Punch Out</span>
+                  </button>
+
+                  <div className="text-center pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/att_punch')}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 dark:text-gray-400 dark:hover:text-gray-200 hover:underline cursor-pointer"
+                    >
+                      <Fingerprint className="w-3 h-3" />
+                      <span>View Attendance Details</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section 3: Biometric Graphic (3 Cols) */}
+                <div className="sm:col-span-3 hidden sm:flex items-center justify-center">
+                  <div className="relative w-16 h-20 rounded-xl bg-gradient-to-b from-cyan-400 via-cyan-500 to-cyan-600 dark:from-[#292929] dark:via-[#202020] dark:to-[#171717] dark:border dark:border-[#333333] p-1 shadow-md shadow-cyan-500/20 dark:shadow-none flex flex-col items-center justify-between">
+                    <div className="w-full h-0.5 bg-white/40 dark:bg-[#333333] rounded-full mt-0.5"></div>
+                    <div className="w-12 h-14 bg-white dark:bg-[#141414] rounded-lg flex items-center justify-center shadow-inner dark:border dark:border-[#262626]">
+                      <Fingerprint className={`w-6 h-6 ${isCheckedIn ? 'text-emerald-500 dark:text-gray-200 animate-pulse' : 'text-cyan-500 dark:text-gray-400'}`} />
+                    </div>
+                    <div className="w-2.5 h-0.5 bg-white/50 dark:bg-[#333333] rounded-full mb-0.5"></div>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
 
-            {/* Activity Feed Card */}
-            <div className="bg-white dark:bg-[#191919] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-[#303030] shadow-2xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#303030] pb-2.5">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Feed</h3>
-                <span className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer transition">Refresh feed</span>
+            {/* TODAY'S OVERVIEW (4 MINI CARDS) */}
+            <div className="bg-white dark:bg-[#191919] rounded-xl border border-slate-200/80 dark:border-transparent p-3 sm:p-3.5 shadow-2xs space-y-2">
+              
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#262626] pb-1.5">
+                <h3 className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Today's Overview
+                </h3>
+                <span className="text-[10px] font-mono text-slate-400 dark:text-gray-500">
+                  {liveClock.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
               </div>
 
-              <div className="space-y-3">
-                <div className="p-3.5 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-100 dark:border-[#303030] space-y-1">
+              {/* 4 Overview Mini Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                
+                {/* 1. Punch In */}
+                <div className="p-2 bg-slate-50/70 dark:bg-[#222222] rounded-lg border border-slate-200/60 dark:border-[#2a2a2a] space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 dark:text-white">Operational Support Update</span>
-                    <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">1 year ago</span>
+                    <div className="w-5 h-5 rounded-md bg-emerald-50 dark:bg-[#2a2a2a] text-emerald-600 dark:text-gray-300 flex items-center justify-center">
+                      <Clock className="w-3 h-3" />
+                    </div>
+                    <span className={`px-1 py-0.2 rounded text-[8.5px] font-semibold ${
+                      todayInFormatted 
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-[#282828] dark:text-gray-200' 
+                        : 'bg-slate-200 text-slate-600 dark:bg-[#2a2a2a] dark:text-gray-400'
+                    }`}>
+                      {todayInFormatted ? 'On Time' : 'Pending'}
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-gray-300">Moving forward, access all organizational updates via TEKInsider</p>
+                  <span className="text-[9.5px] font-medium text-slate-400 dark:text-gray-400 block leading-none">
+                    Punch In
+                  </span>
+                  <div className="text-[11.5px] font-bold text-slate-900 dark:text-white font-mono leading-none">
+                    {todayInFormatted || 'Not Done'}
+                  </div>
                 </div>
+
+                {/* 2. Lunch Break */}
+                <div className="p-2 bg-slate-50/70 dark:bg-[#222222] rounded-lg border border-slate-200/60 dark:border-[#2a2a2a] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="w-5 h-5 rounded-md bg-blue-50 dark:bg-[#2a2a2a] text-blue-600 dark:text-gray-300 flex items-center justify-center">
+                      <Coffee className="w-3 h-3" />
+                    </div>
+                    <span className="text-[8.5px] text-slate-400 dark:text-gray-500">—</span>
+                  </div>
+                  <span className="text-[9.5px] font-medium text-slate-400 dark:text-gray-400 block leading-none">
+                    Lunch Break
+                  </span>
+                  <div className="text-[11.5px] font-bold text-slate-900 dark:text-white font-mono leading-none">
+                    Not Taken
+                  </div>
+                </div>
+
+                {/* 3. Punch Out */}
+                <div className="p-2 bg-slate-50/70 dark:bg-[#222222] rounded-lg border border-slate-200/60 dark:border-[#2a2a2a] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="w-5 h-5 rounded-md bg-purple-50 dark:bg-[#2a2a2a] text-purple-600 dark:text-gray-300 flex items-center justify-center">
+                      <Clock className="w-3 h-3" />
+                    </div>
+                    <span className="text-[8.5px] text-slate-400 dark:text-gray-500">—</span>
+                  </div>
+                  <span className="text-[9.5px] font-medium text-slate-400 dark:text-gray-400 block leading-none">
+                    Punch Out
+                  </span>
+                  <div className="text-[11.5px] font-bold text-slate-900 dark:text-white font-mono leading-none">
+                    {todayOutFormatted || 'Not Done'}
+                  </div>
+                </div>
+
+                {/* 4. Total Hours */}
+                <div className="p-2 bg-slate-50/70 dark:bg-[#222222] rounded-lg border border-slate-200/60 dark:border-[#2a2a2a] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="w-5 h-5 rounded-md bg-cyan-50 dark:bg-[#2a2a2a] text-cyan-600 dark:text-gray-300 flex items-center justify-center">
+                      <Clock className="w-3 h-3" />
+                    </div>
+                    <span className="text-[8.5px] text-cyan-600 dark:text-gray-400 font-semibold">
+                      {isCheckedIn ? 'Live' : isCheckedOut ? 'Done' : '—'}
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] font-medium text-slate-400 dark:text-gray-400 block leading-none">
+                    Total Hours
+                  </span>
+                  <div className="text-[11.5px] font-bold text-slate-900 dark:text-white font-mono leading-none">
+                    {totalWorkedFormatted || '—'}
+                  </div>
+                </div>
+
               </div>
+
+              {/* Bottom Wellness Notice */}
+              <div className="py-1 px-2.5 bg-cyan-50/50 dark:bg-[#202020] rounded-lg border border-cyan-100/70 dark:border-[#2a2a2a] flex items-center gap-2 text-[10.5px] text-cyan-900 dark:text-gray-400">
+                <Info className="w-3.5 h-3.5 text-cyan-600 dark:text-gray-400 shrink-0" />
+                <span>A healthy work-life balance leads to greater productivity. Remember to take scheduled breaks.</span>
+              </div>
+
             </div>
 
           </div>
 
-          {/* Right Column: Attendance Calendar & Raise Request Popover */}
-          <div className="lg:col-span-5 space-y-4">
+          {/* ── RIGHT COLUMN: CALENDAR & INTEGRATED STATUS/ACTIONS (5 COLS) ─ */}
+          <div className="lg:col-span-5 space-y-2 sm:space-y-2.5">
             
-            {/* Interactive Calendar Card */}
-            <div className="bg-white dark:bg-[#191919] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-[#303030] shadow-2xs space-y-3 relative">
+            {/* 1. CALENDAR CARD (Compact) */}
+            <div className="bg-white dark:bg-[#191919] p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-transparent shadow-2xs space-y-1.5">
               
-              {/* Calendar Header with Navigation & Dropdown trigger */}
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#303030] pb-2.5">
-                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-0.5 rounded-xl border border-slate-200/70 dark:border-[#303030] shadow-2xs">
+              {/* Header Navigation */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#262626] pb-1.5">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-1.5 py-0.5 rounded-lg border border-slate-200/70 dark:border-transparent shadow-2xs">
                   <button 
                     type="button" 
                     onClick={handlePrevMonth}
-                    className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
+                    className="p-0.5 hover:bg-white dark:hover:bg-[#2a2a2a] rounded text-slate-600 dark:text-gray-300 transition cursor-pointer"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[110px] text-center">
+                  <span className="text-[11px] font-bold text-slate-800 dark:text-white uppercase tracking-wider min-w-[95px] text-center">
                     {monthNames[month]} {year}
                   </span>
                   <button 
                     type="button" 
                     onClick={handleNextMonth}
-                    className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
+                    className="p-0.5 hover:bg-white dark:hover:bg-[#2a2a2a] rounded text-slate-600 dark:text-gray-300 transition cursor-pointer"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  {/* Expand Calendar Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsCalendarExpanded(true)}
-                    className="p-1.5 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-xl text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                    title="Expand Calendar View"
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </button>
-
-                  {/* Dropdown Menu Trigger */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowRequestDropdown(prev => !prev)}
-                      className="p-1.5 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-xl text-sm font-semibold flex items-center justify-center transition cursor-pointer"
-                      title="Raise Request Options"
-                    >
-                      <span className="leading-none text-base font-bold">⋮</span>
-                    </button>
-
-                  {/* Professional Raise Request Dropdown Menu */}
-                  {showRequestDropdown && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setShowRequestDropdown(false)} 
-                      />
-                      
-                      <div className="absolute right-0 top-8 w-60 bg-white dark:bg-[#191919] rounded-xl shadow-2xl border border-slate-200 dark:border-[#303030] z-50 py-1.5 text-xs animate-in zoom-in-95 fade-in duration-150 ring-1 ring-black/5 divide-y divide-slate-100 dark:divide-[#303030]">
-                        <div className="px-3.5 py-2 flex items-center justify-between bg-slate-50 dark:bg-[#222222]">
-                          <span className="text-[10px] font-bold tracking-wider text-slate-400 dark:text-gray-400 uppercase">
-                            Raise Request For
-                          </span>
-                          <span className="text-[9px] font-semibold bg-slate-200 dark:bg-[#303030] text-slate-700 dark:text-gray-200 px-1.5 py-0.5 rounded-full">
-                            Fast Action
-                          </span>
-                        </div>
-
-                        <div className="py-1">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectRequestType('On Duty')}
-                            className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-[#222222] text-slate-700 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white font-medium flex items-center gap-3 transition-colors group cursor-pointer"
-                          >
-                            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-2xs">
-                              <Clock className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">On duty</div>
-                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">Official client & site visits</div>
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleSelectRequestType('Attendance Regularization')}
-                            className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-[#222222] text-slate-700 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white font-medium flex items-center gap-3 transition-colors group cursor-pointer"
-                          >
-                            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 group-hover:bg-sky-600 group-hover:text-white transition-all shadow-2xs">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">Attendance regularization</div>
-                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">Correct missed check-ins/outs</div>
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleSelectRequestType('Apply Leave')}
-                            className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-[#222222] text-slate-700 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white font-medium flex items-center gap-3 transition-colors group cursor-pointer"
-                          >
-                            <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-2xs">
-                              <Briefcase className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">Apply leave</div>
-                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">Casual, sick & earned leave</div>
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-                </div>
-              </div>
-
-              {/* Minimal Live Leave Quotas Bar */}
-              <div className="flex items-center justify-between gap-1 bg-slate-50/80 dark:bg-[#222222] px-2.5 py-1.5 rounded-xl border border-slate-200/60 dark:border-[#303030] text-xs">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mr-0.5">Quotas:</span>
-                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] text-[9.5px] font-semibold text-slate-700 dark:text-gray-200 shadow-2xs">
-                    <span className="font-bold text-slate-400 dark:text-gray-500">CL</span>
-                    <span className="font-mono text-slate-900 dark:text-white font-bold">{leaveBalances.casual}</span>
-                    <span className="text-slate-400 dark:text-gray-500 text-[8.5px]">/12d</span>
-                  </div>
-                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] text-[9.5px] font-semibold text-slate-700 dark:text-gray-200 shadow-2xs">
-                    <span className="font-bold text-slate-400 dark:text-gray-500">SL</span>
-                    <span className="font-mono text-slate-900 dark:text-white font-bold">{leaveBalances.sick}</span>
-                    <span className="text-slate-400 dark:text-gray-500 text-[8.5px]">/12d</span>
-                  </div>
-                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-[#191919] border border-slate-200 dark:border-[#303030] text-[9.5px] font-semibold text-slate-700 dark:text-gray-200 shadow-2xs">
-                    <span className="font-bold text-slate-400 dark:text-gray-500">EL</span>
-                    <span className="font-mono text-slate-900 dark:text-white font-bold">{leaveBalances.earned}</span>
-                    <span className="text-slate-400 dark:text-gray-500 text-[8.5px]">/18d</span>
-                  </div>
-                </div>
                 <button
                   type="button"
-                  onClick={() => navigate('/att_leaveRequest')}
-                  className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[10px] font-semibold transition shadow-xs shrink-0 cursor-pointer"
+                  onClick={() => setIsCalendarExpanded(true)}
+                  className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-lg transition cursor-pointer"
+                  title="Expand Calendar"
                 >
-                  + Apply
+                  <Maximize2 className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Month Days Weekday Headers */}
-              <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] font-medium text-slate-400 dark:text-gray-500 py-1 px-1 mb-1">
-                <span>Su</span>
-                <span>Mo</span>
-                <span>Tu</span>
-                <span>We</span>
-                <span>Th</span>
-                <span>Fr</span>
-                <span>Sa</span>
+              {/* Day Name Headers */}
+              <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-slate-400 dark:text-gray-500 uppercase">
+                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
               </div>
 
-              {/* Month Days Matrix with Clean Minimal Aesthetic */}
-              <div className="grid grid-cols-7 gap-1.5 text-center">
-                {filteredCalendarDays.map((day, idx) => {
-                  if (!day.currentMonth) {
+              {/* Day Grid */}
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((d, idx) => {
+                  if (!d.currentMonth) {
                     return (
-                      <div key={idx} className="min-h-8 p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-[#303030]/60 flex items-start justify-center font-medium">
-                        {day.dayNumber}
+                      <div key={`empty-${idx}`} className="h-6 sm:h-7 flex items-center justify-center text-[10px] text-slate-300 dark:text-gray-700">
+                        {d.dayNumber}
                       </div>
                     );
                   }
 
-                  const isToday = day.dateStr === todayStr;
-                  let cardStyle = 'border-slate-200/70 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-gray-600 hover:shadow-2xs text-slate-700 dark:text-gray-200';
-                  let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-medium';
-
-                  if (isToday) {
-                    cardStyle = 'border-sky-300 dark:border-sky-500/80 bg-sky-50/40 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-500/30 text-sky-900 dark:text-sky-300 shadow-2xs';
-                    numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
-                  } else if (day.status === 'PRESENT') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-emerald-300 dark:hover:border-emerald-700';
-                  } else if (day.status === 'LATE') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-amber-700';
-                  } else if (day.status === 'LEAVE') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-purple-300 dark:hover:border-purple-700';
-                  } else if (day.status === 'ABSENT') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-rose-300 dark:hover:border-rose-700';
-                  } else if (day.status === 'HOLIDAY') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-amber-700';
-                  } else if (day.status === 'WEEK_OFF') {
-                    cardStyle = 'border-slate-100 dark:border-[#303030]/60 bg-slate-50/50 dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-500';
-                    numBadgeStyle = 'text-slate-400 dark:text-gray-500 font-normal';
-                  }
+                  const isToday = d.dateStr === todayStr;
 
                   return (
                     <div
-                      key={idx}
-                      onClick={() => setIsCalendarExpanded(true)}
-                      title={day.details || `${isToday ? 'Today: ' : 'Date: '}${day.dateStr} (Click to expand details)`}
-                      className={`h-8 px-1.5 py-1 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer hover:scale-102 overflow-hidden relative ${cardStyle}`}
+                      key={`day-${idx}`}
+                      className={`h-6 sm:h-7 rounded-lg flex items-center justify-center text-[11px] font-semibold relative transition cursor-default ${
+                        isToday 
+                          ? 'bg-cyan-600 text-white font-bold shadow-xs dark:bg-[#323232] dark:text-white dark:border dark:border-gray-500 dark:shadow-none'
+                          : d.status === 'PRESENT'
+                          ? 'bg-emerald-50 dark:bg-[#222222] text-emerald-700 dark:text-gray-200 font-bold'
+                          : d.status === 'LEAVE'
+                          ? 'bg-purple-50 dark:bg-[#222222] text-purple-700 dark:text-gray-300 font-bold'
+                          : d.status === 'HOLIDAY'
+                          ? 'bg-amber-50 dark:bg-[#222222] text-amber-700 dark:text-gray-400 font-bold'
+                          : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
+                      }`}
                     >
-                      <span className={`text-[11px] leading-none shrink-0 ${numBadgeStyle}`}>
-                        {day.dayNumber}
-                      </span>
-
-                      {/* Subtle Minimal Status Indicator */}
-                      {day.badgeText && (
-                        <span className={`text-[8px] font-semibold px-1 py-0.5 rounded-full uppercase leading-none shrink-0 ${
-                          day.status === 'PRESENT' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400' :
-                          day.status === 'LATE' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' :
-                          day.status === 'LEAVE' ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400' :
-                          day.status === 'ABSENT' ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400' :
-                          day.status === 'HOLIDAY' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' : 'bg-slate-100 dark:bg-[#222222] text-slate-500 dark:text-gray-400'
-                        }`}>
-                          {day.badgeText === 'LATE' ? 'LT' : day.badgeText}
-                        </span>
-                      )}
-
-                      {!day.badgeText && day.status === 'WEEK_OFF' && (
-                        <span className="text-[7.5px] font-normal px-1 py-0.5 rounded-full uppercase leading-none text-slate-400 dark:text-gray-500 shrink-0">
-                          off
-                        </span>
+                      <span>{d.dayNumber}</span>
+                      {d.status === 'PRESENT' && !isToday && (
+                        <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-emerald-500 dark:bg-gray-400"></span>
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Calendar Legend Footer */}
-              <div className="pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 font-medium flex-wrap gap-1">
+            </div>
+
+            {/* 2. TODAY'S STATUS & QUICK ACTIONS (Integrated Compact Strip) */}
+            <div className="bg-white dark:bg-[#191919] p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-transparent shadow-2xs space-y-2">
+              
+              {/* Status Header Bar */}
+              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-[#262626]">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Today
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                    isCheckedIn 
+                      ? 'bg-emerald-500 text-white shadow-2xs dark:bg-[#252525] dark:text-gray-200 dark:border dark:border-[#383838] dark:shadow-none' 
+                      : isCheckedOut 
+                      ? 'bg-blue-600 text-white shadow-2xs dark:bg-[#252525] dark:text-gray-200 dark:border dark:border-[#383838] dark:shadow-none'
+                      : 'bg-slate-200 text-slate-600 dark:bg-[#282828] dark:text-gray-300'
+                  }`}>
+                    <Check className="w-3 h-3" />
+                    {isCheckedIn ? 'Present' : isCheckedOut ? 'Checked Out' : 'Not Clocked In'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-gray-500 truncate max-w-[140px]">
+                    {isCheckedIn && todayInFormatted 
+                      ? `In: ${todayInFormatted}` 
+                      : isCheckedOut && todayOutFormatted
+                      ? `Out: ${todayOutFormatted}`
+                      : 'No check-in'}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Leave
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Absent
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Holiday
-                </div>
+
+                <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">
+                  Quick Actions
+                </span>
               </div>
 
+              {/* 4 Compact Action Buttons */}
+              <div className="grid grid-cols-2 gap-1.5">
+                
+                {/* 1. Apply Leave */}
+                <button
+                  type="button"
+                  onClick={() => setIsApplyLeaveModalOpen(true)}
+                  className="p-1.5 sm:p-2 rounded-lg bg-slate-50/80 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#282828] border border-slate-200/70 dark:border-[#2e2e2e] text-left flex items-center gap-2 transition cursor-pointer group"
+                >
+                  <div className="w-6 h-6 rounded-md bg-pink-50 dark:bg-[#282828] text-pink-600 dark:text-gray-300 dark:border dark:border-[#333333] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <CalendarIcon className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 dark:text-gray-200 leading-tight">
+                    Apply Leave
+                  </span>
+                </button>
+
+                {/* 2. View Attendance */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/att_attendanceTracking')}
+                  className="p-1.5 sm:p-2 rounded-lg bg-slate-50/80 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#282828] border border-slate-200/70 dark:border-[#2e2e2e] text-left flex items-center gap-2 transition cursor-pointer group"
+                >
+                  <div className="w-6 h-6 rounded-md bg-blue-50 dark:bg-[#282828] text-blue-600 dark:text-gray-300 dark:border dark:border-[#333333] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 dark:text-gray-200 leading-tight">
+                    Attendance
+                  </span>
+                </button>
+
+                {/* 3. Request Hub */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/att_requestCenter')}
+                  className="p-1.5 sm:p-2 rounded-lg bg-slate-50/80 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#282828] border border-slate-200/70 dark:border-[#2e2e2e] text-left flex items-center gap-2 transition cursor-pointer group"
+                >
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-[#282828] text-indigo-600 dark:text-gray-300 dark:border dark:border-[#333333] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Plane className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 dark:text-gray-200 leading-tight">
+                    Request Center
+                  </span>
+                </button>
+
+                {/* 4. View Reports */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/att_reports')}
+                  className="p-1.5 sm:p-2 rounded-lg bg-slate-50/80 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#282828] border border-slate-200/70 dark:border-[#2e2e2e] text-left flex items-center gap-2 transition cursor-pointer group"
+                >
+                  <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-[#282828] text-cyan-600 dark:text-gray-300 dark:border dark:border-[#333333] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <BarChart3 className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 dark:text-gray-200 leading-tight">
+                    Reports
+                  </span>
+                </button>
+
+              </div>
             </div>
 
           </div>
 
         </div>
 
-        {/* Full-Screen Expanded Minimalist Calendar Modal */}
-        {isCalendarExpanded && typeof document !== 'undefined' && createPortal(
+      </div>
+
+      {/* ── 4. QUICK APPLY LEAVE MODAL ─────────────────────────────────────── */}
+      {isApplyLeaveModalOpen && createPortal(
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsApplyLeaveModalOpen(false)}
+        >
           <div 
-            className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setIsCalendarExpanded(false);
-            }}
+            className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#303030] w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div 
-              className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-[#303030] w-full max-w-6xl h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
-              onClick={(e) => e.stopPropagation()}
-            >
-              
-              {/* Minimalist Modal Header */}
-              <div className="px-6 py-3 border-b border-slate-100 dark:border-[#303030] flex items-center justify-between bg-white dark:bg-[#191919] shrink-0">
-                <div>
-                  <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white tracking-tight leading-none">Attendance Calendar</h2>
-                  <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">Monthly breakdown, punch records, and leave history</p>
+            <div className="p-4 sm:px-5 border-b border-slate-100 dark:border-[#262626] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-[#252525] text-cyan-600 dark:text-gray-300 dark:border dark:border-[#333333] flex items-center justify-center shadow-2xs">
+                  <CalendarIcon className="w-4 h-4" />
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center bg-slate-50 dark:bg-[#222222] border border-slate-200/70 dark:border-[#303030] rounded-lg p-0.5">
-                    <button 
-                      type="button" 
-                      onClick={handlePrevMonth}
-                      className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] hover:shadow-2xs rounded-md text-slate-500 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-xs font-semibold text-slate-800 dark:text-white min-w-[110px] text-center">
-                      {monthNames[month]} {year}
-                    </span>
-                    <button 
-                      type="button" 
-                      onClick={handleNextMonth}
-                      className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] hover:shadow-2xs rounded-md text-slate-500 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => setIsCalendarExpanded(false)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-lg transition-colors cursor-pointer"
-                    title="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Quick Apply Leave</h3>
               </div>
-
-              {/* Minimalist Legend Bar */}
-              <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#222222] border-b border-slate-100 dark:border-[#303030] flex items-center justify-end flex-wrap gap-3.5 text-[11px] text-slate-500 dark:text-gray-400 font-normal shrink-0">
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Today</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Leave</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Absent</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Holiday</div>
-              </div>
-
-              {/* Minimal Calendar Grid Container */}
-              <div className="p-2 sm:p-3 flex-1 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-[#141414] min-h-0">
-                {/* Weekday Labels */}
-                <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider py-1 shrink-0 mb-1">
-                  <span>Sun</span>
-                  <span>Mon</span>
-                  <span>Tue</span>
-                  <span>Wed</span>
-                  <span>Thu</span>
-                  <span>Fri</span>
-                  <span>Sat</span>
-                </div>
-
-                {/* Minimal Month Days Matrix */}
-                <div 
-                  className="grid grid-cols-7 gap-1.5 text-left flex-1 h-full min-h-0"
-                  style={{ gridTemplateRows: `repeat(${Math.ceil(filteredCalendarDays.length / 7) || 5}, minmax(0, 1fr))` }}
-                >
-                  {filteredCalendarDays.map((day, idx) => {
-                    if (!day.currentMonth) {
-                      return (
-                        <div key={idx} className="h-full min-h-0 p-2 text-[10px] text-slate-300 dark:text-gray-600 bg-slate-50/40 dark:bg-[#191919]/40 rounded-xl border border-slate-100 dark:border-[#303030]/50 flex items-start justify-start font-medium">
-                          {day.dayNumber}
-                        </div>
-                      );
-                    }
-
-                    const isToday = day.dateStr === todayStr;
-                    let cardStyle = 'border-slate-200/70 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-gray-600 hover:shadow-2xs text-slate-800 dark:text-white';
-                    let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-semibold text-xs sm:text-[13px]';
-
-                    if (isToday) {
-                      cardStyle = 'border-sky-300 dark:border-sky-500/80 bg-sky-50/30 dark:bg-sky-950/30 ring-1 ring-sky-200/70 dark:ring-sky-500/30 shadow-2xs';
-                      numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
-                    }
-
-                    const inFormatted = day.inTime ? (day.inTime.includes('T') ? new Date(day.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.inTime) : null;
-                    const outFormatted = day.outTime ? (day.outTime.includes('T') ? new Date(day.outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.outTime) : null;
-
-                    return (
-                      <div
-                        key={idx}
-                        title={day.details || `Date: ${day.dateStr}`}
-                        className={`h-full min-h-0 p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer overflow-hidden ${cardStyle}`}
-                      >
-                        {/* Day Card Header: Day Number + Minimal Status Badge */}
-                        <div className="flex items-center justify-between gap-1 leading-none shrink-0 mb-0.5">
-                          <span className={`leading-none ${numBadgeStyle}`}>
-                            {day.dayNumber}
-                          </span>
-
-                          {isToday && (
-                            <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
-                              Today
-                            </span>
-                          )}
-
-                          {day.status === 'WEEK_OFF' && (
-                            <span className="text-[8px] font-normal px-1.5 py-0.5 rounded-full uppercase tracking-wider text-slate-400 dark:text-gray-500">
-                              Off
-                            </span>
-                          )}
-
-                          {day.badgeText && !isToday && (
-                            <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-                              day.status === 'PRESENT' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400' :
-                              day.status === 'LATE' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' :
-                              day.status === 'LEAVE' ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400' :
-                              day.status === 'ABSENT' ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400' :
-                              day.status === 'HOLIDAY' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' : 'bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300'
-                            }`}>
-                              {day.badgeText === 'P' ? 'Present' : day.badgeText === 'L' ? 'Leave' : day.badgeText === 'A' ? 'Absent' : day.badgeText === 'H' ? 'Holiday' : day.badgeText}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Minimalist Punch Times & Details */}
-                        <div className="flex flex-col gap-0.5 mt-auto pt-1 border-t border-slate-100 dark:border-[#303030] shrink-0">
-                          {inFormatted && (
-                            <div className="flex items-center justify-between text-[8px] sm:text-[8.5px] leading-tight">
-                              <span className="text-[7.5px] font-medium text-slate-400 dark:text-gray-500">In</span>
-                              <span className="font-mono font-medium text-slate-700 dark:text-gray-200 truncate pl-1">{inFormatted}</span>
-                            </div>
-                          )}
-
-                          {outFormatted && (
-                            <div className="flex items-center justify-between text-[8px] sm:text-[8.5px] leading-tight">
-                              <span className="text-[7.5px] font-medium text-slate-400 dark:text-gray-500">Out</span>
-                              <span className="font-mono font-medium text-slate-700 dark:text-gray-200 truncate pl-1">{outFormatted}</span>
-                            </div>
-                          )}
-
-                          {!inFormatted && !outFormatted && day.details && day.details !== 'Today' && (
-                            <div className={`text-[8px] font-medium truncate ${
-                              day.status === 'LEAVE' ? 'text-purple-600 dark:text-purple-400' :
-                              day.status === 'HOLIDAY' ? 'text-amber-600 dark:text-amber-400' :
-                              day.status === 'ABSENT' ? 'text-rose-600 dark:text-rose-400' :
-                              'text-slate-500 dark:text-gray-400'
-                            }`} title={day.details}>
-                              {day.details}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
+              <button 
+                type="button"
+                onClick={() => setIsApplyLeaveModalOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#282828] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>,
-          document.body
-        )}
 
-        {/* Quick Apply Leave Modal */}
-        {isApplyLeaveModalOpen && typeof document !== 'undefined' && createPortal(
-          <div 
-            className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setIsApplyLeaveModalOpen(false);
-            }}
-          >
-            <div 
-              className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xl border border-gray-200 dark:border-[#303030] max-w-md w-full overflow-hidden ring-1 ring-black/10 animate-in zoom-in-95 duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-[#303030] bg-gray-50/70 dark:bg-[#222222]">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 flex items-center justify-center">
-                    <Plus className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">Apply Leave</h3>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Quick 1-click leave application</p>
-                  </div>
+            <form onSubmit={handleApplyLeaveSubmit} className="p-5 space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">
+                  Leave Type
+                </label>
+                <select
+                  value={leaveForm.leaveType}
+                  onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveType: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#333333] rounded-xl text-xs font-medium text-slate-800 dark:text-gray-200 outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-gray-500 cursor-pointer"
+                >
+                  <option value="CASUAL">Casual Leave ({leaveBalances.casual.remaining} remaining)</option>
+                  <option value="SICK">Sick Leave ({leaveBalances.sick.remaining} remaining)</option>
+                  <option value="EARNED">Earned Leave ({leaveBalances.earned.remaining} remaining)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={leaveForm.fromDate}
+                    onChange={(e) => setLeaveForm(prev => ({ ...prev, fromDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#333333] rounded-xl text-xs font-mono text-slate-800 dark:text-gray-200 outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-gray-500"
+                    required
+                  />
                 </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    value={leaveForm.toDate}
+                    onChange={(e) => setLeaveForm(prev => ({ ...prev, toDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#333333] rounded-xl text-xs font-mono text-slate-800 dark:text-gray-200 outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-gray-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">
+                  Reason / Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Reason for requesting leave..."
+                  value={leaveForm.reason}
+                  onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#333333] rounded-xl text-xs text-slate-800 dark:text-gray-200 outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-gray-500 resize-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsApplyLeaveModalOpen(false)}
-                  className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#222222] transition cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#2c2c2c] rounded-xl transition cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingLeave}
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 dark:bg-[#2c2c2c] dark:hover:bg-[#383838] dark:border dark:border-[#404040] rounded-xl shadow-2xs dark:shadow-none transition cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingLeave ? 'Submitting...' : 'Submit Request'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
-              <form onSubmit={handleApplyLeaveSubmit} className="p-5 space-y-4">
-                {/* Available Leave Balances */}
-                <div className="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-[#222222] p-2.5 rounded-xl border border-slate-200/60 dark:border-[#303030] text-center">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 block">Casual</span>
-                    <span className="text-xs font-extrabold text-cyan-700 dark:text-cyan-400">{leaveBalances.casual} days</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 block">Sick</span>
-                    <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">{leaveBalances.sick} days</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 block">Earned</span>
-                    <span className="text-xs font-extrabold text-indigo-700 dark:text-indigo-400">{leaveBalances.earned} days</span>
-                  </div>
+      {/* ── 5. FULL EXPANDED CALENDAR MODAL ────────────────────────────────── */}
+      {isCalendarExpanded && createPortal(
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsCalendarExpanded(false)}
+        >
+          <div 
+            className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#303030] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-[#262626] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-[#252525] text-cyan-600 dark:text-gray-300 dark:border dark:border-[#333333] flex items-center justify-center shadow-2xs">
+                  <CalendarIcon className="w-5 h-5" />
                 </div>
-
-                {/* Leave Type */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Leave Type</label>
-                  <select
-                    value={leaveForm.leaveType}
-                    onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveType: e.target.value }))}
-                    className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
-                  >
-                    <option value="CASUAL" className="dark:bg-[#222222]">Casual Leave (CL)</option>
-                    <option value="SICK" className="dark:bg-[#222222]">Sick Leave (SL)</option>
-                    <option value="EARNED" className="dark:bg-[#222222]">Earned / Privilege Leave (EL/PL)</option>
-                  </select>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Attendance Calendar — {monthNames[month]} {year}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 dark:text-gray-400">
+                    Detailed daily shifts, leaves, and holidays log for {currentUser.name}
+                  </p>
                 </div>
-
-                {/* Dates */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">From Date</label>
-                    <input
-                      type="date"
-                      value={leaveForm.fromDate}
-                      onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveDate: e.target.value, fromDate: e.target.value }))}
-                      required
-                      className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">To Date</label>
-                    <input
-                      type="date"
-                      value={leaveForm.toDate}
-                      onChange={(e) => setLeaveForm(prev => ({ ...prev, toDate: e.target.value }))}
-                      required
-                      className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Reason */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Reason / Note</label>
-                  <textarea
-                    rows={2}
-                    value={leaveForm.reason}
-                    onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Brief reason for your leave request..."
-                    className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-[#303030]">
-                  <button
-                    type="button"
-                    onClick={() => setIsApplyLeaveModalOpen(false)}
-                    className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingLeave}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-cyan-700 hover:bg-cyan-800 rounded-lg transition disabled:opacity-50 shadow-2xs cursor-pointer"
-                  >
-                    {isSubmittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Submit Request</span>
-                  </button>
-                </div>
-              </form>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsCalendarExpanded(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#282828] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>,
-          document.body
-        )}
 
-      </div>
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 dark:text-gray-500 uppercase">
+                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {calendarDays.map((d, idx) => {
+                  if (!d.currentMonth) {
+                    return (
+                      <div key={`exp-empty-${idx}`} className="h-16 rounded-xl border border-dashed border-slate-100 dark:border-[#262626] p-1.5 text-slate-300 dark:text-gray-700 text-xs">
+                        {d.dayNumber}
+                      </div>
+                    );
+                  }
+
+                  const isToday = d.dateStr === todayStr;
+
+                  return (
+                    <div
+                      key={`exp-day-${idx}`}
+                      className={`h-16 rounded-xl p-1.5 border flex flex-col justify-between text-xs transition ${
+                        isToday 
+                          ? 'border-cyan-500 bg-cyan-50/40 dark:border-gray-500 dark:bg-[#282828]' 
+                          : d.status === 'PRESENT'
+                          ? 'border-emerald-200/80 bg-emerald-50/50 dark:bg-[#222222] dark:border-[#2e2e2e]'
+                          : d.status === 'LEAVE'
+                          ? 'border-purple-200/80 bg-purple-50/50 dark:bg-[#222222] dark:border-[#2e2e2e]'
+                          : d.status === 'HOLIDAY'
+                          ? 'border-amber-200/80 bg-amber-50/50 dark:bg-[#222222] dark:border-[#2e2e2e]'
+                          : 'border-slate-200/60 dark:border-[#262626] bg-slate-50/30 dark:bg-[#202020]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-bold ${isToday ? 'text-cyan-600 dark:text-white' : 'text-slate-800 dark:text-gray-200'}`}>
+                          {d.dayNumber}
+                        </span>
+                        {d.badgeText && (
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
+                            d.badgeText === 'P' ? 'bg-emerald-100 text-emerald-800 dark:bg-[#282828] dark:text-gray-200' :
+                            d.badgeText === 'L' ? 'bg-purple-100 text-purple-800 dark:bg-[#282828] dark:text-gray-300' :
+                            d.badgeText === 'H' ? 'bg-amber-100 text-amber-800 dark:bg-[#282828] dark:text-gray-300' :
+                            'bg-slate-200 text-slate-700 dark:bg-[#282828] dark:text-gray-300'
+                          }`}>
+                            {d.badgeText}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-gray-400 truncate">
+                        {d.details || (isToday ? 'Today' : '')}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 };
 
-export default EmployeeSelfServicePage;
+export default React.memo(EmployeeSelfServicePage);

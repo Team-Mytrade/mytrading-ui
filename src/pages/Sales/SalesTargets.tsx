@@ -25,7 +25,7 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-import { todayIso } from "../../utils/localDate";
+import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
 type TargetStatus =
@@ -114,9 +114,8 @@ const emptyForm: TargetForm = {
   targetYear: String(new Date().getFullYear()),
   targetMonth: String(new Date().getMonth() + 1),
   startDate: todayIso(),
-  endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-    .toISOString()
-    .split("T")[0],
+  // Local dates: toISOString() is UTC and would land on the previous day east of UTC (e.g. India)
+  endDate: toLocalIsoDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)),
   remarks: "",
   status: "NOT_STARTED",
 };
@@ -284,8 +283,8 @@ const SalesTargets: React.FC = () => {
         const year = Number(name === "targetYear" ? value : next.targetYear);
         const month = Number(name === "targetMonth" ? value : next.targetMonth);
         if (year && month >= 1 && month <= 12) {
-          next.startDate = new Date(year, month - 1, 1).toISOString().split("T")[0];
-          next.endDate = new Date(year, month, 0).toISOString().split("T")[0];
+          next.startDate = toLocalIsoDate(new Date(year, month - 1, 1));
+          next.endDate = toLocalIsoDate(new Date(year, month, 0));
         }
       }
 
@@ -360,8 +359,8 @@ const SalesTargets: React.FC = () => {
     const year = Number(form.targetYear);
     const month = Number(form.targetMonth);
     if (year && month >= 1 && month <= 12) {
-      const monthStart = new Date(year, month - 1, 1).toISOString().split("T")[0];
-      const monthEnd = new Date(year, month, 0).toISOString().split("T")[0];
+      const monthStart = toLocalIsoDate(new Date(year, month - 1, 1));
+      const monthEnd = toLocalIsoDate(new Date(year, month, 0));
       if (form.startDate && (form.startDate < monthStart || form.startDate > monthEnd)) {
         ToasterService.error(
           "Invalid date range",

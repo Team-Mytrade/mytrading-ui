@@ -30,26 +30,29 @@ interface PurchaseInvoice {
   currency?: string;
   referenceNumber?: string;
   notes?: string;
+  vendor?: { id: number; name?: string } | null;
+  vendorId?: string;
 }
 
 /**
- * Fields accepted when creating or updating a purchase invoice.
- * Server-maintained fields (id, createdDate, updatedDate, createdBy, tenantId)
- * are deliberately excluded and must be assigned by the API.
+ * Fields accepted when creating or updating a purchase invoice. The payment status follows
+ * the payable (vendor payments), so it is not sent.
  */
 interface PurchaseInvoicePayload {
   invoiceNumber: string;
   invoiceDate?: string;
   dueDate?: string;
   totalAmount: number;
-  purchaseInvoiceStatus: string;
   currency: string;
   referenceNumber?: string;
   notes?: string;
+  vendor: { id: number };
 }
 
-const API_URL = "/v1/api/invoice/purchase-invoices";
-const PAGE_SIZE = 10;
+interface Vendor {
+  id: number;
+  name: string;
+}
 
 const PURCHASE_INVOICE_STATUS_FALLBACK = ["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED", "OVERDUE", "DRAFT", "VOID", "RETURNED", "APPROVED", "REJECTED", "PENDING", "COMPLETED", "FAILED", "REFUNDED", "CHARGEBACK", "WRITE_OFF", "OTHER"];
 const CURRENCY_FALLBACK = ["INR", "USD", "EUR"];
@@ -147,8 +150,7 @@ const PurchaseInvoices: React.FC = () => {
       const res = await axios.get<PurchaseInvoice[]>(API_URL);
       setPurchaseInvoices(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Error fetching purchase invoices", err);
-      ToasterService.error("Failed to load purchase invoices");
+      ToasterService.error(apiError(err, "Failed to load purchase invoices"));
       setPurchaseInvoices([]);
     } finally {
       setIsLoading(false);
@@ -160,14 +162,18 @@ const PurchaseInvoices: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.vendorId) {
+      ToasterService.error("Choose the vendor");
+      return;
+    }
     if (!form.invoiceNumber?.trim()) {
-      ToasterService.error("Invoice number is required");
+      ToasterService.error("Enter the vendor's invoice number");
       return;
     }
 
     const totalAmount = Number(form.totalAmount ?? 0);
-    if (!Number.isFinite(totalAmount) || totalAmount < 0) {
-      ToasterService.error("Total amount must be a valid non-negative number");
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      ToasterService.error("Enter the bill amount");
       return;
     }
 
@@ -190,6 +196,7 @@ const PurchaseInvoices: React.FC = () => {
       currency: form.currency?.trim().toUpperCase() || "INR",
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
+      vendor: { id: Number(form.vendorId) },
     };
 
     setSubmitting(true);
@@ -199,15 +206,14 @@ const PurchaseInvoices: React.FC = () => {
           ? await axios.put(`${API_URL}/${editingId}`, payload)
           : await axios.post<PurchaseInvoice>(API_URL, payload);
       if (res.status === 200 || res.status === 201) {
-        ToasterService.success(editingId !== null ? "Purchase invoice updated successfully!" : "Purchase invoice added successfully!");
+        ToasterService.success(editingId !== null ? "Purchase invoice updated" : "Purchase invoice added; it is now in Accounts Payable");
         setShowFormModal(false);
         setForm({});
         setEditingId(null);
         await fetchPurchaseInvoices();
       }
     } catch (err) {
-      console.error("Error submitting purchase invoice", err);
-      ToasterService.error("Failed to save purchase invoice");
+      ToasterService.error(apiError(err, "Failed to save purchase invoice"));
     } finally {
       setSubmitting(false);
     }
@@ -280,6 +286,15 @@ const PurchaseInvoices: React.FC = () => {
       ),
     },
     {
+      key: "vendor",
+      label: "Vendor",
+      sortable: true,
+      headerClassName: "w-[16%] text-left",
+      className: "w-[16%]",
+      sortValueGetter: (invoice) => invoice.vendor?.name ?? "",
+      render: (invoice) => <span className="text-sm text-slate-700">{invoice.vendor?.name ?? "—"}</span>,
+    },
+    {
       key: "invoiceDate",
       label: "Invoice Date",
       sortable: true,
@@ -341,8 +356,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[25%] text-right pr-4",
-      className: "w-[25%] text-right",
+      headerClassName: "w-[12%] text-right pr-4",
+      className: "w-[12%] text-right",
       render: (invoice) => (
         <div className="flex items-center justify-end gap-0.5">
           {canUpdate && (

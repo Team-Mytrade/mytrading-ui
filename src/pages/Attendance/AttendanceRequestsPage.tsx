@@ -1,4 +1,3 @@
-import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
@@ -9,8 +8,6 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
-import { todayIso } from "../../utils/localDate";
-import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
@@ -62,11 +59,29 @@ export interface OnDutyDateRow {
   requestType: string;
 }
 
-const AttendanceRequestsPage: React.FC = () => {
-  const { canUpdate } = usePermissions();
+interface AttendanceRequestsPageProps {
+  isEmbedded?: boolean;
+}
+
+const AttendanceRequestsPage: React.FC<AttendanceRequestsPageProps> = ({ isEmbedded = false }) => {
   // ── User Context Resolution ─────────────────────────────────────────────
-  // Own employee identity from the login token (no hard-coded ids)
-  const currentUser = useCurrentEmployee();
+  const currentUser = useMemo(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        return {
+          id: parsed.id || parsed.userId || 12,
+          name: parsed.fullName || parsed.name || parsed.username || "Roy Hamlin",
+          role: parsed.role || parsed.roles?.[0] || "SUPER_ADMIN",
+          email: parsed.email || parsed.username || "roy.hamlin@example.com"
+        };
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    }
+    return { id: 12, name: "Roy Hamlin", role: "SUPER_ADMIN", email: "roy.hamlin@example.com" };
+  }, []);
 
   // ── States ─────────────────────────────────────────────────────────────
   const [requests, setRequests] = useState<AttendanceRequestModel[]>([]);
@@ -75,14 +90,14 @@ const AttendanceRequestsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'apply' | 'history'>('apply');
   const [formStep, setFormStep] = useState<'form' | 'datesBreakdown'>('form');
 
-  const [currentEmployeeId, setCurrentEmployeeId] = useState<number>(currentUser.id);
-  const [employeeCode, setEmployeeCode] = useState<string>(currentUser.code);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<number>(currentUser.id || 12);
+  const [employeeCode, setEmployeeCode] = useState<string>(`EMP-${currentUser.id || 12}`);
 
   // Step 2: Date Rows State
   const [onDutyDateRows, setOnDutyDateRows] = useState<OnDutyDateRow[]>([]);
   const [editingRow, setEditingRow] = useState<OnDutyDateRow | null>(null);
   const [isAddDateModalOpen, setIsAddDateModalOpen] = useState(false);
-  const [newDateInput, setNewDateInput] = useState(todayIso());
+  const [newDateInput, setNewDateInput] = useState(new Date().toISOString().slice(0, 10));
 
   // Inspection Modal
   const [viewingRequest, setViewingRequest] = useState<AttendanceRequestModel | null>(null);
@@ -91,7 +106,7 @@ const AttendanceRequestsPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Form State
-  const todayStr = todayIso();
+  const todayStr = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState<RequestDetailItem>({
     fromDate: todayStr,
     toDate: todayStr,
@@ -437,7 +452,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
   // ── Clear Form Helper ──────────────────────────────────────────────────
   const handleClearForm = () => {
-    const today = todayIso();
+    const today = new Date().toISOString().slice(0, 10);
     setForm({
       fromDate: today,
       toDate: today,
@@ -634,8 +649,12 @@ const AttendanceRequestsPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="On Duty & Attendance Requests" description="Submit and track work from home, regularization, and duty requests" />
-      <PageBreadcrumb pageTitle="On Duty Requests" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="On Duty & Attendance Requests" description="Submit and track work from home, regularization, and duty requests" />
+          <PageBreadcrumb pageTitle="On Duty Requests" />
+        </>
+      )}
 
       <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5">
         
@@ -959,14 +978,14 @@ const AttendanceRequestsPage: React.FC = () => {
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  {canUpdate && (<button
+                                  <button
                                     type="button"
                                     onClick={() => setEditingRow(row)}
                                     className="p-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors cursor-pointer"
                                     title="Edit Date Entry"
                                   >
                                     <Pencil className="w-4 h-4" />
-                                  </button>)}
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteDateRow(row.id)}

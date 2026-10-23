@@ -35,7 +35,15 @@ export interface RegularizationItemModel {
   [key: string]: any;
 }
 
-const AttendanceRegularizationApprovalPage: React.FC = () => {
+export interface AttendanceRegularizationApprovalPageProps {
+  isEmbedded?: boolean;
+  onActionComplete?: () => void;
+}
+
+const AttendanceRegularizationApprovalPage: React.FC<AttendanceRegularizationApprovalPageProps> = ({
+  isEmbedded = false,
+  onActionComplete
+}) => {
   const { user } = useContext(AuthContext);
   const { canApprove } = usePermissions();
 
@@ -128,14 +136,17 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
       if (actionType === 'approve') {
         await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/approve`);
         ToasterService.success(`Regularization request #${selectedRequest.id} approved successfully!`);
+        onActionComplete?.();
       } else if (actionType === 'reject') {
         const reasonParam = encodeURIComponent(actionRemarks.trim() || 'Not approved by manager');
         await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/reject?reason=${reasonParam}`);
         ToasterService.success(`Regularization request #${selectedRequest.id} rejected.`);
+        onActionComplete?.();
       } else if (actionType === 'cancel') {
         const empId = selectedRequest.employeeId || currentUser.id;
         await axios.put(`${REGULARIZATION_BASE_URL}/${selectedRequest.id}/cancel?employeeId=${empId}`);
         ToasterService.success(`Regularization request #${selectedRequest.id} cancelled.`);
+        onActionComplete?.();
       }
 
       setActionType(null);
@@ -373,60 +384,65 @@ const AttendanceRegularizationApprovalPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Regularization" description="Manage and approve employee attendance regularization requests" />
-      <PageBreadcrumb pageTitle="Attendance Regularization" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Attendance Regularization" description="Manage and approve employee attendance regularization requests" />
+          <PageBreadcrumb pageTitle="Attendance Regularization" />
+        </>
+      )}
 
-      <div className="w-full pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={isEmbedded ? "w-full pb-2 animate-in fade-in duration-200 space-y-4" : "w-full pb-6 animate-in fade-in duration-200 mt-1 space-y-4"}>
         
-        {/* Header Bar */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent">
-              <ShieldCheck className="w-5 h-5" />
+        {/* Header Bar (Shown only in standalone view) */}
+        {!isEmbedded && (
+          <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Regularization Desk</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Review and approve employee missed punch regularizations</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Regularization Desk</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Review and approve employee missed punch regularizations</p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchRegularizations(activeTab)}
+                className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all"
+                title="Refresh Queue"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
+              </button>
             </div>
           </div>
+        )}
 
+        {/* Tab Navigation with TableToolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fetchRegularizations(activeTab)}
-              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all"
-              title="Refresh Queue"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-            </button>
+            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
+                  activeTab === tab 
+                    ? 'bg-cyan-600 text-white shadow-xs scale-102' 
+                    : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {tab} Regularizations
+              </button>
+            ))}
           </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
-          {(['pending', 'approved', 'rejected'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
-                activeTab === tab 
-                  ? 'bg-cyan-600 text-white shadow-xs scale-102' 
-                  : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              {tab} Regularizations
-            </button>
-          ))}
+          <div className="flex items-center gap-2">
+            <TableToolbar onRefresh={() => fetchRegularizations(activeTab)} />
+          </div>
         </div>
 
         {/* Regularization Data Table */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              {activeTab} Regularizations
-            </h3>
-            <TableToolbar onRefresh={() => fetchRegularizations(activeTab)} />
-          </div>
           <ReusableTable
             className="[&_th]:!px-2 [&_td]:!px-2 [&_th]:!py-2.5 [&_td]:!py-2"
             data={normalizedRequests}

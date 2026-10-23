@@ -665,7 +665,7 @@ const confirmConvert = async () => {
                     Try adjusting your search
                   </p>
                 ) : (
-                  <button
+                  canCreate && <button
                     type="button"
                     onClick={() => {
                       resetForm();

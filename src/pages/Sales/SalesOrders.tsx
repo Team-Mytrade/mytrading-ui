@@ -4,11 +4,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
+  CheckBadgeIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   PencilSquareIcon,
   ShoppingCartIcon,
   TrashIcon,
+  TruckIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
@@ -135,6 +137,46 @@ type SalesOrder = {
   paymentTerms: string;
   dueDate: string;
   items: SalesOrderItem[];
+};
+
+/** What is still left to dispatch on one order line. */
+type DispatchableItem = {
+  salesOrderItemId: number;
+  productId: number;
+  productCode?: string;
+  productName?: string;
+  orderedQuantity: number;
+  dispatchedQuantity: number;
+  /** Held by draft dispatches that are not confirmed yet */
+  draftQuantity?: number;
+  remainingQuantity: number;
+};
+
+type SalesDispatch = {
+  id: number;
+  salesOrderId: number;
+  dispatchNumber: string;
+  dispatchDate: string;
+  status: string;
+  deliveryReference?: string;
+  vehicleNumber?: string;
+  items: Array<{ id: number; salesOrderItemId: number; productName?: string; quantity: number }>;
+};
+
+type DispatchDetails = {
+  deliveryReference: string;
+  transporterName: string;
+  vehicleNumber: string;
+  trackingNumber: string;
+  remarks: string;
+};
+
+const emptyDispatchDetails: DispatchDetails = {
+  deliveryReference: "",
+  transporterName: "",
+  vehicleNumber: "",
+  trackingNumber: "",
+  remarks: "",
 };
 
 type SalesPersonOption = {
@@ -277,7 +319,12 @@ type OrderForm = {
 };
 
 const API_URL = "/v1/api/sales/sales-orders";
+const DISPATCH_API_URL = "/v1/api/sales/dispatch";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
+// Confirmed orders ship in one or more dispatches; a confirmed dispatch issues the stock and can be invoiced
+const DISPATCHABLE_STATUSES = ["CONFIRMED", "PARTIALLY_DELIVERED"];
+const EDITABLE_STATUSES = ["DRAFT"];
+const DELETABLE_STATUSES = ["DRAFT", "CANCELLED"];
 const PAGE_SIZE = 10;
 
 const quotationTypeOptions = ["PRODUCT", "SERVICE"];
@@ -542,7 +589,7 @@ function buildOrderItemPayload(item: OrderItemForm): SalesOrderItem {
 }
 
 const SalesOrders: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { canCreate, canUpdate, canDelete, canApprove } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const token = localStorage.getItem("accessToken");
@@ -1375,7 +1422,7 @@ const SalesOrders: React.FC = () => {
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
-          {canDelete && (<button
+          {canDelete && DELETABLE_STATUSES.includes(order.status || "DRAFT") && (<button
             type="button"
             onClick={() => setDeleteOrder(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"

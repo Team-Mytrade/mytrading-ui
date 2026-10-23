@@ -9,8 +9,6 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
-import { todayIso } from "../../utils/localDate";
-import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base URL (routing via Vite dev proxy)
 const BASE_SCHEDULE_URL = '/v1/api/attendance/shiftShedules';
@@ -53,8 +51,11 @@ export interface CurrentShiftModel {
   effectiveTo?: string;
 }
 
-const EmployeeShiftSchedulePage: React.FC = () => {
-  const { canCreate, canUpdate } = usePermissions();
+export interface EmployeeShiftSchedulePageProps {
+  isEmbedded?: boolean;
+}
+
+const EmployeeShiftSchedulePage: React.FC<EmployeeShiftSchedulePageProps> = ({ isEmbedded = false }) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
@@ -88,7 +89,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   }>({
     employeeId: 0,
     shiftId: 3,
-    effectiveFrom: todayIso(),
+    effectiveFrom: new Date().toISOString().slice(0, 10),
     effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
   });
 
@@ -248,9 +249,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const openCreateModal = () => {
     setEditingAssignment(null);
     setForm({
-      employeeId: selectedEmployeeId,
+      employeeId: selectedEmployeeId || 12,
       shiftId: shifts[0]?.id || 3,
-      effectiveFrom: todayIso(),
+      effectiveFrom: new Date().toISOString().slice(0, 10),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     });
     setIsModalOpen(true);
@@ -270,9 +271,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const resetForm = () => {
     setEditingAssignment(null);
     setForm({
-      employeeId: selectedEmployeeId,
+      employeeId: selectedEmployeeId || 12,
       shiftId: shifts[0]?.id || 3,
-      effectiveFrom: todayIso(),
+      effectiveFrom: new Date().toISOString().slice(0, 10),
       effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     });
   };
@@ -325,14 +326,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       label: 'Actions',
       render: (row) => (
         <div className="flex items-center gap-1.5">
-          {canUpdate && (<button
+          <button
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors cursor-pointer"
             title="Edit Assignment"
           >
             <Edit2 className="w-3.5 h-3.5" />
-          </button>)}
+          </button>
         </div>
       )
     }
@@ -340,10 +341,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Employee Shift Schedule" description="Assign and manage work shifts for employees" />
-      <PageBreadcrumb pageTitle="Employee Shift Schedule" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Employee Shift Schedule" description="Assign and manage work shifts for employees" />
+          <PageBreadcrumb pageTitle="Employee Shift Schedule" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={`${isEmbedded ? 'w-full' : 'max-w-6xl mx-auto'} pb-6 animate-in fade-in duration-200 mt-1 space-y-4`}>
         
         {/* Header Bar */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -358,13 +363,13 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            {canCreate && (<button
+            <button
               type="button"
               onClick={openCreateModal}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Assign Shift
-            </button>)}
+            </button>
             <button
               type="button"
               onClick={() => loadEmployeeSchedules(selectedEmployeeId)}
@@ -515,7 +520,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveFrom}
                     onChange={(e) => setForm(p => ({ ...p, effectiveFrom: e.target.value }))}
-                    onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not allowed */ } }}
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />
@@ -527,7 +532,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                     type="date"
                     value={form.effectiveTo}
                     onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
-                    onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not allowed */ } }}
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                     required
                   />

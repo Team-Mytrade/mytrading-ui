@@ -27,7 +27,11 @@ export interface AttendanceRequestModel {
   }>;
 }
 
-const WorkFromHomeRequestPage: React.FC = () => {
+interface WorkFromHomeRequestPageProps {
+  isEmbedded?: boolean;
+}
+
+const WorkFromHomeRequestPage: React.FC<WorkFromHomeRequestPageProps> = ({ isEmbedded = false }) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [requests, setRequests] = useState<AttendanceRequestModel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -222,8 +226,12 @@ const WorkFromHomeRequestPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Work From Home Request" description="Apply and view WFH requests" />
-      <PageBreadcrumb pageTitle="Work From Home Request" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Work From Home Request" description="Apply and view WFH requests" />
+          <PageBreadcrumb pageTitle="Work From Home Request" />
+        </>
+      )}
 
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
         

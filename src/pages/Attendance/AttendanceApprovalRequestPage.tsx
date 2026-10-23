@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { 
-  CheckCircle2, XCircle, Clock, RotateCw, Eye, MessageSquare, X, Check, FileCheck
+  RotateCw, Eye, X, Check, FileCheck
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
-import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
 // Relative API Base Endpoint (routing via Vite dev proxy)
@@ -18,15 +17,26 @@ export interface ApprovalRequestModel {
   id: number;
   employeeId?: number;
   employeeName?: string;
+  employeeCode?: string;
   requestType?: string;
   status?: string; // PENDING, APPROVED, REJECTED
   appliedDate?: string;
   remarks?: string;
+  dates?: string;
+  schedule?: string[];
   requestDetails?: any[];
   [key: string]: any;
 }
 
-const AttendanceApprovalRequestPage: React.FC = () => {
+export interface AttendanceApprovalRequestPageProps {
+  isEmbedded?: boolean;
+  onActionComplete?: () => void;
+}
+
+const AttendanceApprovalRequestPage: React.FC<AttendanceApprovalRequestPageProps> = ({ 
+  isEmbedded = false, 
+  onActionComplete 
+}) => {
   const { canApprove } = usePermissions();
   // ── States ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
@@ -49,9 +59,13 @@ const AttendanceApprovalRequestPage: React.FC = () => {
   const [cache, setCache] = useState<Record<string, ApprovalRequestModel[]>>({});
 
   // ── API 1: GET CALL DETAILS (Pending / Approved / Rejected with AbortController & Cache) ──
-  const fetchApprovalRequests = async (tab: 'pending' | 'approved' | 'rejected', controller?: AbortController) => {
-    // If cached, show cached data instantly first
-    if (cache[tab]) {
+  const fetchApprovalRequests = useCallback(async (
+    tab: 'pending' | 'approved' | 'rejected',
+    controller?: AbortController,
+    skipCache = false
+  ) => {
+    // If cached (and not forced refresh), show cached data instantly first
+    if (!skipCache && cache[tab]) {
       setRequests(cache[tab]);
     } else {
       setLoading(true);
@@ -111,6 +125,7 @@ const AttendanceApprovalRequestPage: React.FC = () => {
         const rawType = item.requestType || item.leaveType || detailList[0]?.requestType || 'WORK_FROM_HOME';
         const requestTypeStr = String(rawType).replace(/_/g, ' ');
 
+        // Normalise status from both leave-approvals and attendance-approvals responses
         const statusStr = String(item.status || item.approvalStatus || tab).toUpperCase();
 
         const formatTimeOnly = (t?: string) => {
@@ -141,25 +156,31 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
         const reasonText = item.remarks || item.reason || detailList[0]?.remarks || detailList[0]?.reason;
         const createdOn = item.createdDate || item.appliedDate;
+        const appliedOnDisplay = formatDateOnly(createdOn);
 
-        // Top 4 highlight summary metrics in Table drawer:
-        // 1. id -> APPROVAL ID
-        // 2. employee -> EMPLOYEE
-        // 3. requestType -> REQUEST TYPE
-        // 4. status -> STATUS
         const rowItem: Record<string, any> = {
           id: item.id,
           employee: empLabel,
           requestType: requestTypeStr,
           status: statusStr,
           dates: datesStr,
+          // ── Display-safe fields for the view modal (always consistent regardless of API source) ──
+          _displayEmployeeName: empName,
+          _displayEmployeeCode: empCode,
+          _displayEmployeeId: item.employeeId,
+          _displayStatus: statusStr,
+          _displayRequestType: requestTypeStr,
+          _displayAppliedOn: appliedOnDisplay || '',
+          _displayRemarks: reasonText || '',
+          _displayDates: datesStr,
+          _displaySchedule: schedule || [],
         };
 
-        if (createdOn) rowItem.appliedOn = formatDateOnly(createdOn);
+        if (appliedOnDisplay) rowItem.appliedOn = appliedOnDisplay;
         if (reasonText) rowItem.reason = reasonText;
         if (schedule && schedule.length > 0) rowItem.schedule = schedule;
 
-        // Attach raw request and helper properties non-enumerably so Table.tsx's Object.keys() does NOT inspect them
+        // Attach raw request non-enumerably so Table.tsx's Object.keys() does NOT inspect it
         Object.defineProperties(rowItem, {
           _raw: { value: item, enumerable: false, writable: true },
           employeeName: { value: empName, enumerable: false, writable: true },
@@ -179,11 +200,12 @@ const AttendanceApprovalRequestPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchApprovalRequests(activeTab, controller);
+    fetchApprovalRequests(activeTab, controller, false);
     return () => {
       controller.abort();
     };
@@ -228,12 +250,15 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
       if (actionSuccess) {
         ToasterService.success(`Leave request #${selectedRequest.id} ${actionType === 'approve' ? 'approved' : 'rejected'} successfully!`);
+        onActionComplete?.();
       }
 
       setActionType(null);
       setSelectedRequest(null);
       setActionRemarks('');
-      fetchApprovalRequests(activeTab);
+      // Invalidate cache for this tab so the re-fetch always shows fresh data
+      setCache(prev => { const next = { ...prev }; delete next[activeTab]; return next; });
+      fetchApprovalRequests(activeTab, undefined, true);
     } catch (err: any) {
       handleApiError(err, `Failed to ${actionType} leave request.`);
     } finally {
@@ -242,10 +267,18 @@ const AttendanceApprovalRequestPage: React.FC = () => {
   };
 
   const openActionModal = (req: ApprovalRequestModel, type: 'approve' | 'reject' | 'view') => {
-    const rawReq = (req as any)._raw || req;
-    setSelectedRequest(rawReq);
+    // Use the cleaned display row directly — its _display* fields are always consistent
+    // regardless of whether the record came from leave-approvals or attendance-approvals API.
+    setSelectedRequest(req);
     setActionType(type);
-    setActionRemarks(type === 'reject' ? "enter task description for each day and resubmit" : "Approved by Manager");
+    // Pre-fill remarks only for approve/reject; leave view mode blank
+    if (type === 'approve') {
+      setActionRemarks('Approved and before going on leave please complete the work as discussed');
+    } else if (type === 'reject') {
+      setActionRemarks('enter task description for each day and resubmit');
+    } else {
+      setActionRemarks('');
+    }
   };
 
   // ── Table Column Definitions ───────────────────────────────────────────
@@ -346,59 +379,64 @@ const AttendanceApprovalRequestPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Approvals" description="Manage and approve employee attendance requests" />
-      <PageBreadcrumb pageTitle="Attendance Approvals" />
+      {!isEmbedded && (
+        <>
+          <PageMeta title="Attendance Approvals" description="Manage and approve employee attendance requests" />
+          <PageBreadcrumb pageTitle="Attendance Approvals" />
+        </>
+      )}
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
+      <div className={isEmbedded ? "w-full pb-2 animate-in fade-in duration-200 space-y-4" : "max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4"}>
         
-        {/* Header Bar */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-200 hover:shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent transition-transform duration-200 hover:scale-105">
-              <FileCheck className="w-5 h-5" />
+        {/* Header Bar (Shown only in standalone view) */}
+        {!isEmbedded && (
+          <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-200 hover:shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent transition-transform duration-200 hover:scale-105">
+                <FileCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Approval Desk</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Review, approve, or reject employee attendance requests</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Attendance Approval Desk</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Review, approve, or reject employee attendance requests</p>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => fetchApprovalRequests(activeTab)}
-            className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 self-end sm:self-center"
-            title="Refresh Approvals"
-          >
-            <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => fetchApprovalRequests(activeTab)}
+              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 self-end sm:self-center"
+              title="Refresh Approvals"
+            >
+              <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
+            </button>
+          </div>
+        )}
 
         {/* Tab Navigation with Smooth Transitions */}
-        <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
-          {(['pending', 'approved', 'rejected'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
-                activeTab === tab 
-                ? 'bg-cyan-600 text-white shadow-xs scale-102' 
-                : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              {tab} Approvals
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
+          <div className="flex items-center gap-2">
+            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all duration-200 ease-in-out transform active:scale-95 ${
+                  activeTab === tab 
+                  ? 'bg-cyan-600 text-white shadow-xs scale-102' 
+                  : 'bg-white dark:bg-[#191919] text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                {tab} Approvals
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <TableToolbar onRefresh={() => fetchApprovalRequests(activeTab)} />
+          </div>
         </div>
 
         {/* Approvals Table with Responsive Horizontal Scroll */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 transition-all duration-300 overflow-x-auto">
           <div className="min-w-[600px]">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {activeTab} Approvals
-              </h3>
-              <TableToolbar onRefresh={() => fetchApprovalRequests(activeTab)} />
-            </div>
             <ReusableTable
               data={requests}
               columns={columns}
@@ -439,42 +477,74 @@ const AttendanceApprovalRequestPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030]">
                   <div>
                     <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE NAME</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{selectedRequest.employeeName || (selectedRequest.employeeId ? `Employee #${selectedRequest.employeeId}` : 'Employee')}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {selectedRequest._displayEmployeeName || selectedRequest.employee || 'Employee'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">EMPLOYEE ID</span>
-                    <span className="font-bold font-mono text-cyan-800 dark:text-cyan-400">{selectedRequest.employeeId ? `#EMP-${selectedRequest.employeeId}` : '—'}</span>
+                    <span className="font-bold font-mono text-cyan-800 dark:text-cyan-400">
+                      {selectedRequest._displayEmployeeCode
+                        ? `#${selectedRequest._displayEmployeeCode}`
+                        : selectedRequest._displayEmployeeId
+                          ? `#EMP-${selectedRequest._displayEmployeeId}`
+                          : '—'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">REQUEST TYPE</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 uppercase">{(selectedRequest.requestType || 'WORK_FROM_HOME').replace(/_/g, ' ')}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 uppercase">
+                      {selectedRequest._displayRequestType || selectedRequest.requestType || 'WORK FROM HOME'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">STATUS</span>
-                    <span className={`font-bold inline-block px-2 py-0.5 rounded text-[10px] ${
-                      selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' :
-                      selectedRequest.status === 'REJECTED' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-                    }`}>
-                      {selectedRequest.status || activeTab.toUpperCase()}
-                    </span>
+                    {(() => {
+                      const st = selectedRequest._displayStatus || selectedRequest.status || activeTab.toUpperCase();
+                      const stClass = st === 'APPROVED'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                        : st === 'REJECTED'
+                          ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300'
+                          : 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300';
+                      return <span className={`font-bold inline-block px-2 py-0.5 rounded text-[10px] ${stClass}`}>{st}</span>;
+                    })()}
                   </div>
                 </div>
 
                 <div className="bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
                     <span className="text-slate-500 dark:text-gray-400 font-medium">Applied Date:</span>
-                    <span className="font-mono font-bold text-slate-800 dark:text-white">{selectedRequest.appliedDate || todayIso()}</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-white">
+                      {selectedRequest._displayAppliedOn || selectedRequest.appliedOn || '—'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-[#303030] pb-1.5">
+                    <span className="text-slate-500 dark:text-gray-400 font-medium">Leave / Shift Dates:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-white">
+                      {selectedRequest._displayDates || selectedRequest.dates || '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-slate-500 dark:text-gray-400 font-medium">Approval Category:</span>
-                    <span className="font-bold text-cyan-700 dark:text-cyan-400">Attendance & Regularization Desk</span>
+                    <span className="font-bold text-cyan-700 dark:text-cyan-400">Attendance & Leave Desk</span>
                   </div>
                 </div>
+
+                {selectedRequest._displaySchedule && selectedRequest._displaySchedule.length > 0 && (
+                  <div className="bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-1">
+                    <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">SCHEDULE BREAKDOWN</span>
+                    <ul className="space-y-0.5">
+                      {(selectedRequest._displaySchedule as string[]).map((s, i) => (
+                        <li key={i} className="font-mono text-[11px] text-slate-700 dark:text-slate-300 bg-white dark:bg-[#191919] px-2 py-1 rounded border border-slate-100 dark:border-[#303030]">{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:border-[#303030] space-y-1">
                   <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">REMARKS / JUSTIFICATION</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">
-                    {selectedRequest.remarks || 'No specific remarks provided for this attendance approval request.'}
+                    {selectedRequest._displayRemarks || selectedRequest.reason || 'No specific remarks provided for this attendance approval request.'}
                   </p>
                 </div>
 
