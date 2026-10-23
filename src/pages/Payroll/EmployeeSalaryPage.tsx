@@ -11,11 +11,12 @@ import {
     CalendarIcon,
     PrinterIcon,
     DocumentTextIcon,
+    ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
+import { PAGE_BODY, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
@@ -315,14 +316,18 @@ const EmployeeSalaryPage: React.FC = () => {
     return (
         <>
             <PageMeta title="Employee Salaries" description="View employee salary records" />
-            <PageBreadcrumb pageTitle="Employee Salaries" />
+            <PageBreadcrumb
+                pageTitle="Employee Salaries"
+                actions={
+                    <button type="button" onClick={fetchAllSalaries} disabled={loading} className={TOOL_BUTTON}>
+                        <ArrowPathIcon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                        Refresh
+                    </button>
+                }
+            />
 
-            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label="Refresh Salaries" permission={null} onClick={fetchAllSalaries} />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
                     <StatsCard label="Employees" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
                     <StatsCard label="Yearly Gross Payroll" value={lakhs(yearlyPayroll)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Monthly Gross Payroll" value={lakhs(monthlyPayroll)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
@@ -331,7 +336,6 @@ const EmployeeSalaryPage: React.FC = () => {
 
                 {/* Table */}
                 <ReusableTable
-                    className="[&_th]:!px-2 [&_td]:!px-2 dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                     data={filteredSalaries}
                     columns={columns}
                     loading={loading}

@@ -14,7 +14,6 @@ import {
   UserGroupIcon,
   BriefcaseIcon,
 } from "@heroicons/react/24/outline";
-import { motion, AnimatePresence } from "framer-motion";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -28,6 +27,9 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
+import PaginatedPopup from "../../components/common/unpopup";
+import { FloatingInput } from "../../components/inputfeild/FloatingInput";
+import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from "./hrmsUi";
 
 const API_URL = "/v1/api/payroll/department";
 
@@ -269,20 +271,22 @@ const EmployeeDepartmentsPage: React.FC = () => {
       headerClassName: "text-right w-32",
       className: "text-right w-32",
       render: (row) => (
-        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {canUpdate && (<button
+            type="button"
             onClick={() => openEditModal(row._raw || { id: row.numericId, name: row.name })}
-            className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-[#222222] hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] p-1.5 rounded-md transition-colors cursor-pointer"
+            className={ROW_ICON_BUTTON}
             title="Edit Department"
           >
-            <PencilSquareIcon className="h-3.5 w-3.5" />
+            <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
+            type="button"
             onClick={() => handleDelete(row.numericId, row.name)}
-            className="text-red-600 dark:text-rose-400 hover:text-red-900 dark:hover:text-rose-300 bg-red-50 dark:bg-[#222222] hover:bg-red-100 dark:hover:bg-[#2a2a2a] p-1.5 rounded-md transition-colors cursor-pointer"
+            className={ROW_ICON_BUTTON_DANGER}
             title="Delete Department"
           >
-            <TrashIcon className="h-3.5 w-3.5" />
+            <TrashIcon className="h-4 w-4" />
           </button>)}
         </div>
       )
@@ -293,24 +297,25 @@ const EmployeeDepartmentsPage: React.FC = () => {
   // Calculate stats
   const totalEmployees = departments.reduce((acc, curr) => acc + (curr.employees?.length || 0), 0);
   const avgEmployeesPerDept = departments.length > 0 ? Math.round(totalEmployees / departments.length) : 0;
+  const largest = departments.reduce<Department | null>(
+    (best, d) => (!best || (d.employees?.length || 0) > (best.employees?.length || 0) ? d : best), null);
 
   return (
     <>
       <PageMeta title="Departments" description="Manage employee departments" />
       <PageBreadcrumb pageTitle="Departments" showAddButton={true} addButtonLabel="Add Department" onAddClick={openCreateModal} />
 
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
+      <div className={PAGE_BODY}>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400 [&_.stats-card-actions__button]:dark:!text-gray-400 [&_.stats-card-actions__button]:dark:hover:!text-white [&_.stats-card-actions__button]:dark:hover:!bg-[#222222]">
-          <StatsCard label="Total Departments" value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
-          <StatsCard label="Total Employees" value={totalEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />
-          <StatsCard label="Average per Dept" value={avgEmployeesPerDept} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
-          <StatsCard label="Active Status" value="Active" gradient="from-emerald-50 to-green-50" borderColor="border-emerald-100" labelColor="text-emerald-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+        <div className={STATS_ROW}>
+          <StatsCard label="Total Departments" value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-5 w-5" />} />
+          <StatsCard label="Total Employees" value={totalEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-5 w-5" />} />
+          <StatsCard label="Average per Dept" value={avgEmployeesPerDept} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BriefcaseIcon className="h-5 w-5" />} />
+          <StatsCard label="Largest" value={largest ? `${largest.name} (${largest.employees?.length || 0})` : "—"} gradient="from-emerald-50 to-green-50" borderColor="border-emerald-100" labelColor="text-emerald-600" icon={<CheckCircleIcon className="h-5 w-5" />} onRefresh={fetchDepartments} />
         </div>
 
         {/* Table */}
         <ReusableTable
-          className="dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
           data={normalizedDepartments}
           columns={columns}
           loading={loading}
@@ -331,84 +336,36 @@ const EmployeeDepartmentsPage: React.FC = () => {
           }
         />
 
-        {/* Modal Form */}
-        <AnimatePresence>
-          {showForm && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs overflow-y-auto p-4 animate-in fade-in duration-150"
-              onClick={closeModal}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white dark:bg-[#191919] text-gray-900 dark:text-white rounded-xl shadow-2xl border border-gray-200 dark:!border-transparent w-full max-w-md mx-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:!border-transparent">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {editingDept ? "Edit Department" : "Create New Department"}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {editingDept
-                        ? "Update department information"
-                        : "Add a new department to the organization"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={closeModal}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="p-5">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Department Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={deptName}
-                      onChange={(e) => setDeptName(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          editingDept ? handleUpdate() : handleCreate();
-                        }
-                      }}
-                      placeholder="e.g., Engineering, Marketing, Sales"
-                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
-                      autoFocus
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-                      Departments help organize your team structure
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3 pt-4 mt-4 border-t border-gray-100 dark:!border-transparent">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent transition-all duration-200 focus:outline-none cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={editingDept ? handleUpdate : handleCreate}
-                      className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium !text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2 cursor-pointer"
-                    >
-                      <CheckCircleIcon className="w-4 h-4 !text-white shrink-0" />
-                      <span className="!text-white whitespace-nowrap">{editingDept ? "Update Department" : "Create Department"}</span>
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        <PaginatedPopup
+          isOpen={showForm}
+          title={editingDept ? "Edit Department" : "Create Department"}
+          subtitle={editingDept ? "Update department information" : "Add a new department to the organization"}
+          onClose={closeModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (editingDept) handleUpdate();
+            else handleCreate();
+          }}
+          submitLabel={editingDept ? "Update Department" : "Create Department"}
+          maxWidthClassName="max-w-lg"
+          tabs={[
+            {
+              label: "Department Details",
+              fields: [
+                <div key="name" className="md:col-span-2">
+                  <FloatingInput
+                    label="Department Name"
+                    name="name"
+                    value={deptName}
+                    onChange={(e) => setDeptName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>,
+              ],
+            },
+          ]}
+        />
 
         <ConfirmDialog
           isOpen={confirmState.isOpen}

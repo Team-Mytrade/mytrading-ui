@@ -4,15 +4,19 @@ import axios from 'axios';
 import {
     Plus, Trash2, ChevronRight, Upload, CheckCircle2,
     AlertTriangle, Download, Lock, Unlock, Check, X,
-    FileText, Shield, Clock, Info, Eye,
-    ArrowLeft, HelpCircle, Save, Calendar
+    FileText, Shield, Clock, Info, Save
 } from 'lucide-react';
+import { BanknotesIcon, CalendarDaysIcon, FlagIcon, UserIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageMeta from '../../components/common/PageMeta';
+import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import StatsCard from '../../components/common/Statscard';
+import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
 import { AuthContext } from '../../context/AuthContext';
 import { usePermissions } from '../../access/usePermissions';
 import { apiError } from '../../utils/apiError';
+import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_BUTTON } from './hrmsUi';
 
 const IT_API = '/v1/api/payroll/it-declaration';
 
@@ -233,7 +237,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     const styles: Record<string, string> = {
         DRAFT: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent',
         PENDING: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent',
-        SUBMITTED: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent',
+        SUBMITTED: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent',
         APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent',
         REJECTED: 'bg-red-50 text-red-700 border-red-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent',
         LOCKED: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent',
@@ -268,7 +272,7 @@ const SectionHeader = ({ title, limit, utilized, isExpanded, onToggle }: any) =>
         className="flex items-center justify-between p-4 cursor-pointer bg-white dark:bg-[#191919] hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors border-b border-gray-100 dark:!border-transparent last:border-0"
     >
         <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg transition-colors ${isExpanded ? 'bg-blue-50 dark:bg-[#222222] text-blue-600 dark:text-gray-300' : 'bg-gray-100 dark:bg-[#222222] text-gray-500 dark:text-gray-400'}`}>
+            <div className={`p-2 rounded-lg transition-colors ${isExpanded ? 'bg-cyan-50 dark:bg-[#222222] text-cyan-600 dark:text-gray-300' : 'bg-gray-100 dark:bg-[#222222] text-gray-500 dark:text-gray-400'}`}>
                 {isExpanded ? <ChevronRight className="rotate-90 transition-transform" size={18} /> : <ChevronRight size={18} />}
             </div>
             <div>
@@ -277,7 +281,7 @@ const SectionHeader = ({ title, limit, utilized, isExpanded, onToggle }: any) =>
                     <div className="flex items-center gap-2 mt-1">
                         <div className="w-24 h-1.5 bg-gray-100 dark:bg-[#2a2a2a] rounded-full overflow-hidden">
                             <div
-                                className={`h-full rounded-full transition-all ${utilized > limit ? 'bg-red-500 dark:bg-rose-500' : 'bg-blue-500 dark:bg-cyan-600'}`}
+                                className={`h-full rounded-full transition-all ${utilized > limit ? 'bg-red-500 dark:bg-rose-500' : 'bg-cyan-500 dark:bg-cyan-600'}`}
                                 style={{ width: `${Math.min((utilized / limit) * 100, 100)}%` }}
                             />
                         </div>
@@ -324,19 +328,19 @@ const ConfirmationPopup: React.FC<ConfirmationPopupProps> = ({
     const iconMap = {
         danger: <AlertTriangle className="text-red-600" size={32} />,
         warning: <AlertTriangle className="text-amber-600" size={32} />,
-        info: <Info className="text-blue-600" size={32} />
+        info: <Info className="text-cyan-600" size={32} />
     };
 
     const bgColorMap = {
         danger: 'bg-red-50',
         warning: 'bg-amber-50',
-        info: 'bg-blue-50'
+        info: 'bg-cyan-50'
     };
 
     const buttonColorMap = {
         danger: 'bg-red-600 hover:bg-red-700',
         warning: 'bg-amber-600 hover:bg-amber-700',
-        info: 'bg-blue-600 hover:bg-blue-700'
+        info: 'bg-cyan-600 hover:bg-cyan-700'
     };
 
     return (
@@ -386,7 +390,6 @@ const ConfirmationPopup: React.FC<ConfirmationPopupProps> = ({
 
 const ItDeclarationPage: React.FC = () => {
     const location = useLocation();
-    const navigate = useNavigate();
     const searchParams = new URLSearchParams(location.search);
 
     // Query Params
@@ -901,41 +904,73 @@ const ItDeclarationPage: React.FC = () => {
         return Math.floor(totalDeductions * 0.3);
     };
 
+    // HR's actions on the declaration they opened
+    const hrActions = isHR && (
+        <div className="flex items-center gap-2">
+            <button type="button" onClick={downloadProofs} disabled={isLoading} className={TOOL_BUTTON}>
+                <Download size={14} />
+                Download Proofs
+            </button>
+            {isLocked ? (
+                <button type="button" onClick={unlockDeclaration} disabled={isLoading} className={TOOL_BUTTON}>
+                    <Unlock size={14} />
+                    Unlock
+                </button>
+            ) : isSubmitted && (
+                <button type="button" onClick={lockDeclaration} disabled={isLoading} className={TOOL_BUTTON}>
+                    <Lock size={14} />
+                    Lock for Payroll
+                </button>
+            )}
+        </div>
+    );
+
     // Loading overlay
     if (isFetching) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-transparent flex items-center justify-center">
-                <div className="bg-white dark:bg-[#191919] rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Loading declaration...</p>
+            <>
+                <PageMeta title="IT Declaration | Payroll" description="Manage your tax declarations" />
+                <PageBreadcrumb pageTitle="IT Declaration" />
+                <div className={`${PAGE_BODY} flex items-center justify-center`}>
+                    <div className="flex flex-col items-center gap-3 py-16">
+                        <div className="w-10 h-10 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Loading declaration...</p>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
     if (notLinked) {
         return (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+            <>
                 <PageMeta title="IT Declaration | Payroll" description="Manage your tax declarations" />
-                {canApprove && <DeclarationReviewQueue />}
-                <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200 dark:!border-transparent p-8 text-center text-sm text-gray-600 dark:text-gray-300">
-                    <Shield className="mx-auto mb-3 text-gray-400" size={32} />
-                    {notLinked}
+                <PageBreadcrumb pageTitle="IT Declaration" />
+                <div className={`${PAGE_BODY} space-y-6`}>
+                    {canApprove && <DeclarationReviewQueue />}
+                    <div className={`${CARD} p-8 text-center text-sm text-gray-600 dark:text-gray-300`}>
+                        <Shield className="mx-auto mb-3 text-gray-400" size={32} />
+                        {notLinked}
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
+    const totalApproved = declaration.items?.reduce((acc, item) => acc + (item.status === 'APPROVED' ? item.approvedAmount : 0), 0) || 0;
+
     // Render Logic
     return (
-        <div className="min-h-screen bg-gray-50/50 dark:bg-transparent font-sans text-gray-900 dark:text-white pb-20">
+        <>
             <PageMeta title="IT Declaration | Payroll" description="Manage your tax declarations" />
+            <PageBreadcrumb pageTitle="IT Declaration" actions={hrActions || undefined} />
+        <div className="pb-20 lg:pb-0 text-gray-900 dark:text-white">
 
             {/* Loading Overlay */}
             {isLoading && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
                     <div className="bg-white dark:bg-[#191919] rounded-xl p-6 shadow-2xl flex flex-col items-center gap-3 border border-transparent dark:!border-transparent">
-                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Processing...</p>
                     </div>
                 </div>
@@ -950,84 +985,35 @@ const ItDeclarationPage: React.FC = () => {
                 accept=".pdf,.jpg,.jpeg,.png"
             />
 
-            {/* Header Section */}
-            <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#121212]/90 backdrop-blur-md border-b border-gray-200 dark:!border-transparent px-4 sm:px-6 lg:px-8 py-4">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => navigate(-1)}
-                                className="p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-full text-gray-500 dark:text-gray-400 transition-colors"
-                            >
-                                <ArrowLeft size={20} />
-                            </button>
-                            <div>
-                                <div className="flex items-center gap-3">
-                                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">IT Declaration</h1>
-                                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 dark:bg-[#222222] text-gray-600 dark:text-gray-300 border border-gray-200 dark:!border-transparent flex items-center gap-1">
-                                        <Calendar size={10} /> FY {declaration.financialYear}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    <span className="font-medium text-gray-900 dark:text-white">{declaration.employeeName}</span>
-                                    {declaration.employeeCode && (
-                                        <>
-                                            <span>•</span>
-                                            <span>{declaration.employeeCode}</span>
-                                        </>
-                                    )}
-                                    {isHR && <span className="text-blue-600 dark:text-gray-300 bg-blue-50 dark:bg-[#222222] px-2 py-0.5 rounded-full text-xs font-medium border border-blue-100 dark:!border-transparent">Viewing as HR</span>}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <StatusBadge status={declaration.status} />
-
-                            {isHR && (
-                                <>
-                                    <button
-                                        onClick={downloadProofs}
-                                        disabled={isLoading}
-                                        className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#191919] border border-gray-300 dark:!border-transparent rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-[#222222] text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
-                                    >
-                                        <Download size={16} />
-                                        Download Proofs
-                                    </button>
-                                    {isLocked ? (
-                                        <button
-                                            onClick={unlockDeclaration}
-                                            disabled={isLoading}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-[#222222] text-amber-700 dark:text-amber-400 border border-amber-200 dark:!border-transparent rounded-lg text-sm font-medium hover:bg-amber-100 dark:hover:bg-[#282828] transition-colors disabled:opacity-50"
-                                        >
-                                            <Unlock size={16} />
-                                            Unlock
-                                        </button>
-                                    ) : isSubmitted && (
-                                        <button
-                                            onClick={lockDeclaration}
-                                            disabled={isLoading}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-[#222222] text-purple-700 dark:text-purple-400 border border-purple-200 dark:!border-transparent rounded-lg text-sm font-medium hover:bg-purple-100 dark:hover:bg-[#282828] transition-colors disabled:opacity-50"
-                                        >
-                                            <Lock size={16} />
-                                            Lock
-                                        </button>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className={PAGE_BODY}>
                 {/* HR: everyone's declarations, to open one and decide */}
-                {canApprove && !queryId && <div className="mb-8"><DeclarationReviewQueue /></div>}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {canApprove && !queryId && <div className="mb-6"><DeclarationReviewQueue /></div>}
+
+                {/* Whose declaration, for which year, and where it stands */}
+                <div className={STATS_ROW}>
+                    <StatsCard
+                        label={isHR ? "Employee (viewing as HR)" : "Employee"}
+                        value={`${declaration.employeeName || '-'}${declaration.employeeCode ? ` · ${declaration.employeeCode}` : ''}`}
+                        gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600"
+                        icon={<UserIcon className="h-5 w-5" />}
+                    />
+                    <StatsCard label="Financial Year" value={`FY ${declaration.financialYear}`} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CalendarDaysIcon className="h-5 w-5" />} />
+                    <StatsCard
+                        label="Status"
+                        value={declaration.status === 'LOCKED' ? 'Locked for payroll' : declaration.status === 'SUBMITTED' ? 'Submitted' : 'Draft'}
+                        gradient={declaration.status === 'DRAFT' ? "from-amber-50 to-yellow-50" : "from-green-50 to-emerald-50"}
+                        borderColor={declaration.status === 'DRAFT' ? "border-amber-100" : "border-green-100"}
+                        labelColor={declaration.status === 'DRAFT' ? "text-amber-600" : "text-green-600"}
+                        icon={<FlagIcon className="h-5 w-5" />}
+                    />
+                    <StatsCard label="Approved / Declared" value={`₹${totalApproved.toLocaleString()} / ₹${totalDeclared.toLocaleString()}`} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={loadDeclaration} />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* LEFT COLUMN: FORM */}
                     <div className="lg:col-span-8 space-y-6">
                         {/* Tax Regime Selection */}
-                        <section className="bg-white dark:bg-[#191919] rounded-2xl p-6 border border-gray-200 dark:!border-transparent shadow-sm">
+                        <section className="bg-white dark:bg-[#191919] rounded-xl p-6 border border-gray-200 dark:!border-transparent shadow-sm">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Tax Regime</h2>
@@ -1035,7 +1021,7 @@ const ItDeclarationPage: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => setShowComparison(true)}
-                                    className="text-sm font-medium text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 flex items-center gap-1 bg-blue-50 dark:bg-[#222222] px-3 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-[#2a2a2a] transition-colors"
+                                    className="text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 flex items-center gap-1 bg-cyan-50 dark:bg-[#222222] px-3 py-1.5 rounded-lg hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] transition-colors"
                                 >
                                     Compare Regimes
                                 </button>
@@ -1047,19 +1033,19 @@ const ItDeclarationPage: React.FC = () => {
                                     onClick={() => handleRegimeChange('OLD')}
                                     disabled={!canEdit}
                                     className={`relative p-5 rounded-xl border-2 transition-all duration-200 text-left ${isOldRegime
-                                        ? 'border-blue-600 dark:border-cyan-600/50 bg-blue-50/30 dark:bg-[#222222]'
-                                        : 'border-gray-200 dark:!border-transparent hover:border-blue-200 bg-white dark:bg-[#191919] dark:hover:bg-[#222222]'
+                                        ? 'border-cyan-600 dark:border-cyan-600/50 bg-cyan-50/30 dark:bg-[#222222]'
+                                        : 'border-gray-200 dark:!border-transparent hover:border-cyan-200 bg-white dark:bg-[#191919] dark:hover:bg-[#222222]'
                                         } ${!canEdit ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2">
                                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${isOldRegime
-                                                ? 'border-blue-600 bg-blue-600'
+                                                ? 'border-cyan-600 bg-cyan-600'
                                                 : 'border-gray-300 dark:border-gray-600'
                                                 }`}>
                                                 {isOldRegime && <Check size={12} className="text-white" />}
                                             </div>
-                                            <span className={`font-bold ${isOldRegime ? 'text-blue-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>Old Regime</span>
+                                            <span className={`font-bold ${isOldRegime ? 'text-cyan-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>Old Regime</span>
                                         </div>
                                     </div>
                                     <ul className="text-xs space-y-2 text-gray-600 dark:text-gray-400">
@@ -1074,19 +1060,19 @@ const ItDeclarationPage: React.FC = () => {
                                     onClick={() => handleRegimeChange('NEW')}
                                     disabled={!canEdit}
                                     className={`relative p-5 rounded-xl border-2 transition-all duration-200 text-left ${!isOldRegime
-                                        ? 'border-blue-600 dark:border-cyan-600/50 bg-blue-50/30 dark:bg-[#222222]'
-                                        : 'border-gray-200 dark:!border-transparent hover:border-blue-200 bg-white dark:bg-[#191919] dark:hover:bg-[#222222]'
+                                        ? 'border-cyan-600 dark:border-cyan-600/50 bg-cyan-50/30 dark:bg-[#222222]'
+                                        : 'border-gray-200 dark:!border-transparent hover:border-cyan-200 bg-white dark:bg-[#191919] dark:hover:bg-[#222222]'
                                         } ${!canEdit ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2">
                                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${!isOldRegime
-                                                ? 'border-blue-600 bg-blue-600'
+                                                ? 'border-cyan-600 bg-cyan-600'
                                                 : 'border-gray-300 dark:border-gray-600'
                                                 }`}>
                                                 {!isOldRegime && <Check size={12} className="text-white" />}
                                             </div>
-                                            <span className={`font-bold ${!isOldRegime ? 'text-blue-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>New Regime</span>
+                                            <span className={`font-bold ${!isOldRegime ? 'text-cyan-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>New Regime</span>
                                         </div>
                                     </div>
                                     <ul className="text-xs space-y-2 text-gray-600 dark:text-gray-400">
@@ -1152,9 +1138,9 @@ const ItDeclarationPage: React.FC = () => {
                                                         {canEdit && section.code !== 'STANDARD' && (
                                                             <button
                                                                 onClick={() => setShowAddModal(section.code)}
-                                                                className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-700/60 rounded-xl text-gray-500 dark:text-gray-400 font-medium hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-[#222222] dark:hover:text-gray-200 transition-all flex items-center justify-center gap-2 group"
+                                                                className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-700/60 rounded-xl text-gray-500 dark:text-gray-400 font-medium hover:border-cyan-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-[#222222] dark:hover:text-gray-200 transition-all flex items-center justify-center gap-2 group"
                                                             >
-                                                                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-[#222222] group-hover:bg-blue-200 dark:group-hover:bg-[#2a2a2a] flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-gray-200 transition-colors">
+                                                                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-[#222222] group-hover:bg-cyan-200 dark:group-hover:bg-[#2a2a2a] flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-cyan-600 dark:group-hover:text-gray-200 transition-colors">
                                                                     <Plus size={14} />
                                                                 </div>
                                                                 Add Item
@@ -1162,10 +1148,10 @@ const ItDeclarationPage: React.FC = () => {
                                                         )}
 
                                                         {section.code === 'STANDARD' && (
-                                                            <div className="bg-blue-50 dark:bg-[#222222] border border-blue-100 dark:!border-transparent rounded-lg p-4">
+                                                            <div className="bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:!border-transparent rounded-lg p-4">
                                                                 <div className="flex items-start gap-3">
-                                                                    <Info size={16} className="text-blue-600 dark:text-cyan-400 mt-0.5" />
-                                                                    <div className="text-sm text-blue-700 dark:text-gray-300">
+                                                                    <Info size={16} className="text-cyan-600 dark:text-cyan-400 mt-0.5" />
+                                                                    <div className="text-sm text-cyan-700 dark:text-gray-300">
                                                                         <p className="font-medium">Auto-applied deduction</p>
                                                                         <p className="text-xs mt-1">This ₹50,000 standard deduction is automatically applied to all salaried employees under the new regime. No proof required.</p>
                                                                     </div>
@@ -1186,7 +1172,7 @@ const ItDeclarationPage: React.FC = () => {
                     <div className="lg:col-span-4 space-y-6">
                         <div className="sticky top-24 space-y-6">
                             {/* Summary Card */}
-                            <div className={`bg-white dark:bg-[#191919] rounded-2xl border ${isLocked ? 'border-purple-200 dark:!border-transparent bg-purple-50/50 dark:bg-[#191919]' : 'border-gray-200 dark:!border-transparent'} shadow-lg shadow-gray-100/50 dark:shadow-none p-6`}>
+                            <div className={`bg-white dark:bg-[#191919] rounded-xl border ${isLocked ? 'border-purple-200 dark:!border-transparent bg-purple-50/50 dark:bg-[#191919]' : 'border-gray-200 dark:!border-transparent'} shadow-lg shadow-gray-100/50 dark:shadow-none p-6`}>
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Declaration Summary</h3>
 
                                 <div className="space-y-4 mb-6">
@@ -1227,7 +1213,7 @@ const ItDeclarationPage: React.FC = () => {
 
                                     <div className="flex justify-between items-center">
                                         <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Total Deductions</span>
-                                        <span className="text-xl font-bold text-blue-600 dark:text-cyan-400">
+                                        <span className="text-xl font-bold text-cyan-600 dark:text-cyan-400">
                                             ₹{(isOldRegime ? totalDeclared : totalDeclared + 50000).toLocaleString()}
                                         </span>
                                     </div>
@@ -1260,7 +1246,7 @@ const ItDeclarationPage: React.FC = () => {
                                         <button
                                             onClick={isSubmitted ? () => saveDeclaration('SUBMITTED') : handleSubmit}
                                             disabled={isLoading}
-                                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 !text-white font-medium rounded-xl shadow-lg shadow-blue-600/20 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                                            className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 !text-white font-medium rounded-xl transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
                                             {isSubmitted ? 'Save Changes' : 'Submit Declaration'} <ChevronRight size={18} />
                                         </button>
@@ -1284,26 +1270,10 @@ const ItDeclarationPage: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* HR Quick Actions */}
-                            {isHR && (
-                                <div className="bg-white dark:bg-[#191919] rounded-2xl border border-gray-200 dark:!border-transparent p-6">
-                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4 text-sm uppercase tracking-wider">HR Actions</h4>
-                                    <div className="space-y-2">
-                                        <button
-                                            onClick={downloadProofs}
-                                            disabled={isLoading}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-                                        >
-                                            <Download size={16} className="text-blue-600 dark:text-cyan-400" />
-                                            Download All Proofs
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
-            </main>
+            </div>
 
             {/* Modals */}
             <AnimatePresence>
@@ -1344,7 +1314,7 @@ const ItDeclarationPage: React.FC = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
                                     <select
-                                        className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none"
                                         value={newItem.subType}
                                         onChange={(e) => setNewItem({ ...newItem, subType: e.target.value })}
                                     >
@@ -1363,7 +1333,7 @@ const ItDeclarationPage: React.FC = () => {
                                     <input
                                         type="text"
                                         placeholder="e.g. Policy Number, Account Details"
-                                        className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none"
                                         value={newItem.description}
                                         onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                                     />
@@ -1374,7 +1344,7 @@ const ItDeclarationPage: React.FC = () => {
                                         type="number"
                                         placeholder="0"
                                         min="0"
-                                        className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none"
                                         value={newItem.amount}
                                         onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
                                     />
@@ -1389,7 +1359,7 @@ const ItDeclarationPage: React.FC = () => {
                                             const remaining = Math.max(0, limit - currentTotal);
                                             return (
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                                                    Maximum limit: ₹{limit.toLocaleString()} | Remaining allowed: <span className="text-blue-600 dark:text-cyan-400 font-bold">₹{remaining.toLocaleString()}</span>
+                                                    Maximum limit: ₹{limit.toLocaleString()} | Remaining allowed: <span className="text-cyan-600 dark:text-cyan-400 font-bold">₹{remaining.toLocaleString()}</span>
                                                 </p>
                                             );
                                         }
@@ -1407,7 +1377,7 @@ const ItDeclarationPage: React.FC = () => {
                                 <button
                                     onClick={handleAddItem}
                                     disabled={isLoading}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 !text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 !text-white rounded-lg text-sm font-medium disabled:opacity-50"
                                 >
                                     Add Item
                                 </button>
@@ -1423,7 +1393,7 @@ const ItDeclarationPage: React.FC = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-[#191919] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
+                            className="bg-white dark:bg-[#191919] rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
                         >
                             <div className="p-6 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-white dark:bg-[#191919]">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">Tax Regime Comparison</h3>
@@ -1435,10 +1405,10 @@ const ItDeclarationPage: React.FC = () => {
                                 </button>
                             </div>
                             <div className="p-6 bg-white dark:bg-[#191919]">
-                                <div className="bg-blue-50 dark:bg-[#222222] border border-blue-100 dark:!border-transparent rounded-lg p-4 mb-6">
+                                <div className="bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:!border-transparent rounded-lg p-4 mb-6">
                                     <div className="flex items-start gap-3">
-                                        <Info size={16} className="text-blue-600 dark:text-cyan-400 mt-0.5" />
-                                        <div className="text-sm text-blue-700 dark:text-gray-300">
+                                        <Info size={16} className="text-cyan-600 dark:text-cyan-400 mt-0.5" />
+                                        <div className="text-sm text-cyan-700 dark:text-gray-300">
                                             <p className="font-medium">Tax calculation is indicative</p>
                                             <p className="text-xs mt-1">Please consult with a tax advisor for accurate calculations based on your complete financial situation.</p>
                                         </div>
@@ -1446,14 +1416,14 @@ const ItDeclarationPage: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-8">
-                                    <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-[#222222] dark:to-[#252525] rounded-xl border border-blue-200 dark:!border-transparent">
-                                        <h4 className="font-bold text-blue-900 dark:text-white mb-4">Old Regime</h4>
-                                        <div className="space-y-2 text-sm text-blue-800 dark:text-gray-300 mb-4">
+                                    <div className="text-center p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-[#222222] dark:to-[#252525] rounded-xl border border-cyan-200 dark:!border-transparent">
+                                        <h4 className="font-bold text-cyan-900 dark:text-white mb-4">Old Regime</h4>
+                                        <div className="space-y-2 text-sm text-cyan-800 dark:text-gray-300 mb-4">
                                             <p>✓ Multiple deductions</p>
                                             <p>✓ HRA, LTA benefits</p>
                                             <p>✓ 80C up to ₹1.5L</p>
                                         </div>
-                                        <p className="text-xs text-blue-600 dark:text-cyan-400 mt-2">Best for: Tax planning with investments</p>
+                                        <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2">Best for: Tax planning with investments</p>
                                     </div>
                                     <div className="text-center p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#222222] dark:to-[#252525] rounded-xl border border-gray-200 dark:!border-transparent">
                                         <h4 className="font-bold text-gray-900 dark:text-white mb-4">New Regime</h4>
@@ -1485,7 +1455,7 @@ const ItDeclarationPage: React.FC = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-[#191919] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
+                            className="bg-white dark:bg-[#191919] rounded-xl w-full max-w-md overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
                         >
                             <div className="p-6 bg-white dark:bg-[#191919]">
                                 <div className="w-12 h-12 bg-amber-100 dark:bg-[#222222] rounded-full flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4 mx-auto">
@@ -1525,7 +1495,7 @@ const ItDeclarationPage: React.FC = () => {
                                 <button
                                     onClick={() => saveDeclaration('SUBMITTED')}
                                     disabled={isLoading}
-                                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 !text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                                    className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 !text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                                 >
                                     Yes, Submit
                                 </button>
@@ -1540,7 +1510,7 @@ const ItDeclarationPage: React.FC = () => {
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
                     <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Total Deductions</p>
-                        <p className="text-lg font-bold text-blue-600 dark:text-cyan-400">
+                        <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400">
                             ₹{(isOldRegime ? totalDeclared : totalDeclared + 50000).toLocaleString()}
                         </p>
                     </div>
@@ -1548,7 +1518,7 @@ const ItDeclarationPage: React.FC = () => {
                         <button
                             onClick={isSubmitted ? () => saveDeclaration('SUBMITTED') : handleSubmit}
                             disabled={isLoading}
-                            className="px-6 py-2.5 bg-blue-600 active:bg-blue-700 text-white font-medium rounded-lg shadow-lg shadow-blue-600/20 transition-colors flex items-center gap-2 disabled:opacity-50"
+                            className="px-6 py-2.5 bg-cyan-600 active:bg-cyan-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                         >
                             {isSubmitted ? 'Save' : 'Submit'} <ChevronRight size={18} />
                         </button>
@@ -1560,6 +1530,7 @@ const ItDeclarationPage: React.FC = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 
@@ -1609,7 +1580,7 @@ const ItemRow = ({
     };
 
     return (
-        <div className="bg-white dark:bg-[#191919] border text-gray-800 dark:text-gray-200 border-gray-200 dark:!border-transparent rounded-lg p-4 transition-all hover:shadow-md hover:border-blue-100 dark:hover:bg-[#202020]">
+        <div className="bg-white dark:bg-[#191919] border text-gray-800 dark:text-gray-200 border-gray-200 dark:!border-transparent rounded-lg p-4 transition-all hover:shadow-md hover:border-cyan-100 dark:hover:bg-[#202020]">
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -1645,7 +1616,7 @@ const ItemRow = ({
                         {canEdit ? (
                             <button
                                 onClick={onUpload}
-                                className="text-xs flex items-center gap-1 text-blue-600 dark:text-cyan-400 font-medium hover:underline"
+                                className="text-xs flex items-center gap-1 text-cyan-600 dark:text-cyan-400 font-medium hover:underline"
                                 title={saved ? 'PDF, JPG or PNG, up to 5 MB' : 'Save the declaration first'}
                             >
                                 <Upload size={12} /> {item.proofs.length > 0 ? 'Add Proof' : 'Upload Proof'}
@@ -1718,7 +1689,7 @@ const ItemRow = ({
                         ) : (
                             <button
                                 onClick={() => { setAmount(String(item.declaredAmount)); setReviewing(true); }}
-                                className="px-2 py-1 bg-blue-50 dark:bg-[#222222] text-blue-700 dark:text-cyan-400 text-xs font-medium rounded hover:bg-blue-100 dark:hover:bg-[#2a2a2a] transition-colors"
+                                className="px-2 py-1 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 text-xs font-medium rounded hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] transition-colors"
                             >
                                 {item.status === 'PENDING' ? 'Review' : 'Change decision'}
                             </button>
@@ -1729,7 +1700,7 @@ const ItemRow = ({
 
             {item.hrRemarks && (
                 <div className="mt-3 pt-3 border-t border-gray-100 dark:!border-transparent text-xs">
-                    <p className="text-blue-600 dark:text-cyan-400 bg-blue-50 dark:bg-[#222222] inline-block px-2 py-1 rounded">
+                    <p className="text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-[#222222] inline-block px-2 py-1 rounded">
                         <span className="font-medium">HR:</span> {item.hrRemarks}
                     </p>
                 </div>
@@ -1754,61 +1725,62 @@ const DeclarationReviewQueue = () => {
     }, []);
 
     const pendingOf = (d: ServerDeclaration) => (d.items || []).filter(i => i.status === 'PENDING').length;
-    const shown = onlyWaiting ? rows.filter(d => d.status === 'SUBMITTED' && pendingOf(d) > 0) : rows;
+    const declaredOf = (d: ServerDeclaration) => (d.items || []).reduce((sum, i) => sum + (Number(i.declaredAmount) || 0), 0);
+    const shown = (onlyWaiting ? rows.filter(d => d.status === 'SUBMITTED' && pendingOf(d) > 0) : rows)
+        .map(d => ({ ...d, id: d.id ?? 0 }));
+
+    const columns: ColumnDef<ServerDeclaration & { id: number }>[] = [
+        {
+            key: "employeeName",
+            label: "Employee",
+            sortable: true,
+            render: (d) => (
+                <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{d.employeeName || `Employee ${d.employeeId}`}</p>
+                    {d.employeeCode && <p className="text-xs text-slate-400 dark:text-slate-500">{d.employeeCode}</p>}
+                </div>
+            ),
+        },
+        { key: "financialYear", label: "FY", sortable: true },
+        { key: "regime", label: "Regime", sortable: true },
+        { key: "status", label: "Status", sortable: true, render: (d) => <StatusBadge status={d.status || 'DRAFT'} /> },
+        {
+            key: "declared",
+            label: "Declared",
+            sortValueGetter: declaredOf,
+            render: (d) => <span className="text-sm text-slate-700 dark:text-slate-300">₹{declaredOf(d).toLocaleString()}</span>,
+        },
+        {
+            key: "waiting",
+            label: "Waiting",
+            sortValueGetter: pendingOf,
+            render: (d) => <span className="text-sm font-semibold text-slate-900 dark:text-white">{pendingOf(d)}</span>,
+        },
+    ];
 
     return (
-        <section className="bg-white dark:bg-[#191919] rounded-2xl border border-gray-200 dark:!border-transparent shadow-sm p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <section className={`${CARD} p-4`}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Declarations to review</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Open a declaration to approve or reject its items and verify proofs</p>
+                    <h2 className={CARD_TITLE}>Declarations to review</h2>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">Open a declaration to approve or reject its items and verify proofs</p>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-gray-300">
                     <input type="checkbox" checked={onlyWaiting} onChange={e => setOnlyWaiting(e.target.checked)} />
                     Only those waiting for HR
                 </label>
             </div>
-            {loading ? (
-                <p className="text-sm text-gray-400 py-4">Loading...</p>
-            ) : shown.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4">{onlyWaiting ? 'Nothing is waiting for review.' : 'No declarations yet.'}</p>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-[#2a2a2a]">
-                                <th className="py-2 pr-4">Employee</th>
-                                <th className="py-2 pr-4">FY</th>
-                                <th className="py-2 pr-4">Regime</th>
-                                <th className="py-2 pr-4">Status</th>
-                                <th className="py-2 pr-4 text-right">Declared</th>
-                                <th className="py-2 pr-4 text-right">Waiting</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {shown.map(d => {
-                                const declared = (d.items || []).reduce((sum, i) => sum + (Number(i.declaredAmount) || 0), 0);
-                                // The page reads the name and code from the declaration itself
-                                const open = () => navigate(`/it-declaration?id=${d.employeeId}`);
-                                return (
-                                    <tr key={d.id} onClick={open}
-                                        className="border-b border-gray-50 dark:border-[#222222] hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer">
-                                        <td className="py-2 pr-4">
-                                            <span className="font-medium text-gray-900 dark:text-white">{d.employeeName || `Employee ${d.employeeId}`}</span>
-                                            {d.employeeCode && <span className="ml-2 text-xs text-gray-400">{d.employeeCode}</span>}
-                                        </td>
-                                        <td className="py-2 pr-4 text-gray-600 dark:text-gray-300">{d.financialYear}</td>
-                                        <td className="py-2 pr-4 text-gray-600 dark:text-gray-300">{d.regime}</td>
-                                        <td className="py-2 pr-4"><StatusBadge status={d.status || 'DRAFT'} /></td>
-                                        <td className="py-2 pr-4 text-right text-gray-900 dark:text-white">₹{declared.toLocaleString()}</td>
-                                        <td className="py-2 pr-4 text-right text-gray-900 dark:text-white">{pendingOf(d)}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            <ReusableTable
+                data={shown}
+                columns={columns}
+                loading={loading}
+                pageSize={5}
+                // The page reads the name and code from the declaration itself
+                onRowClick={(d) => navigate(`/it-declaration?id=${d.employeeId}`)}
+                emptyState={
+                    <p className="py-6 text-sm text-slate-400">{onlyWaiting ? 'Nothing is waiting for review.' : 'No declarations yet.'}</p>
+                }
+            />
         </section>
     );
 };

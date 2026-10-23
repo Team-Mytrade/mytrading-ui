@@ -40,6 +40,7 @@ import {
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
+import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
@@ -322,27 +323,30 @@ const EmployeeRecordsPage: React.FC = () => {
             headerClassName: "text-right w-36",
             className: "text-right w-36",
             render: (row) => (
-                <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                     <button
+                        type="button"
                         onClick={() => navigate(`/employee-view/${row.id}`)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
+                        className={ROW_ICON_BUTTON}
                         title="View Details"
                     >
-                        <EyeIcon className="h-3.5 w-3.5" />
+                        <EyeIcon className="h-4 w-4" />
                     </button>
                     {canUpdate && (<button
+                        type="button"
                         onClick={() => navigate(`/addEmployee?editId=${row.id}`)}
-                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
+                        className={ROW_ICON_BUTTON}
                         title="Edit"
                     >
-                        <PencilSquareIcon className="h-3.5 w-3.5" />
+                        <PencilSquareIcon className="h-4 w-4" />
                     </button>)}
                     {canDelete && (<button
+                        type="button"
                         onClick={() => handleDelete(row.id)}
-                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
+                        className={ROW_ICON_BUTTON_DANGER}
                         title="Delete"
                     >
-                        <TrashIcon className="h-3.5 w-3.5" />
+                        <TrashIcon className="h-4 w-4" />
                     </button>)}
                 </div>
             )
@@ -352,14 +356,61 @@ const EmployeeRecordsPage: React.FC = () => {
     return (
         <>
             <PageMeta title="Employee Records" description="Manage employee records and workforce" />
-            <PageBreadcrumb pageTitle="Employee Master" />
+            <PageBreadcrumb
+                pageTitle="Employee Records"
+                actions={
+                    <div className="flex items-center gap-2">
+                        {/* Export Menu */}
+                        <div ref={exportMenuRef} className="relative inline-flex items-center">
+                            {canExport && (<button
+                                type="button"
+                                onClick={() => setShowExportMenu(!showExportMenu)}
+                                className={TOOL_BUTTON}
+                                title="Export"
+                            >
+                                <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                                Export
+                            </button>)}
 
-            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label="Add Employee" onClick={() => navigate("/addEmployee")} />
-                </div>
+                            {showExportMenu && (
+                                <div className="absolute right-0 top-9 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowExportMenu(false);
+                                            exportPDF();
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
+                                    >
+                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
+                                        PDF
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowExportMenu(false);
+                                            exportEmployees();
+                                        }}
+                                        disabled={loading}
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        {loading ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                        ) : (
+                                            <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
+                                        )}
+                                        {loading ? 'Exporting...' : 'Export Excel'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <AddButton label="Add Employee" onClick={() => navigate("/addEmployee")} />
+                    </div>
+                }
+            />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
                     <StatsCard label="Total Employees" value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
                     <StatsCard label="Active Employees" value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Departments" value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
@@ -378,56 +429,8 @@ const EmployeeRecordsPage: React.FC = () => {
                     />
                 </div>
 
-                {/* Toolbar */}
-                <div className="mb-6 flex justify-end items-center">
-                    {/* Export Menu */}
-                    <div ref={exportMenuRef} className="relative inline-flex items-center">
-                        {canExport && (<button
-                            type="button"
-                            onClick={() => setShowExportMenu(!showExportMenu)}
-                            className="h-10 w-10 border border-cyan-200 dark:border-transparent bg-cyan-50 dark:bg-[#191919] dark:hover:bg-[#222222] text-cyan-700 dark:text-gray-300 hover:bg-cyan-100 rounded-lg transition-colors inline-flex items-center justify-center focus:outline-none shrink-0 cursor-pointer"
-                            title="Export"
-                        >
-                            <DocumentArrowDownIcon className="h-4 w-4 text-cyan-700 dark:text-gray-300" />
-                        </button>)}
-
-                        {showExportMenu && (
-                            <div className="absolute right-0 top-12 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowExportMenu(false);
-                                        exportPDF();
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
-                                >
-                                    <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
-                                    PDF
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowExportMenu(false);
-                                        exportEmployees();
-                                    }}
-                                    disabled={loading}
-                                    className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    {loading ? (
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                                    ) : (
-                                        <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
-                                    )}
-                                    {loading ? 'Exporting...' : 'Export Excel'}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
                 {/* Table */}
                 <ReusableTable
-                    className="[&_th]:!px-2 [&_td]:!px-2 dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                     data={filtered}
                     columns={columns}
                     loading={loading}

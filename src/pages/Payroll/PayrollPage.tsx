@@ -43,6 +43,7 @@ import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
+import { PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -547,54 +548,39 @@ const PayrollPage: React.FC = () => {
 
     const metaTitle = isPayslipsView ? "Employee Payslips" : "Payroll Management";
     const metaDescription = isPayslipsView ? "View, preview, and download employee payslips" : "Process and monitor employee salaries";
-    const breadcrumbTitle = isPayslipsView ? "Employee Payslips" : "Salary Records";
+    const breadcrumbTitle = isPayslipsView ? "Payslips" : "Salary Records";
     const actionButtonLabel = isPayslipsView ? "Process Payroll" : "Process Payroll";
 
     return (
         <>
             <PageMeta title={metaTitle} description={metaDescription} />
-            <PageBreadcrumb pageTitle={breadcrumbTitle} />
-
-            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-                <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    {/* Payroll is run (with its uploads and review) on the Payroll Engine page */}
-                    <AddButton label={actionButtonLabel} permission="APPROVE" onClick={() => navigate("/payrollEngine")} />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
-                    <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
-                    <StatsCard label="Processed" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Draft" value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-6 w-6" />} />
-                    <StatsCard label="Total Disbursement" value={"Rs " + (totalDisbursement / 100000).toFixed(1) + "L"} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
-                </div>
-
-                {/* Toolbar */}
-                <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="relative w-48">
-                        <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
+            <PageBreadcrumb
+                pageTitle={breadcrumbTitle}
+                actions={
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                         <input
                             type="month"
                             value={filterMonth}
                             onChange={e => { setFilterMonth(e.target.value); }}
-                            className="h-10 pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                            className={TOOL_INPUT}
+                            aria-label="Payroll month"
                         />
-                    </div>
 
-                    <div className="flex items-center gap-3">
                         {/* Export Menu */}
-                        <div ref={exportMenuRef} className="relative flex h-10 items-center">
+                        <div ref={exportMenuRef} className="relative">
                             {canExport && (<button
                                 type="button"
                                 onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="h-10 w-10 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center focus:outline-none cursor-pointer"
+                                className={TOOL_BUTTON}
                                 disabled={salaries.length === 0}
                                 title="Export options"
                             >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                                Export
                             </button>)}
 
                             {showExportMenu && (
-                                <div className="absolute right-0 top-12 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
+                                <div className="absolute right-0 top-9 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -625,37 +611,42 @@ const PayrollPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => { setGenerateMonth(filterMonth); setIsGenerateModalOpen(true); }}
-                                className="h-10 px-3 flex items-center gap-2 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                                className={TOOL_BUTTON}
                                 title="Make the month's payslips again"
                             >
-                                <DocumentTextIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                <DocumentTextIcon className="h-3.5 w-3.5" />
                                 Generate Payslips
                             </button>
                         )}
 
-                        {/* Print Button */}
                         <button
+                            type="button"
                             onClick={handlePrint}
-                            className="h-10 w-10 flex items-center justify-center border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors !my-0 cursor-pointer"
+                            className={TOOL_BUTTON}
                             disabled={salaries.length === 0}
+                            title="Print"
                         >
-                            <PrinterIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <PrinterIcon className="h-3.5 w-3.5" />
+                            Print
                         </button>
 
-                        {/* Refresh Button */}
-                        <button
-                            onClick={fetchAll}
-                            className={`h-10 w-10 flex items-center justify-center border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors !my-0 cursor-pointer ${loading ? 'animate-spin' : ''}`}
-                        >
-                            <ArrowPathIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                        </button>
+                        {/* Payroll is run (with its uploads and review) on the Payroll Engine page */}
+                        <AddButton label={actionButtonLabel} permission="APPROVE" onClick={() => navigate("/payrollEngine")} />
                     </div>
+                }
+            />
+
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
+                    <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label="Processed" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
+                    <StatsCard label="Draft" value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label="Total Disbursement" value={"Rs " + (totalDisbursement / 100000).toFixed(1) + "L"} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchAll} />
                 </div>
 
                 {/* Table */}
                 <div ref={printRef}>
                     <ReusableTable
-                        className="[&_th]:!px-2 [&_td]:!px-2 dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                         data={filtered}
                         columns={columns}
                         loading={loading}

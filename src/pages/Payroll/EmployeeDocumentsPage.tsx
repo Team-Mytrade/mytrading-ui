@@ -28,6 +28,9 @@ import {
     FolderIcon,
     ArchiveBoxIcon,
     QrCodeIcon,
+    InformationCircleIcon,
+    ArrowDownTrayIcon,
+    PhotoIcon,
 } from "@heroicons/react/24/outline";
 import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
@@ -38,10 +41,12 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import { ArrowCircleDownRounded, Image } from "@mui/icons-material";
+import { ArrowCircleDownRounded } from "@mui/icons-material";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
+import { AddButton } from "../../components/common/AddButton";
+import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 
 interface EmployeeDocument {
     id: number;
@@ -289,18 +294,18 @@ const EmployeeDocumentsPage: React.FC = () => {
 
 
 
-    // File icon component
+    // File icon in the standard cyan tile (as on the other modules' tables)
     const getFileIcon = (fileType: string) => {
-        if (fileType.includes('pdf')) {
-            return <DocumentTextIcon className="h-8 w-8 text-red-500" />;
-        }
-        if (fileType.includes('image')) {
-            return <Image className="h-8 w-8 text-green-500" />;
-        }
-        if (fileType.includes('zip') || fileType.includes('archive')) {
-            return <ArchiveBoxIcon className="h-8 w-8 text-amber-500" />;
-        }
-        return <FolderIcon className="h-8 w-8 text-blue-500" />;
+        const type = fileType || "";
+        const Icon = type.includes('pdf') ? DocumentTextIcon
+            : type.includes('image') ? PhotoIcon
+            : type.includes('zip') || type.includes('archive') ? ArchiveBoxIcon
+            : FolderIcon;
+        return (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+                <Icon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            </div>
+        );
     };
 
     const formatFileSize = (bytes?: number) => {
@@ -329,9 +334,9 @@ const EmployeeDocumentsPage: React.FC = () => {
             label: "Document Type",
             sortable: true,
             render: (row) => (
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                     {getFileIcon(row.fileType)}
-                    <span className="font-semibold text-gray-900 dark:text-white text-xs">{row.documentType}</span>
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{row.documentType}</span>
                 </div>
             )
         },
@@ -381,53 +386,31 @@ const EmployeeDocumentsPage: React.FC = () => {
             headerClassName: "text-right w-48",
             className: "text-right w-48",
             render: (row) => (
-                <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     {canApprove && row.status !== "APPROVED" && (
-                        <button
-                            onClick={() => decide(row, "approve")}
-                            className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-emerald-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
-                            title="Verify"
-                        >
-                            <CheckCircleIcon className="h-3.5 w-3.5" />
+                        <button type="button" onClick={() => decide(row, "approve")} className={ROW_ICON_BUTTON} title="Verify">
+                            <CheckCircleIcon className="h-4 w-4" />
                         </button>
                     )}
                     {canApprove && row.status === "PENDING" && (
-                        <button
-                            onClick={() => decide(row, "reject")}
-                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
-                            title="Reject"
-                        >
-                            <XCircleIcon className="h-3.5 w-3.5" />
+                        <button type="button" onClick={() => decide(row, "reject")} className={ROW_ICON_BUTTON_DANGER} title="Reject">
+                            <XCircleIcon className="h-4 w-4" />
                         </button>
                     )}
-                    <button
-                        onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-blue-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
-                        title="View Details"
-                    >
-                        <EyeIcon className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }} className={ROW_ICON_BUTTON} title="Details">
+                        <InformationCircleIcon className="h-4 w-4" />
                     </button>
-                    <button
-                        onClick={() => handlePreview(row)}
-                        className="text-cyan-600 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-cyan-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
-                        title="Preview"
-                    >
-                        <EyeIcon className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => handlePreview(row)} className={ROW_ICON_BUTTON} title="Preview">
+                        <EyeIcon className="h-4 w-4" />
                     </button>
-                    <button
-                        onClick={() => handleDownload(row)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-green-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
-                        title="Download"
-                    >
-                        <ArrowCircleDownRounded className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => handleDownload(row)} className={ROW_ICON_BUTTON} title="Download">
+                        <ArrowDownTrayIcon className="h-4 w-4" />
                     </button>
-                    {canDelete && (<button
-                        onClick={() => handleDelete(row.id, row.fileName)}
-                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1 rounded-md transition-colors border border-transparent dark:!border-transparent"
-                        title="Delete"
-                    >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                    </button>)}
+                    {canDelete && (
+                        <button type="button" onClick={() => handleDelete(row.id, row.fileName)} className={ROW_ICON_BUTTON_DANGER} title="Delete">
+                            <TrashIcon className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
             )
         }
@@ -436,131 +419,83 @@ const EmployeeDocumentsPage: React.FC = () => {
     return (
         <>
             <PageMeta title="Employee Documents" description="Manage employee documents and credentials" />
-            <PageBreadcrumb pageTitle="Credential Vault" />
-
-            <div className="max-w-7xl mx-auto p-6">
-                {/* Employee Header */}
-                <div className="mb-6 bg-white dark:bg-[#191919] rounded-lg border border-gray-200 dark:!border-transparent shadow-sm p-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Employee ID</p>
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {!employeeId || isNaN(Number(employeeId)) ? "All Employees" : `EMP-${Number(employeeId).toString().padStart(3, '0')}`}
-                            </h2>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {/* Uploads go to one employee: open them from the employee's page */}
-                            {employeeIdNum > 0 && <button
-                                type="button"
-                                onClick={() => setIsUploadOpen(true)}
-                                className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2"
-                            >
-                                <ArrowUpIcon className="h-4 w-4 !text-white shrink-0" />
-                                <span className="!text-white whitespace-nowrap">Upload Document</span>
-                            </button>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    <StatsCard
-                        label="Total Documents"
-                        value={totalDocuments}
-                        gradient="from-cyan-50 to-blue-50"
-                        borderColor="border-cyan-100"
-                        labelColor="text-cyan-600"
-                        icon={<DocumentTextIcon className="h-6 w-6" />}
-                    />
-                    <StatsCard
-                        label="Verified"
-                        value={verifiedCount}
-                        gradient="from-green-50 to-emerald-50"
-                        borderColor="border-green-100"
-                        labelColor="text-green-600"
-                        icon={<ShieldCheckIcon className="h-6 w-6" />}
-                    />
-                    <StatsCard
-                        label="Pending Verification"
-                        value={pendingCount}
-                        gradient="from-amber-50 to-yellow-50"
-                        borderColor="border-amber-100"
-                        labelColor="text-amber-600"
-                        icon={<ClockIcon className="h-6 w-6" />}
-                    />
-                </div>
-
-                {/* Toolbar */}
-                <div className="mb-6 flex justify-end items-center">
-                    <div className="flex items-center gap-3">
-                        {/* Export Menu */}
-                        <div className="relative">
-                            {canExport && (<button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
-                                disabled={documents.length === 0}
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                            </button>)}
-
-                            {showExportMenu && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:!border-transparent z-50">
-                                    <button
-                                        onClick={exportPDF}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
-                                    >
-                                        <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                        Export PDF
-                                    </button>
-                                    <button
-                                        onClick={exportExcel}
-                                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
-                                    >
-                                        <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                        Export Excel
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Print Button */}
+            <PageBreadcrumb
+                pageTitle={employeeIdNum && documents[0]?.employeeName ? `${documents[0].employeeName}'s Documents` : "Documents"}
+                actions={
+                    <div className="flex items-center gap-2">
+                        {canExport && (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowExportMenu(!showExportMenu)}
+                                    className={TOOL_BUTTON}
+                                    disabled={documents.length === 0}
+                                >
+                                    <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                                    Export
+                                </button>
+                                {showExportMenu && (
+                                    <div className="absolute right-0 top-9 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:!border-transparent z-50 py-1">
+                                        <button
+                                            type="button"
+                                            onClick={exportPDF}
+                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
+                                        >
+                                            <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                            Export PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={exportExcel}
+                                            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
+                                        >
+                                            <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                            Export Excel
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <button
+                            type="button"
                             onClick={() => window.print()}
-                            className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
+                            className={TOOL_BUTTON}
                             disabled={documents.length === 0}
                         >
-                            <PrinterIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                            <PrinterIcon className="h-3.5 w-3.5" />
+                            Print
                         </button>
-
-                        {/* Refresh Button */}
-                        <button
-                            onClick={loadDocs}
-                            className="p-2 rounded-lg border border-gray-300 dark:!border-transparent bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 transition-colors"
-                        >
-                            <svg className="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </button>
+                        {/* Uploads go to one employee: open them from the employee's page */}
+                        {employeeIdNum > 0 && <AddButton label="Upload Document" onClick={() => setIsUploadOpen(true)} />}
                     </div>
+                }
+            />
+
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
+                    <StatsCard label="Total Documents" value={totalDocuments} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label="Verified" value={verifiedCount} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ShieldCheckIcon className="h-5 w-5" />} />
+                    <StatsCard label="Pending Verification" value={pendingCount} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label="Rejected" value={documents.filter(d => d.status === "REJECTED").length} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={loadDocs} />
                 </div>
 
                 {/* Documents Table */}
-                {!isUploadOpen && (
-                    <ReusableTable
-                        data={filtered}
-                        columns={columns}
-                        loading={loading}
-                        searchable={false}
-                        pageSize={10}
-                        emptyState={
-                            <div className="flex flex-col items-center">
-                                <DocumentTextIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-                                <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No documents found</p>
-                                <p className="text-gray-400 dark:text-gray-500 text-xs">Click "Upload Document" to add one</p>
-                            </div>
-                        }
-                    />
-                )}
+                <ReusableTable
+                    data={filtered}
+                    columns={columns}
+                    loading={loading}
+                    searchable={false}
+                    pageSize={10}
+                    emptyState={
+                        <div className="flex flex-col items-center">
+                            <DocumentTextIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+                            <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No documents found</p>
+                            <p className="text-gray-400 dark:text-gray-500 text-xs">
+                                {employeeIdNum ? 'Click "Upload Document" to add one' : "Employees upload theirs from their Documents page"}
+                            </p>
+                        </div>
+                    }
+                />
 
                 {/* Upload Modal */}
                 <PaginatedPopup

@@ -9,6 +9,9 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
 import { apiError } from '../../utils/apiError';
 import { todayIso } from '../../utils/localDate';
+import StatsCard from '../../components/common/Statscard';
+import { ArrowUturnLeftIcon, CheckCircleIcon, ClockIcon, UserMinusIcon } from '@heroicons/react/24/outline';
+import { PAGE_BODY, STATS_ROW } from './hrmsUi';
 
 const STATUS_LABEL: Record<ExitStatus, string> = {
     SUBMITTED: 'Submitted',
@@ -240,41 +243,31 @@ const ExitApprovalsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Exit Approvals" description="Admin dashboard to manage exit requests" />
+            <PageMeta title="Exit Approvals" description="Approve resignations, record clearance and the final settlement, then complete the exit" />
             <PageBreadcrumb pageTitle="Exit Approvals" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-8 space-y-6">
-                <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200 dark:!border-transparent shadow-sm p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Exit Requests</h2>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                Approve resignations, record clearance and the final settlement, then complete the exit
-                            </p>
-                        </div>
-                        <div className="text-xs font-semibold text-indigo-600 dark:text-gray-300 bg-indigo-50 dark:bg-transparent border border-indigo-100 dark:border-transparent px-3 py-1.5 rounded-lg">
-                            Total Requests: {requests.length}
-                        </div>
-                    </div>
-
-                    <ReusableTable
-                        data={requests}
-                        columns={columns}
-                        loading={loading}
-                        searchable={true}
-                        searchPlaceholder="Search exit requests by employee or reason..."
-                        searchFields={["employeeName", "employeeCode", "reason", "status"]}
-                        pageSize={10}
-                        defaultSortKey="lastWorkingDay"
-                        defaultSortOrder="desc"
-                        emptyState={
-                            <div className="text-center p-12 bg-gray-50 dark:bg-[#161616] rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
-                                <AlertCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                                <p className="text-gray-500 dark:text-gray-400 font-semibold text-sm">No exit requests found</p>
-                            </div>
-                        }
-                    />
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
+                    <StatsCard label="Exit Requests" value={requests.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserMinusIcon className="h-5 w-5" />} />
+                    <StatsCard label="Awaiting Decision" value={requests.filter(r => r.active && UNDECIDED.includes(r.status)).length} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label="Serving Notice" value={requests.filter(r => r.active && ACCEPTED.includes(r.status)).length} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
+                    <StatsCard label="Withdrawal Requests" value={requests.filter(r => r.withdrawalRequested).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowUturnLeftIcon className="h-5 w-5" />} onRefresh={fetchRequests} />
                 </div>
+
+                <ReusableTable
+                    data={requests}
+                    columns={columns}
+                    loading={loading}
+                    pageSize={10}
+                    defaultSortKey="lastWorkingDay"
+                    defaultSortOrder="desc"
+                    emptyState={
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <AlertCircle className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+                            <p className="text-sm text-gray-500 dark:text-slate-400">No exit requests found</p>
+                        </div>
+                    }
+                />
             </div>
         </>
     );

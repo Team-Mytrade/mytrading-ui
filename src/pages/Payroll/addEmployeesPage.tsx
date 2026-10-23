@@ -14,7 +14,6 @@ import {
   MapPin,
   CreditCard,
   CheckCircle,
-  ChevronLeft,
   Home,
   DollarSign,
   X,
@@ -31,6 +30,8 @@ import {
   Shield,
 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { TOOL_BUTTON } from "./hrmsUi";
 import { ToasterService } from "../../Services/ToasterService";
 import { apiError, apiFieldErrors } from "../../utils/apiError";
 import { toLocalIsoDate } from "../../utils/localDate";
@@ -862,34 +863,20 @@ const AddEmployeePage: React.FC = () => {
         description="Employee onboarding and management"
       />
 
-      <div className="mx-auto px-3 sm:px-4 py-2 sm:py-2.5 max-w-6xl">
-        {/* Header */}
-        <div className="mb-2 sm:mb-2.5">
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate(-1)}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition-colors flex-shrink-0 text-gray-600 dark:text-gray-400 cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              </button>
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-                  {editId ? "Edit Employee" : "Add New Employee"}
-                </h1>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Complete all sections to onboard employee
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate(-1)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition-colors w-fit text-gray-600 dark:text-gray-400 cursor-pointer"
-            >
-              <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            </button>
-          </div>
+      <PageBreadcrumb
+        pageTitle={editId ? "Edit Employee" : "Add Employee"}
+        onBack={() => navigate(-1)}
+        actions={
+          <button type="button" onClick={() => navigate(-1)} className={TOOL_BUTTON}>
+            <X className="h-3.5 w-3.5" />
+            Cancel
+          </button>
+        }
+      />
 
+      <div className="w-full max-w-none px-0 py-4">
+        {/* Steps */}
+        <div className="mb-2 sm:mb-2.5">
           {/* Step Indicators - Desktop */}
           <div className="hidden sm:block">
             <div className="flex items-center justify-between mb-0.5">
@@ -1147,25 +1134,37 @@ const AddEmployeePage: React.FC = () => {
                           Designation <span className="text-red-500">*</span>
                         </label>
                         {/* Pay is split by designation, so only designations with pay components can be chosen */}
-                        <select
+                        {/*<select*/}
+                        {/*  value={form.designation}*/}
+                        {/*  onChange={(e) => handleChange("designation", e.target.value)}*/}
+                        {/*  className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.designation ? "border-red-500" : "border-gray-300"}`}*/}
+                        {/*>*/}
+                        {/*  <option value="">Select designation</option>*/}
+                        {/*  {designationOptions.map((designation) => (*/}
+                        {/*    <option key={designation} value={designation}>{designation}</option>*/}
+                        {/*  ))}*/}
+                        {/*</select>*/}
+                        <input
+                          type="text"
                           value={form.designation}
+
                           onChange={(e) => handleChange("designation", e.target.value)}
-                          className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.designation ? "border-red-500" : "border-gray-300"}`}
-                        >
-                          <option value="">Select designation</option>
-                          {designationOptions.map((designation) => (
-                            <option key={designation} value={designation}>{designation}</option>
-                          ))}
-                        </select>
-                        <ErrorMessage message={errors.designation} />
-                        {!errors.designation && (
-                          <p className="mt-0.5 text-[11px] text-gray-500">
-                            {designationOptions.length === 0
-                              ? "No designations yet. Add their pay components on the Compensation page first."
-                              : "Designations come from the pay components on the Compensation page"}
-                          </p>
-                        )}
+                          className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.designation ? "border-red-500" : "border-gray-300"}`}
+                        />
+
+
+                        {/*<ErrorMessage message={errors.designation} />*/}
+                        {/*{!errors.designation && (*/}
+                        {/*  <p className="mt-0.5 text-[11px] text-gray-500">*/}
+                        {/*    {designationOptions.length === 0*/}
+                        {/*      ? "No designations yet. Add their pay components on the Compensation page first."*/}
+                        {/*      : "Designations come from the pay components on the Compensation page"}*/}
+                        {/*  </p>*/}
+                        {/*)}*/}
                       </div>
+
+
+
 
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">

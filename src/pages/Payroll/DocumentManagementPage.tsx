@@ -1,32 +1,35 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
-    FileText,
-    Upload,
-    Download,
-    CheckCircle2,
-    Clock,
-    Trash2,
-    X,
-    Search,
-    Shield,
-    Plus,
-    ChevronRight,
-    File,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+    ArrowDownTrayIcon,
+    CheckCircleIcon,
+    ClockIcon,
+    DocumentTextIcon,
+    PhotoIcon,
+    ShieldCheckIcon,
+    TrashIcon,
+    XCircleIcon,
+} from '@heroicons/react/24/outline';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { AddButton } from '../../components/common/AddButton';
+import StatsCard from '../../components/common/Statscard';
+import ReusableTable, { ColumnDef } from '../../components/common/Table';
+import PaginatedPopup from '../../components/common/unpopup';
+import { FloatingSelect1 as FloatingSelect } from '../../components/inputfeild/FloatingInput';
 import { formatFileSize } from '../../shared/utils/file';
 import { usePermissions } from "../../access/usePermissions";
 import { ToasterService } from '../../Services/ToasterService';
 import { apiError } from '../../utils/apiError';
+import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from './hrmsUi';
+
+type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Document {
     id: number;
     employeeName?: string;
-    documentType: DocumentType;
+    documentType: string;
     fileName: string;
     fileType: string;
     uploadedAt?: string;
@@ -36,26 +39,33 @@ interface Document {
     remarks?: string;
 }
 
+// The document types the payroll service accepts
+const DOCUMENT_TYPES = [
+    { id: "PAN", name: "PAN Card" },
+    { id: "AADHAAR", name: "Aadhaar Card" },
+    { id: "PASSPORT", name: "Passport" },
+    { id: "NATIONAL_ID", name: "National ID" },
+    { id: "DRIVER_LICENSE", name: "Driving Licence" },
+    { id: "WORK_PERMIT", name: "Work Permit" },
+    { id: "BIRTH_CERTIFICATE", name: "Birth Certificate" },
+    { id: "SOCIAL_SECURITY", name: "Social Security" },
+    { id: "TAX_ID", name: "Tax ID" },
+];
+const typeName = (type: string) => DOCUMENT_TYPES.find(t => t.id === type)?.name || type;
 
-export enum DocumentType {
-    PAN = "PAN",
-    AADHAAR = "AADHAAR",
-    PASSPORT = "PASSPORT",
-    NATIONAL_ID = "NATIONAL_ID",
-    DRIVER_LICENSE = "DRIVER_LICENSE",
-    WORK_PERMIT = "WORK_PERMIT",
-    BIRTH_CERTIFICATE = "BIRTH_CERTIFICATE",
-    SOCIAL_SECURITY = "SOCIAL_SECURITY",
-    TAX_ID = "TAX_ID"
-}
-type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-
+const STATUS_STYLE: Record<DocumentStatus, string> = {
+    APPROVED: "bg-green-100 text-green-800 border-green-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800",
+    PENDING: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
+    REJECTED: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
+};
+const STATUS_LABEL: Record<DocumentStatus, string> = { APPROVED: "Verified", PENDING: "Pending", REJECTED: "Rejected" };
 
 const BASE_API_URL = "/v1/api/payroll/empdocuments";
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
 const DocumentManagementPage: React.FC = () => {
-  // Approving or rejecting a document needs HRM:APPROVE
-  const { canApprove, canDelete } = usePermissions();
+    // Approving or rejecting a document needs HRM:APPROVE
+    const { canApprove, canDelete } = usePermissions();
     // HR opens an employee's documents with ?id= (from the employee page); everyone else sees their own
     const searchParams = new URLSearchParams(useLocation().search);
     const viewedEmployeeId = canApprove && searchParams.get('id') ? Number(searchParams.get('id')) : null;
@@ -64,50 +74,11 @@ const DocumentManagementPage: React.FC = () => {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [search, setSearch] = useState("");
-    const [activeCategory, setActiveCategory] = useState<'All' | DocumentType>('All');
-    const [documentType, setDocumentType] = useState<DocumentType | ''>('');
+    const [documentType, setDocumentType] = useState('');
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [downloadingId, setDownloadingId] = useState<number | null>(null);
-    const [downloadProgress, setDownloadProgress] = useState<number>(0);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-    const formatCategoryLabel = (value: string) => {
-        if (value === 'PAN') return 'PAN';
-        if (value === 'AADHAAR') return 'Aadhaar';
-
-        return value
-            .toLowerCase()
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, char => char.toUpperCase());
-    };
-
-
-
-    const shortenFileName = (
-        fileName: string,
-        visibleChars = 6
-    ): string => {
-        if (!fileName) return '';
-
-        const lastDotIndex = fileName.lastIndexOf('.');
-        if (lastDotIndex === -1) {
-            return fileName.slice(0, visibleChars) + '...';
-        }
-
-        const name = fileName.slice(0, lastDotIndex);
-        const ext = fileName.slice(lastDotIndex);
-
-        if (name.length <= visibleChars) {
-            return fileName;
-        }
-
-        return `${name.slice(0, visibleChars)}...${ext}`;
-    };
-
-
 
     useEffect(() => {
         fetchDocuments();
@@ -130,7 +101,18 @@ const DocumentManagementPage: React.FC = () => {
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!uploadFile || !documentType) return;
+        if (!documentType) {
+            ToasterService.error("Choose the type of document");
+            return;
+        }
+        if (!uploadFile) {
+            ToasterService.error("Choose the file to upload");
+            return;
+        }
+        if (!ALLOWED_TYPES.includes(uploadFile.type) || uploadFile.size > 5 * 1024 * 1024) {
+            ToasterService.error("Upload a PDF, JPG or PNG of at most 5 MB");
+            return;
+        }
 
         setIsUploading(true);
         setUploadProgress(0);
@@ -146,10 +128,7 @@ const DocumentManagementPage: React.FC = () => {
                 {
                     onUploadProgress: (progressEvent) => {
                         if (!progressEvent.total) return;
-                        const percent = Math.round(
-                            (progressEvent.loaded * 100) / progressEvent.total
-                        );
-                        setUploadProgress(percent);
+                        setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
                     },
                 }
             );
@@ -168,45 +147,22 @@ const DocumentManagementPage: React.FC = () => {
     const handleDownload = async (doc: Document) => {
         try {
             setDownloadingId(doc.id);
-            setDownloadProgress(0);
-
-            const response = await axios.get(
-                `${BASE_API_URL}/documents/${doc.id}/download`,
-                {
-                    responseType: 'blob',
-                    onDownloadProgress: (progressEvent) => {
-                        if (!progressEvent.total) return;
-
-                        const percent = Math.round(
-                            (progressEvent.loaded * 100) / progressEvent.total
-                        );
-                        setDownloadProgress(percent);
-                    },
-                }
-            );
+            const response = await axios.get(`${BASE_API_URL}/documents/${doc.id}/download`, { responseType: 'blob' });
 
             const responseContentType = response.headers['content-type'];
-            const contentType =
-                typeof responseContentType === 'string'
-                    ? responseContentType
-                    : doc.fileType || 'application/octet-stream';
-
-            const blob = new Blob([response.data], { type: contentType as string });
-            const url = window.URL.createObjectURL(blob);
-
+            const contentType = typeof responseContentType === 'string' ? responseContentType : doc.fileType || 'application/octet-stream';
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
             const link = document.createElement('a');
             link.href = url;
             link.download = doc.fileName || `document-${doc.id}`;
             document.body.appendChild(link);
             link.click();
-
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
             ToasterService.error(apiError(err, 'Failed to download the document'));
         } finally {
             setDownloadingId(null);
-            setDownloadProgress(0);
         }
     };
 
@@ -226,10 +182,7 @@ const DocumentManagementPage: React.FC = () => {
         }
     };
 
-    const updateDocumentStatus = async (
-        docId: number,
-        action: 'approve' | 'reject'
-    ) => {
+    const updateDocumentStatus = async (docId: number, action: 'approve' | 'reject') => {
         // A rejection tells the employee why
         let comment: string | null = null;
         if (action === 'reject') {
@@ -246,478 +199,188 @@ const DocumentManagementPage: React.FC = () => {
         }
     };
 
-
     const closeUpload = () => {
         setIsUploadModalOpen(false);
         setUploadFile(null);
         setDocumentType("");
     };
 
-    const filteredDocs = useMemo(() => {
-        return documents.filter(doc => {
-            const matchSearch =
-                doc.fileName.toLowerCase().includes(search.toLowerCase()) ||
-                doc.documentType.toLowerCase().includes(search.toLowerCase());
+    const count = (status: DocumentStatus) => documents.filter(d => d.status === status).length;
+    const whose = viewedEmployeeId
+        ? `${viewedEmployeeName || documents[0]?.employeeName || `Employee ${viewedEmployeeId}`}'s Documents`
+        : "My Documents";
 
-            const matchCategory =
-                activeCategory === 'All' || doc.documentType === activeCategory;
-
-            return matchSearch && matchCategory;
-        });
-    }, [documents, search, activeCategory]);
-
-
-
-    const categories = [
-        'All',
-        ...Object.values(DocumentType),
-    ] as const;
+    const columns: ColumnDef<Document>[] = [
+        {
+            key: "documentType",
+            label: "Document",
+            sortable: true,
+            render: (doc) => {
+                const Icon = doc.fileType?.includes('image') ? PhotoIcon : DocumentTextIcon;
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/40">
+                            <Icon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white">{typeName(doc.documentType)}</p>
+                            <p className="max-w-[220px] truncate text-xs text-slate-400 dark:text-slate-500" title={doc.fileName}>{doc.fileName}</p>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            key: "fileSize",
+            label: "Size",
+            sortable: true,
+            render: (doc) => <span className="text-sm text-slate-600 dark:text-slate-300">{formatFileSize(Number(doc.fileSize || 0))}</span>,
+        },
+        {
+            key: "uploadedAt",
+            label: "Uploaded",
+            sortable: true,
+            render: (doc) => <span className="text-sm text-slate-600 dark:text-slate-300">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "-"}</span>,
+        },
+        {
+            key: "status",
+            label: "Status",
+            sortable: true,
+            render: (doc) => (
+                <div>
+                    <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[doc.status] || STATUS_STYLE.PENDING}`}>
+                        {STATUS_LABEL[doc.status] || doc.status}
+                    </span>
+                    {doc.status === 'REJECTED' && doc.remarks && (
+                        <p className="mt-1 max-w-[220px] truncate text-xs text-red-600 dark:text-red-400" title={doc.remarks}>{doc.remarks}</p>
+                    )}
+                </div>
+            ),
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            headerClassName: "text-right",
+            className: "text-right",
+            render: (doc) => (
+                <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    {canApprove && doc.status !== 'APPROVED' && (
+                        <button type="button" onClick={() => updateDocumentStatus(doc.id, 'approve')} className={ROW_ICON_BUTTON} title="Verify">
+                            <CheckCircleIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    {canApprove && doc.status === 'PENDING' && (
+                        <button type="button" onClick={() => updateDocumentStatus(doc.id, 'reject')} className={ROW_ICON_BUTTON_DANGER} title="Reject">
+                            <XCircleIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    <button type="button" onClick={() => handleDownload(doc)} disabled={downloadingId === doc.id} className={ROW_ICON_BUTTON} title="Download">
+                        <ArrowDownTrayIcon className={`h-4 w-4 ${downloadingId === doc.id ? 'animate-pulse' : ''}`} />
+                    </button>
+                    {canRemove(doc) && (
+                        <button type="button" onClick={() => handleDelete(doc)} className={ROW_ICON_BUTTON_DANGER} title="Delete">
+                            <TrashIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+            ),
+        },
+    ];
 
     return (
-        <div className="min-h-screen bg-neutral-50 font-sans">
+        <>
             <PageMeta title="Documents" description="Manage your documents" />
-
-            {/* Header */}
-            <header className="bg-white border-b border-neutral-200">
-                <div className="max-w-7xl mx-auto px-6 py-6">
-                    <PageBreadcrumb pageTitle="Documents" />
-                    <div className="mt-6 flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-semibold text-neutral-900 tracking-tight">Documents</h1>
-                            <p className="mt-1 text-sm text-neutral-500">
-                                {viewedEmployeeId
-                                    ? `${viewedEmployeeName || documents[0]?.employeeName || `Employee ${viewedEmployeeId}`}'s documents`
-                                    : 'Manage and organize your files'}
-                            </p>
-                        </div>
-                        <button
-                            disabled={!!notLinked}
-                            onClick={() => setIsUploadModalOpen(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
-                        >
-                            <Plus size={18} />
-                            Upload
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* Stats */}
-            <div className="max-w-7xl mx-auto px-6 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <StatCard
-                        label="Total Documents"
-                        value={documents.length.toString()}
-                        icon={<FileText size={18} />}
-                    />
-                    <StatCard
-                        label="Approved"
-                        value={documents.filter(d => d.status === 'APPROVED').length.toString()}
-                        icon={<CheckCircle2 size={18} />}
-                        highlight
-                        bg="bg-green-50"
-                    />
-                    <StatCard
-                        label="Pending"
-                        value={documents.filter(d => d.status === 'PENDING').length.toString()}
-                        icon={<Clock size={18} />}
-                    />
-
-                    <StatCard
-                        label="Storage Used"
-                        value={formatFileSize(documents.reduce((sum, d) => sum + (d.fileSize || 0), 0))}
-                        icon={<Shield size={18} />}
-                    />
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-6 pb-12">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Sidebar */}
-                    <aside className={isSidebarCollapsed ? 'lg:col-span-1' : 'lg:col-span-3'}>
-                        <div className="bg-white rounded-xl border border-neutral-200 p-4 h-full">
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-3 px-2">
-                                {!isSidebarCollapsed && (
-                                    <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                        Categories
-                                    </h3>
-                                )}
-
-                                <button
-                                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                                    className="p-1.5 rounded-md hover:bg-neutral-100 text-neutral-500"
-                                    title={isSidebarCollapsed ? 'Expand' : 'Collapse'}
-                                >
-                                    <ChevronRight
-                                        size={16}
-                                        className={`transition-transform ${isSidebarCollapsed ? '' : 'rotate-180'}`}
-                                    />
-                                </button>
-                            </div>
-
-                            {/* Categories */}
-                            <div className="space-y-1">
-                                {categories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setActiveCategory(cat)}
-                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeCategory === cat
-                                            ? 'bg-neutral-900 text-white'
-                                            : 'text-neutral-600 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        <span className={isSidebarCollapsed ? 'hidden' : ''}>
-                                            {formatCategoryLabel(cat)}
-                                        </span>
-
-                                        <span className="text-xs text-neutral-400">
-                                            {cat === 'All'
-                                                ? documents.length
-                                                : documents.filter(d => d.documentType === cat).length}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-
-                        </div>
-                    </aside>
-
-
-                    {/* Document List */}
-                    <section className={isSidebarCollapsed ? 'lg:col-span-11' : 'lg:col-span-9'}>
-                        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-                            {/* Search Bar */}
-                            <div className="p-4 border-b border-neutral-200">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search documents..."
-                                        className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Table */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-neutral-200">
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                                Name
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                                Type
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                                Size
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                                Status
-                                            </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-neutral-100 cursor-pointer">
-                                        <AnimatePresence>
-                                            {loading ? (
-                                                <tr>
-                                                    <td colSpan={5} className="px-6 py-16 text-center text-sm text-neutral-400">
-                                                        Loading documents...
-                                                    </td>
-                                                </tr>
-                                            ) : notLinked ? (
-                                                <tr>
-                                                    <td colSpan={5} className="px-6 py-16 text-center text-sm text-neutral-500">
-                                                        {notLinked}
-                                                    </td>
-                                                </tr>
-                                            ) : filteredDocs.length > 0 ? (
-                                                filteredDocs.map((doc, idx) => (
-                                                    <motion.tr
-                                                        key={doc.id}
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        transition={{ delay: idx * 0.03 }}
-                                                        className="hover:bg-neutral-50 transition-colors group"
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-600">
-                                                                    <File size={18} />
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div className="text-sm font-medium text-neutral-900 truncate">
-                                                                        {shortenFileName(doc.fileName)}
-                                                                    </div>
-                                                                    <div className="text-xs text-neutral-500 mt-0.5">
-                                                                        {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : ''}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">
-                                                                {doc.documentType}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-neutral-500" title={`${doc.fileSize} bytes`}>
-                                                            {formatFileSize(Number(doc.fileSize))}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <select
-                                                                disabled={doc.status === 'APPROVED' || !canApprove}
-                                                                value={doc.status}
-                                                                onChange={(e) => {
-                                                                    const value = e.target.value as DocumentStatus;
-
-                                                                    if (value === doc.status) return;
-
-                                                                    if (value === 'REJECTED') {
-                                                                        if (!window.confirm('Reject this document?')) return;
-                                                                        updateDocumentStatus(doc.id, 'reject');
-                                                                    }
-
-                                                                    if (value === 'APPROVED') {
-                                                                        updateDocumentStatus(doc.id, 'approve');
-                                                                    }
-                                                                }}
-                                                                className={`py-0 text-xs font-medium rounded-full border focus:outline-none cursor-pointer disabled:opacity-60 ${doc.status === 'APPROVED'
-                                                                    ? 'bg-green-50 text-green-700 border-green-200'
-                                                                    : doc.status === 'REJECTED'
-                                                                        ? 'bg-red-50 text-red-700 border-red-200'
-                                                                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                    }`}
-                                                            >
-
-                                                                <option value="PENDING" disabled>Pending</option>
-                                                                <option value="APPROVED">Approved</option>
-                                                                <option value="REJECTED">Rejected</option>
-                                                            </select>
-                                                            {doc.status === 'REJECTED' && doc.remarks && (
-                                                                <div className="mt-1 text-xs text-red-600 max-w-[200px] truncate" title={doc.remarks}>
-                                                                    {doc.remarks}
-                                                                </div>
-                                                            )}
-                                                        </td>
-
-                                                        <td className="px-6 py-4 text-right">
-                                                            <div className="flex items-center justify-end gap-2">
-
-                                                                {downloadingId === doc.id ? (
-                                                                    <div className="flex items-center gap-2 min-w-[120px]">
-                                                                        <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
-                                                                            <div
-                                                                                className="h-full bg-neutral-900 transition-all"
-                                                                                style={{ width: `${downloadProgress}%` }}
-                                                                            />
-                                                                        </div>
-                                                                        <span className="text-xs text-neutral-500">
-                                                                            {downloadProgress}%
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button title="Download"
-                                                                        onClick={() => handleDownload(doc)}
-                                                                        className="p-1.5 text-neutral-400 hover:text-blue-600 transition-colors"
-                                                                    >
-                                                                        <Download size={18} />
-                                                                    </button>
-                                                                )}
-                                                                {canRemove(doc) && (
-                                                                    <button title="Delete"
-                                                                        onClick={() => handleDelete(doc)}
-                                                                        className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
-                                                                    >
-                                                                        <Trash2 size={18} />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={5} className="px-6 py-16 text-center text-sm text-neutral-400">
-                                                        No documents found
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </AnimatePresence>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-            </div>
-
-            {/* Upload Modal */}
-            <AnimatePresence>
-                {isUploadModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm"
-                        onClick={closeUpload}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white rounded-2xl w-full max-w-md shadow-xl"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <form onSubmit={handleUpload}>
-                                {/* Header */}
-                                <div className="flex items-center justify-between p-6 border-b border-neutral-200">
-                                    <h3 className="text-lg font-semibold text-neutral-900">Upload Document</h3>
-                                    <button
-                                        type="button"
-                                        onClick={closeUpload}
-                                        className="p-1.5 text-neutral-400 hover:text-neutral-600 transition-colors"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
-
-                                {/* Body */}
-                                <div className="p-6 space-y-5">
-                                    {/* Document Type */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-neutral-700 mb-2">
-                                            Document Type
-                                        </label>
-                                        <select disabled={isUploading}
-                                            className="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
-                                            value={documentType}
-                                            onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-                                            required
-                                        >
-                                            <option value="">Select type...</option>
-
-                                            {Object.values(DocumentType).map((type) => (
-                                                <option key={type} value={type}>
-                                                    {type.replace('_', ' ')}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* File Upload */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-neutral-700 mb-2">
-                                            File
-                                        </label>
-                                        <div className="relative">
-                                            <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${uploadFile
-                                                ? 'border-neutral-900 bg-neutral-50'
-                                                : 'border-neutral-200 hover:border-neutral-300'
-                                                }`}>
-                                                <Upload className={`mx-auto mb-3 ${uploadFile ? 'text-neutral-900' : 'text-neutral-400'}`} size={32} />
-                                                <p className="text-sm font-medium text-neutral-900 mb-1">
-                                                    {uploadFile ? uploadFile.name : 'Choose a file'}
-                                                </p>
-                                                <p className="text-xs text-neutral-500">
-                                                    {uploadFile ? `${(uploadFile.size / 1024).toFixed(1)} KB` : 'or drag and drop'}
-                                                </p>
-                                            </div>
-                                            <input disabled={isUploading}
-                                                type="file"
-                                                accept=".pdf,.jpg,.jpeg,.png"
-                                                required
-                                                className="absolute inset-0 opacity-0 cursor-pointer"
-                                                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                    </div>
-                                    {isUploading && (
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-xs text-neutral-600">
-                                                <span>Uploading...</span>
-                                                <span>{uploadProgress}%</span>
-                                            </div>
-
-                                            <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-neutral-900 transition-all duration-300"
-                                                    style={{ width: `${uploadProgress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-
-                                    {/* Info */}
-                                    <div className="flex gap-3 p-4 bg-neutral-50 rounded-lg">
-                                        <Shield size={18} className="text-neutral-500 shrink-0 mt-0.5" />
-                                        <p className="text-xs text-neutral-600 leading-relaxed">
-                                            PDF, JPG or PNG up to 5 MB. HR reviews each document before it is verified.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Footer */}
-                                <div className="flex gap-3 p-6 border-t border-neutral-200">
-                                    <button
-                                        type="button"
-                                        onClick={closeUpload}
-                                        className="flex-1 px-4 py-2.5 border border-neutral-200 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isUploading || !uploadFile}
-                                        className="flex-1 px-4 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        {isUploading ? 'Uploading...' : 'Upload'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </motion.div>
+            <PageBreadcrumb
+                pageTitle={whose}
+                actions={!notLinked && (
+                    <AddButton label="Upload Document" permission={null} onClick={() => setIsUploadModalOpen(true)} />
                 )}
-            </AnimatePresence>
-        </div>
+            />
+
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
+                    <StatsCard label="Total Documents" value={documents.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label="Verified" value={count('APPROVED')} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ShieldCheckIcon className="h-5 w-5" />} />
+                    <StatsCard label="Pending" value={count('PENDING')} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label="Rejected" value={count('REJECTED')} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={fetchDocuments} />
+                </div>
+
+                <ReusableTable
+                    data={documents}
+                    columns={columns}
+                    loading={loading}
+                    pageSize={10}
+                    defaultSortKey="uploadedAt"
+                    defaultSortOrder="desc"
+                    emptyState={
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
+                            <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
+                                {notLinked || "No documents yet"}
+                            </p>
+                            {!notLinked && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsUploadModalOpen(true)}
+                                    className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                                >
+                                    Upload your first document
+                                </button>
+                            )}
+                        </div>
+                    }
+                />
+            </div>
+
+            <PaginatedPopup
+                isOpen={isUploadModalOpen}
+                title="Upload Document"
+                subtitle="PDF, JPG or PNG up to 5 MB. HR reviews each document before it is verified."
+                onClose={closeUpload}
+                onSubmit={handleUpload}
+                submitting={isUploading}
+                submitLabel={isUploading ? `Uploading ${uploadProgress}%` : "Upload"}
+                maxWidthClassName="max-w-lg"
+                tabs={[
+                    {
+                        label: "Document",
+                        fields: [
+                            <div key="type" className="md:col-span-2">
+                                <FloatingSelect
+                                    label="Document Type"
+                                    name="documentType"
+                                    value={documentType}
+                                    onChange={(e) => setDocumentType(e.target.value)}
+                                    options={DOCUMENT_TYPES}
+                                    required
+                                    disabled={isUploading}
+                                />
+                            </div>,
+                            <label
+                                key="file"
+                                className="md:col-span-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center transition hover:border-cyan-400 dark:border-gray-700 dark:bg-[#222222]"
+                            >
+                                <ArrowDownTrayIcon className="mb-2 h-6 w-6 rotate-180 text-cyan-600 dark:text-cyan-400" />
+                                <span className="text-sm font-medium text-slate-700 dark:text-gray-200">
+                                    {uploadFile ? uploadFile.name : "Choose a file"}
+                                </span>
+                                <span className="mt-0.5 text-xs text-slate-400">
+                                    {uploadFile ? formatFileSize(uploadFile.size) : "PDF, JPG or PNG"}
+                                </span>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    className="sr-only"
+                                    disabled={isUploading}
+                                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                />
+                            </label>,
+                        ],
+                    },
+                ]}
+            />
+        </>
     );
 };
-
-const StatCard: React.FC<{
-    label: string;
-    value: string;
-    icon: React.ReactNode;
-    highlight?: boolean;
-    bg?: string;
-}> = ({ label, value, icon, highlight, bg }) => (
-    <div className={`p-4 rounded-xl border transition-colors ${highlight
-        ? 'bg-neutral-900 border-neutral-900 ' + bg
-        : 'bg-white border-neutral-200 ' + bg
-        }`}>
-        <div className="flex items-center justify-between mb-3">
-            <div className={`p-2 rounded-lg ${highlight ? 'bg-white/10' : 'bg-neutral-100'
-                }`}>
-                <div className={highlight ? 'text-white' : 'text-neutral-600'}>
-                    {icon}
-                </div>
-            </div>
-        </div>
-        <div className={`text-2xl font-semibold mb-1 ${highlight ? 'text-white' : 'text-neutral-900'
-            }`}>
-            {value}
-        </div>
-        <div className={`text-xs font-medium ${highlight ? 'text-neutral-400' : 'text-neutral-500'
-            }`}>
-            {label}
-        </div>
-    </div>
-);
 
 export default DocumentManagementPage;
