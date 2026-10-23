@@ -1472,7 +1472,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       ) : <div className="w-full max-w-none px-0 py-8">
         {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-300 dark:hover:text-cyan-200">View all {config.scope.label.toLowerCase()}s</button></div>}
 
-        <div className="py-5 px-3">
+        <div className="px-3">
           {/* Click a card to show only its rows; click it again to show all. */}
           <StatsCardFilter {...cardFilterProps} />
           <div className="">

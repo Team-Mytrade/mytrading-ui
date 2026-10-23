@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
-import { useNavigate, useSearchParams } from "react-router-dom";
 import { CreditCardIcon, ArrowUturnLeftIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -68,7 +67,7 @@ interface CreateReceiptPayload {
   customerId: number;
   paymentDate: string;
   totalAmountReceived: number;
-  paymentMethod: string;
+  paymentMethod?: string;
   referenceNumber?: string;
   notes?: string;
   allocations: { invoiceId: number; allocatedAmount: number }[];
@@ -107,6 +106,31 @@ type ReceiptForm = {
 
 const API_URL = "/v1/api/invoice/receipts";
 const INVOICES_URL = "/v1/api/invoice/invoices";
+/** One customer's money position. */
+const CUSTOMER_FINANCIAL_URL = "/v1/api/customer-financial";
+interface CustomerSummary {
+  customerId?: number;
+  totalInvoiced?: number;
+  totalCreditNotes?: number;
+  totalCashReceived?: number;
+  totalCreditApplied?: number;
+  totalOutstanding?: number;
+  availableCustomerCredit?: number;
+  openInvoiceCount?: number;
+  overdueInvoiceCount?: number;
+}
+
+/** Customer master (Common → Customers). */
+const CUSTOMERS_URL = "/v1/api/crm/customers";
+
+/** Readable name from a CRM customer, whatever the field is called. */
+const crmCustomerLabel = (c: Record<string, any>) => {
+  const name =
+    c.customerName || c.name || c.companyName || c.businessName ||
+    [c.firstName, c.lastName].filter(Boolean).join(" ") || "";
+  const code = c.customerCode || c.code || "";
+  return [code, name].filter(Boolean).join(" – ") || `Customer ${c.id}`;
+};
 const PAGE_SIZE = 10;
 
 // No enum API for payment methods, so the list stays here
@@ -163,8 +187,6 @@ const amountInputProps = {
  */
 const PaymentReceipts: React.FC = () => {
   const { canCreate, canUpdate } = usePermissions();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
@@ -177,20 +199,11 @@ const PaymentReceipts: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   // Allocation per invoice id (text from the inputs)
   const [allocations, setAllocations] = useState<Record<number, string>>({});
-
-  useEffect(() => {
-    const customerId = Number(searchParams.get("customerId"));
-    if (!canCreate || !Number.isSafeInteger(customerId) || customerId <= 0) return;
-    setForm({ customerId: String(customerId), paymentDate: todayIso(), paymentMethod: "BANK_TRANSFER" });
-    setAllocations({});
-    setShowForm(true);
-    const remaining = new URLSearchParams(searchParams);
-    remaining.delete("customerId");
-    setSearchParams(remaining, { replace: true });
-  }, [searchParams, setSearchParams, canCreate]);
   // Customer's unpaid invoices: GET /invoices/outstanding?customerId=
   const [outstanding, setOutstanding] = useState<InvoiceRow[]>([]);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
+  // Customer's balance: GET /v1/api/customer-financial/{customerId}/summary
+  const [customerSummary, setCustomerSummary] = useState<CustomerSummary | null>(null);
   // Customer's earlier receipts: GET /receipts/customer/{customerId}
   const [customerReceipts, setCustomerReceipts] = useState<PaymentReceipt[]>([]);
 
@@ -201,16 +214,26 @@ const PaymentReceipts: React.FC = () => {
 
   /* ---------------- Load ---------------- */
 
-  /** Customers found in the invoices list (receipts only carry customerId). */
+  // Customer master: GET /v1/api/crm/customers
+  const [crmCustomers, setCrmCustomers] = useState<Record<string, any>[]>([]);
+
+  /**
+   * Customer names by id: from the customer master first, then from the invoices list
+   * (for any customer the master doesn't return). Receipts only carry customerId.
+   */
   const customers = useMemo(() => {
     const map = new Map<number, string>();
+    crmCustomers.forEach((c) => {
+      const id = Number(c.id);
+      if (id && !map.has(id)) map.set(id, crmCustomerLabel(c));
+    });
     invoices.forEach((i) => {
       if (i.customerId && !map.has(i.customerId)) {
         map.set(i.customerId, [i.customerCode, i.customerName].filter(Boolean).join(" – ") || `Customer ${i.customerId}`);
       }
     });
     return map;
-  }, [invoices]);
+  }, [crmCustomers, invoices]);
   const customerName = (id?: number) => (id ? customers.get(id) || `Customer #${id}` : "--");
 
   const fetchReceipts = async () => {
@@ -235,15 +258,23 @@ const PaymentReceipts: React.FC = () => {
     axios
       .get(INVOICES_URL)
       .then((r) => setInvoices(asArray<InvoiceRow>(r.data)))
-      .catch(() => ToasterService.error("Failed to load customers from invoices"));
+      .catch(() => ToasterService.error("Failed to load invoices"));
+
+  const fetchCustomers = () =>
+    axios
+      .get(CUSTOMERS_URL)
+      .then((r) => setCrmCustomers(asArray<Record<string, any>>(r.data)))
+      .catch(() => ToasterService.error("Failed to load customers"));
 
   useEffect(() => {
     fetchReceipts();
     fetchInvoices();
+    fetchCustomers();
     // Toolbar Refresh icon reloads every list
     const reload = () => {
       fetchReceipts();
       fetchInvoices();
+      fetchCustomers();
     };
     window.addEventListener("reusable-table:refresh", reload);
     return () => window.removeEventListener("reusable-table:refresh", reload);
@@ -283,6 +314,25 @@ const PaymentReceipts: React.FC = () => {
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  // Customer's balance summary when a customer is chosen
+  useEffect(() => {
+    if (!showForm || !form.customerId) {
+      setCustomerSummary(null);
+      return;
+    }
+    let active = true;
+    axios
+      .get<CustomerSummary>(`${CUSTOMER_FINANCIAL_URL}/${form.customerId}/summary`)
+      .then((res) => active && setCustomerSummary(res.data || null))
+      .catch((err) => {
+        console.error("Error loading customer summary", err);
+        if (active) setCustomerSummary(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [showForm, form.customerId]);
 
   // Load the customer's unpaid invoices and earlier receipts when a customer is chosen
   useEffect(() => {
@@ -338,9 +388,7 @@ const PaymentReceipts: React.FC = () => {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (submitting || outstandingLoading) return;
     if (!form.customerId) return ToasterService.error("Choose a customer");
-    if (!form.paymentMethod) return ToasterService.error("Choose a payment method");
     if (!form.paymentDate) return ToasterService.error("Payment date is required");
     if (receivedPaise <= 0) return ToasterService.error("Amount received must be more than 0");
     for (const i of outstanding) {
@@ -354,7 +402,7 @@ const PaymentReceipts: React.FC = () => {
       customerId: Number(form.customerId),
       paymentDate: form.paymentDate,
       totalAmountReceived: fromPaise(receivedPaise),
-      paymentMethod: form.paymentMethod,
+      paymentMethod: form.paymentMethod || undefined,
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
       allocations: outstanding
@@ -393,7 +441,6 @@ const PaymentReceipts: React.FC = () => {
     e.preventDefault();
     if (!reverseTarget || reversing) return;
     if (!reverseReason.trim()) return ToasterService.error("Please enter a reason for reversing");
-    if (reverseReason.trim().length > 500) return ToasterService.error("Reversal reason must be 500 characters or fewer");
     setReversing(true);
     try {
       await axios.post(`${API_URL}/${reverseTarget.id}/reverse`, { reason: reverseReason.trim() });
@@ -536,7 +583,6 @@ const PaymentReceipts: React.FC = () => {
       className: "w-[8%] text-right",
       render: (r) => (
         <div className="flex items-center justify-end gap-0.5">
-          {r.customerId && <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/accountsReceivable?customerId=${r.customerId}`); }} className="px-2 text-sm font-semibold text-cyan-700">Statement</button>}
           {canReverse(r) && (
             <button
               type="button"
@@ -633,6 +679,7 @@ const PaymentReceipts: React.FC = () => {
           submitLabel="Save Receipt"
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="md:col-span-2">
             <SearchableSelect
               label="Customer"
               value={form.customerId || ""}
@@ -641,22 +688,36 @@ const PaymentReceipts: React.FC = () => {
                 setForm({ ...form, customerId: String(value ?? "") });
                 setAllocations({});
               }}
-              placeholder={customers.size ? "Search customer" : "No customers in the invoice list yet"}
+              placeholder={customers.size ? "Search customer" : "No customers found"}
               required
             />
+            </div>
+            {/* What this customer owes right now (customer-financial summary) */}
+            {customerSummary && (
+              <div className="md:col-span-2 -mt-2 mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Outstanding", value: formatMoney(Number(customerSummary.totalOutstanding || 0)), tone: Number(customerSummary.totalOutstanding || 0) > 0 ? "text-red-600" : "text-slate-800 dark:text-gray-100" },
+                  { label: "Available credit", value: formatMoney(Number(customerSummary.availableCustomerCredit || 0)), tone: "text-emerald-700 dark:text-emerald-400" },
+                  { label: "Open invoices", value: String(customerSummary.openInvoiceCount ?? 0), tone: "text-slate-800 dark:text-gray-100" },
+                  { label: "Overdue invoices", value: String(customerSummary.overdueInvoiceCount ?? 0), tone: Number(customerSummary.overdueInvoiceCount || 0) > 0 ? "text-red-600" : "text-slate-800 dark:text-gray-100" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                    <span className="block text-xs text-slate-500 dark:text-gray-400">{s.label}</span>
+                    <strong className={`text-sm ${s.tone}`}>{s.value}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
             <FloatingDatePicker label="Payment Date" name="paymentDate" value={form.paymentDate || ""} onChange={handleChange} maxDate={todayIso()} required />
             <FloatingInput label="Amount Received" name="totalAmountReceived" {...amountInputProps} value={form.totalAmountReceived || ""} onChange={handleChange} required />
             <FloatingSelect
               label="Payment Method"
-              required
               name="paymentMethod"
               value={form.paymentMethod || ""}
               onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
               options={PAYMENT_METHODS.map((m) => ({ id: m.code, name: m.label }))}
             />
-            <div className="md:col-span-2">
-              <FloatingInput label="Reference Number" name="referenceNumber" value={form.referenceNumber || ""} onChange={handleChange} maxLength={100} />
-            </div>
+            <FloatingInput label="Reference Number" name="referenceNumber" value={form.referenceNumber || ""} onChange={handleChange} maxLength={100} />
             <div className="md:col-span-2">
               <FloatingTextarea label="Notes" name="notes" rows={2} value={form.notes || ""} onChange={handleChange} />
             </div>

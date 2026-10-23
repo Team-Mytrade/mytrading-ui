@@ -1,3 +1,4 @@
+import { EnvelopeIcon, GlobeAltIcon, PhoneIcon } from "@heroicons/react/24/outline";
 import PurchaseResourcePage, { PurchaseResourceConfig } from "../Purchase/PurchaseResourcePage";
 import { INDIAN_STATE_OPTIONS, normalizePhone, toStateName, validateVendorForm } from "../../utils/indiaValidators";
 
@@ -35,6 +36,48 @@ const vendorCode = (value: unknown): string | null => {
   return cleaned ? cleaned : null;
 };
 
+/* Clickable contact details with an icon:
+   phone opens the dialer, email opens the mail app, website opens in a new tab. */
+const LINK_CLASS = "group inline-flex min-w-0 max-w-full items-center gap-1 text-sm text-gray-700 hover:text-cyan-700 dark:text-gray-300 dark:hover:text-cyan-300";
+const ICON_CLASS = "h-3.5 w-3.5 flex-shrink-0 text-gray-400 group-hover:text-cyan-600";
+const empty = <span className="text-sm text-gray-400">--</span>;
+
+const PhoneLink = ({ value }: { value?: string }) =>
+  value ? (
+    <a href={`tel:${value.replace(/[^\d+]/g, "")}`} className={LINK_CLASS} title={`Call ${value}`}>
+      <PhoneIcon className={ICON_CLASS} />
+      <span className="truncate">{value}</span>
+    </a>
+  ) : (
+    empty
+  );
+
+const EmailLink = ({ value }: { value?: string }) =>
+  value ? (
+    <a href={`mailto:${value}`} className={LINK_CLASS} title={`Email ${value}`}>
+      <EnvelopeIcon className={ICON_CLASS} />
+      <span className="truncate">{value}</span>
+    </a>
+  ) : (
+    empty
+  );
+
+const WebsiteLink = ({ value }: { value?: string }) =>
+  value ? (
+    <a
+      href={/^https?:\/\//i.test(value) ? value : `https://${value}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={LINK_CLASS}
+      title={`Open ${value}`}
+    >
+      <GlobeAltIcon className={ICON_CLASS} />
+      <span className="truncate">{value.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "")}</span>
+    </a>
+  ) : (
+    empty
+  );
+
 /** Vendor master (owned by the Product Catalogue service). */
 const vendorConfig: PurchaseResourceConfig = {
   title: "Vendors",
@@ -50,8 +93,9 @@ const vendorConfig: PurchaseResourceConfig = {
     { key: "vendorCode", label: "Vendor Code" },
     { key: "name", label: "Vendor Name" },
     { key: "contactName", label: "Contact" },
-    { key: "contactEmail", label: "Email" },
-    { key: "contactPhone", label: "Phone" },
+    { key: "contactEmail", label: "Email", render: (row) => <EmailLink value={row.contactEmail} /> },
+    { key: "contactPhone", label: "Phone", render: (row) => <PhoneLink value={row.contactPhone} /> },
+    { key: "website", label: "Website", render: (row) => <WebsiteLink value={row.website} /> },
     { key: "city", label: "City" },
     { key: "active", label: "Status" },
   ],

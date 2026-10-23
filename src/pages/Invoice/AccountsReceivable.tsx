@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, FormEvent } from "react";
 import axios from "axios";
-import { useSearchParams } from "react-router-dom";
 import { BuildingOffice2Icon, ChartBarIcon, DocumentMagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -59,31 +58,37 @@ interface AgingReport {
   buckets?: { bucket: string; invoiceCount?: number; outstandingAmount?: number }[];
 }
 
+/** GET /v1/api/customer-financial/{customerId}/statement?fromDate=&toDate= */
+interface CustomerStatement {
+  openingBalance?: number;
+  totalDebit?: number;
+  totalCredit?: number;
+  closingBalance?: number;
+  entries?: {
+    transactionDate?: string;
+    type?: string;
+    documentNumber?: string;
+    referenceNumber?: string;
+    description?: string;
+    debit?: number;
+    credit?: number;
+    affectsBalance?: boolean;
+  }[];
+}
+
 /* ------------------------------------------------------------------ */
 /* Settings                                                            */
 /* ------------------------------------------------------------------ */
 
 const API_URL = "/v1/api/invoice/accounts-receivable";
+const CUSTOMER_FINANCIAL_URL = "/v1/api/customer-financial";
 
-/** Customer financial API response; entries retain the server's event order. */
-interface CustomerStatement {
-  customerId: number;
-  fromDate: string;
-  toDate: string;
-  openingBalance: number;
-  totalDebit: number;
-  totalCredit: number;
-  closingBalance: number;
-  entries: { transactionDate: string; type: string; documentNumber?: string; referenceNumber?: string; description?: string; debit: number; credit: number; affectsBalance: boolean }[];
-}
-
-/** Current customer totals, independent of the statement's date range. */
-interface CustomerFinancialSummary {
-  totalOutstanding: number;
-  availableCustomerCredit: number;
-  totalInvoiced: number;
-  totalCashReceived: number;
-}
+/** First day of the month, 3 months back: a sensible default statement period. */
+const threeMonthsAgo = () => {
+  const [y, m] = todayIso().split("-").map(Number);
+  const d = new Date(y, m - 1 - 3, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+};
 const PAGE_SIZE = 10;
 // Status values from the Swagger (no enum API type for this list)
 const STATUSES = ["OPEN", "PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"];
@@ -142,7 +147,6 @@ const StatusBadge = ({ status }: { status?: string }) => (
  * The API is read-only, so this page shows the list, an aging report and a customer statement.
  */
 const AccountsReceivable: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -153,57 +157,10 @@ const AccountsReceivable: React.FC = () => {
   const [aging, setAging] = useState<AgingReport | null>(null);
   const [statement, setStatement] = useState<OutstandingInvoice[] | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const [showStatement, setShowStatement] = useState(false);
-  const [statementCustomer, setStatementCustomer] = useState("");
-  const [fromDate, setFromDate] = useState(`${todayIso().slice(0, 7)}-01`);
-  const [toDate, setToDate] = useState(todayIso());
-  const [financialStatement, setFinancialStatement] = useState<CustomerStatement | null>(null);
-  const [statementLoading, setStatementLoading] = useState(false);
-  const [financialSummary, setFinancialSummary] = useState<CustomerFinancialSummary | null>(null);
-
-  useEffect(() => {
-    const customerId = Number(searchParams.get("customerId"));
-    if (!Number.isSafeInteger(customerId) || customerId <= 0) return;
-    setStatementCustomer(String(customerId));
-    setFinancialStatement(null);
-    setShowStatement(true);
-    const remaining = new URLSearchParams(searchParams);
-    remaining.delete("customerId");
-    setSearchParams(remaining, { replace: true });
-  }, [searchParams, setSearchParams]);
-
-  /** Read the dated ledger; balances and event order are owned by the backend. */
-  const loadStatement = async (event: FormEvent) => {
-    event.preventDefault();
-    if (statementLoading) return;
-    if (!statementCustomer || !fromDate || !toDate || fromDate > toDate) {
-      ToasterService.error("Choose a customer and a valid date range");
-      return;
-    }
-    setStatementLoading(true);
-    setFinancialStatement(null);
-    setFinancialSummary(null);
-    try {
-      const [ledger, summary] = await Promise.allSettled([
-        axios.get<CustomerStatement>(`/v1/api/customer-financial/${statementCustomer}/statement`, { params: { fromDate, toDate } }),
-        axios.get<CustomerFinancialSummary>(`/v1/api/customer-financial/${statementCustomer}/summary`),
-      ]);
-      if (ledger.status === "fulfilled") setFinancialStatement(ledger.value.data);
-      else ToasterService.error(apiError(ledger.reason, "Unable to load customer statement"));
-      if (summary.status === "fulfilled") setFinancialSummary(summary.value.data);
-      else ToasterService.error(apiError(summary.reason, "Unable to load current customer totals"));
-    } catch (error) {
-      ToasterService.error(apiError(error, "Unable to load customer statement"));
-    } finally { setStatementLoading(false); }
-  };
-
-  const statementRows = useMemo(() => {
-    let balance = Math.round(Number(financialStatement?.openingBalance || 0) * 100);
-    return (financialStatement?.entries || []).map((entry) => {
-      if (entry.affectsBalance) balance += Math.round(Number(entry.debit || 0) * 100) - Math.round(Number(entry.credit || 0) * 100);
-      return { ...entry, runningBalance: balance / 100 };
-    });
-  }, [financialStatement]);
+  // Full statement for one customer (customer-financial API)
+  const [stmtFrom, setStmtFrom] = useState("");
+  const [stmtTo, setStmtTo] = useState("");
+  const [fullStatement, setFullStatement] = useState<CustomerStatement | null>(null);
 
   /* ---------------- Load ---------------- */
 
@@ -268,21 +225,34 @@ const AccountsReceivable: React.FC = () => {
     setAsOfDate(todayIso());
     setAging(null);
     setStatement(null);
+    setFullStatement(null);
+    setStmtFrom(threeMonthsAgo());
+    setStmtTo(todayIso());
     setShowReport(true);
-    if (customerId) loadReport(String(customerId), todayIso());
+    if (customerId) loadReport(String(customerId), todayIso(), threeMonthsAgo(), todayIso());
   };
 
-  const loadReport = async (customerId: string, date: string) => {
+  const loadReport = async (customerId: string, date: string, from = stmtFrom, to = stmtTo) => {
     setReportLoading(true);
     try {
-      const [agingRes, statementRes] = await Promise.all([
+      const [agingRes, statementRes, fullRes] = await Promise.all([
         axios.get<AgingReport>(`${API_URL}/aging`, {
           params: { customerId: customerId ? Number(customerId) : undefined, asOfDate: date || undefined },
         }),
         customerId ? axios.get(`${API_URL}/customer/${customerId}/outstanding`) : Promise.resolve(null),
+        customerId && from && to
+          ? axios
+              .get<CustomerStatement>(`${CUSTOMER_FINANCIAL_URL}/${customerId}/statement`, { params: { fromDate: from, toDate: to } })
+              .catch((err) => {
+                console.error("Error loading customer statement", err);
+                ToasterService.error(apiError(err, "Failed to load the customer statement"));
+                return null;
+              })
+          : Promise.resolve(null),
       ]);
       setAging(agingRes.data || null);
       setStatement(statementRes ? asArray<OutstandingInvoice>(statementRes.data) : null);
+      setFullStatement(fullRes ? fullRes.data || null : null);
     } catch (err) {
       console.error("Error loading aging report", err);
       ToasterService.error(apiError(err, "Failed to load the aging report"));
@@ -293,7 +263,11 @@ const AccountsReceivable: React.FC = () => {
 
   const submitReport = (e: FormEvent) => {
     e.preventDefault();
-    loadReport(reportCustomerId, asOfDate);
+    if (reportCustomerId && stmtFrom && stmtTo && stmtFrom > stmtTo) {
+      ToasterService.error("Statement 'from' date must be before the 'to' date");
+      return;
+    }
+    loadReport(reportCustomerId, asOfDate, stmtFrom, stmtTo);
   };
 
   /* ---------------- Table ---------------- */
@@ -409,12 +383,12 @@ const AccountsReceivable: React.FC = () => {
             loading={isLoading}
             rowDetailsTitle={(r) => `Receivable – ${r.invoiceNumber || ""}`}
             rowDetailsSubtitle="Updated automatically from invoices and receipts"
-            suspendRowDetails={showReport || showStatement}
+            suspendRowDetails={showReport}
             rowDetailsActions={(r: Receivable) =>
               r.customerId ? (
-                <div className="flex gap-2"><button type="button" onClick={() => openReport(r.customerId)} className={ICON_BUTTON_CLASS} title="Customer aging" aria-label="Customer aging">
+                <button type="button" onClick={() => openReport(r.customerId)} className={ICON_BUTTON_CLASS} title="Customer statement & aging" aria-label="Customer statement and aging">
                   <DocumentMagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
-                </button><button type="button" onClick={() => { setStatementCustomer(String(r.customerId)); setFinancialStatement(null); setShowStatement(true); }} className="text-sm font-semibold text-cyan-700">Customer Statement</button></div>
+                </button>
               ) : null
             }
             emptyState={
@@ -429,33 +403,12 @@ const AccountsReceivable: React.FC = () => {
           />
         </div>
 
-        <button type="button" onClick={() => { setFinancialStatement(null); setShowStatement(true); }} className="m-3 rounded-lg border border-cyan-200 px-4 py-2 text-sm font-semibold text-cyan-700">Customer Statement</button>
-        <Dragger isOpen={showStatement} title="Customer Statement" variant="modal" subtitle="Opening balance, transactions and closing balance for the selected period."
-          onClose={() => { if (!statementLoading) setShowStatement(false); }} onSubmit={loadStatement} submitLabel="Load Statement" submitting={statementLoading}>
-          <fieldset disabled={statementLoading} className="grid gap-3 md:grid-cols-3">
-            <SearchableSelect label="Customer" value={statementCustomer} options={customers} onChange={(value: string | number) => { if (statementLoading) return; setStatementCustomer(String(value || "")); setFinancialStatement(null); setFinancialSummary(null); }} placeholder="Select customer" />
-            <FloatingDatePicker label="From date" name="fromDate" value={fromDate} onChange={(event) => { setFromDate(event.target.value); setFinancialStatement(null); }} required />
-            <FloatingDatePicker label="To date" name="toDate" value={toDate} onChange={(event) => { setToDate(event.target.value); setFinancialStatement(null); }} required />
-          </fieldset>
-          {financialStatement && <div className="space-y-4">
-            {financialSummary && <div className="rounded-lg bg-cyan-50 p-3 text-sm text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100">Current outstanding: <strong>{formatMoney(financialSummary.totalOutstanding)}</strong> · Available customer credit: <strong>{formatMoney(financialSummary.availableCustomerCredit)}</strong><p className="mt-1 text-xs">Current totals may differ from a statement ending in the past.</p></div>}
-            <div className="grid grid-cols-2 gap-3">
-              {([['Opening balance', financialStatement.openingBalance], ['Debits', financialStatement.totalDebit], ['Credits', financialStatement.totalCredit], ['Closing balance', financialStatement.closingBalance]] as const).map(([label, amount]) => <div key={label} className="rounded-lg border border-slate-200 p-3 dark:border-gray-700"><span className="block text-sm">{label}</span><strong>{formatMoney(Number(amount))}</strong></div>)}
-            </div>
-            <div className="overflow-auto"><table className="w-full text-left text-sm"><thead><tr>{['Date', 'Type', 'Document / Reference', 'Description', 'Debit', 'Credit', 'Running balance'].map((label) => <th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>
-              {statementRows.map((entry, index) => <tr key={index} className="border-t border-slate-200 dark:border-gray-700"><td className="p-2">{formatDisplayDate(entry.transactionDate)}</td><td className="p-2">{statusLabel(entry.type)}{!entry.affectsBalance && ' (informational)'}</td><td className="p-2">{entry.documentNumber || entry.referenceNumber || '—'}</td><td className="p-2">{entry.description}</td><td className="p-2">{formatMoney(Number(entry.debit || 0))}</td><td className="p-2">{formatMoney(Number(entry.credit || 0))}</td><td className="p-2">{formatMoney(entry.runningBalance)}</td></tr>)}
-              {!statementRows.length && <tr><td colSpan={7} className="p-4">No transactions in this period.</td></tr>}
-            </tbody></table></div>
-            {Math.round((statementRows[statementRows.length - 1]?.runningBalance ?? financialStatement.openingBalance) * 100) !== Math.round(financialStatement.closingBalance * 100) && <p role="alert" className="text-sm text-amber-700">The transaction running balance differs from the server closing balance. Review this statement before reconciliation.</p>}
-          </div>}
-        </Dragger>
-
-        {/* Aging and current unpaid invoices are separate from the dated financial statement. */}
+        {/* Aging (GET /aging) + customer statement (GET /customer/{id}/outstanding) */}
         <Dragger
           isOpen={showReport}
           variant="modal"
           title="Aging Report"
-          subtitle="How long invoices have been unpaid. Choose a customer to see their current unpaid invoices."
+          subtitle="How long invoices have been unpaid. Choose a customer to also see their statement."
           onClose={() => setShowReport(false)}
           onSubmit={submitReport}
           submitting={reportLoading}
@@ -471,6 +424,13 @@ const AccountsReceivable: React.FC = () => {
               emptyOptionLabel="All customers"
             />
             <FloatingDatePicker label="As of Date" name="asOfDate" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} />
+            {/* Statement period: only for one customer */}
+            {reportCustomerId && (
+              <>
+                <FloatingDatePicker label="Statement From" name="stmtFrom" value={stmtFrom} onChange={(e) => setStmtFrom(e.target.value)} maxDate={stmtTo || todayIso()} />
+                <FloatingDatePicker label="Statement To" name="stmtTo" value={stmtTo} onChange={(e) => setStmtTo(e.target.value)} minDate={stmtFrom || undefined} maxDate={todayIso()} />
+              </>
+            )}
           </div>
 
           {aging && (
@@ -548,6 +508,69 @@ const AccountsReceivable: React.FC = () => {
                         <td />
                       </tr>
                     </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Full statement for the period (customer-financial API): every invoice, credit note and receipt */}
+          {fullStatement && (
+            <div className="mt-4">
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Account Statement{stmtFrom && stmtTo ? ` – ${formatDisplayDate(stmtFrom)} to ${formatDisplayDate(stmtTo)}` : ""}
+              </h4>
+              <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Opening balance", value: fullStatement.openingBalance },
+                  { label: "Invoiced (debit)", value: fullStatement.totalDebit },
+                  { label: "Received / credited", value: fullStatement.totalCredit },
+                  { label: "Closing balance", value: fullStatement.closingBalance, strong: true },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                    <span className="block text-xs text-slate-500">{s.label}</span>
+                    <strong className={`text-sm ${s.strong ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-gray-200"}`}>{formatMoney(Number(s.value || 0))}</strong>
+                  </div>
+                ))}
+              </div>
+              {!fullStatement.entries?.length ? (
+                <p className="text-sm text-slate-500">No transactions in this period.</p>
+              ) : (
+                <div className="max-h-80 overflow-auto rounded-lg border border-slate-200 dark:border-gray-700">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                      <tr>
+                        <th className="px-3 py-2">Date</th>
+                        <th className="px-3 py-2">Type</th>
+                        <th className="px-3 py-2">Document</th>
+                        <th className="px-3 py-2 text-right">Debit</th>
+                        <th className="px-3 py-2 text-right">Credit</th>
+                        <th className="px-3 py-2 text-right">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                      {(() => {
+                        // Running balance: opening + debit − credit (lines that don't affect the balance are shown greyed)
+                        let running = Math.round(Number(fullStatement.openingBalance || 0) * 100);
+                        return fullStatement.entries!.map((e, i) => {
+                          if (e.affectsBalance !== false) running += Math.round(Number(e.debit || 0) * 100) - Math.round(Number(e.credit || 0) * 100);
+                          return (
+                            <tr key={i} className={e.affectsBalance === false ? "text-slate-400" : ""}>
+                              <td className="whitespace-nowrap px-3 py-2">{e.transactionDate ? formatDisplayDate(e.transactionDate) : "--"}</td>
+                              <td className="px-3 py-2">{statusLabel(e.type)}</td>
+                              <td className="px-3 py-2">
+                                <span className="block font-medium text-slate-800 dark:text-gray-100">{e.documentNumber || "--"}</span>
+                                {(e.description || e.referenceNumber) && (
+                                  <span className="block text-xs text-slate-400">{[e.description, e.referenceNumber].filter(Boolean).join(" · ")}</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-right">{Number(e.debit || 0) > 0 ? formatMoney(Number(e.debit)) : ""}</td>
+                              <td className="px-3 py-2 text-right">{Number(e.credit || 0) > 0 ? formatMoney(Number(e.credit)) : ""}</td>
+                              <td className="px-3 py-2 text-right font-semibold text-slate-800 dark:text-gray-100">{formatMoney(running / 100)}</td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
                   </table>
                 </div>
               )}
