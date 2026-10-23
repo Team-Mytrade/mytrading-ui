@@ -1079,12 +1079,18 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
   columns: [
     { key: "receiptNumber", label: "GRN Number" },
     {
-      key: "poNumber",
-      label: "PO Number",
-      // Click → Purchase Orders page showing only this PO.
-      link: (row) =>
-        recordLink(APP_ROUTES.purchaseOrders, "purchaseOrderId", row.purchaseOrderId ?? row.purchaseOrder?.id, "poNumber", row.poNumber),
-    },
+  key: "poNumber",
+  label: "PO Number",
+  render: (row) => row.poNumber || row.purchaseOrder?.poNumber || "--",
+  link: (row) => {
+
+    const id = row.purchaseOrderId ?? row.purchaseOrder?.id ?? row.poId;
+    const number = row.poNumber || row.purchaseOrder?.poNumber;
+
+    const result = recordLink(APP_ROUTES.purchaseOrders, "purchaseOrderId", id, "poNumber", number);
+    return result;
+  },
+},
     {
       key: "receiptDate",
       label: "Receipt Date",
