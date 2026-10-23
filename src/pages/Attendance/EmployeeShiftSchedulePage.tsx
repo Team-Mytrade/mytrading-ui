@@ -87,9 +87,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
     effectiveTo: string;
   }>({
     employeeId: 0,
-    shiftId: 3,
+    shiftId: 0,
     effectiveFrom: todayIso(),
-    effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+    effectiveTo: ''
   });
 
   // ── Error Helper ───────────────────────────────────────────────────────
@@ -102,11 +102,12 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const fetchDropdowns = async () => {
     // 1. Employees Dropdown
     try {
-      const empRes = await axios.get('/v1/api/payroll/employee/all');
+      // Active employees through the attendance service (ATTENDANCE:VIEW is enough)
+      const empRes = await axios.get('/v1/api/attendance/employees');
       if (Array.isArray(empRes.data) && empRes.data.length > 0) {
-        const mappedEmps = empRes.data.map((e: any) => ({
+        const mappedEmps: EmployeeOption[] = empRes.data.map((e: any) => ({
           id: Number(e.id),
-          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || e.fullName || 'Employee',
+          name: e.name || `Employee #${e.id}`,
           code: e.employeeCode || ''
         }));
         setEmployees(mappedEmps);
@@ -120,21 +121,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           localStorage.setItem('last_selected_shift_emp_id', String(mappedEmps[0].id));
         }
       }
-    } catch {
-      setEmployees([
-        { id: 12, name: "John Doe", code: "EMP-12" },
-        { id: 1, name: "Alice Smith", code: "EMP-01" },
-        { id: 2, name: "Bob Johnson", code: "EMP-02" }
-      ]);
-      const savedId = localStorage.getItem('last_selected_shift_emp_id');
-      if (!savedId) {
-        setSelectedEmployeeId(12);
-      }
+    } catch (err) {
+      setEmployees([]);
+      handleApiError(err, "Could not load the employee list.");
     }
 
     // 2. Active Shifts Dropdown
     try {
-      const shiftRes = await axios.get('/v1/api/attendance/shifts');
+      const shiftRes = await axios.get('/v1/api/attendance/shifts/active');
       if (Array.isArray(shiftRes.data) && shiftRes.data.length > 0) {
         const mappedShifts = shiftRes.data.map((s: any) => ({
           id: Number(s.id),
@@ -144,12 +138,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
         }));
         setShifts(mappedShifts);
       }
-    } catch {
-      setShifts([
-        { id: 3, code: "GEN", name: "General Shift", timings: "09:00 - 18:00" },
-        { id: 1, code: "A", name: "Morning Shift", timings: "06:00 - 14:00" },
-        { id: 2, code: "N", name: "Night Shift", timings: "22:00 - 06:00" }
-      ]);
+    } catch (err) {
+      setShifts([]);
+      handleApiError(err, "Could not load the shifts.");
     }
   };
 
@@ -204,8 +195,12 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   const handleSubmitAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.employeeId || !form.shiftId || !form.effectiveFrom || !form.effectiveTo) {
-      ToasterService.error("Please fill in Employee, Shift, Effective From, and Effective To dates.");
+    if (!form.employeeId || !form.shiftId || !form.effectiveFrom) {
+      ToasterService.error("Please choose the employee, the shift and the start date.");
+      return;
+    }
+    if (form.effectiveTo && form.effectiveTo < form.effectiveFrom) {
+      ToasterService.error("The end date can't be before the start date.");
       return;
     }
 
@@ -217,7 +212,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           employeeId: Number(form.employeeId),
           shiftId: Number(form.shiftId),
           effectiveFrom: form.effectiveFrom,
-          effectiveTo: form.effectiveTo
+          effectiveTo: form.effectiveTo || null
         };
 
         await axios.put(`${BASE_SCHEDULE_URL}/${editingAssignment.id}`, updatePayload);
@@ -228,7 +223,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
           employeeId: Number(form.employeeId),
           shiftId: Number(form.shiftId),
           effectiveFrom: form.effectiveFrom,
-          effectiveTo: form.effectiveTo
+          effectiveTo: form.effectiveTo || null
         };
 
         await axios.post(BASE_SCHEDULE_URL, createPayload);
@@ -249,9 +244,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
     setEditingAssignment(null);
     setForm({
       employeeId: selectedEmployeeId,
-      shiftId: shifts[0]?.id || 3,
+      shiftId: shifts[0]?.id || 0,
       effectiveFrom: todayIso(),
-      effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+      effectiveTo: ''
     });
     setIsModalOpen(true);
   };
@@ -262,7 +257,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       employeeId: a.employeeId,
       shiftId: a.shiftId,
       effectiveFrom: a.effectiveFrom,
-      effectiveTo: a.effectiveTo
+      effectiveTo: a.effectiveTo || ''
     });
     setIsModalOpen(true);
   };
@@ -271,9 +266,9 @@ const EmployeeShiftSchedulePage: React.FC = () => {
     setEditingAssignment(null);
     setForm({
       employeeId: selectedEmployeeId,
-      shiftId: shifts[0]?.id || 3,
+      shiftId: shifts[0]?.id || 0,
       effectiveFrom: todayIso(),
-      effectiveTo: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+      effectiveTo: ''
     });
   };
 
@@ -316,7 +311,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <span className="text-xs font-mono font-semibold text-slate-700 dark:text-gray-300">
-          {row.effectiveFrom} <span className="text-gray-400 dark:text-gray-500">to</span> {row.effectiveTo}
+          {row.effectiveFrom} <span className="text-gray-400 dark:text-gray-500">to</span> {row.effectiveTo || 'ongoing'}
         </span>
       )
     },
@@ -522,14 +517,14 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Effective To *</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Effective To (blank = ongoing)</label>
                   <input
                     type="date"
                     value={form.effectiveTo}
+                    min={form.effectiveFrom}
                     onChange={(e) => setForm(p => ({ ...p, effectiveTo: e.target.value }))}
                     onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not allowed */ } }}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-mono font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
-                    required
                   />
                 </div>
               </div>

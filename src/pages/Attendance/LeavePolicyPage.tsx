@@ -10,6 +10,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "./attendanceApi";
 
 const LEAVE_POLICY_ENDPOINT = '/v1/api/attendance/leave-policies';
 const ASSIGN_POLICY_ENDPOINT = '/v1/api/attendance/employee-leave-balances/assign-policy';
@@ -151,12 +152,13 @@ const LeavePolicyPage: React.FC = () => {
           return rowItem;
         });
 
-        setPolicies(cleaned);
+        setPolicies(cleaned as LeavePolicyModel[]);
       } else {
         setPolicies([]);
       }
     } catch (err) {
       setPolicies([]);
+      ToasterService.error(apiError(err, "Could not load leave policies."));
     } finally {
       setLoading(false);
     }
@@ -164,15 +166,18 @@ const LeavePolicyPage: React.FC = () => {
 
   const fetchEmployees = async () => {
     try {
-      const res = await axios.get('/v1/api/payroll/employee/all');
+      // Active employees through the attendance service (ATTENDANCE:VIEW is enough)
+      const res = await axios.get('/v1/api/attendance/employees');
       if (Array.isArray(res.data)) {
         setEmployees(res.data.map((e: any) => ({
           id: Number(e.id),
-          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || `Employee #${e.id}`,
-          code: e.employeeCode || `EMP-${e.id}`
+          name: e.name || `Employee #${e.id}`,
+          code: e.employeeCode || ''
         })));
       }
-    } catch (e) {}
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not load the employee list."));
+    }
   };
 
   useEffect(() => {
@@ -188,8 +193,15 @@ const LeavePolicyPage: React.FC = () => {
     if (!form.policyName.trim()) errors.policyName = "Policy Name is required.";
     if (!form.effectiveFrom) errors.effectiveFrom = "Effective From date is required.";
     if (!form.effectiveTo) errors.effectiveTo = "Effective To date is required.";
+    if (form.effectiveFrom && form.effectiveTo && form.effectiveTo < form.effectiveFrom) errors.effectiveTo = "Effective To must be after Effective From.";
+    if (!form.policyDetails.length) errors.policyDetails = "Add at least one leave type.";
+    if (new Set(form.policyDetails.map((d) => d.leaveType)).size !== form.policyDetails.length) errors.policyDetails = "Each leave type can appear only once.";
+    if (form.policyDetails.some((d) => d.allocatedLeaves === null || d.allocatedLeaves === undefined || Number(d.allocatedLeaves) < 0)) errors.policyDetails = "Days per year can't be negative.";
 
     setFormErrors(errors);
+    // The form has no inline error slots; show the first problem
+    const first = Object.values(errors)[0];
+    if (first) ToasterService.error(first);
     return Object.keys(errors).length === 0;
   };
 
@@ -222,15 +234,15 @@ const LeavePolicyPage: React.FC = () => {
             negativeBalanceAllowed: Boolean(d.allowNegativeBalance || d.negativeBalanceAllowed),
             documentRequired: false,
             minimumServiceMonths: null,
-            active: Boolean(form.active)
+            active: d.active !== false
           }))
         };
 
-        const res = await putApi(editingPolicy.id, putPayload);
-        const updatedRecord = res.data || { ...editingPolicy, ...putPayload };
-        setPolicies(prev => prev.map(p => p.id === editingPolicy.id ? updatedRecord : p));
-        ToasterService.success("Leave Policy updated successfully!");
+        await putApi(editingPolicy.id, putPayload);
+        ToasterService.success("Leave policy updated. Balances already given to employees keep their days; adjust them if needed.");
         setEditingPolicy(null);
+        setIsModalOpen(false);
+        fetchPolicies();
       } else {
         // POST /v1/api/attendance/leave-policies
         const postPayload = {
@@ -246,20 +258,20 @@ const LeavePolicyPage: React.FC = () => {
             allocatedLeaves: Number(d.allocatedLeaves),
             carryForwardAllowed: Boolean(d.carryForwardAllowed),
             maxCarryForward: Number(d.maxCarryForward),
-            allowNegativeBalance: Boolean(d.allowNegativeBalance)
+            negativeBalanceAllowed: Boolean(d.allowNegativeBalance),
+            active: true
           }))
         };
 
-        const res = await postApi(postPayload);
-        const createdRecord = res.data || { ...postPayload, id: Date.now() };
-        setPolicies(prev => [createdRecord, ...prev]);
-        ToasterService.success("Leave Policy created successfully!");
+        await postApi(postPayload);
+        ToasterService.success("Leave policy created. Assign it to employees to give them balances.");
         setIsModalOpen(false);
+        fetchPolicies();
       }
 
       resetForm();
     } catch (err: any) {
-      ToasterService.error(err.response?.data?.message || "Failed to save leave policy.");
+      ToasterService.error(apiError(err, "Failed to save leave policy."));
     } finally {
       setIsSubmitting(false);
     }
@@ -310,11 +322,11 @@ const LeavePolicyPage: React.FC = () => {
   const handleDeletePolicy = async (id: number) => {
     try {
       await deleteApi(id);
+      ToasterService.success("Leave policy removed (policies already given to employees are switched off instead).");
+      fetchPolicies();
     } catch (err: any) {
-      console.warn("Backend DELETE endpoint error, filtering local policy", err);
+      ToasterService.error(apiError(err, "Could not delete the leave policy."));
     }
-    ToasterService.success("Leave policy deleted successfully!");
-    setPolicies(prev => prev.filter(p => p.id !== id));
   };
 
   // ── Assign Policy Submission ──────────────────────────────────────────
@@ -330,13 +342,23 @@ const LeavePolicyPage: React.FC = () => {
         leavePolicyId: assigningPolicy.id
       };
 
-      await axios.post(ASSIGN_POLICY_ENDPOINT, payload);
+      const res = await axios.post(ASSIGN_POLICY_ENDPOINT, payload);
+      const assigned = Number(res.data?.assignedEmployees ?? 0);
+      const failed: any[] = Array.isArray(res.data?.failedEmployees) ? res.data.failedEmployees : [];
 
-      ToasterService.success(`Policy assigned to ${selectedEmployeeIds.length} employee(s) successfully!`);
-      setAssigningPolicy(null);
-      setSelectedEmployeeIds([]);
+      if (assigned) ToasterService.success(`Leave balances created for ${assigned} employee(s).`);
+      failed.forEach((f) => {
+        const name = employees.find((e) => e.id === f.employeeId)?.name || f.employeeName || `Employee #${f.employeeId}`;
+        ToasterService.error(`${name}: ${f.reason}`);
+      });
+      if (!failed.length) {
+        setAssigningPolicy(null);
+        setSelectedEmployeeIds([]);
+      } else {
+        setSelectedEmployeeIds(failed.map((f) => Number(f.employeeId)));
+      }
     } catch (err: any) {
-      ToasterService.error(err.response?.data?.message || "Failed to assign policy.");
+      ToasterService.error(apiError(err, "Failed to assign policy."));
     } finally {
       setIsAssignSubmitting(false);
     }
