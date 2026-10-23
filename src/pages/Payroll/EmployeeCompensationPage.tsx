@@ -25,9 +25,18 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { apiError } from "../../utils/apiError";
+import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 
 // API endpoints
 const COMPENSATION_API_URL = "/v1/api/payroll/employee";
+
+// Payroll uses two components: basic as a % of the yearly CTC and HRA as a % of basic (other names are kept for reference)
+const STANDARD_COMPONENTS = [{ name: "Basic", percentage: 0 }, { name: "HRA", percentage: 0 }];
+const componentLabel = (name: string) =>
+    name.trim().toLowerCase() === "basic" ? "Basic" : name.trim().toLowerCase() === "hra" ? "HRA" : name;
+const componentBase = (name: string) =>
+    name.trim().toLowerCase() === "basic" ? " of CTC" : name.trim().toLowerCase() === "hra" ? " of basic" : "";
 
 // Types
 interface ComponentDetail {
@@ -64,7 +73,7 @@ const EmployeeCompensationPage: React.FC = () => {
     // Form state
     const [formData, setFormData] = useState<CompensationFormData>({
         employeeRole: "",
-        components: [{ name: "", percentage: 0 }],
+        components: STANDARD_COMPONENTS.map((c) => ({ ...c })),
         isDefaultComponent: false,
     });
 
@@ -147,7 +156,7 @@ const EmployeeCompensationPage: React.FC = () => {
     const resetForm = () => {
         setFormData({
             employeeRole: "",
-            components: [{ name: "", percentage: 0 }],
+            components: STANDARD_COMPONENTS.map((c) => ({ ...c })),
             isDefaultComponent: false,
         });
         setEditingRole(null);
@@ -187,6 +196,12 @@ const EmployeeCompensationPage: React.FC = () => {
             return;
         }
 
+        const names = formData.components.map((c) => c.name.trim().toLowerCase());
+        if (!names.includes("basic") || !names.includes("hra")) {
+            ToasterService.error("Add a Basic % and an HRA %", "Payroll splits each employee's CTC with these two");
+            return;
+        }
+
         // Build payload
         const componentDetails: ComponentDetail = {};
         formData.components.forEach((c) => {
@@ -212,8 +227,7 @@ const EmployeeCompensationPage: React.FC = () => {
             fetchCompensations();
             resetForm();
         } catch (err: any) {
-            console.error("Error saving compensation:", err);
-            ToasterService.error(err.response?.data?.message || "Operation failed");
+            ToasterService.error(apiError(err, "The pay components could not be saved"));
         }
     };
 
@@ -248,8 +262,7 @@ const EmployeeCompensationPage: React.FC = () => {
             ToasterService.success("Compensation deleted successfully");
             fetchCompensations();
         } catch (err: any) {
-            console.error("Error deleting compensation:", err);
-            ToasterService.error(err.response?.data?.message || "Delete failed");
+            ToasterService.error(apiError(err, "The pay components could not be deleted"));
         }
     };
 
@@ -367,23 +380,12 @@ const EmployeeCompensationPage: React.FC = () => {
                     <div className="flex flex-wrap gap-1.5 py-1">
                         {entries.map(([name, pct]) => (
                             <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 dark:bg-[#222222] text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-transparent shadow-2xsm">
-                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{name}:</span> {String(pct).endsWith('%') ? pct : `${pct}%`}
+                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{componentLabel(name)}:</span> {String(pct).replace(/%$/, "")}%{componentBase(name)}
                             </span>
                         ))}
                     </div>
                 );
             },
-        },
-        {
-            key: "total",
-            label: "Total %",
-            sortable: true,
-            sortValueGetter: (row) => parseFloat(String(row.total)) || 0,
-            render: (row) => (
-                <span className="font-bold text-cyan-700 dark:text-gray-300 bg-cyan-50 dark:bg-transparent px-2.5 py-1 rounded-full text-xs border border-cyan-100 dark:border-transparent">
-                    {row.total}
-                </span>
-            ),
         },
         {
             key: "actions",
@@ -394,14 +396,14 @@ const EmployeeCompensationPage: React.FC = () => {
                 <div className="flex items-center justify-end gap-2">
                     {canUpdate && (<button
                         onClick={() => handleEdit(row.rawItem)}
-                        className="p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-gray-100 dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 rounded-lg transition-colors cursor-pointer"
+                        className={ROW_ICON_BUTTON}
                         title="Edit"
                     >
                         <PencilSquareIcon className="h-4 w-4" />
                     </button>)}
                     {canDelete && (<button
                         onClick={() => handleDelete(row.employeeRole)}
-                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                        className={ROW_ICON_BUTTON_DANGER}
                         title="Delete"
                     >
                         <TrashIcon className="h-4 w-4" />
@@ -414,43 +416,25 @@ const EmployeeCompensationPage: React.FC = () => {
     return (
         <>
             <PageMeta title="Employee Compensations" description="Configure compensation components by role" />
-            <PageBreadcrumb pageTitle="Compensation Configuration" />
-
-            <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-                {!showForm && (
-                    <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                        <AddButton
-                            label="Add Role Compensation"
-                            onClick={() => {
-                                resetForm();
-                                setShowForm(true);
-                            }}
-                        />
-                    </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 [&_.stats-card]:dark:!border-transparent [&_.stats-card]:dark:!bg-[#191919] [&_.stats-card__icon]:dark:!bg-[#222222] [&_.stats-card__icon]:dark:!text-gray-300 [&_.stats-card__value]:dark:!text-white [&_.stats-card__label]:dark:!text-gray-400">
-                    <StatsCard label="Roles Configured" value={totalRoles} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
-                    <StatsCard label="Components Mapped" value={totalComponents} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckIcon className="h-6 w-6" />} />
-                    <StatsCard label="Default Configs" value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Avg Components / Role" value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
-                </div>
-
-                {/* Header Actions */}
-                <div className="mb-4 flex justify-end items-center gap-3">
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                        {!showForm && (
-                            <div className="relative flex h-10 items-center">
-                                {canExport && (<button
+            <PageBreadcrumb
+                pageTitle="Compensation"
+                actions={!showForm && (
+                    <div className="flex items-center gap-2">
+                        {canExport && (
+                            <div className="relative">
+                                <button
+                                    type="button"
                                     onClick={() => setShowExportMenu(!showExportMenu)}
-                                    className="h-10 w-10 border border-gray-300 dark:border-transparent bg-white dark:bg-[#191919] dark:hover:bg-[#222222] rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center cursor-pointer"
+                                    className={TOOL_BUTTON}
                                     disabled={compensations.length === 0}
                                 >
-                                    <DocumentArrowDownIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </button>)}
+                                    <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                                    Export
+                                </button>
                                 {showExportMenu && (
-                                    <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
+                                    <div className="absolute right-0 top-9 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
                                         <button
+                                            type="button"
                                             onClick={exportPDF}
                                             className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                         >
@@ -458,6 +442,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                             PDF
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={exportExcel}
                                             className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                         >
@@ -468,7 +453,23 @@ const EmployeeCompensationPage: React.FC = () => {
                                 )}
                             </div>
                         )}
+                        <AddButton
+                            label="Add Role Compensation"
+                            onClick={() => {
+                                resetForm();
+                                setShowForm(true);
+                            }}
+                        />
                     </div>
+                )}
+            />
+
+            <div className={PAGE_BODY}>
+                <div className={STATS_ROW}>
+                    <StatsCard label="Roles Configured" value={totalRoles} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
+                    <StatsCard label="Components Mapped" value={totalComponents} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckIcon className="h-6 w-6" />} />
+                    <StatsCard label="Default Configs" value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
+                    <StatsCard label="Avg Components / Role" value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Add/Edit Form */}
@@ -498,7 +499,7 @@ const EmployeeCompensationPage: React.FC = () => {
                             {/* Role Input */}
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Employee Role <span className="text-red-500">*</span>
+                                    Designation <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -508,7 +509,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-transparent rounded-lg bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                                     disabled={!!editingRole}
                                 />
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the employee role name</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Employees with this designation get this split; it appears in the Add Employee form</p>
                             </div>
 
                             {/* Components Table */}
@@ -579,11 +580,8 @@ const EmployeeCompensationPage: React.FC = () => {
                                         </tbody>
                                         <tfoot className="bg-gray-50 dark:bg-[#222222]">
                                             <tr>
-                                                <td colSpan={2} className="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                    Total:
-                                                </td>
-                                                <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 dark:text-white">
-                                                    {formData.components.reduce((sum, c) => sum + c.percentage, 0)}%
+                                                <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
+                                                    Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -633,12 +631,9 @@ const EmployeeCompensationPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
-                                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                            {formData.components.reduce((sum, c) => sum + c.percentage, 0)}%
-                                        </span>
-                                    </div>
+                                    <p className="pt-2 text-xs text-gray-600 dark:text-gray-400">
+                                        Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.
+                                    </p>
                                 </div>
                             </div>
 
@@ -674,7 +669,6 @@ const EmployeeCompensationPage: React.FC = () => {
                         pageSize={10}
                         rowDetailsTitle={(row) => `${row.employeeRole} Compensation`}
                         rowDetailsSubtitle="Role-based salary component percentage allocation"
-                        className="dark:border-transparent [&_.common-data-table]:dark:!border-transparent"
                     />
                 )}
 
