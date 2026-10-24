@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-/** Opened from the emailed reset link (?token=...). The token works once and expires after 30 minutes. */
+/**
+ * Opened from the emailed reset link (?token=...), or from a new user's invite (&invite=1).
+ * The token works once; reset links expire after 30 minutes, invites after a few days.
+ */
 const ResetPasswordForm = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") ?? "";
+  const invite = searchParams.get("invite") === "1";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -34,7 +38,8 @@ const ResetPasswordForm = () => {
         setDone(true);
       } else {
         const data = await response.json().catch(() => ({}));
-        setError(data?.error || Object.values(data ?? {})[0]?.toString() || "Reset link is invalid or has expired.");
+        setError(data?.error || Object.values(data ?? {})[0]?.toString()
+          || (invite ? "This invite link is invalid or has expired. Ask your administrator to send a new one." : "Reset link is invalid or has expired."));
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
@@ -49,17 +54,24 @@ const ResetPasswordForm = () => {
   return (
     <div className="auth-left min-h-screen bg-gray-50 dark:bg-gray-900 overflow-y-auto flex justify-center items-center p-10 no-scrollbar">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-10 space-y-6">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white text-center">Set a new password</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white text-center">
+          {invite ? "Welcome! Set your password" : "Set a new password"}
+        </h1>
+        {invite && token && !done && (
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+            Choose the password you'll use to sign in to My-Trade.
+          </p>
+        )}
 
         {!token ? (
           <p className="text-center text-red-500">
-            This reset link is incomplete. Request a new one from{" "}
+            This link is incomplete. Request a new one from{" "}
             <Link to="/forgetpassword" className="text-teal-500 font-medium">Forgot Password</Link>.
           </p>
         ) : done ? (
           <div className="space-y-4 text-center">
             <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-              Your password has been reset.
+              {invite ? "Your password is set. You can sign in now." : "Your password has been reset."}
             </div>
             <Link to="/signin" className="text-teal-500 hover:text-teal-400 font-medium">Go to login</Link>
           </div>
@@ -81,7 +93,7 @@ const ResetPasswordForm = () => {
               disabled={isLoading || !password || !confirm}
               className={`w-full py-3 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-bold rounded-lg shadow-lg ${isLoading || !password || !confirm ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              {isLoading ? "Saving..." : "Reset password"}
+              {isLoading ? "Saving..." : invite ? "Set password" : "Reset password"}
             </button>
           </form>
         )}

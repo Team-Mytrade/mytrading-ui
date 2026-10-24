@@ -40,7 +40,6 @@ import {
   Gauge,
   HandCoins,
   Handshake,
-  KeyRound,
   Landmark,
   Layers,
   LayoutDashboard,
@@ -316,9 +315,9 @@ export const navItems: NavItem[] = [
     name: "Profile",
     subItems: [
       { name: "My Profile", path: "/profile", icon: UserRound, section: "Account" },
-      { name: "Create User", path: "/role_config", icon: UserPlus, section: "Users & roles" },
-      { name: "Role", path: "/rolesPermissions", icon: ShieldCheck, section: "Users & roles" },
-      { name: "User Access", path: "/role_config/access", permission: "USERS:UPDATE", icon: KeyRound, section: "Users & roles" },
+      { name: "Users", path: "/role_config", icon: UserPlus, section: "Users & roles" },
+      { name: "Roles & Permissions", path: "/rolesPermissions", icon: ShieldCheck, section: "Users & roles" },
+      { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
     ],
   },
   {

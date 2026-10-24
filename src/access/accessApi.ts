@@ -1,11 +1,22 @@
 // Calls to user-service access/platform APIs (see my-trading/docs/RBAC.md).
+import axios from "axios";
 import { AppModule } from "./access";
+
+export interface TenantAdmin {
+  userId: string;
+  fullName: string;
+  email: string;
+  active: boolean;
+  invitePending: boolean;
+}
 
 export interface TenantAccess {
   tenantId: string;
   tenantName: string;
   active: boolean;
   modules: AppModule[];
+  admins: TenantAdmin[];
+  userCount: number;
 }
 
 export interface RoleAccess {
@@ -15,6 +26,33 @@ export interface RoleAccess {
   systemRole: boolean;
   permissions: string[];
   grantable: boolean;
+  // Users who have the role (when the server sends it)
+  userCount?: number;
+}
+
+export interface ManagedUser {
+  userId: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  active: boolean;
+  invitePending: boolean;
+  employeeId?: number | null;
+  employeeCode?: string | null;
+  designation?: string | null;
+  roles: { id: number; roleName: string; systemRole: boolean }[];
+  // False when the user holds permissions beyond the signed-in user's authority (no edit/invite/deactivate)
+  manageable: boolean;
+}
+
+export interface UserForm {
+  username?: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  designation?: string;
+  roleIds?: number[];
 }
 
 export interface TenantProvisionRequest {
@@ -25,7 +63,8 @@ export interface TenantProvisionRequest {
     email: string;
     firstName: string;
     lastName: string;
-    password: string;
+    // Left out, the admin is emailed a link to set their own password
+    password?: string;
   };
 }
 
@@ -52,7 +91,17 @@ const request = async <T>(url: string, init: RequestInit = {}): Promise<T> => {
 export const platformApi = {
   tenants: () => request<TenantAccess[]>("/v1/api/user/platform/tenants"),
   provision: (body: TenantProvisionRequest) =>
-    request<TenantAccess>("/v1/api/user/platform/tenants", { method: "POST", body: JSON.stringify(body) }),
+    request<{ tenant: TenantAccess; inviteSent: boolean }>("/v1/api/user/platform/tenants", { method: "POST", body: JSON.stringify(body) }),
+  rename: (tenantId: string, tenantName: string) =>
+    request<TenantAccess>(`/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}`, {
+      method: "PUT",
+      body: JSON.stringify({ tenantName }),
+    }),
+  inviteAdmin: (tenantId: string, userId: string) =>
+    request<{ inviteSent: boolean }>(
+      `/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/admins/${encodeURIComponent(userId)}/invite`,
+      { method: "POST" },
+    ),
   setModules: (tenantId: string, modules: AppModule[]) =>
     request<TenantAccess>(`/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/modules`, {
       method: "PUT",
@@ -64,6 +113,34 @@ export const platformApi = {
       { method: "PUT" },
     ),
 };
+
+// Users and custom roles of the current company (axios, so expired tokens are refreshed)
+const ACCESS = "/v1/api/user/access";
+export const userAdminApi = {
+  users: () => axios.get<ManagedUser[]>(`${ACCESS}/users`).then((r) => r.data),
+  create: (form: UserForm) =>
+    axios.post<{ user: ManagedUser; inviteSent: boolean }>(`${ACCESS}/users`, form).then((r) => r.data),
+  update: (userId: string, form: UserForm) =>
+    axios.put<ManagedUser>(`${ACCESS}/users/${encodeURIComponent(userId)}`, form).then((r) => r.data),
+  invite: (userId: string) =>
+    axios.post<{ inviteSent: boolean }>(`${ACCESS}/users/${encodeURIComponent(userId)}/invite`).then((r) => r.data),
+  setActive: (userId: string, active: boolean) =>
+    axios.get(`/v1/api/user/${encodeURIComponent(userId)}/${active ? "activate" : "deactivate"}`),
+  assignRoles: (userId: string, roleIds: number[]) =>
+    axios.put<string[]>(`${ACCESS}/users/${encodeURIComponent(userId)}/roles`, roleIds).then((r) => r.data),
+  roles: () => axios.get<RoleAccess[]>(`${ACCESS}/roles`).then((r) => r.data),
+  modules: () => axios.get<AppModule[]>(`${ACCESS}/modules`).then((r) => r.data),
+  grantable: () => axios.get<string[]>(`${ACCESS}/grantable`).then((r) => r.data),
+  createRole: (roleName: string, permissions: string[]) =>
+    axios.post<RoleAccess>(`${ACCESS}/roles`, { roleName, permissions }).then((r) => r.data),
+  updateRole: (roleId: number, roleName: string, permissions: string[]) =>
+    axios.put<RoleAccess>(`${ACCESS}/roles/${roleId}`, { roleName, permissions }).then((r) => r.data),
+  deleteRole: (roleId: number) => axios.delete(`${ACCESS}/roles/${roleId}`),
+};
+
+/** The server's message for a failed call. */
+export const errorText = (err: any, fallback: string): string =>
+  err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback;
 
 export const accessApi = {
   roles: () => request<RoleAccess[]>("/v1/api/user/access/roles"),

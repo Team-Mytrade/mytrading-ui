@@ -29,15 +29,19 @@ const ProcurementDashboard = lazy(() => import("../Purchase/ProcurementDashboard
 const DeliveryDashboard = lazy(() => import("../Delivery/DeliveryDashboard"));
 const PayrollDashboard = lazy(() => import("../Payroll/PayrollDashboard"));
 const AttendanceDashboard = lazy(() => import("../Attendance/AttendanceDashboard"));
+const ReportsDashboard = lazy(() => import("./ReportsDashboard"));
+const CommonDashboard = lazy(() => import("./CommonDashboard"));
+const InventoryDashboard = lazy(() => import("./InventoryDashboard"));
+const InvoiceDashboard = lazy(() => import("./InvoiceDashboard"));
 
 export const dashboardRegistry: DashboardEntry[] = [
-  { key: "Reports", label: "Reports", description: "Sales, finance & inventory analytics", icon: BarChart3, tone: "blue", Component: null },
+  { key: "Reports", label: "Reports", description: "Sales, finance & inventory analytics", icon: BarChart3, tone: "blue", Component: ReportsDashboard },
   { key: "CRM", label: "CRM", description: "Leads, deals, segments & contacts", icon: Users, tone: "violet", Component: CrmDashboard },
-  { key: "Common", label: "Common", description: "Customers, vendors & products", icon: Package, tone: "teal", Component: null },
+  { key: "Common", label: "Common", description: "Customers, vendors & products", icon: Package, tone: "teal", Component: CommonDashboard },
   { key: "Sales", label: "Sales", description: "Quotes, orders, targets & returns", icon: ShoppingCart, tone: "green", Component: SalesDashboard },
-  { key: "Inventory", label: "Inventory", description: "Stock, batches & warehouses", icon: Box, tone: "amber", Component: null },
+  { key: "Inventory", label: "Inventory", description: "Stock, batches & warehouses", icon: Box, tone: "amber", Component: InventoryDashboard },
   { key: "Purchase", label: "Purchase", description: "Requisitions, orders & approvals", icon: ClipboardCheck, tone: "indigo", Component: ProcurementDashboard },
-  { key: "Invoice", label: "Invoice", description: "Invoices, payments & ledgers", icon: FileText, tone: "rose", Component: null },
+  { key: "Invoice", label: "Invoice", description: "Invoices, payments & ledgers", icon: FileText, tone: "rose", Component: InvoiceDashboard },
   { key: "Delivery", label: "Delivery", description: "Shipments, routes & dispatch", icon: Truck, tone: "cyan", Component: DeliveryDashboard },
   { key: "HRMS", label: "HRMS", description: "Payroll, employees & exit", icon: Briefcase, tone: "orange", Component: PayrollDashboard },
   { key: "Attendance", label: "Attendance", description: "Punch, leave, shifts & approvals", icon: Calendar, tone: "emerald", Component: AttendanceDashboard },

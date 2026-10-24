@@ -7,6 +7,7 @@ import { FloatingDateRangePicker } from "../inputfeild/FloatingInput";
 import { todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
+import { loadCompany, loadCompanyLogo } from "../../company/companyApi";
 
 type Primitive = string | number | boolean | null | undefined | Date;
 type ExportRangePreset = "all" | "1m" | "3m" | "6m" | "custom";
@@ -210,12 +211,39 @@ export const loadImageAsDataUrl = (src: string) => {
   });
 };
 
+type PdfLogo = { dataUrl: string; format: "PNG" | "JPEG" | "WEBP"; width?: number; height?: number };
+
+/**
+ * Header branding: a logo passed by the caller, else the company's own logo, else the company name,
+ * else (company details unavailable) the app logo.
+ */
+const resolveBranding = async (companyName?: string, logoSrc?: string) => {
+  const company = await loadCompany();
+  const name = companyName ?? company?.companyName ?? "My Trading";
+  if (logoSrc) {
+    const dataUrl = await loadImageAsDataUrl(logoSrc);
+    return { name, logo: dataUrl ? ({ dataUrl, format: "PNG" } as PdfLogo) : null };
+  }
+  const companyLogo = await loadCompanyLogo();
+  if (companyLogo) return { name, logo: companyLogo as PdfLogo };
+  if (company) return { name, logo: null };
+  const appLogo = await loadImageAsDataUrl(publicAsset("images/logo/logo.png"));
+  return { name, logo: appLogo ? ({ dataUrl: appLogo, format: "PNG" } as PdfLogo) : null };
+};
+
+/** Size of a logo drawn inside a box, keeping its proportions (the app logo fills the box). */
+export const fitLogo = (logo: { width?: number; height?: number }, boxWidth: number, boxHeight: number) => {
+  if (!logo.width || !logo.height) return { width: boxWidth, height: boxHeight };
+  const scale = Math.min(boxWidth / logo.width, boxHeight / logo.height);
+  return { width: logo.width * scale, height: logo.height * scale };
+};
+
 const drawHeader = <T extends object>(
   doc: jsPDF,
   options: Required<Pick<ListingPdfOptions<T>, "title" | "companyName" | "reportLabel">> &
     Pick<ListingPdfOptions<T>, "subtitle" | "metadata">,
   pageWidth: number,
-  logoDataUrl?: string | null
+  logo?: PdfLogo | null
 ) => {
   // Taller header band for breathing room
   doc.setFillColor(...BRAND.primary);
@@ -225,10 +253,11 @@ const drawHeader = <T extends object>(
   doc.setFillColor(...BRAND.primaryDark);
   doc.rect(0, 20, pageWidth, 1, "F");
 
-  if (logoDataUrl) {
+  if (logo) {
+    const size = fitLogo(logo, 36, 9);
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(14, 4, 40, 12, 2, 2, "F");
-    doc.addImage(logoDataUrl, "PNG", 16, 5.5, 36, 9);
+    doc.addImage(logo.dataUrl, logo.format, 16 + (36 - size.width) / 2, 5.5 + (9 - size.height) / 2, size.width, size.height);
   } else {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
@@ -309,9 +338,9 @@ export function exportListingPdf<T extends object>({
   columns,
   fileName,
   subtitle,
-  companyName = "My Trading",
+  companyName,
   generatedBy = getStoredUserName(),
-  logoSrc = publicAsset("images/logo/logo.png"),
+  logoSrc,
   reportLabel = "Listing Export",
   metadata = [],
   orientation = "landscape",
@@ -342,12 +371,12 @@ export function exportListingPdf<T extends object>({
 
   const startY = metadata.length ? (subtitle ? 56 : 52) : subtitle ? 46 : 42;
 
-  return loadImageAsDataUrl(logoSrc).then((logoDataUrl) => {
+  return resolveBranding(companyName, logoSrc).then((branding) => {
     drawHeader(
       doc,
-      { title, subtitle, companyName, reportLabel, metadata },
+      { title, subtitle, companyName: branding.name, reportLabel, metadata },
       pageWidth,
-      logoDataUrl
+      branding.logo
     );
 
     const columnStyles: UserOptions["columnStyles"] = {};
@@ -396,9 +425,9 @@ export function exportListingPdf<T extends object>({
   didDrawPage: () => {
     drawHeader(
       doc,
-      { title, subtitle, companyName, reportLabel, metadata },
+      { title, subtitle, companyName: branding.name, reportLabel, metadata },
       pageWidth,
-      logoDataUrl
+      branding.logo
     );
   },
 });
@@ -415,7 +444,7 @@ export function ListingPdfExportButton<T extends object>({
   columns,
   fileName,
   subtitle,
-  companyName = "My Trading",
+  companyName,
   generatedBy,
   logoSrc,
   reportLabel = "Listing Export",
