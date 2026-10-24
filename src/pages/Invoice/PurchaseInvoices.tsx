@@ -63,6 +63,8 @@ interface Vendor {
 }
 
 const API_URL = `${INVOICE_API}/purchase-invoices`;
+// Purchase and Finance share the vendor list kept in the common service
+const COMMON_VENDORS_API = "/v1/api/common/vendors";
 const PAGE_SIZE = 10;
 
 const statusTone = (status?: string) => {
@@ -138,7 +140,7 @@ const PurchaseInvoices: React.FC = () => {
   useEffect(() => {
     fetchPurchaseInvoices();
     axios
-      .get<Vendor[]>(`${INVOICE_API}/vendors`, { headers })
+      .get<Vendor[]>(COMMON_VENDORS_API, { headers })
       .then((res) => setVendors(Array.isArray(res.data) ? res.data : []))
       .catch(() => setVendors([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -532,7 +534,7 @@ const PurchaseInvoices: React.FC = () => {
                 ...(vendors.length === 0
                   ? [
                       <p key="noVendors" className="text-xs text-amber-700">
-                        No vendors yet. Add them under Common → Invoice Vendors first.
+                        No vendors yet. Add them under Common → Vendors first.
                       </p>,
                     ]
                   : []),
@@ -599,7 +601,6 @@ const PurchaseInvoices: React.FC = () => {
 
         <BillFromGrnDialog
           isOpen={billingFromGrn}
-          vendors={vendors}
           onClose={() => setBillingFromGrn(false)}
           onCreated={fetchPurchaseInvoices}
         />

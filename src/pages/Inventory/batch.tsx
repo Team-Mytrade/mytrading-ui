@@ -146,7 +146,7 @@ type Warehouse = {
 const API_URL = "/v1/api/inventory/batches";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 // Products live in the product catalogue (the purchase service no longer serves them)
-const PRODUCT_API_URL = "/v1/api/product/products";
+const PRODUCT_API_URL = "/v1/api/common/products";
 // Confirmed real endpoint (see note at top of file) — returns a flat array of
 // { batchId, batchNumber, warehouseId, productId, quantity, reserved, available }.
 // A batch's quantity/reserved/available live ONLY here, never on the Batch

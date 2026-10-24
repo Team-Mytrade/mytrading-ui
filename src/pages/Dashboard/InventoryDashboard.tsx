@@ -11,7 +11,7 @@ import {
   useDashboardSources,
 } from "./dashboardKit";
 
-// Live stock overview from the inventory and product-catalogue services.
+// Live stock overview from the inventory and common services.
 
 interface WarehouseRef { id: number; code?: string; name?: string; active?: boolean }
 interface StockLevel { id: number; productId: number; quantity?: number; reserved?: number; available?: number; reorderLevel?: number | null; warehouse?: WarehouseRef | null }
@@ -22,7 +22,7 @@ interface Batch { id: number; batchNumber?: string; expiryDate?: string; product
 const INVENTORY = "/v1/api/inventory";
 const SOURCES = {
   stock: () => getList<StockLevel>(`${INVENTORY}/stock-levels`),
-  products: () => getList<Product>("/v1/api/product/products"),
+  products: () => getList<Product>("/v1/api/common/products"),
   warehouses: () => getList<WarehouseRef>(`${INVENTORY}/warehouses`),
   movements: () => getList<Movement>(`${INVENTORY}/stock-movements`),
   batches: () => getList<Batch>(`${INVENTORY}/batches`),

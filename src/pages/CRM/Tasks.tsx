@@ -51,7 +51,7 @@ import {
 
 const API_BASE = "/v1/api/crm/activities";
 const LEADS_API = "/v1/api/crm/leads";
-const CUSTOMERS_API = "/v1/api/crm/customers";
+const CUSTOMERS_API = "/v1/api/common/customers";
 const CONTACTS_API = "/v1/api/crm/contacts";
 const PAGE_SIZE = 10;
 

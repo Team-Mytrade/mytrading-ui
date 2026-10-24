@@ -45,7 +45,7 @@ import { usePermissions } from "../../access/usePermissions";
 
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";
-const CUSTOMERS_API = "/v1/api/crm/customers";
+const CUSTOMERS_API = "/v1/api/common/customers";
 const PAGE_SIZE = 10;
 
 const stageOptions = DEAL_STAGE_OPTIONS;

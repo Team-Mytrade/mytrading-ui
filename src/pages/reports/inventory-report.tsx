@@ -15,7 +15,7 @@ import { toLocalIsoDate, todayIso } from "../../utils/localDate";
  */
 
 const INVENTORY = "/v1/api/inventory";
-const PRODUCTS = "/v1/api/product/products";
+const PRODUCTS = "/v1/api/common/products";
 
 type Row = Record<string, any> & { id: string | number };
 

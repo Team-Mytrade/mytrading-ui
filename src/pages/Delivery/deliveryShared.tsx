@@ -140,8 +140,8 @@ export const useDeliveryLookups = (needed: (keyof DeliveryLookups)[]) => {
   useEffect(() => {
     let cancelled = false;
     const sources: Record<keyof DeliveryLookups, () => Promise<unknown[]>> = {
-      customers: () => tryList<CustomerOption>("/v1/api/crm/customers"),
-      products: () => tryList<ProductOption>("/v1/api/product/products"),
+      customers: () => tryList<CustomerOption>("/v1/api/common/customers"),
+      products: () => tryList<ProductOption>("/v1/api/common/products"),
       vehicles: () => tryList<VehicleOption>(`${DELIVERY_API}/vehicles`),
       transporters: () => tryList<TransporterOption>(`${DELIVERY_API}/transporters?active=true`),
       warehouses: () => tryList<WarehouseOption>("/v1/api/inventory/warehouses"),

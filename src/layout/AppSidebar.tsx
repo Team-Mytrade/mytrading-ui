@@ -66,7 +66,6 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   Store,
-  Tags,
   Target,
   Truck,
   Undo2,
@@ -160,20 +159,13 @@ export const navItems: NavItem[] = [
     icon: <Database className="w-5 h-5" />,
     name: "Common",
     subItems: [
-      { name: "Customers", path: "/customer-management", icon: Users },
-      { name: "Invoice Vendors", path: "/invoiceVendors", icon: Store },
-      { name: "Tax Types", path: "/taxTypes", icon: Percent },
-      { name: "Tax Details", path: "/taxDetails", icon: FileText },
-    ],
-  },
-
-  {
-    icon: <Tags className="w-5 h-5" />,
-    name: "Product Catalogue",
-    subItems: [
-      { name: "Vendors", path: "/product-catalogue/vendors", icon: Store },
-      { name: "Categories", path: "/product-catalogue/categories", icon: FolderTree },
-      { name: "Products", path: "/product-catalogue/products", icon: Package },
+      // Master data every module uses (mytrade-common-service)
+      { name: "Customers", path: "/customer-management", icon: Users, section: "Master data" },
+      { name: "Vendors", path: "/common/vendors", icon: Store, section: "Master data" },
+      { name: "Product Categories", path: "/common/categories", icon: FolderTree, section: "Master data" },
+      { name: "Products", path: "/common/products", icon: Package, section: "Master data" },
+      { name: "Tax Types", path: "/taxTypes", icon: Percent, section: "Tax" },
+      { name: "Tax Details", path: "/taxDetails", icon: FileText, section: "Tax" },
     ],
   },
 

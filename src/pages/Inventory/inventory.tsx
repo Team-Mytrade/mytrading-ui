@@ -64,7 +64,7 @@ type AvailabilityCheck = {
 
 const STOCK_LEVELS_API_URL = "/v1/api/inventory/stock-levels";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
-const PRODUCT_API_URL = "/v1/api/product/products";
+const PRODUCT_API_URL = "/v1/api/common/products";
 const PAGE_SIZE = 10;
 
 function getErrorMessage(error: unknown, fallback: string): string {

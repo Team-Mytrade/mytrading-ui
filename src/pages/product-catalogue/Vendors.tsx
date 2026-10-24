@@ -1,7 +1,7 @@
 import PurchaseResourcePage, { PurchaseResourceConfig } from "../Purchase/PurchaseResourcePage";
 import { INDIAN_STATE_OPTIONS, normalizePhone, toStateName, validateVendorForm } from "../../utils/indiaValidators";
 
-const VENDORS = "/v1/api/product/vendors";
+const VENDORS = "/v1/api/common/vendors";
 
 const PAYMENT_TERMS = ["Due on Receipt", "Advance Payment", "7 Days", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"];
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "AUD", "CAD", "SGD", "JPY"];
@@ -35,11 +35,11 @@ const vendorCode = (value: unknown): string | null => {
   return cleaned ? cleaned : null;
 };
 
-/** Vendor master (owned by the Product Catalogue service). */
+/** Vendor master (owned by the common service; Purchase and Finance share it). */
 const vendorConfig: PurchaseResourceConfig = {
   title: "Vendors",
   formSubtitle: "Add or update a supplier record.",
-  description: "Manage vendors from the Product Catalogue service.",
+  description: "Manage the vendors Purchase and Finance use.",
   endpoint: VENDORS,
   getByIdEndpoint: (row) => `${VENDORS}/${row.id}`,
   // Opened from a link (e.g. vendor name in a PO): show only that vendor.

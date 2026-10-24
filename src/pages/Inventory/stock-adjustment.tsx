@@ -123,7 +123,7 @@ type StockAdjustmentForm = {
 
 const API_URL = "/v1/api/inventory";
 // Products live in the product catalogue (the purchase service no longer serves them)
-const PRODUCT_URL = "/v1/api/product";
+const PRODUCT_URL = "/v1/api/common";
 const PAGE_SIZE = 10;
 
 const PRODUCT_ROUTE = "/purchase-products";

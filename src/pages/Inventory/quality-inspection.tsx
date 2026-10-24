@@ -77,7 +77,7 @@ interface QualityInspection {
 const API_BASE = "/v1/api/inventory";
 const API_URL = `${API_BASE}/quality-inspections`;
 // Products live in the product catalogue (the purchase service no longer serves them)
-const PRODUCTS_API_URL = "/v1/api/product/products";
+const PRODUCTS_API_URL = "/v1/api/common/products";
 const RESULT_ENUM_URL = `${API_BASE}/enums?type=RESULT`;
 const INSPECTION_TYPE_ENUM_URL = `${API_BASE}/enums?type=INSPECTION_TYPE`;
 const qualityInspectionApi = axios.create();

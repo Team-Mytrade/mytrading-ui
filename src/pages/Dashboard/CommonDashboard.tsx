@@ -11,7 +11,7 @@ import {
   countOf, formatMoney, formatNumber, getList, mostCommon, sourcesForModules, titleCase, useDashboardSources,
 } from "./dashboardKit";
 
-// Master data shared by the modules: customers (CRM), invoice vendors, tax set-up and the product catalogue.
+// Master data shared by the modules (the common service): customers, vendors, product categories and products, plus tax set-up.
 
 interface Customer {
   id: number;
@@ -27,27 +27,25 @@ interface Customer {
   currencyCode?: string;
   addresses?: unknown[];
 }
-interface InvoiceVendor { id: number; name?: string; active?: boolean; email?: string; taxIdentificationNumber?: string }
 interface Receivable { customerId?: number; balanceAmount?: number }
 
 const SOURCES = {
-  customers: () => getList<Customer>("/v1/api/crm/customers"),
+  customers: () => getList<Customer>("/v1/api/common/customers"),
   // Customer balances: CRM's outstandingBalance isn't updated by invoicing, receivables are
   receivables: () => getList<Receivable>("/v1/api/invoice/accounts-receivable"),
-  invoiceVendors: () => getList<InvoiceVendor>("/v1/api/invoice/vendors"),
   taxTypes: () => countOf("/v1/api/invoice/tax-types"),
   taxDetails: () => countOf("/v1/api/invoice/tax-details"),
-  products: () => countOf("/v1/api/product/products"),
-  productVendors: () => countOf("/v1/api/product/vendors"),
-  categories: () => countOf("/v1/api/product/product-categories"),
+  products: () => countOf("/v1/api/common/products"),
+  productVendors: () => countOf("/v1/api/common/vendors"),
+  categories: () => countOf("/v1/api/common/product-categories"),
 };
 const LABELS: Record<keyof typeof SOURCES, string> = {
-  customers: "customers", receivables: "receivables", invoiceVendors: "invoice vendors", taxTypes: "tax types", taxDetails: "tax details",
-  products: "products", productVendors: "catalogue vendors", categories: "categories",
+  customers: "customers", receivables: "receivables", taxTypes: "tax types", taxDetails: "tax details",
+  products: "products", productVendors: "vendors", categories: "categories",
 };
 
 const SOURCE_MODULES: Record<keyof typeof SOURCES, string> = {
-  customers: "CRM", receivables: "INVOICE", invoiceVendors: "INVOICE", taxTypes: "INVOICE", taxDetails: "INVOICE",
+  customers: "CRM", receivables: "INVOICE", taxTypes: "INVOICE", taxDetails: "INVOICE",
   products: "PRODUCT_CATALOGUE", productVendors: "PRODUCT_CATALOGUE", categories: "PRODUCT_CATALOGUE",
 };
 
@@ -71,7 +69,6 @@ export default function CommonDashboard() {
 
   const customers = (data.customers as Customer[] | undefined) ?? [];
   const noCustomers = data.customers === undefined && !loading ? NO_CUSTOMER_ACCESS : "No customers yet.";
-  const vendors = data.invoiceVendors as InvoiceVendor[] | undefined;
   const currency = mostCommon(customers.map((c) => c.currencyCode), "INR");
 
   // Open invoice balances per customer; without Invoice access, CRM's own figure
@@ -109,12 +106,11 @@ export default function CommonDashboard() {
     (typeof data[key] === "number" ? (data[key] as number) : null);
   const tiles = [
     { name: "Customers", count: data.customers ? customers.length : null, icon: Users, route: "/customer-management", tone: "blue" as const, module: "CRM" },
-    { name: "Invoice Vendors", count: vendors ? vendors.length : null, icon: Store, route: "/invoiceVendors", tone: "orange" as const, module: "INVOICE" },
+    { name: "Vendors", count: countOrNull("productVendors"), icon: Store, route: "/common/vendors", tone: "amber" as const, module: "PRODUCT_CATALOGUE" },
+    { name: "Product Categories", count: countOrNull("categories"), icon: FolderTree, route: "/common/categories", tone: "pink" as const, module: "PRODUCT_CATALOGUE" },
+    { name: "Products", count: countOrNull("products"), icon: Package, route: "/common/products", tone: "purple" as const, module: "PRODUCT_CATALOGUE" },
     { name: "Tax Types", count: countOrNull("taxTypes"), icon: Percent, route: "/taxTypes", tone: "teal" as const, module: "INVOICE" },
     { name: "Tax Details", count: countOrNull("taxDetails"), icon: FileText, route: "/taxDetails", tone: "indigo" as const, module: "INVOICE" },
-    { name: "Products", count: countOrNull("products"), icon: Package, route: "/product-catalogue/products", tone: "purple" as const, module: "PRODUCT_CATALOGUE" },
-    { name: "Catalogue Vendors", count: countOrNull("productVendors"), icon: Store, route: "/product-catalogue/vendors", tone: "amber" as const, module: "PRODUCT_CATALOGUE" },
-    { name: "Categories", count: countOrNull("categories"), icon: FolderTree, route: "/product-catalogue/categories", tone: "pink" as const, module: "PRODUCT_CATALOGUE" },
     { name: "Segments", icon: UserCheck, route: "/customer-segment", tone: "emerald" as const, module: "CRM" },
   ].filter((tile) => hasModule(access, tile.module));
 

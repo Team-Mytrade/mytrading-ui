@@ -87,7 +87,7 @@ interface CustomerAddress {
 // ================= API CONFIGURATION =================
 
 const API_BASE_URL = "/v1/api/delivery/customer-addresses";
-const CRM_API_BASE_URL = "/v1/api/crm/customers";
+const CRM_API_BASE_URL = "/v1/api/common/customers";
 
 const API = {
   // Address endpoints

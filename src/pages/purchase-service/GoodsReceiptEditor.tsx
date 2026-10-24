@@ -51,7 +51,7 @@ type Props = {
 };
 
 const PO_API = "/v1/api/purchase/purchase-orders";
-const PRODUCTS_API = "/v1/api/product/products";
+const PRODUCTS_API = "/v1/api/common/products";
 
 /** Product Catalogue lookup by id, used when the PO line comes back without a product name or code. */
 type ProductInfo = { name: string; code: string; tracking: Tracking };

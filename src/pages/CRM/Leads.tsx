@@ -31,7 +31,7 @@ import PaginatedPopup from "../../components/common/unpopup";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_OPTIONS, apiError } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 const API_URL = "/v1/api/crm/leads";
-const CUSTOMER_API = "/v1/api/crm/customers";
+const CUSTOMER_API = "/v1/api/common/customers";
 const getToken = () => localStorage.getItem("accessToken") || "";
 
 // Service values; DISQUALIFIED is shown as "Lost"

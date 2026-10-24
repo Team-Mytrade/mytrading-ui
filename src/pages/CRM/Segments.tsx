@@ -193,7 +193,7 @@ const Segments: React.FC = () => {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get("/v1/api/crm/customers", {
+      const res = await axios.get("/v1/api/common/customers", {
         headers: { Authorization: `Bearer ${token}` },
         params: tenantId ? { tenantId } : {},
       });

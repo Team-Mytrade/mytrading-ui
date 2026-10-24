@@ -17,8 +17,8 @@ import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 
 const PURCHASE = "/v1/api/purchase";
 // Products and categories live in the product catalogue (the purchase service has neither)
-const CATEGORIES = "/v1/api/product/product-categories";
-const PRODUCT_CATALOGUE_PRODUCTS = "/v1/api/product/products";
+const CATEGORIES = "/v1/api/common/product-categories";
+const PRODUCT_CATALOGUE_PRODUCTS = "/v1/api/common/products";
 
 const boolText = (value: boolean, onText = "Enabled", offText = "Disabled") => (
   <span className={value ? "text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}>{value ? onText : offText}</span>
@@ -380,7 +380,7 @@ const prStatus = (row: PurchaseRecord) => String(row.status || "DRAFT").toUpperC
 export const purchaseRequisitionConfig: PurchaseResourceConfig = {
   title: "Purchase Requisitions",
   formSubtitle: "Create a requisition with the products and quantities required.",
-  description: "Create purchase requisitions for products from the Product Catalogue service.",
+  description: "Create purchase requisitions for products from Common > Products.",
   endpoint: `${PURCHASE}/purchase-requisitions`,
   getByIdEndpoint: (row) => `${PURCHASE}/purchase-requisitions/${row.id}`,
   // Opened from a link (e.g. PR number in a PO): show only that requisition.
@@ -728,7 +728,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       label: "Vendor",
       type: "select",
       required: true,
-      optionsEndpoint: "/v1/api/product/vendors",
+      optionsEndpoint: "/v1/api/common/vendors",
       optionLabel: "name",
       searchable: true,
       // Only active vendors can get a new PO (the server refuses an inactive one with "Vendor is inactive").

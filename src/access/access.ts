@@ -139,6 +139,9 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/customerRetention", "CRM"],
 
   ["/product-catalogue", "PRODUCT_CATALOGUE"],
+  ["/common/vendors", "PRODUCT_CATALOGUE"],
+  ["/common/categories", "PRODUCT_CATALOGUE"],
+  ["/common/products", "PRODUCT_CATALOGUE"],
 
   ["/sales-*", "SALES"],
   ["/quotations", "SALES"],
@@ -166,7 +169,6 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/deliveries", "PURCHASE"],
   ["/deliveryDate", "PURCHASE"],
 
-  ["/invoiceVendors", "INVOICE"],
   ["/taxTypes", "INVOICE"],
   ["/taxDetails", "INVOICE"],
   ["/purchaseInvoices", "INVOICE"],

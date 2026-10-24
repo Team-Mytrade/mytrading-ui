@@ -55,22 +55,21 @@ const API_URL = `${INVOICE_API}/purchase-invoices`;
  */
 const BillFromGrnDialog: React.FC<{
   isOpen: boolean;
-  vendors: { id: number; name: string }[];
   onClose: () => void;
   onCreated: () => void;
-}> = ({ isOpen, vendors, onClose, onCreated }) => {
+}> = ({ isOpen, onClose, onCreated }) => {
   const [grns, setGrns] = useState<GrnSummary[]>([]);
   const [grnId, setGrnId] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ vendorId: "", invoiceNumber: "", invoiceDate: todayInput(), dueDate: "", vendorInvoiceAmount: "", notes: "" });
+  const [form, setForm] = useState({ invoiceNumber: "", invoiceDate: todayInput(), dueDate: "", vendorInvoiceAmount: "", notes: "" });
 
   useEffect(() => {
     if (!isOpen) return;
     setGrnId("");
     setPreview(null);
-    setForm({ vendorId: "", invoiceNumber: "", invoiceDate: todayInput(), dueDate: "", vendorInvoiceAmount: "", notes: "" });
+    setForm({ invoiceNumber: "", invoiceDate: todayInput(), dueDate: "", vendorInvoiceAmount: "", notes: "" });
     axios
       .get<GrnSummary[]>(`${API_URL}/pending-grns`)
       .then((res) => setGrns(Array.isArray(res.data) ? res.data : []))
@@ -90,7 +89,6 @@ const BillFromGrnDialog: React.FC<{
       setPreview(res.data);
       setForm((current) => ({
         ...current,
-        vendorId: res.data.suggestedVendorId ? String(res.data.suggestedVendorId) : current.vendorId,
         dueDate: res.data.suggestedDueDate ?? current.dueDate,
       }));
     } catch (err) {
@@ -103,13 +101,11 @@ const BillFromGrnDialog: React.FC<{
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!preview) return ToasterService.error("Choose the goods receipt being billed");
-    if (!form.vendorId) return ToasterService.error("Choose the vendor");
     if (!form.invoiceNumber.trim()) return ToasterService.error("Enter the vendor's invoice number");
     setBusy(true);
     try {
       await axios.post(`${API_URL}/from-grn`, {
         grnId: Number(grnId),
-        vendorId: Number(form.vendorId),
         invoiceNumber: form.invoiceNumber.trim(),
         invoiceDate: form.invoiceDate || null,
         dueDate: form.dueDate || null,
@@ -202,25 +198,14 @@ const BillFromGrnDialog: React.FC<{
                 )}
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <FloatingSelect1
-                    label="Vendor (finance)"
-                    name="vendorId"
-                    value={form.vendorId}
-                    onChange={set("vendorId")}
-                    options={vendors.map((vendor) => ({ id: String(vendor.id), name: vendor.name }))}
-                    required
-                  />
+                  {/* Purchase and Finance share the vendor list, so the bill is from the PO's vendor */}
+                  <FloatingInput label="Vendor (from the purchase order)" name="vendorName" value={source.vendorName ?? ""} disabled readOnly />
                   <FloatingInput label="Vendor's invoice number" name="invoiceNumber" value={form.invoiceNumber} onChange={set("invoiceNumber")} required />
                   <FloatingInput label="Invoice date" name="invoiceDate" type="date" value={form.invoiceDate} onChange={set("invoiceDate")} />
                   <FloatingInput label={`Due date${source.paymentTerms ? ` (${source.paymentTerms})` : ""}`} name="dueDate" type="date" value={form.dueDate} onChange={set("dueDate")} />
                   <FloatingInput label="Vendor's invoice total (to check)" name="vendorInvoiceAmount" type="number" value={form.vendorInvoiceAmount} onChange={set("vendorInvoiceAmount")} />
                   <FloatingInput label="Notes" name="notes" value={form.notes} onChange={set("notes")} />
                 </div>
-                {!form.vendorId && source.vendorName && (
-                  <p className="text-xs text-amber-700">
-                    {source.vendorName} was not found in the finance vendor list. Choose the vendor, or add it under Common → Invoice Vendors.
-                  </p>
-                )}
               </>
             )}
           </div>

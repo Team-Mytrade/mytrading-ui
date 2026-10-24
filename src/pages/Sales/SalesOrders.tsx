@@ -754,7 +754,7 @@ const SalesOrders: React.FC = () => {
       axios.get<SalesPersonOption[]>("/v1/api/sales/sales-persons", { headers }),
       axios.get<SalesChannelOption[]>("/v1/api/sales/channels", { headers }),
       axios.get<QuotationOption[]>("/v1/api/sales/quotations", { headers }),
-      axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers }),
+      axios.get<CustomerOption[]>("/v1/api/common/customers", { headers }),
       axios.get<WarehouseOption[]>(WAREHOUSE_API_URL, { headers }),
     ]);
 
