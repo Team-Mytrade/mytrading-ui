@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import PhoneInput, { CountryData } from "react-phone-input-2";
@@ -56,7 +56,8 @@ const NO_GEO_DATA: GeoData = {
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
-const ROLE_API_URL = "/v1/api/user/roles";
+// Roles with a "grantable" flag for the signed-in user (needs Users access)
+const ROLE_API_URL = "/v1/api/user/access/roles";
 
 // Dates travel as plain yyyy-MM-dd: toISOString() turns a local midnight into the previous day east of UTC
 const toApiDate = (date: Date | null) => (date ? toLocalIsoDate(date) : null);
@@ -74,7 +75,7 @@ const PAN_FORMAT = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const FIELD_STEPS: Record<string, number> = {
   firstName: 1, lastName: 1, personalEmail: 1, officialEmail: 1, dateOfBirth: 1,
   designation: 2, department: 2, joiningDate: 2, employmentType: 2, userType: 2, role: 2,
-  aadhaarNumber: 4, panNumber: 4, "salary.ctc": 4,
+  aadhaarNumber: 4, panNumber: 4, "salary.ctc": 4, "salary.variablePay": 4,
 };
 
 // Pay components (Compensation page): basic is a % of CTC, HRA a % of basic
@@ -106,10 +107,33 @@ interface AdditionalBenefit {
   amount: number;
 }
 
+// Shown in the CTC (fixed CTC + yearly targets); payroll runs do not pay it
+interface VariablePay {
+  name: string;
+  targetAmount: number;
+  frequency: string;
+  payoutBasis: string;
+}
+
+const VARIABLE_FREQUENCIES = [
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "QUARTERLY", label: "Quarterly" },
+  { value: "HALF_YEARLY", label: "Half-yearly" },
+  { value: "ANNUAL", label: "Annual" },
+  { value: "AD_HOC", label: "Ad hoc" },
+];
+const VARIABLE_BASES = [
+  { value: "FIXED_AMOUNT", label: "Fixed amount" },
+  { value: "PERCENTAGE_OF_BASIC", label: "% of basic" },
+  { value: "KPI_LINKED", label: "Linked to targets / KPIs" },
+];
+
 interface Role {
   id: number;
   roleName: string;
   roleCode: string;
+  // False when the signed-in user may not hand out this role (the user service would refuse it)
+  grantable?: boolean;
 }
 
 enum Regime {
@@ -250,6 +274,7 @@ const AddEmployeePage: React.FC = () => {
       country: "INDIA",
       earnings: [] as Earning[],
       additionalBenefits: [] as AdditionalBenefit[],
+      variablePay: [] as VariablePay[],
     },
   });
 
@@ -265,7 +290,7 @@ const AddEmployeePage: React.FC = () => {
   // Listing roles needs Users access; without it the login is created without a role
   const fetchRoles = async () => {
     try {
-      const res = await axios.get(`${ROLE_API_URL}/getAll`);
+      const res = await axios.get(ROLE_API_URL);
       setAllRoles(Array.isArray(res.data) ? res.data : []);
     } catch {
       setRolesUnavailable(true);
@@ -432,6 +457,7 @@ const AddEmployeePage: React.FC = () => {
           country: "INDIA",
           earnings: [],
           additionalBenefits: [],
+          variablePay: [],
         };
       } else {
         // Basic and HRA are worked out by the service from the CTC, so only the extra earnings are edited here
@@ -441,6 +467,16 @@ const AddEmployeePage: React.FC = () => {
         if (!employeeData.salary.additionalBenefits) {
           employeeData.salary.additionalBenefits = [];
         }
+        // Saved as { name: { targetAmount, frequency, payoutBasis } }; edited as rows
+        const variable = employeeData.salary.variablePayStructure;
+        employeeData.salary.variablePay = variable && typeof variable === "object"
+          ? Object.entries(variable as Record<string, Partial<VariablePay>>).map(([name, v]) => ({
+              name,
+              targetAmount: Number(v?.targetAmount) || 0,
+              frequency: v?.frequency || "ANNUAL",
+              payoutBasis: v?.payoutBasis || "FIXED_AMOUNT",
+            }))
+          : [];
       }
 
       // Map nested countrySpecificData (PAN, Aadhaar) to root level
@@ -556,6 +592,17 @@ const AddEmployeePage: React.FC = () => {
     handleChange("salary.earnings", form.salary.earnings.filter((_, i) => i !== index));
   };
 
+  const variablePayRows: VariablePay[] = form.salary.variablePay ?? [];
+  const handleVariablePayChange = (index: number, field: keyof VariablePay, value: string | number) => {
+    const rows = [...variablePayRows];
+    rows[index] = { ...rows[index], [field]: field === "targetAmount" ? Number(value) || 0 : value };
+    handleChange("salary.variablePay", rows);
+  };
+  const addVariablePay = () =>
+    handleChange("salary.variablePay", [...variablePayRows, { name: "", targetAmount: 0, frequency: "ANNUAL", payoutBasis: "FIXED_AMOUNT" }]);
+  const removeVariablePay = (index: number) =>
+    handleChange("salary.variablePay", variablePayRows.filter((_, i) => i !== index));
+
   const removeAdditionalBenefits = (index: number) => {
     handleChange("salary.additionalBenefits", form.salary.additionalBenefits.filter((_, i) => i !== index));
   };
@@ -602,6 +649,7 @@ const AddEmployeePage: React.FC = () => {
 
       case 2:
         if (!(form.designation || "").trim()) newErrors.designation = "Designation is required";
+        else if (designationMissingSetup) newErrors.designation = "This designation has no pay components; choose another or set it up first";
         if (!form.department.id || form.department.id === 0) newErrors.department = "Department is required";
         else if (isOtherDepartment && !customDepartment.trim()) newErrors.department = "Enter the new department's name";
         if (!(form.location || "").trim()) newErrors.location = "Location is required";
@@ -641,6 +689,16 @@ const AddEmployeePage: React.FC = () => {
           }
         }
         if (!(Number(form.salary.ctc) > 0)) newErrors["salary.ctc"] = "Enter the yearly CTC";
+        {
+          const names = new Set<string>();
+          (form.salary.variablePay ?? []).forEach((row: VariablePay) => {
+            const name = row.name.trim().toLowerCase();
+            if (!name) newErrors["salary.variablePay"] = "Give each variable pay component a name";
+            else if (names.has(name)) newErrors["salary.variablePay"] = `${row.name.trim()} is listed twice`;
+            else if (!(row.targetAmount > 0)) newErrors["salary.variablePay"] = `Enter the yearly target for ${row.name.trim()}`;
+            names.add(name);
+          });
+        }
         break;
     }
 
@@ -678,6 +736,12 @@ const AddEmployeePage: React.FC = () => {
       form.salary.additionalBenefits.forEach((benefit) => {
         if (benefit.name && benefit.amount > 0) {
           additionalBenefitsObject[benefit.name] = benefit.amount;
+        }
+      });
+      const variablePayObject: Record<string, { targetAmount: number; frequency: string; payoutBasis: string; taxable: boolean }> = {};
+      (form.salary.variablePay ?? []).forEach((row: VariablePay) => {
+        if (row.name.trim() && row.targetAmount > 0) {
+          variablePayObject[row.name.trim()] = { targetAmount: row.targetAmount, frequency: row.frequency, payoutBasis: row.payoutBasis, taxable: true };
         }
       });
       // The service numbers the employee per department and creates the login (signed in with the official email)
@@ -749,6 +813,7 @@ const AddEmployeePage: React.FC = () => {
           },
           earnings: earningsObject,
           additionalBenefits: additionalBenefitsObject,
+          variablePay: variablePayObject,
         },
       };
 
@@ -828,6 +893,8 @@ const AddEmployeePage: React.FC = () => {
   const totalBenefits = form.salary.additionalBenefits.reduce((sum, b) => sum + b.amount, 0);
   // const totalCTC = totalEarnings + totalBenefits;
   const totalCTC = Number(form.salary.ctc) || 0;
+  // Variable pay sits on top of the fixed CTC (shown, not paid by payroll)
+  const totalVariable = (form.salary.variablePay ?? []).reduce((sum: number, row: VariablePay) => sum + (Number(row.targetAmount) || 0), 0);
 
   // What the service will store for the designation: basic = CTC × basic %, HRA = basic × hra %
   const components = payComponents.find((c) => c.employeeRole === form.designation)?.componentDetails;
@@ -840,10 +907,13 @@ const AddEmployeePage: React.FC = () => {
     basicAmount != null && hraAmount != null
       ? Math.round((totalCTC - basicAmount - hraAmount - totalEarnings - totalBenefits) * 100) / 100
       : null;
-  const designationOptions = payComponents.map((c) => c.employeeRole);
-  if (form.designation && !designationOptions.includes(form.designation)) designationOptions.unshift(form.designation);
-  const roleOptions = allRoles.map((r) => r.roleName);
-  if (form.role && !roleOptions.includes(form.role)) roleOptions.unshift(form.role);
+  // Only designations with pay components can be chosen: the service splits the salary by them
+  const designationOptions = payComponents.map((c) => c.employeeRole).sort((a, b) => a.localeCompare(b));
+  // An employee being edited may have a designation whose set-up was removed; keep it visible
+  const designationMissingSetup = !!form.designation
+    && !designationOptions.some((d) => d.toLowerCase() === form.designation.trim().toLowerCase());
+  const roleOptions = allRoles.map((r) => ({ name: r.roleName, grantable: r.grantable !== false }));
+  if (form.role && !roleOptions.some((r) => r.name === form.role)) roleOptions.unshift({ name: form.role, grantable: true });
 
   const addUnallocatedAsSpecialAllowance = () => {
     if (!unallocated || unallocated <= 0) return;
@@ -1134,33 +1204,44 @@ const AddEmployeePage: React.FC = () => {
                           Designation <span className="text-red-500">*</span>
                         </label>
                         {/* Pay is split by designation, so only designations with pay components can be chosen */}
-                        {/*<select*/}
-                        {/*  value={form.designation}*/}
-                        {/*  onChange={(e) => handleChange("designation", e.target.value)}*/}
-                        {/*  className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.designation ? "border-red-500" : "border-gray-300"}`}*/}
-                        {/*>*/}
-                        {/*  <option value="">Select designation</option>*/}
-                        {/*  {designationOptions.map((designation) => (*/}
-                        {/*    <option key={designation} value={designation}>{designation}</option>*/}
-                        {/*  ))}*/}
-                        {/*</select>*/}
-                        <input
-                          type="text"
-                          value={form.designation}
-
-                          onChange={(e) => handleChange("designation", e.target.value)}
-                          className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.designation ? "border-red-500" : "border-gray-300"}`}
-                        />
-
-
-                        {/*<ErrorMessage message={errors.designation} />*/}
-                        {/*{!errors.designation && (*/}
-                        {/*  <p className="mt-0.5 text-[11px] text-gray-500">*/}
-                        {/*    {designationOptions.length === 0*/}
-                        {/*      ? "No designations yet. Add their pay components on the Compensation page first."*/}
-                        {/*      : "Designations come from the pay components on the Compensation page"}*/}
-                        {/*  </p>*/}
-                        {/*)}*/}
+                        <div className="flex gap-1.5">
+                          <select
+                            value={form.designation}
+                            onChange={(e) => handleChange("designation", e.target.value)}
+                            aria-label="Designation"
+                            className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.designation ? "border-red-500" : "border-gray-300"}`}
+                          >
+                            <option value="">{designationOptions.length ? "Select designation" : "No designations set up yet"}</option>
+                            {designationMissingSetup && (
+                              <option value={form.designation}>{form.designation} (no pay set-up)</option>
+                            )}
+                            {designationOptions.map((designation) => (
+                              <option key={designation} value={designation}>{designation}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={fetchPayComponents}
+                            title="Reload designations (after adding one on the Compensation page)"
+                            className="shrink-0 rounded-lg border border-gray-300 px-2 text-xs text-gray-500 hover:bg-gray-50 hover:text-cyan-600"
+                          >
+                            ↻
+                          </button>
+                        </div>
+                        <ErrorMessage message={errors.designation} />
+                        {!errors.designation && (
+                          <p className="mt-0.5 text-[11px] text-gray-500">
+                            {designationMissingSetup
+                              ? "This designation has no pay components any more. Choose another, or set it up on "
+                              : designationOptions.length === 0
+                                ? "Add designations and their pay split on "
+                                : "Missing one? Add it with its pay split on "}
+                            <Link to="/employeeCompensation" target="_blank" rel="noreferrer" className="font-medium text-cyan-600 hover:underline">
+                              the Compensation page
+                            </Link>
+                            , then reload the list.
+                          </p>
+                        )}
                       </div>
 
 
@@ -1178,7 +1259,9 @@ const AddEmployeePage: React.FC = () => {
                         >
                           <option value="">{editId ? "Keep the current role" : "No role yet"}</option>
                           {roleOptions.map((role) => (
-                            <option key={role} value={role}>{role}</option>
+                            <option key={role.name} value={role.name} disabled={!role.grantable}>
+                              {role.grantable ? role.name : `${role.name} (you can't grant this)`}
+                            </option>
                           ))}
                         </select>
                         <ErrorMessage message={errors.role} />
@@ -1928,6 +2011,79 @@ const AddEmployeePage: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Variable Pay: part of the CTC on top of the fixed CTC; payroll runs do not pay it */}
+                  <div className="space-y-4 pt-6 border-t border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-1">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-violet-600" />
+                        <h3 className="text-sm font-semibold text-gray-900">Variable Pay</h3>
+                      </div>
+                      <button type="button" onClick={addVariablePay} className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 w-fit">
+                        <PlusIcon className="h-4 w-4" />
+                        Add Variable Pay
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      Yearly targets such as commission or a performance bonus. They are shown in the CTC on top of the
+                      fixed CTC above, but are not paid through payroll runs.
+                    </p>
+
+                    {variablePayRows.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500 text-sm">No variable pay added.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {variablePayRows.map((row, idx) => (
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-2 items-center">
+                            <input
+                              type="text"
+                              value={row.name}
+                              onChange={(e) => handleVariablePayChange(idx, "name", e.target.value)}
+                              placeholder="Component (e.g., Sales commission)"
+                              aria-label="Variable pay component"
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                            />
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-gray-500 text-sm">{currencySymbol}</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.targetAmount === 0 ? "" : row.targetAmount}
+                                onChange={(e) => handleVariablePayChange(idx, "targetAmount", e.target.value)}
+                                placeholder="Yearly target"
+                                aria-label="Yearly target"
+                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                              />
+                            </div>
+                            <select
+                              value={row.frequency}
+                              onChange={(e) => handleVariablePayChange(idx, "frequency", e.target.value)}
+                              aria-label="Payout frequency"
+                              className="w-full px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500"
+                            >
+                              {VARIABLE_FREQUENCIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                            </select>
+                            <select
+                              value={row.payoutBasis}
+                              onChange={(e) => handleVariablePayChange(idx, "payoutBasis", e.target.value)}
+                              aria-label="Payout basis"
+                              className="w-full px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500"
+                            >
+                              {VARIABLE_BASES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+                            </select>
+                            <button type="button" onClick={() => removeVariablePay(idx)} className="p-2 text-red-500 hover:text-red-700 w-fit" title="Remove">
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 text-xs text-gray-600">
+                          <span>Variable target: <b className="text-gray-900">{money(totalVariable)}</b></span>
+                          <span>CTC incl. variable: <b className="text-gray-900">{money(totalCTC + totalVariable)}</b></span>
+                        </div>
+                      </div>
+                    )}
+                    <ErrorMessage message={errors["salary.variablePay"]} />
+                  </div>
+
 
                 </div>
               )}
@@ -2065,6 +2221,23 @@ const AddEmployeePage: React.FC = () => {
                                 <span>{money(benefit.amount)}</span>
                               </div>
                             ))}
+                          </div>
+                        )}
+                        {variablePayRows.length > 0 && (
+                          <div className="text-sm">
+                            <div className="text-gray-500 mb-1">Variable Pay (yearly target, not paid by payroll):</div>
+                            {variablePayRows.map((row, idx) => (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span>
+                                  {row.name || "—"} · {VARIABLE_FREQUENCIES.find((f) => f.value === row.frequency)?.label ?? row.frequency}
+                                </span>
+                                <span>{money(row.targetAmount)}</span>
+                              </div>
+                            ))}
+                            <div className="mt-1 flex justify-between border-t border-gray-100 pt-1 text-xs font-semibold">
+                              <span>CTC incl. variable</span>
+                              <span>{money(totalCTC + totalVariable)}</span>
+                            </div>
                           </div>
                         )}
 

@@ -12,6 +12,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, dateLabel, daysOverdue, money, todayInput } from "./invoiceShared";
 import { ArStatusBadge, DialogFooter } from "./invoiceUi";
+import { ApAging, DebitNote, DebitNotesList, PayablesAging } from "./PayablesAging";
 
 const API_URL = `${INVOICE_API}/accounts-payable`;
 const PAGE_SIZE = 10;
@@ -22,6 +23,7 @@ interface Payable {
   vendor?: { id: number; name?: string };
   invoiceAmount: number;
   amountPaid: number;
+  debitNoteAmount?: number | null;
   balance: number;
   accountsPayableStatus: string;
   lastPaymentDate?: string;
@@ -38,11 +40,20 @@ const AccountsPayable: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ amountPaid: "", paymentDate: todayInput(), paymentMethod: "BANK_TRANSFER", paymentReference: "" });
 
+  const [aging, setAging] = useState<ApAging | null>(null);
+  const [debitNotes, setDebitNotes] = useState<DebitNote[]>([]);
+
   const fetchRows = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get<Payable[]>(API_URL);
-      setRows(Array.isArray(res.data) ? res.data : []);
+      const [payables, agingRes, notes] = await Promise.all([
+        axios.get<Payable[]>(API_URL),
+        axios.get<ApAging>(`${API_URL}/aging`).catch(() => null),
+        axios.get<DebitNote[]>(`${INVOICE_API}/debit-notes`).catch(() => null),
+      ]);
+      setRows(Array.isArray(payables.data) ? payables.data : []);
+      setAging(agingRes?.data ?? null);
+      setDebitNotes(Array.isArray(notes?.data) ? notes.data : []);
     } catch (err) {
       ToasterService.error(apiError(err, "Failed to load payables"));
     } finally {
@@ -141,6 +152,14 @@ const AccountsPayable: React.FC = () => {
     },
     { key: "invoiceAmount", label: "Amount", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm">{money(row.invoiceAmount, row.purchaseInvoice?.currency)}</span> },
     { key: "amountPaid", label: "Paid", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm text-slate-600">{money(row.amountPaid, row.purchaseInvoice?.currency)}</span> },
+    {
+      key: "debitNoteAmount",
+      label: "Credited",
+      sortable: true,
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => <span className="text-sm text-amber-700">{Number(row.debitNoteAmount) > 0 ? money(row.debitNoteAmount, row.purchaseInvoice?.currency) : "—"}</span>,
+    },
     { key: "balance", label: "Balance", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm font-semibold text-slate-900">{money(row.balance, row.purchaseInvoice?.currency)}</span> },
     { key: "accountsPayableStatus", label: "Status", sortable: true, render: (row) => <ArStatusBadge status={row.accountsPayableStatus} /> },
     {
@@ -203,6 +222,9 @@ const AccountsPayable: React.FC = () => {
             </div>
           }
         />
+
+        <PayablesAging aging={aging} />
+        <DebitNotesList notes={debitNotes} />
       </div>
 
       <PaginatedPopup

@@ -9,7 +9,9 @@ import {
   ArrowRightCircleIcon,
   PencilSquareIcon,
   TrashIcon,
+  EnvelopeIcon,
 } from "@heroicons/react/24/outline";
+import QuotationEmailDialog from "../../components/quotation/QuotationEmailDialog";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import Dragger from "../../components/common/Dragger";
@@ -563,6 +565,8 @@ const Quotations: React.FC = () => {
   // Line errors show only after the first Save, not while a new line is still being filled in
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
+  // Email dialog; markSent when it was opened by moving a draft to Sent
+  const [emailing, setEmailing] = useState<{ quotation: Quotation; markSent: boolean } | null>(null);
   const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
@@ -904,8 +908,13 @@ const Quotations: React.FC = () => {
     }
   };
 
-  const updateQuotationStatus = async (quotation: Quotation, status: string) => {
+  const updateQuotationStatus = async (quotation: Quotation, status: string, withoutEmail = false) => {
     if (status === getQuotationStatus(quotation.status)) return;
+    // Sending a draft emails it to the customer (the dialog can still mark it sent without an email)
+    if (status === "SENT" && !withoutEmail) {
+      setEmailing({ quotation, markSent: true });
+      return;
+    }
 
     try {
       setLoading(true);
@@ -968,6 +977,21 @@ const Quotations: React.FC = () => {
       setLoading(false);
     }
   };
+
+  /** The quotation's PDF as a file, built the same way as the download. */
+  const quotationPdfBlob = async (quotation: Quotation): Promise<Blob> => {
+    const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
+    const customer = customers.find((item) => Number(item.id) === Number(res.data.customerId));
+    const pdfUrl = await createQuotationPdfUrl(res.data, sellerProfile, customer);
+    try {
+      return await (await fetch(pdfUrl)).blob();
+    } finally {
+      URL.revokeObjectURL(pdfUrl);
+    }
+  };
+
+  const customerEmailFor = (quotation: Quotation) =>
+    quotation.email || customers.find((item) => Number(item.id) === Number(quotation.customerId))?.email || "";
 
   const exportQuotationPdf = async (quotation: Quotation) => {
     try {
@@ -1170,6 +1194,16 @@ const Quotations: React.FC = () => {
           >
             <ArrowDownTrayIcon className="h-4 w-4" />
           </button>)}
+          {canCreate && ["DRAFT", "SENT", "VIEWED", "ACCEPTED"].includes(getQuotationStatus(quotation.status) || "DRAFT") && (
+            <button
+              type="button"
+              onClick={() => setEmailing({ quotation, markSent: false })}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
+              title="Email quotation to the customer"
+            >
+              <EnvelopeIcon className="h-4 w-4" />
+            </button>
+          )}
           {getQuotationStatus(quotation.status) === "DRAFT" && (
             canUpdate && <button
               type="button"
@@ -1423,6 +1457,27 @@ const Quotations: React.FC = () => {
         onCancel={() => setDeleteQuotation(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />
+
+      {emailing && (
+        <QuotationEmailDialog
+          quotation={emailing.quotation}
+          defaultTo={customerEmailFor(emailing.quotation)}
+          companyName={company?.companyName || "My Trading"}
+          markSent={emailing.markSent && getQuotationStatus(emailing.quotation.status) === "DRAFT"}
+          getPdf={() => quotationPdfBlob(emailing.quotation)}
+          onClose={() => setEmailing(null)}
+          onSent={(updated) => {
+            const id = emailing.quotation.id;
+            setQuotations((current) => current.map((item) => (item.id === id ? { ...item, ...updated } as Quotation : item)));
+            setEmailing(null);
+          }}
+          onSendWithoutEmail={() => {
+            const target = emailing.quotation;
+            setEmailing(null);
+            updateQuotationStatus(target, "SENT", true);
+          }}
+        />
+      )}
     </>
   );
 };

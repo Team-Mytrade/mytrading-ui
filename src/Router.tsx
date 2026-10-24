@@ -50,6 +50,7 @@ const ProductCategories = lazy(() => import("./pages/product-catalogue/ProductCa
 const TermsAndConditions = lazy(() => import("./pages/Purchase/TermsAndConditions"));
 const Deliveries = lazy(() => import("./pages/Purchase/Deliveries"));
 const GoodsReceiptNotes = lazy(() => import("./pages/purchase-service/GoodsReceiptNotes"));
+const PurchaseReturns = lazy(() => import("./pages/purchase-service/PurchaseReturns"));
 const PurchaseReports = lazy(() => import("./pages/Purchase/PurchaseReports"));
 const DeliveryOrderPage = lazy(() => import("./pages/Delivery/DeliveryOrderPage"));
 const TransporterPage = lazy(() => import("./pages/Delivery/TransporterPage"));
@@ -252,6 +253,7 @@ export default function AppRouter() {
           <Route path="/requisition-line-items" element={<RequisitionLineItems />} />
           <Route path="/purchase-service/orders" element={<PurchaseOrders />} />
           <Route path="/purchase-service/goods-receipt-notes" element={<GoodsReceiptNotes />} />
+          <Route path="/purchase-service/returns" element={<PurchaseReturns />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
           <Route path="/purchase-orders" element={<Navigate to="/purchase-service/orders" replace />} />
           <Route path="/product-catalogue/vendors" element={<Vendors />} />
