@@ -73,7 +73,7 @@ export default function PurchaseOrders() {
         if (productIds.length) {
           try {
             const { data: products } = await axios.post<{ id: number; standardCost?: number }[]>(
-              "/v1/api/product/products/batch",
+              "/v1/api/common/products/batch",
               { productIds }
             );
             (Array.isArray(products) ? products : []).forEach((product) => {

@@ -81,7 +81,7 @@ interface Segment {
   name: string;
 }
 
-const API_URL = "/v1/api/crm/customers";
+const API_URL = "/v1/api/common/customers";
 const PAGE_SIZE = 10;
 
 const Customers: React.FC = () => {

@@ -88,7 +88,7 @@ const ITEMS: Item[] = [
   { key: "batches", label: "Batches expiring within 30 days", icon: AlertTriangle, tone: "amber", route: "/batch",
     module: "INVENTORY", permission: "INVENTORY:VIEW", load: () => count<Row>("/v1/api/inventory/batches", (r) => withinDays(r.expiryDate as string, 30)) },
   { key: "creditHold", label: "Customers on credit hold", icon: UserX, tone: "amber", route: "/customer-management",
-    module: "CRM", permission: "CRM:VIEW", load: () => count<Row>("/v1/api/crm/customers", (r) => r.status === "CREDIT_HOLD") },
+    module: "CRM", permission: "CRM:VIEW", load: () => count<Row>("/v1/api/common/customers", (r) => r.status === "CREDIT_HOLD") },
   { key: "invites", label: "Users who haven't set a password", icon: Mail, tone: "violet", route: "/role_config",
     module: "USERS", permission: "USERS:UPDATE",
     load: () => count<Row>("/v1/api/user/access/users", (r) => r.active === true && r.invitePending === true) },

@@ -4,9 +4,9 @@
  * and every link that uses it is fixed.
  */
 export const APP_ROUTES = {
-  vendors: "/product-catalogue/vendors",
-  productCategories: "/product-catalogue/categories",
-  products: "/product-catalogue/products",
+  vendors: "/common/vendors",
+  productCategories: "/common/categories",
+  products: "/common/products",
   purchaseRequisitions: "/purchase-service/purchase-requisitions",
   purchaseOrders: "/purchase-service/purchase-orders",
   goodsReceiptNotes: "/purchase-service/goods-receipt-notes",
@@ -15,7 +15,7 @@ export const APP_ROUTES = {
 /**
  * Link to a page filtered to one record, e.g.
  *   recordLink(APP_ROUTES.vendors, "vendorId", 3, "vendorName", "MedLine Supplies")
- *   → /product-catalogue/vendors?vendorId=3&vendorName=MedLine%20Supplies
+ *   → /common/vendors?vendorId=3&vendorName=MedLine%20Supplies
  * The target page reads these with its `scope` setting and shows only that record.
  * Returns null when the id is missing, so the cell shows plain text instead of a broken link.
  */

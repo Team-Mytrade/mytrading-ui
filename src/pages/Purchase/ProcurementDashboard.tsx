@@ -22,7 +22,7 @@ import {
   useDashboardSources,
 } from "../Dashboard/dashboardKit";
 
-// Live procurement overview built from the purchase and product-catalogue services.
+// Live procurement overview built from the purchase and common services.
 
 interface Requisition {
   id: number;
@@ -62,8 +62,8 @@ const SOURCES = {
   requisitions: () => getList<Requisition>(`${PURCHASE}/purchase-requisitions`),
   orders: () => getList<PurchaseOrder>(`${PURCHASE}/purchase-orders`),
   receipts: () => getList<GoodsReceipt>(`${PURCHASE}/grns`),
-  vendors: () => getList<Vendor>("/v1/api/product/vendors"),
-  products: () => countOf("/v1/api/product/products"),
+  vendors: () => getList<Vendor>("/v1/api/common/vendors"),
+  products: () => countOf("/v1/api/common/products"),
   terms: () => countOf(`${PURCHASE}/terms`),
   deliveries: () => countOf(`${PURCHASE}/deliveries`),
 };
@@ -153,8 +153,8 @@ const ProcurementDashboard: React.FC = () => {
     { name: "Purchase Requisitions", count: data.requisitions ? requisitions.length : null, icon: FileText, route: "/purchase-service/requisitions", tone: "blue" as const },
     { name: "Purchase Orders", count: data.orders ? orders.length : null, icon: ShoppingCart, route: "/purchase-service/orders", tone: "emerald" as const },
     { name: "Goods Receipt Notes", count: data.receipts ? receipts.length : null, icon: Receipt, route: "/purchase-service/goods-receipt-notes", tone: "pink" as const },
-    { name: "Vendors", count: vendors ? vendors.length : null, icon: Truck, route: "/product-catalogue/vendors", tone: "orange" as const },
-    { name: "Products", count: countOrNull("products"), icon: Package, route: "/product-catalogue/products", tone: "purple" as const },
+    { name: "Vendors", count: vendors ? vendors.length : null, icon: Truck, route: "/common/vendors", tone: "orange" as const },
+    { name: "Products", count: countOrNull("products"), icon: Package, route: "/common/products", tone: "purple" as const },
     { name: "Terms and Conditions", count: countOrNull("terms"), icon: ScrollText, route: "/terms-and-conditions", tone: "indigo" as const },
     { name: "Deliveries", count: countOrNull("deliveries"), icon: Calendar, route: "/deliveries", tone: "red" as const },
     { name: "Purchase Reports", icon: BarChart3, route: "/purchase-reports", tone: "teal" as const },

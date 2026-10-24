@@ -210,7 +210,7 @@ const API_URL = "/v1/api/sales/quotations";
 const CUSTOMERS_API = "/v1/api/sales/quotations/getCustomers";
 // Quotation line items are sourced from Product Catalogue, not Purchase.
 // Tenant context is supplied by the shared Axios interceptor via X-Tenant-ID.
-const PRODUCT_CATALOGUE_PRODUCTS_API = "/v1/api/product/products";
+const PRODUCT_CATALOGUE_PRODUCTS_API = "/v1/api/common/products";
 const PAGE_SIZE = 10;
 const statusOptions = ["DRAFT", "SENT", "ACCEPTED", "REJECTED"];
 /** Status moves the backend allows: a draft is sent, then the customer accepts or rejects it. */

@@ -80,7 +80,7 @@ type ScheduleOrderOption = {
 };
 
 const API_URL = "/v1/api/sales/service-schedule-notify";
-const CUSTOMERS_API = "/v1/api/crm/customers";
+const CUSTOMERS_API = "/v1/api/common/customers";
 const SCHEDULE_ORDERS_API = "/v1/api/sales/sales-orders/schedule/orders";
 const PAGE_SIZE = 10;
 

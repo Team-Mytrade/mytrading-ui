@@ -11,7 +11,7 @@ import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
 
-const CATEGORIES = "/v1/api/product/product-categories";
+const CATEGORIES = "/v1/api/common/product-categories";
 
 /** Trimmed string, or null when empty (so the API stores NULL instead of ""). */
 const text = (value: unknown): string | null => {
@@ -110,11 +110,11 @@ const parentOptionsFor = (form: PurchaseRecord, all: SelectOption[]): SelectOpti
   });
 };
 
-/** Product categories (owned by the Product Catalogue service). */
+/** Product categories (owned by the common service). */
 const productCategoryConfig: PurchaseResourceConfig = {
   title: "Product Categories",
   formSubtitle: "Add or update a product category.",
-  description: "Manage product categories from the Product Catalogue service.",
+  description: "Manage the product categories every module uses.",
   endpoint: CATEGORIES,
   // Activate / deactivate use their own PATCH APIs (row action below),
   // not a full PUT of the record, so the backend can apply its rules.

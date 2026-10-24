@@ -120,7 +120,7 @@ type MovementForm = {
 const API_URL = "/v1/api/inventory/stock-movements";
 const ENUMS_API_URL = "/v1/api/inventory/enums";
 // Products live in the product catalogue (the purchase service no longer serves them)
-const PRODUCTS_API_URL = "/v1/api/product/products";
+const PRODUCTS_API_URL = "/v1/api/common/products";
 const WAREHOUSES_API_URL = "/v1/api/inventory/warehouses";
 const BATCHES_API_URL = "/v1/api/inventory/batches";
 const SERIALS_API_URL = "/v1/api/inventory/serial-numbers";

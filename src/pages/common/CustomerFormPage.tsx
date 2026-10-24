@@ -26,7 +26,7 @@ import { formatMoney } from "../Dashboard/dashboardKit";
 
 // Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
 
-const API_URL = "/v1/api/crm/customers";
+const API_URL = "/v1/api/common/customers";
 const SALES_PERSONS_API = "/v1/api/sales/sales-persons";
 const FORM_ID = "customer-form";
 

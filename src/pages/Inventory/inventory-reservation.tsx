@@ -140,8 +140,8 @@ type InventoryForm = {
 const API_URL = "/v1/api/inventory/inventory-reservations";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 // Products live in the product catalogue (the purchase service no longer serves them)
-const PRODUCT_API_URL = "/v1/api/product/products";
-const CUSTOMER_API_URL = "/v1/api/crm/customers";
+const PRODUCT_API_URL = "/v1/api/common/products";
+const CUSTOMER_API_URL = "/v1/api/common/customers";
 const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;

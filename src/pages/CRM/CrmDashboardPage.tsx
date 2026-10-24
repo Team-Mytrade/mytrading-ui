@@ -51,7 +51,7 @@ export default function CrmDashboardPage() {
   useEffect(() => {
     const sources = [
       ["reports", axios.get("/v1/api/crm/reports")],
-      ["customers", axios.get("/v1/api/crm/customers")],
+      ["customers", axios.get("/v1/api/common/customers")],
       ["leads", axios.get("/v1/api/crm/leads")],
       ["deals", axios.get("/v1/api/crm/deals")],
       ["activities", axios.get("/v1/api/crm/activities")],

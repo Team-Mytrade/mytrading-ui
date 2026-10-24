@@ -339,7 +339,7 @@ const CreditLimit: React.FC = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const res = await axios.get<CustomerOption[]>("/v1/api/crm/customers", { headers });
+        const res = await axios.get<CustomerOption[]>("/v1/api/common/customers", { headers });
         setCustomers(Array.isArray(res.data) ? res.data : []);
       } catch (error) {
         ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));

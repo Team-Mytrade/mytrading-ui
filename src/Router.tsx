@@ -162,7 +162,6 @@ const GoodsIssuePage = lazy(() => import("./pages/Delivery/GoodsIssue"));
 const Schedule = lazy(() => import("./pages/Delivery/Schedule"));
 const LiveTracking = lazy(() => import("./pages/Delivery/LiveTracking"));
 const DriverMode = lazy(() => import("./pages/Delivery/DriverMode"));
-const VendorsInvoice = lazy(() => import("./pages/common/CustomerVendors"));
 const TaxTypesInvoice = lazy(() => import("./pages/common/TaxTypes"));
 const TaxDetailsInvoice = lazy(() => import("./pages/common/TaxDetails"));
 const PurchaseInvoices = lazy(() => import("./pages/Invoice/PurchaseInvoices"));
@@ -237,7 +236,7 @@ export default function AppRouter() {
           <Route path="/quote-view/:id" element={<Quotations />} />
 
           <Route path="/warehouse" element={<Warehouse />} />
-           <Route path="/products" element={<Navigate to="/product-catalogue/products" replace />} />
+           <Route path="/products" element={<Navigate to="/common/products" replace />} />
           <Route path="/inventory" element={<InventoryModule />} />
           <Route path="/stock-movement" element={<StockMovement />} />
           <Route path="/stock-level" element={<StockLevel />} />
@@ -256,12 +255,16 @@ export default function AppRouter() {
           <Route path="/purchase-service/returns" element={<PurchaseReturns />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
           <Route path="/purchase-orders" element={<Navigate to="/purchase-service/orders" replace />} />
-          <Route path="/product-catalogue/vendors" element={<Vendors />} />
-          <Route path="/product-catalogue/products" element={<Products />} />
-          <Route path="/product-catalogue/categories" element={<ProductCategories />} />
-          <Route path="/vendors" element={<Navigate to="/product-catalogue/vendors" replace />} />
-          <Route path="/purchase-products" element={<Navigate to="/product-catalogue/products" replace />} />
-          <Route path="/product-categories" element={<Navigate to="/product-catalogue/categories" replace />} />
+          <Route path="/common/vendors" element={<Vendors />} />
+          <Route path="/common/products" element={<Products />} />
+          <Route path="/common/categories" element={<ProductCategories />} />
+          {/* Product Catalogue moved under Common; old links and bookmarks still land on the page */}
+          <Route path="/product-catalogue/vendors" element={<Navigate to="/common/vendors" replace />} />
+          <Route path="/product-catalogue/products" element={<Navigate to="/common/products" replace />} />
+          <Route path="/product-catalogue/categories" element={<Navigate to="/common/categories" replace />} />
+          <Route path="/vendors" element={<Navigate to="/common/vendors" replace />} />
+          <Route path="/purchase-products" element={<Navigate to="/common/products" replace />} />
+          <Route path="/product-categories" element={<Navigate to="/common/categories" replace />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/deliveries" element={<Deliveries />} />
           <Route path="/goods-receipt-notes" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
@@ -271,13 +274,14 @@ export default function AppRouter() {
 
           <Route path="/purchaseRequisition" element={<Navigate to="/purchase-service/requisitions" replace />} />
           <Route path="/purchaseOrder" element={<Navigate to="/purchase-service/orders" replace />} />
-          <Route path="/supplier" element={<Navigate to="/product-catalogue/vendors" replace />} />
-          <Route path="/product" element={<Navigate to="/product-catalogue/products" replace />} />
+          <Route path="/supplier" element={<Navigate to="/common/vendors" replace />} />
+          <Route path="/product" element={<Navigate to="/common/products" replace />} />
           <Route path="/term-condition" element={<TermsAndConditions />} />
           <Route path="/deliveryDate" element={<Deliveries />} />
           <Route path="/goodseceiptNote" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
 
-          <Route path="/invoiceVendors" element={<VendorsInvoice />} />
+          {/* Finance uses the common vendor list now */}
+          <Route path="/invoiceVendors" element={<Navigate to="/common/vendors" replace />} />
           <Route path="/taxTypes" element={<TaxTypesInvoice />} />
           <Route path="/taxDetails" element={<TaxDetailsInvoice />} />
           <Route path="/purchaseInvoices" element={<PurchaseInvoices />} />

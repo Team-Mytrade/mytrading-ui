@@ -15,8 +15,8 @@ import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 /* Endpoints & constants                                               */
 /* ------------------------------------------------------------------ */
 
-const CATEGORIES = "/v1/api/product/product-categories";
-const PRODUCTS = "/v1/api/product/products";
+const CATEGORIES = "/v1/api/common/product-categories";
+const PRODUCTS = "/v1/api/common/products";
 
 const productImageUrl = (productId: string | number) => `${PRODUCTS}/${productId}/downloadImage`;
 const productImageUploadUrl = (productId: string | number) => `${PRODUCTS}/${productId}/uploadImage`;
@@ -522,7 +522,7 @@ const renderAmount = (key: string) => (row: PurchaseRecord) =>
 
 const baseProductConfig: PurchaseResourceConfig = {
   title: "Products",
-  description: "Maintain products from the Product Catalogue service.",
+  description: "Maintain the products every module uses.",
   endpoint: PRODUCTS,
   getByIdEndpoint: (row) => `${PRODUCTS}/${row.id}`,
   // Opened from a link: show only that product.
@@ -780,7 +780,7 @@ export default function Products() {
     renderSearchExtras: () => (
       <button
         type="button"
-        onClick={() => navigate("/product-catalogue/categories")}
+        onClick={() => navigate("/common/categories")}
         className="inline-flex items-center rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
       >
         + Category

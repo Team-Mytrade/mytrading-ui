@@ -28,7 +28,7 @@ const SOURCES = {
   tax: () => axios.get<TaxReport>("/v1/api/invoice/reports/tax").then((r) => r.data ?? {}),
   orders: () => getList<PurchaseOrder>("/v1/api/purchase/purchase-orders"),
   stock: () => getList<StockLevel>("/v1/api/inventory/stock-levels"),
-  products: () => getList<Product>("/v1/api/product/products"),
+  products: () => getList<Product>("/v1/api/common/products"),
 };
 const LABELS: Record<keyof typeof SOURCES, string> = {
   sales: "sales report", finance: "finance report", tax: "tax report", orders: "purchase orders",

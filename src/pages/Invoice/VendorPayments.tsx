@@ -69,7 +69,8 @@ const VendorPayments: React.FC = () => {
       setLoading(true);
       const [paymentRes, vendorRes, payableRes] = await Promise.all([
         axios.get<VendorPayment[]>(API_URL),
-        axios.get<Vendor[]>(`${INVOICE_API}/vendors`),
+        // Vendors are the common list Purchase uses too
+        axios.get<Vendor[]>("/v1/api/common/vendors"),
         axios.get<Payable[]>(`${INVOICE_API}/accounts-payable`),
       ]);
       setPayments(Array.isArray(paymentRes.data) ? paymentRes.data : []);

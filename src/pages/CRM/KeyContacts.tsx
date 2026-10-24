@@ -95,7 +95,7 @@ interface Contact {
 }
 
 const API_URL = "/v1/api/crm/contacts";
-const CUSTOMER_API_URL = "/v1/api/crm/customers";
+const CUSTOMER_API_URL = "/v1/api/common/customers";
 const PAGE_SIZE = 10;
 
 
@@ -103,18 +103,6 @@ const safeText = (value?: string | null) => value?.trim() || "";
 
 const getCustomerDisplayName = (customer?: Customer | null) =>
   customer?.customerName || customer?.companyName || customer?.name || customer?.tradeName || "Unnamed Customer";
-
-const mapContactsFromCustomers = (customerList: Customer[]): Contact[] =>
-  customerList.flatMap((customer) =>
-    (customer.contacts ?? []).map((contact) => ({
-      ...contact,
-      fullName: safeText(contact.fullName) || "Unnamed Contact",
-      email: safeText(contact.email),
-      phone: safeText(contact.phone),
-      customer,
-    }))
-    
-  );
 
 const KeyContacts: React.FC = () => {
   const navigate = useNavigate();
@@ -297,7 +285,16 @@ const KeyContacts: React.FC = () => {
       });
       const customerData = Array.isArray(res.data) ? res.data : [];
       setCustomers(customerData);
-      const mappedContacts = mapContactsFromCustomers(customerData);
+      // Customers come from the common service without contacts; CRM lists the contacts with their company
+      const contactRes = await axios.get<Contact[]>(API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const mappedContacts = (Array.isArray(contactRes.data) ? contactRes.data : []).map((contact) => ({
+        ...contact,
+        fullName: safeText(contact.fullName) || "Unnamed Contact",
+        email: safeText(contact.email),
+        phone: safeText(contact.phone),
+      }));
       setContacts(mappedContacts);
 
       if (showFeedback && mappedContacts.length === 0) {
