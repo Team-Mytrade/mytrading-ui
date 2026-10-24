@@ -101,7 +101,7 @@ const CustomFieldsManager = lazy(() => import("./pages/Settings/CustomFieldsMana
 const EmailSmsSettings = lazy(() => import("./pages/Settings/EmailSmsSettings"));
 const ImportExportPage = lazy(() => import("./pages/Settings/ImportExportPage"));
 const IntegrationsPage = lazy(() => import("./pages/Settings/IntegrationsPage"));
-const RoleConfiguration = lazy(() => import("./pages/Role/role"));
+const RolesPage = lazy(() => import("./pages/roleconfig/RolesPage"));
 const Alert = lazy(() => import("./pages/Notification/Alerts"));
 const UserPreferences = lazy(() => import("./pages/Notification/UserPreferences"));
 import AuthLayout from "./pages/AuthPages/AuthPageLayout";
@@ -146,9 +146,9 @@ const DeliveryDashboard = lazy(() => import("./pages/Delivery/DeliveryDashboard"
 const PayrollDashboard = lazy(() => import("./pages/Payroll/PayrollDashboard"));
 const AttendanceDashboard = lazy(() => import("./pages/Attendance/AttendanceDashboard"));
 const UserDashboard = lazy(() => import("./components/UserProfile/UserDashboard"));
-const Mainrole = lazy(() => import("./pages/roleconfig/Mainrole"));
-const UserAccessPage = lazy(() => import("./pages/roleconfig/UserAccessPage"));
+const UsersPage = lazy(() => import("./pages/roleconfig/UsersPage"));
 const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
+const CompanySettingsPage = lazy(() => import("./pages/company/CompanySettingsPage"));
 const Batch = lazy(() => import("./pages/Inventory/batch"));
 const EmployeeCompensationPage = lazy(() => import("./pages/Payroll/EmployeeCompensationPage"));
 const EmployeeDepartmentsPage = lazy(() => import("./pages/Payroll/EmployeeDepartments"));
@@ -217,9 +217,10 @@ export default function AppRouter() {
           <Route path="/customers/edit/:id" element={<CustomerFormPage />} />
           <Route path="/crm-reports" element={<Reports />} />
           
-          <Route path="/role_config" element={<Mainrole />} />
-          <Route path="/role_config/access" element={<UserAccessPage />} />
+          <Route path="/role_config" element={<UsersPage />} />
+          <Route path="/role_config/*" element={<Navigate to="/role_config" replace />} />
           <Route path="/platform/tenants" element={<TenantsPage />} />
+          <Route path="/company-settings" element={<CompanySettingsPage />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
           <Route path="/sales-targets" element={<SalesTargets />} />
@@ -425,7 +426,7 @@ export default function AppRouter() {
           <Route path="/emailSMS" element={<EmailSmsSettings />} />
           <Route path="/importExport" element={<ImportExportPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="/rolesPermissions" element={<RoleConfiguration />} />
+          <Route path="/rolesPermissions" element={<RolesPage />} />
 
           <Route path="/user_dashboard" element={<UserDashboard />} />
 

@@ -61,6 +61,16 @@ export function useDashboardSources<K extends string>(
   return state;
 }
 
+/**
+ * Keeps the sources whose module the user has, so a cross-module dashboard doesn't call (and report as
+ * failed) services the user can't use. Memoize the result: useDashboardSources reloads when it changes.
+ */
+export const sourcesForModules = <K extends string>(
+  sources: Record<K, () => Promise<unknown>>,
+  modules: Record<K, string>,
+  allowed: (module: string) => boolean,
+) => Object.fromEntries(Object.entries(sources).filter(([key]) => allowed(modules[key as K]))) as Record<K, () => Promise<unknown>>;
+
 /* ================= dates and numbers ================= */
 
 const pad = (n: number) => String(n).padStart(2, "0");

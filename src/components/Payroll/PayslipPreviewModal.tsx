@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, FileText, Building, Calendar, User, CreditCard } from 'lucide-react';
+import { useCompany } from '../../company/companyApi';
 
 interface PayslipPreviewModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
     onDownload,
     loading 
 }) => {
+    const { company, logo } = useCompany();
     if (!isOpen) return null;
 
     return (
@@ -33,12 +35,16 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                     {/* Header */}
                     <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg">
-                                <FileText size={20} />
-                            </div>
+                            {logo ? (
+                                <img src={logo.dataUrl} alt="" className="h-10 max-w-[120px] object-contain" />
+                            ) : (
+                                <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg">
+                                    <FileText size={20} />
+                                </div>
+                            )}
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900">Payslip Preview</h3>
-                                <p className="text-sm text-gray-500">For the month of {month}</p>
+                                <h3 className="text-lg font-bold text-gray-900">{company?.legalName || company?.companyName || "Payslip Preview"}</h3>
+                                <p className="text-sm text-gray-500">Payslip for the month of {month}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">

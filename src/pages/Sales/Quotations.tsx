@@ -24,7 +24,8 @@ import {
   FloatingTextarea,
 } from "../../components/inputfeild/FloatingInput";
 import SearchableSelect from "../../components/inputfeild/SearchableSelect";
-import { loadImageAsDataUrl } from "../../components/common/export";
+import { fitLogo, loadImageAsDataUrl } from "../../components/common/export";
+import { CompanyProfile, companyAddressLines, loadCompanyLogo, useCompany } from "../../company/companyApi";
 import { ToasterService } from "../../Services/ToasterService";
 import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
@@ -235,38 +236,18 @@ function getStoredTenantId() {
   }
 }
 
-function getSellerProfile(): SellerProfile {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    const companyName = user?.companyName || user?.tenantName || "My Trading";
-    const legalName = user?.legalName || companyName;
-    const addressLines = [
-      user?.addressLine1,
-      user?.addressLine2,
-      [user?.city, user?.state].filter(Boolean).join(", "),
-      [user?.country, user?.postalCode].filter(Boolean).join(" - "),
-    ]
-      .map((line) => String(line || "").trim())
-      .filter(Boolean);
-
-    return {
-      companyName,
-      legalName,
-      contactEmail: user?.email || "sales@company.com",
-      contactPhone: user?.phone || "+91 00000 00000",
-      gstin: user?.gstin || user?.taxId || "--",
-      addressLines: addressLines.length > 0 ? addressLines : ["Business address not configured"],
-    };
-  } catch {
-    return {
-      companyName: "My Trading",
-      legalName: "My Trading",
-      contactEmail: "sales@company.com",
-      contactPhone: "+91 00000 00000",
-      gstin: "--",
-      addressLines: ["Business address not configured"],
-    };
-  }
+// The seller block of a quotation, from Company Settings
+function sellerFromCompany(company: CompanyProfile | null): SellerProfile {
+  const companyName = company?.companyName || "My Trading";
+  const addressLines = companyAddressLines(company);
+  return {
+    companyName,
+    legalName: company?.legalName || companyName,
+    contactEmail: company?.email || "",
+    contactPhone: company?.phone || "",
+    gstin: company?.gstin || "",
+    addressLines: addressLines.length > 0 ? addressLines : ["Address not set (Company Settings)"],
+  };
 }
 
 const today = todayIso();
@@ -364,7 +345,11 @@ const createQuotationPdfUrl = async (
   sellerProfile: SellerProfile,
   customer?: Customer | null
 ) => {
-  const logoDataUrl = await loadImageAsDataUrl(publicAsset("images/logo/logo.png"));
+  // The company's logo when it has one, else the app logo
+  const companyLogo = await loadCompanyLogo();
+  const logo = companyLogo ?? { dataUrl: await loadImageAsDataUrl(publicAsset("images/logo/logo.png")), format: "PNG" as const };
+  const logoDataUrl = logo.dataUrl;
+  const logoSize = companyLogo ? fitLogo(companyLogo, 38, 9) : { width: 38, height: 9 };
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const reportWidth = doc.internal.pageSize.getWidth();
   const reportHeight = doc.internal.pageSize.getHeight();
@@ -389,7 +374,8 @@ const createQuotationPdfUrl = async (
     if (logoDataUrl) {
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(reportMargin, 7, 42, 12, 2, 2, "F");
-      doc.addImage(logoDataUrl, "PNG", reportMargin + 2, 8.5, 38, 9);
+      doc.addImage(logoDataUrl, logo.format, reportMargin + 2 + (38 - logoSize.width) / 2, 8.5 + (9 - logoSize.height) / 2,
+        logoSize.width, logoSize.height);
     } else {
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
@@ -587,7 +573,8 @@ const Quotations: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sellerProfile = useMemo(() => getSellerProfile(), []);
+  const { company } = useCompany();
+  const sellerProfile = useMemo(() => sellerFromCompany(company), [company]);
   const activeProducts = useMemo(() => products.filter((product) => product.active !== false), [products]);
   const { filteredRows, cardFilterProps } = useStatsCardFilter(quotations, quotationCards);
 
