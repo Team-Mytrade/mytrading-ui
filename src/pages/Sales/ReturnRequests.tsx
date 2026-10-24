@@ -56,7 +56,12 @@ type ReturnRequest = {
   remarks: string;
   items: ReturnItem[];
   refund?: Refund;
+  // REFUND (default) or EXCHANGE: the same items are sent again instead of a refund
+  resolution?: Resolution;
+  completedAt?: string;
 };
+
+type Resolution = "REFUND" | "EXCHANGE";
 
 type ScheduleOrderOption = {
   id?: number;
@@ -89,6 +94,7 @@ type ReturnForm = {
   requestDate: string;
   status: string;
   reason: ReturnReason;
+  resolution: Resolution;
   salesOrderId: string;
   salesOrderNumber: string;
   remarks: string;
@@ -141,6 +147,7 @@ const emptyReturnForm: ReturnForm = {
   requestDate: todayIso(),
   status: "PENDING",
   reason: "DAMAGED_PRODUCT",
+  resolution: "REFUND",
   salesOrderId: "",
   salesOrderNumber: "",
   remarks: "",
@@ -399,13 +406,14 @@ const ReturnRequests: React.FC = () => {
     requestDate: form.requestDate,
     status: form.status,
     reason: form.reason,
+    resolution: form.resolution,
     salesOrderId: toNumber(form.salesOrderId),
     remarks: form.remarks,
     items: [
       {
         id: 0,
         salesOrderItemId: toNumber(form.itemSalesOrderItemId),
-        refundAmount: form.itemRefundAmount.trim() === "" ? null : toNumber(form.itemRefundAmount),
+        refundAmount: form.resolution === "EXCHANGE" || form.itemRefundAmount.trim() === "" ? null : toNumber(form.itemRefundAmount),
         returnQuantity: toNumber(form.itemReturnQuantity),
         remarks: form.itemRemarks,
       },
@@ -452,6 +460,7 @@ const ReturnRequests: React.FC = () => {
         requestDate: request.requestDate,
         status: nextStatus,
         reason: request.reason,
+        resolution: request.resolution || "REFUND",
         salesOrderId: request.salesOrderId,
         remarks: request.remarks || "",
         items: (request.items || []).map((item) => ({
@@ -492,6 +501,7 @@ const ReturnRequests: React.FC = () => {
       reason: reasonOptions.includes(request.reason as ReturnReason)
         ? (request.reason as ReturnReason)
         : "DAMAGED_PRODUCT",
+      resolution: request.resolution === "EXCHANGE" ? "EXCHANGE" : "REFUND",
       salesOrderId: String(request.salesOrderId || ""),
       salesOrderNumber: matchedOrder ? getScheduleOrderNumber(matchedOrder) : `Order #${request.salesOrderId}`,
       remarks: request.remarks || "",
@@ -697,9 +707,13 @@ const ReturnRequests: React.FC = () => {
     },
     {
       key: "refund",
-      label: "Refund",
+      label: "Refund / Exchange",
       sortable: false,
-      render: (item) => (item.refund ? `${money(item.refund.amount)} (${item.refund.status})` : "--"),
+      render: (item) => item.resolution === "EXCHANGE" ? (
+        <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+          {item.status === "COMPLETED" ? "Exchanged" : "Exchange"}
+        </span>
+      ) : (item.refund ? `${money(item.refund.amount)} (${item.refund.status})` : "--"),
     },
     {
       key: "actions",
@@ -717,7 +731,7 @@ const ReturnRequests: React.FC = () => {
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
-          {canCreate && !item.refund && item.status === "APPROVED" && (
+          {canCreate && !item.refund && item.status === "APPROVED" && item.resolution !== "EXCHANGE" && (
             <button
               type="button"
               onClick={() => openRefundModal(item)}
@@ -852,6 +866,18 @@ const ReturnRequests: React.FC = () => {
                 includeEmptyOption={false}
                 options={reasonOptions.map((item) => ({ id: item, name: toFriendlyLabel(item) }))}
               />,
+              <FloatingSelect
+                key="resolution"
+                label="Resolution"
+                name="resolution"
+                value={form.resolution}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={[
+                  { id: "REFUND", name: "Refund the customer" },
+                  { id: "EXCHANGE", name: "Exchange (send the same items again)" },
+                ]}
+              />,
               <div key="salesOrder" className="md:col-span-2">
                 <FloatingSelect
                   label="Sales Order Number"
@@ -927,15 +953,22 @@ const ReturnRequests: React.FC = () => {
                 onChange={handleChange}
                 required
               />,
-              <FloatingInput
-                key="itemRefundAmount"
-                label="Refund Amount (blank = value of the returned items)"
-                name="itemRefundAmount"
-                type="number"
-                min={0}
-                value={form.itemRefundAmount}
-                onChange={handleChange}
-              />,
+              form.resolution === "EXCHANGE" ? (
+                <p key="itemRefundAmount" className="self-center text-[11px] text-slate-500">
+                  No refund for an exchange. Completing it sends the same items again from the order's warehouse
+                  and takes the returned ones back into stock (not when they are damaged).
+                </p>
+              ) : (
+                <FloatingInput
+                  key="itemRefundAmount"
+                  label="Refund Amount (blank = value of the returned items)"
+                  name="itemRefundAmount"
+                  type="number"
+                  min={0}
+                  value={form.itemRefundAmount}
+                  onChange={handleChange}
+                />
+              ),
               <FloatingInput
                 key="itemRemarks"
                 label="Item Remarks"

@@ -7,6 +7,8 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
   DocumentTextIcon,
+  ReceiptRefundIcon,
+  TruckIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -18,7 +20,9 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
-import { INVOICE_API, apiError, dateLabel, labelOf, money } from "./invoiceShared";
+import { INVOICE_API, apiError, dateLabel, labelOf, money, todayInput } from "./invoiceShared";
+import { ActionButton, DialogFooter } from "./invoiceUi";
+import BillFromGrnDialog from "./BillFromGrnDialog";
 
 interface PurchaseInvoice {
   id: number;
@@ -32,6 +36,10 @@ interface PurchaseInvoice {
   notes?: string;
   vendor?: { id: number; name?: string } | null;
   vendorId?: string;
+  // Bills made from a goods receipt; their amount follows the receipt (corrections are debit notes)
+  grnId?: number | null;
+  grnNumber?: string | null;
+  poNumber?: string | null;
 }
 
 /**
@@ -93,6 +101,39 @@ const PurchaseInvoices: React.FC = () => {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [billingFromGrn, setBillingFromGrn] = useState(false);
+  const [debitFor, setDebitFor] = useState<PurchaseInvoice | null>(null);
+  const [debitForm, setDebitForm] = useState({ amount: "", noteDate: todayInput(), reason: "" });
+  const [debitBusy, setDebitBusy] = useState(false);
+
+  const openDebitNote = (invoice: PurchaseInvoice) => {
+    setDebitForm({ amount: "", noteDate: todayInput(), reason: "" });
+    setDebitFor(invoice);
+  };
+
+  const saveDebitNote = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!debitFor) return;
+    const amount = Number(debitForm.amount);
+    if (!amount || amount <= 0) return ToasterService.error("Enter the debit note amount");
+    if (!debitForm.reason.trim()) return ToasterService.error("Say what the debit note is for");
+    setDebitBusy(true);
+    try {
+      await axios.post(`${INVOICE_API}/debit-notes`, {
+        purchaseInvoiceId: debitFor.id,
+        amount,
+        noteDate: debitForm.noteDate || null,
+        reason: debitForm.reason.trim(),
+      }, { headers });
+      ToasterService.success(`Debit note of ${money(amount, debitFor.currency)} taken off bill ${debitFor.invoiceNumber}`);
+      setDebitFor(null);
+      await fetchPurchaseInvoices();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not save the debit note"));
+    } finally {
+      setDebitBusy(false);
+    }
+  };
 
   useEffect(() => {
     fetchPurchaseInvoices();
@@ -250,6 +291,9 @@ const PurchaseInvoices: React.FC = () => {
           </div>
           <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
             {invoice.invoiceNumber || "N/A"}
+            {invoice.grnNumber && (
+              <span className="block text-xs font-normal text-slate-400">from {invoice.grnNumber}{invoice.poNumber ? ` · ${invoice.poNumber}` : ""}</span>
+            )}
           </span>
         </div>
       ),
@@ -320,6 +364,16 @@ const PurchaseInvoices: React.FC = () => {
       className: "w-[12%] text-right",
       render: (invoice) => (
         <div className="flex items-center justify-end gap-0.5">
+          {canCreate && ["OPEN", "PARTIALLY_PAID", "OVERDUE"].includes(invoice.purchaseInvoiceStatus ?? "") && (
+            <button
+              type="button"
+              onClick={() => openDebitNote(invoice)}
+              className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600"
+              title="Debit note"
+            >
+              <ReceiptRefundIcon className="h-4 w-4" />
+            </button>
+          )}
           {canUpdate && (<button
             type="button"
             onClick={() => handleEdit(invoice)}
@@ -348,7 +402,12 @@ const PurchaseInvoices: React.FC = () => {
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Purchase Invoice" />}
+          {canCreate && (
+            <div className="flex flex-wrap items-center gap-2">
+              <ActionButton icon={TruckIcon} label="Bill from GRN" onClick={() => setBillingFromGrn(true)} />
+              <AddButton onClick={openCreate} label="Add Purchase Invoice" />
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
@@ -503,11 +562,12 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="totalAmount"
-                  label="Bill amount (incl. tax)"
+                  label={form.grnId ? `Bill amount (from ${form.grnNumber}; correct it with a debit note)` : "Bill amount (incl. tax)"}
                   name="totalAmount"
                   type="number"
                   value={form.totalAmount ?? ""}
                   onChange={handleChange}
+                  disabled={Boolean(form.grnId)}
                   required
                 />,
                 <FloatingInput
@@ -535,6 +595,36 @@ const PurchaseInvoices: React.FC = () => {
               ],
             },
           ]}
+        />
+
+        <BillFromGrnDialog
+          isOpen={billingFromGrn}
+          vendors={vendors}
+          onClose={() => setBillingFromGrn(false)}
+          onCreated={fetchPurchaseInvoices}
+        />
+
+        <PaginatedPopup
+          isOpen={Boolean(debitFor)}
+          title={`Debit note on ${debitFor?.invoiceNumber ?? "bill"}`}
+          subtitle={`${debitFor?.vendor?.name ?? ""} · reduces what is owed on this bill (returned goods get theirs from Purchase Returns)`}
+          onClose={() => setDebitFor(null)}
+          maxWidthClassName="max-w-lg"
+          content={
+            <form onSubmit={saveDebitNote} className="flex flex-col">
+              <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+                <FloatingInput label="Amount" name="amount" type="number" required value={debitForm.amount}
+                  onChange={(event) => setDebitForm((current) => ({ ...current, amount: event.target.value }))} />
+                <FloatingInput label="Date" name="noteDate" type="date" value={debitForm.noteDate}
+                  onChange={(event) => setDebitForm((current) => ({ ...current, noteDate: event.target.value }))} />
+                <div className="sm:col-span-2">
+                  <FloatingInput label="Reason (price difference, short supply…)" name="reason" required value={debitForm.reason}
+                    onChange={(event) => setDebitForm((current) => ({ ...current, reason: event.target.value }))} />
+                </div>
+              </div>
+              <DialogFooter onCancel={() => setDebitFor(null)} submitLabel="Save debit note" busy={debitBusy} />
+            </form>
+          }
         />
 
         <DynamicPopup

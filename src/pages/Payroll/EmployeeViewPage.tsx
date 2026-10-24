@@ -84,6 +84,9 @@ interface EmployeeData {
     grossSalary: number | null;
     earnings: Record<string, number>;
     additionalBenefits: Record<string, number>;
+    // Yearly targets on top of the fixed CTC (not paid by payroll)
+    variablePayStructure?: Record<string, { targetAmount?: number; frequency?: string; payoutBasis?: string }>;
+    totalTargetVariablePay?: number | null;
     countrySpecificData: {
       uan: string;
       pf_number: string;
@@ -662,6 +665,33 @@ const EmployeeViewPage: React.FC = () => {
                         )}
                       </div>
                     </div>
+
+                    {employee.salary?.variablePayStructure && Object.keys(employee.salary.variablePayStructure).length > 0 && (
+                      <div className="mt-6">
+                        <div className="flex items-center gap-2 mb-1">
+                          <TrendingUp className="w-4 h-4 text-violet-600" />
+                          <h4 className="text-sm font-semibold text-gray-900">Variable Pay</h4>
+                        </div>
+                        <p className="mb-2 text-[11px] text-gray-500">Yearly targets on top of the fixed CTC; not paid through payroll runs.</p>
+                        <div className="space-y-2">
+                          {Object.entries(employee.salary.variablePayStructure).map(([name, v]) => (
+                            <div key={name} className="flex justify-between py-2 border-b border-gray-100">
+                              <span className="text-sm text-gray-600">
+                                {name}
+                                {v?.frequency && <span className="ml-2 text-xs text-gray-400">{v.frequency.replace("_", "-").toLowerCase()}</span>}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">{currencySymbol} {Number(v?.targetAmount ?? 0).toLocaleString()}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between py-2 text-sm font-semibold text-gray-900">
+                            <span>CTC incl. variable</span>
+                            <span>
+                              {currencySymbol} {(Number(employee.salary?.ctc ?? 0) + Number(employee.salary?.totalTargetVariablePay ?? 0)).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

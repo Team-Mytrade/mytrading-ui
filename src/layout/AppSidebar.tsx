@@ -217,6 +217,7 @@ export const navItems: NavItem[] = [
       { name: "Purchase Requisitions", path: "/purchase-service/requisitions", icon: ClipboardList },
       { name: "Purchase Orders", path: "/purchase-service/orders", icon: ShoppingBag },
       { name: "Goods Receipt Notes", path: "/purchase-service/goods-receipt-notes", icon: PackageCheck },
+      { name: "Purchase Returns", path: "/purchase-service/returns", icon: Undo2 },
     ],
   },
 
