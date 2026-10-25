@@ -810,8 +810,9 @@ export function ReusableTable<T extends { id?: number | string }>({
   const hidesActions = !hasRowActions && visibleColumns.some(isActionsColumn);
   // Last column on screen gets room for the full-screen button
   const lastShownColumnKey = visibleColumns.filter((column) => !(hidesActions && isActionsColumn(column))).slice(-1)[0]?.key;
-  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped
-  const tableMinWidth = Math.max(680, (visibleColumns.length - (hidesActions ? 1 : 0)) * 112);
+  // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped.
+  // 90px a column keeps an 11-column list inside a 1366px screen (headers wrap to two lines).
+  const tableMinWidth = Math.max(360, (visibleColumns.length - (hidesActions ? 1 : 0)) * 90);
   const actionsHeaderClass = (column: ColumnDef<T>) =>
     isActionsColumn(column)
       ? `common-data-table__sticky-actions ${/(^|\s)!?w-/.test(column.headerClassName ?? "") ? "" : "w-[132px]"}`
@@ -1033,7 +1034,7 @@ export function ReusableTable<T extends { id?: number | string }>({
         <div
           ref={tableShellRef}
           className={[
-            "common-data-table relative rounded-lg border border-gray-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900",
+            "common-data-table relative rounded-lg border border-[#dcedc8] bg-[#f1f8e9] shadow-[0_2px_4px_rgba(15,23,42,0.06),0_10px_24px_rgba(15,23,42,0.08)] dark:border-gray-800 dark:bg-gray-900",
             hidesActions ? "common-data-table--no-row-actions" : "",
             isTableFullscreen
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -1083,7 +1084,7 @@ export function ReusableTable<T extends { id?: number | string }>({
               className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800"
               style={{ minWidth: tableMinWidth }}
             >
-              <thead className="bg-gray-50 dark:bg-gray-800/70">
+              <thead className="bg-[#e8f3dc] dark:bg-gray-800/70">
                 <tr>
                   {visibleColumns.map((col) => (
                     <th
@@ -1109,7 +1110,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <span
                         className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${align === "center" ? "justify-center w-full" : align === "right" ? "justify-end w-full" : ""}`}
                       >
-                        <span className="truncate" data-table-tooltip={col.label}>
+                        <span className="line-clamp-2 break-words leading-tight" data-table-tooltip={col.label}>
                           {col.label}
                         </span>
                         {col.sortable &&
@@ -1149,7 +1150,7 @@ export function ReusableTable<T extends { id?: number | string }>({
               </thead>
 
               {/* Body */}
-              <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-800 dark:bg-gray-900">
+              <tbody className="bg-[#f1f8e9] divide-y divide-[#dcedc8] dark:divide-gray-800 dark:bg-gray-900">
                 {isLoading
                   ? Array.from({ length: skeletonRowCount }).map((_, i) => (
                       <SkeletonRow key={i} cols={visibleColumns.length - (hidesActions ? 1 : 0)} />
@@ -1159,7 +1160,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                         key={row.id ?? `row-${idx}`}
                         onClick={(event) => handleRowClick(row, event)}
                         className={[
-                          "transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60",
+                          "transition-colors hover:bg-[#e6f1d8] dark:hover:bg-gray-800/60",
                           onRowClick || enableRowDetails
                             ? "cursor-pointer"
                             : "",

@@ -489,22 +489,10 @@ const AttendancePolicyPage: React.FC = () => {
       />
       <PageBreadcrumb pageTitle="Attendance Policy & Assignments" />
 
-      <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200 mt-0.5">
+      <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200">
         
-        {/* Top Header Card */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-2.5 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-600 dark:text-cyan-400 rounded-lg border border-cyan-100/80 dark:!border-transparent shadow-2xs">
-              <UserCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-xs font-bold text-gray-900 dark:text-white tracking-tight">Attendance Policy & Assignments</h2>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">Manage policy thresholds and assign active working policies to employees</p>
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex items-center bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg border border-gray-200/70 dark:!border-transparent text-[11px] font-semibold">
+        {/* Navigation Tabs */}
+        <div className="flex items-center w-fit bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg border border-gray-200/70 dark:!border-transparent text-[11px] font-semibold">
             <button
               type="button"
               onClick={() => setActiveTab('assignments')}
@@ -527,7 +515,6 @@ const AttendancePolicyPage: React.FC = () => {
             >
               <Clock className="w-3 h-3" /> Policy Master
             </button>
-          </div>
         </div>
 
         {/* ── TAB 1: EMPLOYEE POLICY ASSIGNMENTS ────────────────────────── */}

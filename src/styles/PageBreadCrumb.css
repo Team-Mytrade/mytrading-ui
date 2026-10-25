@@ -1,12 +1,14 @@
+/* 48px row: 6px + 36px + 6px. Pages start 6px below it (see .page-breadcrumb + * in index.css) */
 .page-breadcrumb {
-  padding: 10px 16px;
+  padding: 6px 16px;
 }
 .page-breadcrumb__content {
   display: flex;
   min-height: 36px;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 6px 16px;
 }
 .page-breadcrumb__trail-wrap,
 .page-breadcrumb__trail ol,
@@ -17,7 +19,9 @@
   display: flex;
   align-items: center;
 }
+/* The trail keeps its full width; when it and the actions don't fit on one row, the actions wrap below */
 .page-breadcrumb__trail-wrap {
+  flex: 1 1 auto;
   min-width: 0;
   gap: 12px;
 }
@@ -26,6 +30,7 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
 }
 .page-breadcrumb__back {
   display: grid;
@@ -40,19 +45,15 @@
     color 0.16s ease;
 }
 .page-breadcrumb__back:hover {
-  color: #5140e7;
-  background: #f0efff;
+  color: #0097a7;
+  background: #e0f7fa;
 }
 .page-breadcrumb__trail {
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.page-breadcrumb__trail::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 .page-breadcrumb__trail ol {
-  width: max-content;
+  min-width: 0;
   gap: 9px;
   color: #2e3747;
   font-size: 14px;
@@ -60,7 +61,14 @@
 }
 .page-breadcrumb__trail li {
   gap: 9px;
+  flex: 0 0 auto;
 }
+/* Parent folders give way first (ellipsis); the current page name always stays whole */
+.page-breadcrumb__trail li:not(.is-current):not(:first-child) { flex: 0 1 auto; min-width: 0; }
+.page-breadcrumb__link { min-width: 0; }
+.page-breadcrumb__link .page-breadcrumb__label { max-width: 120px; }
+.page-breadcrumb__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-breadcrumb__link svg, .page-breadcrumb__current svg { flex: 0 0 auto; }
 .page-breadcrumb__link {
   gap: 6px;
   color: #4c5565;
@@ -77,21 +85,22 @@
   transition: background 0.16s ease, color 0.16s ease;
 }
 .page-breadcrumb__home svg { color: #64748b; }
-.page-breadcrumb__home:hover { color: #5140e7; background: #f0efff; }
+.page-breadcrumb__home:hover { color: #0097a7; background: #e0f7fa; }
 .page-breadcrumb__home:hover svg { color: currentColor; }
 .page-breadcrumb__link svg {
   color: #8d97a5;
 }
 .page-breadcrumb__link:hover {
-  color: #5140e7;
+  color: #0097a7;
 }
 .page-breadcrumb__current {
   gap: 6px;
-  color: #1f2937;
+  color: #0f172a;
+  font-weight: 700;
   white-space: nowrap;
 }
 .page-breadcrumb__current svg {
-  color: #353f4d;
+  color: #0097a7;
 }
 .page-breadcrumb__separator {
   flex: 0 0 auto;
@@ -122,7 +131,7 @@
     flex-direction: column;
     gap: 8px;
   }
-  .page-breadcrumb__trail-wrap { min-width: 0; }
+  .page-breadcrumb__trail-wrap { flex: 0 0 auto; min-width: 0; }
   .page-breadcrumb__actions { width: 100%; }
   .page-breadcrumb__actions > button { width: 100%; justify-content: center; }
   .page-breadcrumb__trail ol {

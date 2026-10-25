@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ImageUp, Trash2 } from "lucide-react";
+import { Building2, Image, ImageUp, MapPin, Phone, Save, SlidersHorizontal, Trash2 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -9,7 +9,8 @@ import {
   INDIAN_STATES, findIndianState, validateEmail, validateGstin, validatePan, validatePhone, validatePinCode,
   validatePinState, validateWebsite,
 } from "../../utils/indiaValidators";
-import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
+import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
+import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
 
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
@@ -17,6 +18,16 @@ const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-30
 const ERROR = "mt-1 text-[11px] text-red-600";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+/** Section heading with the cyan icon chip used on the profile page. */
+const sectionTitle = (Icon: React.ComponentType<{ className?: string }>, text: string) => (
+  <h3 className={`${CARD_TITLE} mb-3 flex items-center gap-2`}>
+    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#e0f7fa] text-[#0097a7] dark:bg-cyan-950/40 dark:text-cyan-300">
+      <Icon className="h-4 w-4" />
+    </span>
+    {text}
+  </h3>
+);
 
 type Form = Omit<CompanyProfile, "tenantId" | "hasLogo" | "updatedDate" | "editable">;
 
@@ -138,13 +149,26 @@ export default function CompanySettingsPage() {
   return (
     <>
       <PageMeta title="Company Settings" description="Company details used on documents" />
-      <PageBreadcrumb pageTitle="Company Settings" />
+      <PageBreadcrumb
+        pageTitle="Company Settings"
+        actions={editable && form ? (
+          <div className="flex items-center gap-2">
+            <button type="button" className={TOOL_BUTTON} disabled={!dirty} onClick={() => { setForm(toForm(company!)); setErrors({}); }}>
+              Discard changes
+            </button>
+            <button type="submit" form="company-settings-form" className={`${TOOL_BUTTON} ${ADD_BUTTON_COLORS}`} disabled={saving || !dirty}>
+              <Save className="h-3.5 w-3.5" />
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        ) : undefined}
+      />
 
       <div className={PAGE_BODY}>
         {loading || !form ? (
           <div className={`${CARD} p-6 text-sm text-slate-400`}>{loading ? "Loading..." : "The company details could not be loaded."}</div>
         ) : (
-          <form onSubmit={save} className="space-y-4">
+          <form id="company-settings-form" onSubmit={save} className="space-y-4">
             {!editable && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 Only a Tenant Administrator can change these details.
@@ -153,8 +177,8 @@ export default function CompanySettingsPage() {
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
               <div className="space-y-4">
-                <section className={`${CARD} p-5`}>
-                  <h3 className={`${CARD_TITLE} mb-4`}>Company</h3>
+                <section className={`${CARD} p-4`}>
+                  {sectionTitle(Building2, "Company")}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {field("companyName", "Company name *", { maxLength: 255 })}
                     {field("legalName", "Registered (legal) name", { maxLength: 200, placeholder: "As on the GST certificate" })}
@@ -163,11 +187,11 @@ export default function CompanySettingsPage() {
                   </div>
                 </section>
 
-                <section className={`${CARD} p-5`}>
-                  <h3 className={`${CARD_TITLE} mb-4`}>Registered address</h3>
+                <section className={`${CARD} p-4`}>
+                  {sectionTitle(MapPin, "Registered address")}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div className="md:col-span-2">{field("addressLine1", "Address line 1", { maxLength: 200 })}</div>
-                    <div className="md:col-span-2">{field("addressLine2", "Address line 2", { maxLength: 200 })}</div>
+                    {field("addressLine1", "Address line 1", { maxLength: 200 })}
+                    {field("addressLine2", "Address line 2", { maxLength: 200 })}
                     {field("city", "City", { maxLength: 100 })}
                     <div>
                       <label className={LABEL} htmlFor="company-state">State</label>
@@ -188,8 +212,8 @@ export default function CompanySettingsPage() {
                   </div>
                 </section>
 
-                <section className={`${CARD} p-5`}>
-                  <h3 className={`${CARD_TITLE} mb-4`}>Contact</h3>
+                <section className={`${CARD} p-4`}>
+                  {sectionTitle(Phone, "Contact")}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     {field("phone", "Phone", { maxLength: 30 })}
                     {field("email", "Email", { maxLength: 150, type: "email" })}
@@ -199,9 +223,9 @@ export default function CompanySettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <section className={`${CARD} p-5`}>
-                  <h3 className={`${CARD_TITLE} mb-4`}>Logo</h3>
-                  <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-gray-700 dark:bg-[#222222]">
+                <section className={`${CARD} p-4`}>
+                  {sectionTitle(Image, "Logo")}
+                  <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-gray-700 dark:bg-[#222222]">
                     {logo ? (
                       <img src={logo.dataUrl} alt="Company logo" className="max-h-24 max-w-[90%] object-contain" />
                     ) : (
@@ -225,8 +249,8 @@ export default function CompanySettingsPage() {
                   )}
                 </section>
 
-                <section className={`${CARD} p-5`}>
-                  <h3 className={`${CARD_TITLE} mb-4`}>Preferences</h3>
+                <section className={`${CARD} p-4`}>
+                  {sectionTitle(SlidersHorizontal, "Preferences")}
                   <div className="space-y-3">
                     <div>
                       <label className={LABEL} htmlFor="company-fy">Financial year starts in</label>
@@ -241,16 +265,8 @@ export default function CompanySettingsPage() {
               </div>
             </div>
 
-            {editable && (
-              <div className="flex items-center justify-end gap-2">
-                {company?.updatedDate && (
-                  <span className="mr-auto text-[11px] text-slate-400">Last changed {new Date(company.updatedDate).toLocaleString("en-IN")}</span>
-                )}
-                <button type="button" className={SECONDARY_BUTTON} disabled={!dirty} onClick={() => { setForm(toForm(company!)); setErrors({}); }}>
-                  Discard changes
-                </button>
-                <button type="submit" className={PRIMARY_BUTTON} disabled={saving || !dirty}>{saving ? "Saving..." : "Save"}</button>
-              </div>
+            {company?.updatedDate && (
+              <p className="text-right text-[11px] text-slate-400">Last changed {new Date(company.updatedDate).toLocaleString("en-IN")}</p>
             )}
           </form>
         )}

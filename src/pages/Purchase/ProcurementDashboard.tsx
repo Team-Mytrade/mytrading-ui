@@ -172,7 +172,7 @@ const ProcurementDashboard: React.FC = () => {
       <PageMeta title="Procurement Dashboard" description="Procurement and purchasing overview" />
       <PageBreadcrumb pageTitle="Procurement Dashboard" />
 
-      <div className="mx-auto max-w-7xl p-6">
+      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
         <LoadNotice failed={failed} />
         <ModuleTiles tiles={tiles} loading={loading} />
 

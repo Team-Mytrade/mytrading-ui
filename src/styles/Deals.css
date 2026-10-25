@@ -1,13 +1,13 @@
 .crm-report-breadcrumb {
-  background: #e7e9ee;
+  background: #eaf8fa;
 }
 .crm-report-page {
   box-sizing: border-box;
-  height: calc(100vh - 112px);
+  height: calc(100cqh - 48px);
   min-height: 0;
   overflow: hidden;
   padding: 12px 12px 20px !important;
-  background: #e7e9ee;
+  background: #eaf8fa;
 }
 .dark .crm-report-page {
   background: #1f1f1f;
@@ -34,7 +34,7 @@
 @media (max-width: 700px) {
   .crm-report-page {
     height: auto;
-    min-height: calc(100vh - 112px);
+    min-height: calc(100cqh - 48px);
     overflow: visible;
     padding-top: 18px !important;
   }

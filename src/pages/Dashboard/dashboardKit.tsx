@@ -150,42 +150,62 @@ export const mostCommon = (values: (string | null | undefined)[], fallback: stri
 
 /* ================= components ================= */
 
+/*
+ * One card style for every dashboard (the app's cyan theme): white cards with a thin cyan-grey border and a
+ * soft shadow, sitting on the pale cyan page. Colour carries meaning only: the cyan accent for navigation and
+ * neutral figures, red / amber / green for bad / warning / good.
+ */
+// Cards are soft light green (#F1F8E9) with a light-green edge and a deeper two-layer shadow, raised from the
+// pale cyan page (same as tables and stat cards, see Table.tsx and Statscard.css)
+export const DASH_CARD =
+  "rounded-xl border border-[#dcedc8] bg-[#f1f8e9] shadow-[0_2px_4px_rgba(15,23,42,0.06),0_10px_24px_rgba(15,23,42,0.08)] dark:border-gray-800 dark:bg-gray-900";
+/** Hover for clickable cards: lift, cyan edge, deeper shadow. */
+export const DASH_CARD_HOVER =
+  "transition-all duration-200 hover:-translate-y-0.5 hover:border-[#4dd0e1] hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_12px_24px_rgba(15,23,42,0.10)]";
+/** Card heading and its small subtitle. */
+export const DASH_TITLE = "text-sm font-semibold text-slate-800 dark:text-white";
+export const DASH_SUBTITLE = "text-xs text-slate-500 dark:text-gray-400";
+
 export type Tone = "blue" | "emerald" | "orange" | "purple" | "pink" | "indigo" | "red" | "teal" | "amber" | "cyan";
 
-const tileTone: Record<Tone, string> = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
-  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
-  red: "bg-red-50 text-red-600 group-hover:bg-red-100",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100",
-  amber: "bg-amber-50 text-amber-600 group-hover:bg-amber-100",
-  cyan: "bg-cyan-50 text-cyan-600 group-hover:bg-cyan-100",
+/*
+ * Module summary cards (tiles, KPI and report cards) all follow the queue cards on the Manager Leave
+ * Dashboard: a soft tinted card with a matching border, a tinted icon chip, a solid count pill and a
+ * coloured "Open …" link, one tone per card. Full class names: Tailwind only generates what it sees.
+ */
+export const TONE_STYLES: Record<Tone, { card: string; icon: string; badge: string; link: string }> = {
+  emerald: { card: "bg-emerald-50/50 hover:bg-emerald-50 border-emerald-200/80", icon: "bg-emerald-100 text-emerald-700", badge: "bg-emerald-600", link: "text-emerald-700" },
+  amber: { card: "bg-amber-50/50 hover:bg-amber-50 border-amber-200/80", icon: "bg-amber-100 text-amber-700", badge: "bg-amber-500", link: "text-amber-700" },
+  orange: { card: "bg-orange-50/50 hover:bg-orange-50 border-orange-200/80", icon: "bg-orange-100 text-orange-700", badge: "bg-orange-500", link: "text-orange-700" },
+  cyan: { card: "bg-cyan-50/50 hover:bg-cyan-50 border-cyan-200/80", icon: "bg-cyan-100 text-cyan-700", badge: "bg-cyan-600", link: "text-cyan-700" },
+  teal: { card: "bg-teal-50/50 hover:bg-teal-50 border-teal-200/80", icon: "bg-teal-100 text-teal-700", badge: "bg-teal-600", link: "text-teal-700" },
+  blue: { card: "bg-sky-50/50 hover:bg-sky-50 border-sky-200/80", icon: "bg-sky-100 text-sky-700", badge: "bg-sky-600", link: "text-sky-700" },
+  indigo: { card: "bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200/80", icon: "bg-indigo-100 text-indigo-700", badge: "bg-indigo-500", link: "text-indigo-700" },
+  purple: { card: "bg-violet-50/50 hover:bg-violet-50 border-violet-200/80", icon: "bg-violet-100 text-violet-700", badge: "bg-violet-500", link: "text-violet-700" },
+  pink: { card: "bg-pink-50/50 hover:bg-pink-50 border-pink-200/80", icon: "bg-pink-100 text-pink-700", badge: "bg-pink-500", link: "text-pink-700" },
+  red: { card: "bg-rose-50/50 hover:bg-rose-50 border-rose-200/80", icon: "bg-rose-100 text-rose-700", badge: "bg-rose-500", link: "text-rose-700" },
 };
 
-const kpiTone: Record<Tone, string> = {
-  blue: "bg-blue-100 text-blue-600",
-  emerald: "bg-emerald-100 text-emerald-600",
-  orange: "bg-orange-100 text-orange-600",
-  purple: "bg-purple-100 text-purple-600",
-  pink: "bg-pink-100 text-pink-600",
-  indigo: "bg-indigo-100 text-indigo-600",
-  red: "bg-red-100 text-red-600",
-  teal: "bg-teal-100 text-teal-600",
-  amber: "bg-amber-100 text-amber-600",
-  cyan: "bg-cyan-100 text-cyan-600",
-};
+/** The tinted card shell for a tone (add padding and layout). */
+export const toneCard = (tone: Tone) =>
+  `rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.06),0_6px_14px_rgba(15,23,42,0.08)] transition-all hover:shadow-[0_2px_4px_rgba(15,23,42,0.07),0_12px_24px_rgba(15,23,42,0.10)] ${TONE_STYLES[tone].card} dark:border-transparent dark:bg-[#222222] dark:hover:bg-[#262626]`;
+/** Icon chip, solid pill and link colours for a tone. */
+export const toneIcon = (tone: Tone) => `${TONE_STYLES[tone].icon} dark:bg-[#191919] dark:text-gray-300`;
+export const tonePill = (tone: Tone) => `${TONE_STYLES[tone].badge} text-white shadow-2xs dark:bg-transparent dark:text-gray-300`;
+export const toneLink = (tone: Tone) => `${TONE_STYLES[tone].link} dark:text-gray-300`;
 
-/** Bar colours for charts, in order. */
-export const CHART_COLORS = ["#06b6d4", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#6366f1"];
+/** Tones in turn, for cards that have no meaning-based colour. */
+export const TONE_CYCLE: Tone[] = ["emerald", "amber", "cyan", "indigo", "pink", "teal", "purple", "orange"];
+
+/** Bar colours for charts, in order: the theme's cyans first, then distinct colours for further series. */
+export const CHART_COLORS = ["#0097a7", "#4dd0e1", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899"];
 
 export const CHART_TOOLTIP = {
   backgroundColor: "white",
-  border: "1px solid #e5e7eb",
+  border: "1px solid #d9eef2",
   borderRadius: "8px",
   fontSize: "12px",
+  boxShadow: "0 6px 16px rgba(0, 151, 167, 0.12)",
 };
 
 export interface DashboardTile {
@@ -199,7 +219,8 @@ export interface DashboardTile {
 export function ModuleTiles({ tiles, loading }: { tiles: DashboardTile[]; loading: boolean }) {
   const navigate = useNavigate();
   return (
-    <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
+    // mb-5, not mb-6: index.css squeezes .mb-6 to 3px inside .app-content-tight
+    <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
       {tiles.map((tile) => {
         const Icon = tile.icon;
         return (
@@ -207,16 +228,18 @@ export function ModuleTiles({ tiles, loading }: { tiles: DashboardTile[]; loadin
             key={tile.name}
             type="button"
             onClick={() => navigate(tile.route)}
-            className="group flex flex-col items-center rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+            className={`group flex flex-col items-center p-3.5 hover:-translate-y-0.5 ${toneCard(tile.tone)}`}
           >
-            <div className={`rounded-lg p-2.5 transition-colors duration-200 ${tileTone[tile.tone]}`}>
+            <div className={`rounded-lg p-2 ${toneIcon(tile.tone)}`}>
               <Icon className="h-5 w-5" />
             </div>
-            <h4 className="mt-2 text-center text-xs font-semibold text-gray-900 transition-colors group-hover:text-cyan-600 dark:text-gray-100">
+            <h4 className="mt-2 text-center text-xs font-bold text-gray-900 dark:text-white">
               {tile.name}
             </h4>
             {tile.count !== undefined && (
-              <p className="mt-0.5 text-xs text-gray-500">{loading ? "…" : tile.count === null ? "—" : formatNumber(tile.count)}</p>
+              <span className={`mt-1.5 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tonePill(tile.tone)}`}>
+                {loading ? "…" : tile.count === null ? "—" : formatNumber(tile.count)}
+              </span>
             )}
           </button>
         );
@@ -234,18 +257,21 @@ export function KpiCard({ label, value, hint, icon: Icon, tone, loading }: {
   loading: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-5 transition-all duration-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
-      <div className={`mb-3 inline-flex rounded-lg p-2.5 ${kpiTone[tone]}`}>
-        <Icon className="h-5 w-5" />
+    <div className={`flex flex-col justify-between space-y-2 p-3.5 ${toneCard(tone)}`}>
+      <div className="flex items-center gap-2">
+        <div className={`flex-none rounded-lg p-1.5 ${toneIcon(tone)}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <span className="text-xs font-bold text-gray-900 dark:text-white">{label}</span>
       </div>
-      <p className="text-2xl font-bold text-gray-900 dark:text-white">{loading ? "…" : value}</p>
-      <p className="mt-1 text-sm text-gray-500">{label}</p>
-      {hint && !loading && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      <p className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{loading ? "…" : value}</p>
+      {hint && !loading && <p className="text-[11px] text-gray-600 dark:text-gray-400">{hint}</p>}
     </div>
   );
 }
 
-export function Panel({ title, subtitle, icon: Icon, iconClass, children, bodyClass = "p-5" }: {
+// iconClass is accepted for older callers but ignored: panel icons all use the theme accent
+export function Panel({ title, subtitle, icon: Icon, children, bodyClass = "p-5" }: {
   title: string;
   subtitle?: string;
   icon?: LucideIcon;
@@ -254,13 +280,13 @@ export function Panel({ title, subtitle, icon: Icon, iconClass, children, bodyCl
   bodyClass?: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+    <section className={`overflow-hidden ${DASH_CARD}`}>
+      <div className="flex items-center justify-between border-b border-[#dcedc8] px-5 py-3.5 dark:border-gray-800">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
+          <h3 className={DASH_TITLE}>{title}</h3>
+          {subtitle && <p className={`mt-0.5 ${DASH_SUBTITLE}`}>{subtitle}</p>}
         </div>
-        {Icon && <Icon className={`h-5 w-5 ${iconClass ?? "text-gray-400"}`} />}
+        {Icon && <Icon className="h-[18px] w-[18px] text-[#0097a7] dark:text-cyan-300" />}
       </div>
       <div className={bodyClass}>{children}</div>
     </section>
@@ -287,5 +313,5 @@ export function LoadNotice({ failed }: { failed: string[] }) {
 }
 
 // One line per cell: the tables scroll sideways on narrow screens instead of wrapping dates into stacks
-export const TABLE_HEAD = "whitespace-nowrap px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500";
-export const TABLE_CELL = "whitespace-nowrap px-5 py-3 text-sm text-gray-600 dark:text-gray-300";
+export const TABLE_HEAD = "whitespace-nowrap bg-[#f4fcfd] px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:bg-transparent";
+export const TABLE_CELL = "whitespace-nowrap px-5 py-3 text-sm text-slate-600 dark:text-gray-300";

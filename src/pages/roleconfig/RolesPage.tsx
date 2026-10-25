@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock, Pencil, Trash2 } from "lucide-react";
+import { Lock, Pencil, ShieldCheck, ShieldOff, SlidersHorizontal, Trash2 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -134,14 +134,15 @@ export default function RolesPage() {
 
       <div className={PAGE_BODY}>
         <div className={STATS_ROW}>
-          <StatsCard label="Roles" value={stats.total} loading={loading} />
-          <StatsCard label="System roles" value={stats.system} loading={loading} />
-          <StatsCard label="Custom roles" value={stats.custom} loading={loading} />
-          <StatsCard label="Not assigned" value={stats.unused} loading={loading} />
+          <StatsCard label="Roles" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ShieldCheck />} loading={loading} />
+          <StatsCard label="System roles" value={stats.system} gradient="from-purple-50 to-indigo-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<Lock />} loading={loading} />
+          <StatsCard label="Custom roles" value={stats.custom} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<SlidersHorizontal />} loading={loading} />
+          <StatsCard label="Not assigned" value={stats.unused} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ShieldOff />} loading={loading} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-          <div className={`${CARD} p-2`}>
+          {/* The role list scrolls on its own so the page fits the screen (breadcrumb + stat row ≈ 108px) */}
+          <div className={`${CARD} p-2 lg:max-h-[calc(100cqh-108px)] lg:overflow-y-auto`}>
             {roles.length === 0 && !loading && <p className="p-3 text-xs text-slate-400">No roles yet.</p>}
             {roles.map((r) => (
               <button

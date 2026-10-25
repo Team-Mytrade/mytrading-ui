@@ -1,3 +1,4 @@
+import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -400,7 +401,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                         {/* Add Button */}
                         {canCreate && (<button
                             onClick={() => setShowForm(true)}
-                            className="px-4 !mb-0 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2"
+                            className={`px-4 !mb-0 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${ADD_BUTTON_COLORS}`}
                         >
                             <PlusIcon className="h-5 w-5" />
                             <span className="hidden sm:inline">Add Deduction</span>

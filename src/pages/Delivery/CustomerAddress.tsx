@@ -707,32 +707,14 @@ const stats = getStats();
         title={customerId ? `Addresses - ${customer?.customerName || 'Customer'}` : "Customer Addresses"}
         description={customerId ? `Manage addresses for ${customer?.customerName || 'customer'}` : "Delivery and billing addresses of all customers"}
       />
-      <PageBreadcrumb pageTitle="Customer Addresses" />
+      {/* Standard page header: title (the customer's when opened for one), back and Add in the breadcrumb row */}
+      <PageBreadcrumb
+        pageTitle={customerId ? `${customer?.customerName || "Customer"} Addresses` : "Customer Addresses"}
+        onBack={handleBack}
+        actions={<AddButton onClick={handleAddAddress} label="Add Address" />}
+      />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-
-        {/* HEADER with Back button */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleBack}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              title="Go Back"
-            >
-              <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
-            </button>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <MapPinIcon className="h-6 w-6 text-cyan-600" />
-                {customerId ? `${customer?.customerName || 'Customer'} Addresses` : "Customer Addresses"}
-              </h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {addresses.length} address{addresses.length !== 1 ? 'es' : ''} on record
-              </p>
-            </div>
-          </div>
-          <AddButton onClick={handleAddAddress} label="Add Address" />
-        </div>
 
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-5 gap-4">

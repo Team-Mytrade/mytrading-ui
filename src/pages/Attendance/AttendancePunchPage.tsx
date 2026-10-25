@@ -2,11 +2,12 @@ import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { 
-  LogIn, LogOut, Monitor, 
+  LogIn, LogOut, 
   Clock, ChevronDown, Layers, CheckCircle, 
   RefreshCw, Loader2
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
@@ -380,52 +381,29 @@ const AttendancePunchPage: React.FC = () => {
   return (
     <>
       <PageMeta title="Attendance Punch Station" description="Record employee check-in and check-out attendance punches" />
-      <PageBreadcrumb pageTitle="Attendance Punch Station" />
-
-      <div className="max-w-7xl mx-auto pb-8 space-y-4 animate-in fade-in duration-200">
-        
-        {/* ── 1. TOP HEADER: ATTENDANCE PUNCH STATION BANNER ──────────────── */}
-        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-[#303030] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] flex items-center justify-center text-slate-700 dark:text-gray-200 shadow-2xs shrink-0">
-              <Monitor className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                  {selectedEmployee?.name || currentUser.name}
-                </h1>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-600 dark:text-gray-300">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  Station Online
-                </span>
-              </div>
-              <p className="text-slate-500 dark:text-gray-400 text-xs mt-1 flex items-center gap-2 flex-wrap">
-                <span>Web & Kiosk Terminal</span>
-                <span className="text-slate-300 dark:text-gray-600">•</span>
-                <span className="font-mono text-[11px] text-slate-600 dark:text-gray-300">Device #{formData.deviceId} ({formData.deviceName})</span>
-                <span className="hidden sm:inline text-slate-300 dark:text-gray-600">•</span>
-                <span className="hidden sm:inline text-slate-500 dark:text-gray-400 text-[11px]">Location: {formData.location}</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Live Digital Clock Card */}
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-            <div className="bg-slate-50/80 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] rounded-xl px-4 py-2 text-right">
-              <div className="text-[11px] font-medium text-slate-500 dark:text-gray-400 tracking-normal flex items-center justify-end gap-1.5">
-                <Clock className="w-3 h-3 text-slate-400 dark:text-gray-500" />
-                <span>{currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
-              </div>
-              <div className="text-base sm:text-lg font-mono font-bold text-slate-900 dark:text-white tracking-tight">
+      <PageBreadcrumb
+        pageTitle="Attendance Punch Station"
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-gray-300" title={`Location: ${formData.location}`}>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              Online · <span className="font-mono max-w-[120px] truncate" title={`Device #${formData.deviceId} (${formData.deviceName})`}>Device #{formData.deviceId}</span>
+            </span>
+            <span className={TOOL_BUTTON}>
+              <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <span className="hidden sm:inline">{currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              <span className="font-mono font-bold text-slate-900 dark:text-white">
                 {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
-              </div>
-            </div>
+              </span>
+            </span>
           </div>
-        </div>
+        }
+      />
+
+      <div className="max-w-7xl mx-auto pb-2 space-y-3 animate-in fade-in duration-200">
 
         {/* ── 2. PUNCH CARD: MINIMAL MODE SELECTOR & PUNCH ACTION ─────────── */}
         <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-[#303030] p-4 sm:p-5 space-y-4">
@@ -680,6 +658,7 @@ const AttendancePunchPage: React.FC = () => {
             pageSize={10}
             defaultSortKey="id"
             defaultSortOrder="desc"
+            emptyState={<p className="py-6 text-center text-xs text-slate-400 dark:text-gray-500">No punches recorded yet.</p>}
           />
 
         </div>

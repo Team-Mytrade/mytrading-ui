@@ -67,8 +67,8 @@ const generateInitialsImage = (firstName: string, lastName: string, size: number
     if (!ctx) return "";
 
     const gradient = ctx.createLinearGradient(0, 0, size, size);
-    gradient.addColorStop(0, '#0EA5E9');
-    gradient.addColorStop(1, '#3B82F6');
+    gradient.addColorStop(0, '#26C6DA');
+    gradient.addColorStop(1, '#0097A7');
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -441,12 +441,12 @@ export default function UserMetaCard() {
 
     if (loading) {
         return (
-            <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-6 sm:px-6 sm:py-8">
-                    <div className="flex flex-col items-center">
-                        <div className="w-24 h-24 rounded-full bg-white/20 animate-pulse"></div>
-                        <div className="mt-4 h-6 w-32 bg-white/20 rounded animate-pulse"></div>
-                        <div className="mt-2 h-4 w-48 bg-white/20 rounded animate-pulse"></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-4">
+                    <div className="h-20 w-20 rounded-full bg-slate-100 animate-pulse"></div>
+                    <div className="space-y-2">
+                        <div className="h-5 w-40 rounded bg-slate-100 animate-pulse"></div>
+                        <div className="h-4 w-56 rounded bg-slate-100 animate-pulse"></div>
                     </div>
                 </div>
             </div>
@@ -454,114 +454,108 @@ export default function UserMetaCard() {
     }
 
     const fullName = getFullName(userData?.firstName || "", userData?.lastName || "");
+    const hasSocial = Boolean(socialMediaForm.linkedinUrl || socialMediaForm.twitterUrl || socialMediaForm.facebookUrl);
+    const socialLink = "grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-[#26c6da] hover:bg-[#e0f7fa] hover:text-[#0097a7]";
 
     return (
         <>
-            <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-                {/* Cover Image / Header Gradient */}
-                <div className="relative bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 px-4 py-8 sm:bg-gradient-to-r sm:px-6 sm:py-8">
-                    <div className="flex flex-col items-center">
-                        {/* Avatar */}
-                        <div className="relative group">
-                            <div 
-                                className="h-36 w-36 cursor-pointer overflow-hidden rounded-full ring-4 ring-white shadow-lg transition-transform group-hover:scale-105 sm:h-24 sm:w-24"
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Avatar and identity */}
+                    <div className="flex items-center gap-4 min-w-0">
+                        <div className="relative shrink-0">
+                            <div
+                                className="h-20 w-20 cursor-pointer overflow-hidden rounded-full ring-2 ring-[#4dd0e1] ring-offset-2 transition-transform hover:scale-105"
                                 onClick={() => setIsImagePopupOpen(true)}
+                                title="View photo"
                             >
-                                <img 
-                                    src={profileImage} 
-                                    alt={fullName}
-                                    className="object-cover w-full h-full"
-                                />
+                                <img src={profileImage || generateInitialsImage(userData?.firstName || "", userData?.lastName || "")} alt={fullName} className="h-full w-full object-cover" />
                                 {isUploading && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+                                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                                     </div>
                                 )}
                             </div>
-                            
-                            <label className="absolute bottom-0 right-0 rounded-full bg-white p-2 shadow-md transition-colors hover:bg-gray-50 cursor-pointer sm:p-1.5">
-                                <CameraIcon className="h-5 w-5 text-gray-600 sm:h-4 sm:w-4" />
+                            <label className="absolute -bottom-0.5 -right-0.5 cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 shadow-sm transition-colors hover:bg-[#e0f7fa]" title="Change photo">
+                                <CameraIcon className="h-4 w-4 text-[#0097a7]" />
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageSelection} disabled={isUploading} />
                             </label>
                         </div>
-
-                        {/* User Info */}
-                        <h2 className="mt-5 text-center text-2xl font-semibold text-white sm:mt-4 sm:text-xl">{fullName}</h2>
-                        <div className="mt-2 flex items-center gap-2 sm:mt-1">
-                            <BriefcaseIcon className="h-5 w-5 text-white/80 sm:h-4 sm:w-4" />
-                            <p className="text-base text-white/90 sm:text-sm">{getMainRole()}</p>
+                        <div className="min-w-0">
+                            <h2 className="truncate text-lg font-bold text-slate-900">{fullName}</h2>
+                            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
+                                <BriefcaseIcon className="h-4 w-4 text-[#0097a7]" />
+                                {getMainRole()}
+                            </p>
+                            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-500">
+                                <EnvelopeIcon className="h-4 w-4 shrink-0 text-[#0097a7]" />
+                                <span className="truncate">{userData?.email || "No email on file"}</span>
+                            </p>
+                            <button
+                                onClick={handleResetToDefault}
+                                className="mt-2 text-xs font-medium text-[#0097a7] hover:text-[#006f7a] disabled:opacity-50"
+                                disabled={isUploading}
+                            >
+                                Use initials as photo
+                            </button>
                         </div>
-                        <div className="mt-2 flex items-center gap-2 sm:mt-1">
-                            <EnvelopeIcon className="h-5 w-5 shrink-0 text-white/80 sm:h-4 sm:w-4" />
-                            <p className="break-all text-center text-base text-white/80 sm:text-sm">{userData?.email || "email@example.com"}</p>
-                        </div>
-                        
-                        {/* Reset to initials button */}
-                        <button
-                            onClick={handleResetToDefault}
-                            className="mt-5 rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white/90 transition-all hover:bg-white/30 sm:mt-3 sm:px-3 sm:py-1 sm:text-xs"
-                            disabled={isUploading}
-                        >
-                            Use Initials
-                        </button>
                     </div>
-                </div>
 
-                {/* Stats Section */}
-                <div className="border-t border-gray-100 bg-white px-4 py-5 sm:px-6 sm:py-4">
-                    <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                        <div className="py-3 text-center sm:py-0">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider">User ID</p>
-                            <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{userData?.userId?.slice(0, 12)}</p>
+                    {/* Account facts */}
+                    <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50/60 lg:min-w-[420px]">
+                        <div className="px-4 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">User ID</p>
+                            <p className="mt-0.5 truncate font-mono text-sm font-semibold text-slate-900" title={userData?.userId}>{userData?.userId?.slice(0, 12) || "—"}</p>
                         </div>
-                        <div className="py-3 text-center sm:py-0">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider">Tenant</p>
-                            <p className="text-sm font-semibold text-gray-900 mt-1">{userData?.tenantId || "N/A"}</p>
+                        <div className="px-4 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Company</p>
+                            <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">{userData?.tenantId || "—"}</p>
                         </div>
-                        <div className="py-3 text-center sm:py-0">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider">Status</p>
-                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        <div className="px-4 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</p>
+                            <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                                userData?.active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"
+                            }`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${userData?.active ? "bg-emerald-500" : "bg-rose-500"}`} />
                                 {userData?.active ? "Active" : "Inactive"}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Social Links Section */}
-                <div className="border-t border-gray-100 px-4 py-4 sm:px-6">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-medium text-gray-700">Social Links</h3>
-                        <button onClick={openModal} className="text-xs text-cyan-600 hover:text-cyan-700 flex items-center gap-1">
-                            <PencilSquareIcon className="h-3 w-3" />
-                            Edit
-                        </button>
+                {/* Social links */}
+                <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Social links</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {socialMediaForm.linkedinUrl && (
+                                <a href={socialMediaForm.linkedinUrl} target="_blank" rel="noopener" className={socialLink} title="LinkedIn">
+                                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                    </svg>
+                                </a>
+                            )}
+                            {socialMediaForm.twitterUrl && (
+                                <a href={socialMediaForm.twitterUrl} target="_blank" rel="noopener" className={socialLink} title="Twitter / X">
+                                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 0021.957-12.273c.002-.273.002-.545 0-.818z"/>
+                                    </svg>
+                                </a>
+                            )}
+                            {socialMediaForm.facebookUrl && (
+                                <a href={socialMediaForm.facebookUrl} target="_blank" rel="noopener" className={socialLink} title="Facebook">
+                                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                    </svg>
+                                </a>
+                            )}
+                            {!hasSocial && <p className="text-xs text-slate-400">None added</p>}
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                        {socialMediaForm.linkedinUrl && (
-                            <a href={socialMediaForm.linkedinUrl} target="_blank" rel="noopener" className="p-2 bg-gray-100 rounded-full hover:bg-cyan-100 transition-colors">
-                                <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                                </svg>
-                            </a>
-                        )}
-                        {socialMediaForm.twitterUrl && (
-                            <a href={socialMediaForm.twitterUrl} target="_blank" rel="noopener" className="p-2 bg-gray-100 rounded-full hover:bg-cyan-100 transition-colors">
-                                <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 0021.957-12.273c.002-.273.002-.545 0-.818z"/>
-                                </svg>
-                            </a>
-                        )}
-                        {socialMediaForm.facebookUrl && (
-                            <a href={socialMediaForm.facebookUrl} target="_blank" rel="noopener" className="p-2 bg-gray-100 rounded-full hover:bg-cyan-100 transition-colors">
-                                <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                                </svg>
-                            </a>
-                        )}
-                        {!socialMediaForm.linkedinUrl && !socialMediaForm.twitterUrl && !socialMediaForm.facebookUrl && (
-                            <p className="text-xs text-gray-400">No social links added</p>
-                        )}
-                    </div>
+                    <button onClick={openModal} className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50">
+                        <PencilSquareIcon className="h-3.5 w-3.5 text-[#0097a7]" />
+                        Edit links
+                    </button>
                 </div>
             </div>
 

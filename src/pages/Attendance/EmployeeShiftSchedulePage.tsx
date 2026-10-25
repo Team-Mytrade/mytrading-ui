@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   UserCheck, Calendar, Users, Edit2, Clock, 
-  RotateCw, Plus, X, Search, CheckCircle2 
+  RotateCw, X, Search, CheckCircle2 
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { AddButton } from '../../components/common/AddButton';
+import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
@@ -336,40 +338,20 @@ const EmployeeShiftSchedulePage: React.FC = () => {
   return (
     <>
       <PageMeta title="Employee Shift Schedule" description="Assign and manage work shifts for employees" />
-      <PageBreadcrumb pageTitle="Employee Shift Schedule" />
-
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
-        
-        {/* Header Bar */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-xl border border-cyan-200 dark:border-transparent">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Employee Shift Roster & Schedule</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Assign work shifts and date ranges to individual employees</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            {canCreate && (<button
-              type="button"
-              onClick={openCreateModal}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Assign Shift
-            </button>)}
-            <button
-              type="button"
-              onClick={() => loadEmployeeSchedules(selectedEmployeeId)}
-              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-xl transition-all cursor-pointer shadow-2xs"
-              title="Refresh Roster"
-            >
+      <PageBreadcrumb
+        pageTitle="Employee Shift Schedule"
+        actions={
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => loadEmployeeSchedules(selectedEmployeeId)} className={TOOL_BUTTON} title="Refresh Roster">
               <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
+              Refresh
             </button>
+            {canCreate && <AddButton onClick={openCreateModal} label="Assign Shift" />}
           </div>
-        </div>
+        }
+      />
+
+      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 space-y-4">
 
         {/* Employee Selector Bar & Active Shift Status Card */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">

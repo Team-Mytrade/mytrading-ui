@@ -126,7 +126,7 @@ export default function InventoryDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
       <LoadNotice failed={failed} />
       <ModuleTiles tiles={tiles} loading={loading} />
 

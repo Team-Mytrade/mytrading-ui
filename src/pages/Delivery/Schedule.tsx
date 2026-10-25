@@ -431,7 +431,7 @@ const SchedulePage: React.FC = () => {
           </div>
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <button
+            <button title="Filters" aria-label="Filters"
               onClick={() => setShowFilters(!showFilters)}
               className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
                 }`}

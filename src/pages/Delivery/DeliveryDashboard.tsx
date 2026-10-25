@@ -151,7 +151,7 @@ const DeliveryDashboard: React.FC = () => {
       <PageMeta title="Delivery Dashboard" description="Delivery and distribution overview" />
       <PageBreadcrumb pageTitle="Delivery Dashboard" />
 
-      <div className="mx-auto max-w-7xl p-6">
+      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
         <LoadNotice failed={failed} />
         <ModuleTiles tiles={tiles} loading={loading} />
 

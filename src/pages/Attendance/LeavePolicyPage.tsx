@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
-  FileText, Plus, Edit2, Trash2, ShieldCheck, CheckCircle2, 
-  X, RotateCw, Users, Layers, AlertCircle, Eye, Calendar
+  FileText, Edit2, Trash2, CheckCircle2, 
+  X, Users, Layers, AlertCircle, Eye, Calendar
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { AddButton } from '../../components/common/AddButton';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
@@ -470,43 +471,17 @@ const LeavePolicyPage: React.FC = () => {
   return (
     <>
       <PageMeta title="Leave Policy Management" description="Create, edit, and assign leave policies to employees" />
-      <PageBreadcrumb pageTitle="Leave Policy Management" />
+      <PageBreadcrumb
+        pageTitle="Leave Policy Management"
+        actions={canCreate ? <AddButton onClick={openCreateModal} label="Create Leave Policy" /> : undefined}
+      />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
-        
-        {/* Toolbar Header */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Leave Policy Master</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Configure leave types, allocations, carry forwards, and assign to employees</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={fetchPolicies}
-              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all"
-              title="Refresh Policies"
-            >
-              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-            </button>
-            {canCreate && (<button
-              type="button"
-              onClick={openCreateModal}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
-            >
-              <Plus className="w-4 h-4" /> Create Leave Policy
-            </button>)}
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 space-y-4">
 
         {/* Policy List Table */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Leave Policy Master</h3>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">All Leave Policies</h3>
             <TableToolbar onRefresh={fetchPolicies} />
           </div>
           <ReusableTable

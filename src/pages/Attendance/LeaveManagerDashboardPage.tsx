@@ -6,6 +6,7 @@ import {
   BarChart3, Calendar, Users, Clock, RotateCw, Plus, X, CheckCircle2, ArrowRight, PieChart, Briefcase,
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
@@ -264,27 +265,23 @@ const LeaveManagerDashboardPage: React.FC = () => {
   );
 
   return (
-    <div className="p-3 sm:p-4 md:p-5 space-y-4 bg-transparent min-h-screen animate-in fade-in duration-200">
+    <div className="space-y-3 pb-2 animate-in fade-in duration-200">
       <PageMeta title="Manager Leave Dashboard | MyTrading" description="Team leave overview and approval queues" />
-      <PageBreadcrumb pageTitle="Manager Leave Dashboard" />
+      <PageBreadcrumb
+        pageTitle="Manager Leave Dashboard"
+        actions={
+          <button type="button" onClick={loadData} className={TOOL_BUTTON} title="Refresh">
+            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
+            Refresh
+          </button>
+        }
+      />
 
-      <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-gray-200/80 dark:border-transparent p-3.5 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-[#222222] border border-cyan-100 dark:border-transparent flex items-center justify-center text-cyan-700 dark:text-cyan-400 shadow-2xs font-extrabold text-sm">
-            MGR
-          </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white tracking-tight">Manager Leave Dashboard</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {currentUser.hasEmployee ? 'Your direct reports' : 'No employee record is linked to your account, so team figures are empty'} · approval queues cover the whole company
-            </p>
-          </div>
-        </div>
-        <button type="button" onClick={loadData} title="Refresh"
-          className="p-2 border border-gray-200 dark:border-transparent hover:bg-gray-100 dark:hover:bg-[#222222] rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-2xs cursor-pointer">
-          <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-        </button>
-      </div>
+      {!currentUser.hasEmployee && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          No employee record is linked to your account, so team figures are empty. Approval queues cover the whole company.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatsCard label="Team Members" value={String(dashboard?.totalEmployees ?? 0)} icon={<Users className="w-5 h-5 text-cyan-700" />} />
@@ -301,11 +298,11 @@ const LeaveManagerDashboardPage: React.FC = () => {
           </div>
           <div className="pt-2">
             {statusTotal === 0 ? (
-              <div className="h-[230px] flex items-center justify-center text-xs text-gray-400">No leave requests from your team yet</div>
+              <div className="h-[200px] flex items-center justify-center text-xs text-gray-400">No leave requests from your team yet</div>
             ) : (
               <Chart
                 type="donut"
-                height={230}
+                height={200}
                 series={statusSeries}
                 options={{
                   chart: { type: 'donut', fontFamily: 'inherit', foreColor: isDark ? '#94a3b8' : '#64748b' },
@@ -341,7 +338,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           <div className="pt-2">
             <Chart
               type="bar"
-              height={230}
+              height={200}
               series={[
                 { name: 'Casual', data: trend.map((t) => t.casual) },
                 { name: 'Sick', data: trend.map((t) => t.sick) },

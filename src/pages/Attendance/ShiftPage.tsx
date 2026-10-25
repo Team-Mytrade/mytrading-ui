@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
-  Plus, RotateCw, Eye, Edit2, Trash2, CalendarDays, 
+  Eye, Edit2, Trash2, CalendarDays, 
   Clock, ShieldCheck, X, CheckCircle2, Layers
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { AddButton } from '../../components/common/AddButton';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
@@ -506,45 +507,17 @@ const ShiftPage: React.FC = () => {
   return (
     <>
       <PageMeta title="Shift Master" description="Configure work shift timings and weekly off rules" />
-      <PageBreadcrumb pageTitle="Shift Master" />
+      <PageBreadcrumb
+        pageTitle="Shift Master"
+        actions={canCreate ? <AddButton onClick={openCreateModal} label="Create Shift" /> : undefined}
+      />
 
-      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
-        
-        {/* Header Bar */}
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:!border-transparent">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Shift Master</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Configure General, Morning, and Night shifts with weekly off policies</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            {canCreate && (<button
-              type="button"
-              onClick={openCreateModal}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Create Shift
-            </button>)}
-            <button
-              type="button"
-              onClick={fetchShifts}
-              className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:!border-transparent rounded-lg transition-all cursor-pointer shadow-2xs"
-              title="Refresh Shift List"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-            </button>
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 space-y-4">
 
         {/* Master Table */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Shift Master</h3>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">All Shifts</h3>
             <TableToolbar onRefresh={fetchShifts} />
           </div>
           <ReusableTable

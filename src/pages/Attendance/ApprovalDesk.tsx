@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Check, Eye, FileCheck, RotateCw, X } from 'lucide-react';
+import { Check, Eye, X } from 'lucide-react';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
@@ -117,13 +117,11 @@ const statusClass = (status: string) =>
 
 interface ApprovalDeskProps {
   kind: ApprovalKind;
-  title: string;
-  subtitle: string;
   /** Tells the parent the pending count changed (e.g. for a badge). */
   onChanged?: () => void;
 }
 
-const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, title, subtitle, onChanged }) => {
+const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
   const { canApprove } = usePermissions();
   const currentUser = useCurrentEmployee();
   const config = CONFIG[kind];
@@ -264,22 +262,6 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, title, subtitle, onCh
 
   return (
     <div className="space-y-4">
-      <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-400 rounded-lg border border-cyan-200 dark:border-transparent">
-            <FileCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">{title}</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
-          </div>
-        </div>
-        <button type="button" onClick={() => load(activeTab)} title="Refresh"
-          className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all self-end sm:self-center cursor-pointer">
-          <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-        </button>
-      </div>
-
       <div className="flex items-center gap-2 border-b border-gray-200/80 dark:border-[#2a2a2a] pb-2">
         {(['pending', 'approved', 'rejected'] as const).map((tab) => (
           <button key={tab} type="button" onClick={() => setActiveTab(tab)}

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { formatMoney } from "../Dashboard/dashboardKit";
+import { DASH_CARD, DASH_TITLE, TONE_CYCLE, formatMoney, toneCard, toneLink } from "../Dashboard/dashboardKit";
 
 // Live CRM overview. Every figure comes from the CRM service; nothing is hard-coded.
 
@@ -110,7 +111,7 @@ export default function CrmDashboardPage() {
   ];
 
   return (
-    <div className="h-full overflow-y-auto p-3">
+    <div className="h-full overflow-y-auto px-1 pb-6 pt-1">
       <PageMeta title="CRM Dashboard" description="Live overview of customers, leads, deals and activities" />
       <PageBreadcrumb pageTitle="CRM Dashboard" />
 
@@ -121,18 +122,25 @@ export default function CrmDashboardPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        {kpis.map((kpi) => (
-          <Link key={kpi.label} to={kpi.to}
-            className="rounded-xl bg-white p-3 shadow-sm transition hover:shadow-md dark:bg-gray-900">
-            <p className="text-xs text-gray-500">{kpi.label}</p>
-            <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{loading ? "…" : kpi.value}</p>
-          </Link>
-        ))}
+        {kpis.map((kpi, i) => {
+          // Tinted like the approval queue cards; each figure takes the next tone
+          const tone = TONE_CYCLE[i % TONE_CYCLE.length];
+          return (
+            <Link key={kpi.label} to={kpi.to}
+              className={`group flex flex-col justify-between space-y-1 p-3 ${toneCard(tone)}`}>
+              <p className="text-xs font-bold text-gray-900 dark:text-white">{kpi.label}</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{loading ? "…" : kpi.value}</p>
+              <span className={`flex items-center gap-1 text-[11px] font-bold transition-all group-hover:translate-x-0.5 ${toneLink(tone)}`}>
+                Open <ArrowRight className="h-3 w-3" />
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Deal pipeline by stage</h2>
+        <section className={`p-5 ${DASH_CARD}`}>
+          <h2 className={`mb-3 ${DASH_TITLE}`}>Deal pipeline by stage</h2>
           {stages.length === 0 && <p className="text-sm text-gray-500">{loading ? "Loading…" : "No deals yet."}</p>}
           <ul className="space-y-2">
             {stages.map((s) => (
@@ -142,30 +150,30 @@ export default function CrmDashboardPage() {
                   <span>{s.count}</span>
                 </div>
                 <div className="mt-1 h-2 rounded bg-gray-100 dark:bg-gray-800">
-                  <div className="h-2 rounded bg-cyan-500" style={{ width: `${s.pct}%` }} />
+                  <div className="h-2 rounded bg-[#0097a7]" style={{ width: `${s.pct}%` }} />
                 </div>
               </li>
             ))}
           </ul>
         </section>
 
-        <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">New leads per month</h2>
+        <section className={`p-5 ${DASH_CARD}`}>
+          <h2 className={`mb-3 ${DASH_TITLE}`}>New leads per month</h2>
           {monthly.length === 0 && <p className="text-sm text-gray-500">{loading ? "Loading…" : "No leads yet."}</p>}
           <div className="flex h-40 items-end gap-2">
             {monthly.map((m) => (
               <div key={m.month} className="flex flex-1 flex-col items-center justify-end" title={`${m.month}: ${m.count}`}>
                 <span className="mb-1 text-[10px] text-gray-500">{m.count}</span>
-                <div className="w-full rounded-t bg-violet-500" style={{ height: `${Math.max(m.pct, 2)}%` }} />
+                <div className="w-full rounded-t bg-[#4dd0e1]" style={{ height: `${Math.max(m.pct, 2)}%` }} />
                 <span className="mt-1 truncate text-[10px] text-gray-500">{m.month.slice(0, 3)}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-900">
+        <section className={`p-5 ${DASH_CARD}`}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Upcoming activities</h2>
+            <h2 className={DASH_TITLE}>Upcoming activities</h2>
             <Link to="/activities" className="text-xs text-cyan-600 hover:underline">All</Link>
           </div>
           {upcoming.length === 0 && <p className="text-sm text-gray-500">{loading ? "Loading…" : "Nothing pending."}</p>}

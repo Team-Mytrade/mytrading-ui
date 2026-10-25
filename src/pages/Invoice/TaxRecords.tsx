@@ -198,10 +198,9 @@ const TaxRecords: React.FC = () => {
   return (
     <>
       <PageMeta title="Tax Records" description="Tax collected on sales and paid on purchases" />
-      <PageBreadcrumb pageTitle="Tax Records" />
+      <PageBreadcrumb pageTitle="Tax Records" actions={canCreate ? <AddButton onClick={openCreate} label="Record tax" /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
-        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Record tax" />}</div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Tax collected" value={money(collected)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />

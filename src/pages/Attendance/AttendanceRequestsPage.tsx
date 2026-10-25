@@ -6,6 +6,7 @@ import {
   FileText, Eye, XCircle, X, Calendar, MapPin, Briefcase, Tag, Send, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
@@ -142,11 +143,6 @@ const AttendanceRequestsPage: React.FC = () => {
     return count;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.fromDate, form.toDate, days]);
-
-  const counts = useMemo(() => {
-    const byType = (t: string) => requests.filter((r) => r.responseDetails?.some((d) => d.requestType === t)).length;
-    return { onDuty: byType('ON_DUTY'), wfh: byType('WORK_FROM_HOME') };
-  }, [requests]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -341,43 +337,17 @@ const AttendanceRequestsPage: React.FC = () => {
   return (
     <>
       <PageMeta title="On Duty & Work From Home Requests" description="Request on-duty visits and work-from-home days" />
-      <PageBreadcrumb pageTitle="On Duty Requests" />
+      <PageBreadcrumb
+        pageTitle="On Duty Requests"
+        actions={
+          <button type="button" onClick={() => setActiveTab(activeTab === 'history' ? 'apply' : 'history')} className={TOOL_BUTTON}>
+            <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+            {activeTab === 'history' ? 'Back to Apply' : `Request History (${requests.length})`}
+          </button>
+        }
+      />
 
-      <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200 mt-0.5">
-
-        <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl p-2.5 sm:px-4 sm:py-2.5 border border-slate-200/80 dark:!border-transparent shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 mb-2.5 transition-all">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-600 text-white font-bold text-sm shadow-2xs flex items-center justify-center shrink-0">
-              {currentUser.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{currentUser.name}</h2>
-                <span className="px-1.5 py-0.2 rounded-md text-[9.5px] font-bold bg-cyan-50 dark:bg-transparent text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:border-transparent uppercase tracking-wider">
-                  {currentUser.role.replace(/_/g, " ")}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-tight">
-                {counts.onDuty} on-duty · {counts.wfh} work-from-home requests
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-            <button
-              type="button"
-              onClick={() => setActiveTab(activeTab === 'history' ? 'apply' : 'history')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              <span>{activeTab === 'history' ? 'Back to Apply' : `Request History (${requests.length})`}</span>
-            </button>
-            <div className="bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl px-2.5 py-1 text-right">
-              <span className="text-[9px] text-slate-400 dark:text-gray-500 font-medium block uppercase tracking-wider">Employee ID</span>
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-gray-200">#{currentUser.code}</span>
-            </div>
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200">
 
         {activeTab === 'apply' && (
           <form onSubmit={handleSubmit}>

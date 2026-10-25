@@ -1,59 +1,71 @@
 import { useCurrentEmployee } from "../../access/useCurrentEmployee";
-import React, { useState, useEffect, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { 
-  UserCheck, Clock, AlertCircle, X, 
-  FileText, Download, RotateCw, Calendar,
-  TrendingUp, AlertTriangle, Gift, Briefcase,
-  ChevronLeft, ChevronRight
+import {
+  UserCheck, Clock, X, FileText, Download, RotateCw, Calendar,
+  TrendingUp, AlertTriangle, Gift, Briefcase, ChevronLeft, ChevronRight,
+  UserX, Percent, Home, MapPin, PenLine
 } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import StatsCard from '../../components/common/Statscard';
+import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import { ToasterService } from '../../Services/ToasterService';
-import { AuthContext } from '../../context/AuthContext';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { ATTENDANCE_API, CalendarDay, DayKind, dayKind, DAY_KIND_BADGE, DAY_KIND_LABEL, hoursOf, leaveTypeLabel, timeOf } from './attendanceApi';
 
-// ── API Schema Interfaces for GET /v1/api/attendance/records/my-calendar/{employeeId}
-export interface CalendarDayModel {
-  date: string;
-  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'ON_LEAVE' | string;
-  inTime?: string | null;
-  outTime?: string | null;
-  workedMinutes?: number;
-  lateMinutes?: number | null;
-  earlyExitMinutes?: number;
-  overtimeMinutes?: number;
-  leaveType?: string | null;
-  holidayName?: string | null;
-}
-
-export interface MyCalendarResponseModel {
+// GET /v1/api/attendance/records/my-calendar/{employeeId}: one entry per day of the month, already resolved
+// by the server into holidays, weekly offs, approved leave and absence
+interface MyCalendarResponseModel {
   employeeId: number;
   year: number;
   month: number;
-  days: CalendarDayModel[];
+  days: CalendarDay[];
 }
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const formatDisplayTime = (timeStr?: string | null): string => {
-  if (!timeStr || timeStr === '-' || timeStr === 'N/A') return '-';
-  if (timeStr.includes('T')) {
-    const d = new Date(timeStr);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    }
-  }
-  return timeStr;
+const PRESENT_KINDS: DayKind[] = ['PRESENT', 'LATE', 'ON_DUTY', 'WFH', 'CHECKED_IN'];
+
+/** Calendar colours per day kind: tinted cell, left accent and status pill. */
+const KIND_STYLE: Record<DayKind, { cell: string; accent: string; pill: string }> = {
+  PRESENT: { cell: 'bg-[#fff]', accent: 'border-l-emerald-500', pill: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  LATE: { cell: 'bg-[#fff]', accent: 'border-l-amber-500', pill: 'bg-amber-50 text-amber-700 border-amber-200' },
+  HALF_DAY: { cell: 'bg-sky-50/70', accent: 'border-l-sky-500', pill: 'bg-sky-50 text-sky-700 border-sky-200' },
+  ABSENT: { cell: 'bg-rose-50/70', accent: 'border-l-rose-500', pill: 'bg-rose-50 text-rose-700 border-rose-200' },
+  LEAVE: { cell: 'bg-violet-50/70', accent: 'border-l-violet-500', pill: 'bg-violet-50 text-violet-700 border-violet-200' },
+  HOLIDAY: { cell: 'bg-orange-50/80', accent: 'border-l-orange-400', pill: 'bg-orange-50 text-orange-700 border-orange-200' },
+  WEEK_OFF: { cell: 'bg-slate-100/80', accent: 'border-l-slate-300', pill: 'bg-slate-100 text-slate-500 border-slate-200' },
+  ON_DUTY: { cell: 'bg-[#fff]', accent: 'border-l-cyan-500', pill: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  WFH: { cell: 'bg-[#fff]', accent: 'border-l-teal-500', pill: 'bg-teal-50 text-teal-700 border-teal-200' },
+  CHECKED_IN: { cell: 'bg-[#fff]', accent: 'border-l-cyan-500', pill: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  NONE: { cell: 'bg-[#fff]', accent: 'border-l-transparent', pill: '' },
 };
+
+/** Summary cards double as the calendar filter. */
+type Filter = 'ALL' | 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'OFF';
+const matchesFilter = (d: CalendarDay | undefined, filter: Filter) => {
+  if (filter === 'ALL') return true;
+  const kind = dayKind(d);
+  if (filter === 'PRESENT') return PRESENT_KINDS.includes(kind) || kind === 'HALF_DAY';
+  if (filter === 'LATE') return kind === 'LATE' || Boolean(d?.lateMinutes && d.lateMinutes > 0);
+  if (filter === 'ABSENT') return kind === 'ABSENT';
+  if (filter === 'LEAVE') return kind === 'LEAVE' || Boolean(d?.halfDayLeave);
+  return kind === 'HOLIDAY' || kind === 'WEEK_OFF';
+};
+
+/** Days that count towards attendance %: everything except offs, holidays and days not yet due. */
+const isWorkingDay = (kind: DayKind) => kind !== 'WEEK_OFF' && kind !== 'HOLIDAY' && kind !== 'NONE';
+const presentValue = (kind: DayKind) => (kind === 'HALF_DAY' ? 0.5 : PRESENT_KINDS.includes(kind) ? 1 : 0);
 
 const formatMinutesToHoursStr = (totalMins: number = 0): string => {
   if (!totalMins || totalMins <= 0) return '0h 00m';
@@ -62,23 +74,33 @@ const formatMinutesToHoursStr = (totalMins: number = 0): string => {
   return `${hrs}h ${mins.toString().padStart(2, '0')}m`;
 };
 
+/** 45m under an hour, else 2h 15m. */
+const shortHours = (m: number) => (m > 0 && m < 60 ? `${m}m` : hoursOf(m));
+
+const isoOf =(d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dayLabel = (d: CalendarDay) => {
+  const kind = dayKind(d);
+  if (kind === 'LEAVE' || d.halfDayLeave) return `${d.leaveType ? `${leaveTypeLabel(d.leaveType)} leave` : 'Leave'}${d.halfDayLeave ? ' (½ day)' : ''}`;
+  if (kind === 'HOLIDAY') return d.holidayName || 'Holiday';
+  return DAY_KIND_LABEL[kind];
+};
+
 const AttendanceTrackingPage: React.FC = () => {
   const { canExport, can } = usePermissions();
-  const { user } = useContext(AuthContext);
 
   // Own employee identity from the login token (no hard-coded ids)
   const currentUser = useCurrentEmployee();
 
-  // ── Dynamic States ──────────────────────────────────────────────────────
-  const [currentDate, setCurrentDate] = useState<Date>(new Date()); // Dynamic current system date
+  const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [employeeList, setEmployeeList] = useState<{ id: number; name: string; code: string }[]>([]);
   const [selectedEmpId, setSelectedEmpId] = useState<number>(currentUser.id);
-  const [selectedDayRecord, setSelectedDayRecord] = useState<CalendarDayModel | null>(null);
+  const [selectedDayRecord, setSelectedDayRecord] = useState<CalendarDay | null>(null);
   const [calendarData, setCalendarData] = useState<MyCalendarResponseModel | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'LEAVE'>('ALL');
-  const [deleteConfirmDay, setDeleteConfirmDay] = useState<CalendarDayModel | null>(null);
+  const [filter, setFilter] = useState<Filter>('ALL');
 
   const selectedYear = currentDate.getFullYear();
   const selectedMonth = currentDate.getMonth() + 1; // 1-12
@@ -96,7 +118,7 @@ const AttendanceTrackingPage: React.FC = () => {
       setEmployeeList(currentUser.hasEmployee ? [{ id: currentUser.id, name: currentUser.name, code: currentUser.code }] : []);
       return;
     }
-    axios.get('/v1/api/attendance/employees')
+    axios.get(`${ATTENDANCE_API}/employees`)
       .then((res) => {
         const mapped = (Array.isArray(res.data) ? res.data : []).map((e: any) => ({
           id: Number(e.id),
@@ -109,8 +131,6 @@ const AttendanceTrackingPage: React.FC = () => {
       .catch(() => setEmployeeList([]));
   }, [canSeeOthers, currentUser.hasEmployee, currentUser.id, currentUser.name, currentUser.code]);
 
-  // ── API: GET ATTENDANCE CALENDAR RECORDS BY EMPLOYEE ID ───────────────
-  // GET -> /v1/api/attendance/records/my-calendar/{employeeId}?employeeId={empId}&year={year}&month={month}
   const fetchMyCalendarAttendance = async () => {
     const targetEmpId = selectedEmpId || currentUser.id;
     if (!targetEmpId) return;
@@ -118,21 +138,10 @@ const AttendanceTrackingPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await axios.get<MyCalendarResponseModel>(
-        `/v1/api/attendance/records/my-calendar/${targetEmpId}`,
-        {
-          params: {
-            employeeId: targetEmpId,
-            year: selectedYear,
-            month: selectedMonth
-          }
-        }
+        `${ATTENDANCE_API}/records/my-calendar/${targetEmpId}`,
+        { params: { employeeId: targetEmpId, year: selectedYear, month: selectedMonth } }
       );
-
-      if (res.data && Array.isArray(res.data.days)) {
-        setCalendarData(res.data);
-      } else {
-        setCalendarData(null);
-      }
+      setCalendarData(res.data && Array.isArray(res.data.days) ? res.data : null);
     } catch (err: any) {
       ToasterService.error(err?.response?.data?.message || "Could not load the attendance calendar.");
       setCalendarData(null);
@@ -147,506 +156,314 @@ const AttendanceTrackingPage: React.FC = () => {
     }
   }, [currentDate, selectedEmpId]);
 
-  // Month Switcher
-  const handlePrevMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const handlePrevMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const handleNextMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  const handleThisMonth = () => {
+    const now = new Date();
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
   };
 
-  const handleNextMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
-
-  // Derived KPI Stats from API payload
-  const kpiStats = useMemo(() => {
-    const days = calendarData?.days || [];
-    const totalDays = days.length;
-    const presentDays = days.filter(d => ['PRESENT', 'ON_DUTY', 'WFH', 'HALF_DAY'].includes(String(d.status).toUpperCase())).length;
-    const absentDays = days.filter(d => String(d.status).toUpperCase() === 'ABSENT').length;
-    const lateDays = days.filter(d => Boolean(d.lateMinutes && d.lateMinutes > 0));
-    const totalLateMinutes = lateDays.reduce((acc, d) => acc + (d.lateMinutes || 0), 0);
-    const totalOvertimeMinutes = days.reduce((acc, d) => acc + (d.overtimeMinutes || 0), 0);
-    const totalWorkedMinutes = days.reduce((acc, d) => acc + (d.workedMinutes || 0), 0);
-    const leaveDays = days.filter(d => String(d.status).toUpperCase() === 'ON_LEAVE').length;
-
-    return {
-      totalDays,
-      presentDays,
-      absentDays,
-      lateCount: lateDays.length,
-      totalLateMinutes,
-      totalOvertimeMinutes,
-      totalWorkedMinutes,
-      leaveDays
-    };
+  const dayMap = useMemo(() => {
+    const map = new Map<string, CalendarDay>();
+    (calendarData?.days || []).forEach(d => map.set(d.date, d));
+    return map;
   }, [calendarData]);
 
-  // Filtered List for Search & Status Pills
-  const filteredDays = useMemo(() => {
+  // ── Month summary ───────────────────────────────────────────────────────
+  const summary = useMemo(() => {
     const days = calendarData?.days || [];
-    return days.filter(d => {
-      const matchesSearch = !searchQuery || 
-        d.date.includes(searchQuery) || 
-        (d.holidayName && d.holidayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (d.leaveType && d.leaveType.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const st = String(d.status).toUpperCase();
-      let matchesStatus = true;
-      if (statusFilter === 'PRESENT') matchesStatus = ['PRESENT', 'ON_DUTY', 'WFH', 'HALF_DAY'].includes(st);
-      if (statusFilter === 'ABSENT') matchesStatus = st === 'ABSENT';
-      if (statusFilter === 'LATE') matchesStatus = Boolean(d.lateMinutes && d.lateMinutes > 0);
-      if (statusFilter === 'LEAVE') matchesStatus = st === 'ON_LEAVE' || st === 'HOLIDAY';
-
-      return matchesSearch && matchesStatus;
+    let working = 0, present = 0, absent = 0, late = 0, leave = 0, offs = 0, worked = 0, overtime = 0;
+    days.forEach(d => {
+      const kind = dayKind(d);
+      if (isWorkingDay(kind)) working++;
+      present += presentValue(kind);
+      if (kind === 'ABSENT') absent++;
+      if (kind === 'LATE' || (d.lateMinutes && d.lateMinutes > 0)) late++;
+      if (kind === 'LEAVE') leave += 1;
+      else if (d.halfDayLeave) leave += 0.5;
+      if (kind === 'HOLIDAY' || kind === 'WEEK_OFF') offs++;
+      worked += d.workedMinutes || 0;
+      overtime += d.overtimeMinutes || 0;
     });
-  }, [calendarData, searchQuery, statusFilter]);
+    const rate = working ? Math.round((present / working) * 100) : 0;
+    return { working, present, absent, late, leave, offs, worked, overtime, rate };
+  }, [calendarData]);
 
-  // Export CSV
+  // Exports follow the active filter
+  const exportDays = useMemo(() => (calendarData?.days || []).filter(d => matchesFilter(d, filter)), [calendarData, filter]);
+  const employeeName = employeeList.find(e => e.id === selectedEmpId)?.name || currentUser.name;
+
   const handleExportCSV = () => {
-    const data = filteredDays.map(d => ({
+    const data = exportDays.map(d => ({
       "Date": d.date,
-      "Status": d.status,
-      "In Time": formatDisplayTime(d.inTime),
-      "Out Time": formatDisplayTime(d.outTime),
-      "Worked Duration": formatMinutesToHoursStr(d.workedMinutes),
+      "Status": dayLabel(d) || '-',
+      "In Time": timeOf(d.inTime) || '-',
+      "Out Time": timeOf(d.outTime) || '-',
+      "Worked": formatMinutesToHoursStr(d.workedMinutes ?? 0),
       "Late Minutes": d.lateMinutes || 0,
-      "Overtime Minutes": d.overtimeMinutes || 0,
       "Early Exit Minutes": d.earlyExitMinutes || 0,
-      "Holiday / Leave": d.holidayName || d.leaveType || "N/A"
+      "Overtime Minutes": d.overtimeMinutes || 0,
+      "Regularized": d.regularized ? "Yes" : "",
     }));
-
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendance_Calendar");
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, `Attendance_Calendar_${selectedYear}_${selectedMonth}.xlsx`);
-    ToasterService.success("Attendance Excel Noticeboard exported!");
+    saveAs(new Blob([excelBuffer], { type: 'application/octet-stream' }), `Attendance_${employeeName}_${selectedYear}_${selectedMonth}.xlsx`);
+    ToasterService.success("Attendance exported to Excel.");
   };
 
-  // Export PDF
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    doc.text(`Attendance Calendar Record - ${monthNames[selectedMonth - 1]} ${selectedYear}`, 14, 16);
+    doc.text(`Attendance - ${employeeName} - ${monthNames[selectedMonth - 1]} ${selectedYear}`, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Present ${summary.present} of ${summary.working} working days (${summary.rate}%) · Absent ${summary.absent} · Late ${summary.late} · Leave ${summary.leave} · Worked ${hoursOf(summary.worked)}`, 14, 22);
     autoTable(doc, {
-      head: [["Date", "Status", "In Time", "Out Time", "Worked", "Late", "Overtime", "Remarks"]],
-      body: filteredDays.map(d => [
+      head: [["Date", "Status", "In", "Out", "Worked", "Late", "Overtime"]],
+      body: exportDays.map(d => [
         d.date,
-        d.status,
-        formatDisplayTime(d.inTime),
-        formatDisplayTime(d.outTime),
-        formatMinutesToHoursStr(d.workedMinutes),
+        dayLabel(d) || '-',
+        timeOf(d.inTime) || '-',
+        timeOf(d.outTime) || '-',
+        d.workedMinutes ? hoursOf(d.workedMinutes) : '-',
         d.lateMinutes ? `${d.lateMinutes}m` : '-',
         d.overtimeMinutes ? `${d.overtimeMinutes}m` : '-',
-        d.holidayName || d.leaveType || '-'
       ]),
-      startY: 22,
+      startY: 27,
+      styles: { fontSize: 8 },
     });
-    doc.save(`Attendance_Calendar_${selectedYear}_${selectedMonth}.pdf`);
-    ToasterService.success("PDF exported!");
+    doc.save(`Attendance_${employeeName}_${selectedYear}_${selectedMonth}.pdf`);
+    ToasterService.success("Attendance exported to PDF.");
   };
 
-  // Delete Action Confirmation
-  const confirmDeleteDayRecord = () => {
-    if (!deleteConfirmDay) return;
-    setCalendarData(prev => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        days: prev.days.filter(d => d.date !== deleteConfirmDay.date)
-      };
-    });
-    setDeleteConfirmDay(null);
-    ToasterService.success(`Attendance log for ${deleteConfirmDay.date} removed.`);
-  };
-
-  // Filtered Days Set for Calendar Matrix
-  const filteredDaysSet = useMemo(() => {
-    const set = new Set<string>();
-    const days = calendarData?.days || [];
-    days.forEach(d => {
-      const st = String(d.status || '').toUpperCase();
-      let matchesStatus = true;
-
-      if (statusFilter === 'PRESENT') {
-        matchesStatus = st === 'PRESENT' || st === 'CHECKED_IN';
-      } else if (statusFilter === 'ABSENT') {
-        matchesStatus = st === 'ABSENT';
-      } else if (statusFilter === 'LATE') {
-        matchesStatus = Boolean(d.lateMinutes && d.lateMinutes > 0) || st.includes('LATE');
-      } else if (statusFilter === 'LEAVE') {
-        matchesStatus = Boolean(d.leaveType || d.holidayName) || st.includes('LEAVE') || st.includes('HALF') || st.includes('ON_LEAVE');
-      }
-
-      const matchesSearch = !searchQuery || 
-        d.date.includes(searchQuery) || 
-        (d.holidayName && d.holidayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (d.leaveType && d.leaveType.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      if (matchesStatus && matchesSearch) {
-        set.add(d.date);
-      }
-    });
-    return set;
-  }, [calendarData, searchQuery, statusFilter]);
-
-  const totalWeeks = useMemo(() => {
+  // ── Monday-first weeks covering the month ───────────────────────────────
+  const weeks = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
+    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayWeekday = new Date(year, month, 1).getDay();
-    const totalDays = firstDayWeekday + daysInMonth;
-    return Math.ceil(totalDays / 7);
+    const count = Math.ceil((offset + daysInMonth) / 7);
+    return Array.from({ length: count }, (_, w) =>
+      Array.from({ length: 7 }, (_, i) => new Date(year, month, 1 - offset + w * 7 + i)));
   }, [currentDate]);
 
-  // ── Render Ultra-Compact Interactive Monthly 7-Column Calendar Grid ─────
-  const renderInteractiveMonthCalendar = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth(); // 0-11
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayWeekday = new Date(year, month, 1).getDay(); // 0 = Sunday
-    const prevMonthDays = new Date(year, month, 0).getDate();
+  const todayStr = todayIso();
+  const toggleFilter = (f: Filter) => setFilter(prev => (prev === f ? 'ALL' : f));
 
-    const dayMap = new Map<string, CalendarDayModel>();
-    (calendarData?.days || []).forEach(d => {
-      dayMap.set(d.date, d);
-    });
-
-    const cells = [];
-
-    // 1. Padding days from previous month
-    for (let i = firstDayWeekday - 1; i >= 0; i--) {
-      const pDay = prevMonthDays - i;
-      cells.push(
-        <div key={`prev-${i}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-transparent flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
-          {pDay}
+  const renderDay = (date: Date) => {
+    const dateStr = isoOf(date);
+    const inMonth = date.getMonth() === currentDate.getMonth();
+    if (!inMonth) {
+      return (
+        <div key={dateStr} className="rounded-md border border-dashed border-slate-200/80 px-1.5 py-1 text-[11px] font-medium text-slate-300 dark:border-[#2a2a2a] dark:text-gray-600">
+          {date.getDate()}
         </div>
       );
     }
 
-    // 2. Current Month Days
-    const todayStr = todayIso();
+    const d = dayMap.get(dateStr);
+    const kind = dayKind(d);
+    const style = KIND_STYLE[kind];
+    const isToday = dateStr === todayStr;
+    const isFuture = dateStr > todayStr;
+    const dimmed = filter !== 'ALL' && !matchesFilter(d, filter);
+    const inT = timeOf(d?.inTime);
+    const outT = timeOf(d?.outTime);
+    const label = d ? dayLabel(d) : '';
 
-    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-      const dayData = dayMap.get(dateStr);
-      const isToday = dateStr === todayStr;
-      const dayOfWeek = new Date(year, month, dayNum).getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-      const isFilteredMatch = statusFilter === 'ALL' || (dayData && filteredDaysSet.has(dateStr));
-
-      const isPresent = dayData && (String(dayData.status).toUpperCase() === 'PRESENT' || String(dayData.status).toUpperCase() === 'CHECKED_IN');
-      const isAbsent = dayData && String(dayData.status).toUpperCase() === 'ABSENT';
-      const isLate = dayData && Boolean(dayData.lateMinutes && dayData.lateMinutes > 0);
-      const isOvertime = dayData && Boolean(dayData.overtimeMinutes && dayData.overtimeMinutes > 0);
-      const isLeave = dayData && (Boolean(dayData.leaveType || dayData.holidayName) || String(dayData.status).toUpperCase().includes('LEAVE') || String(dayData.status).toUpperCase().includes('HALF'));
-
-      const hasWorked = dayData && dayData.workedMinutes && dayData.workedMinutes > 0;
-      const hasPunch = dayData && (dayData.inTime || dayData.outTime);
-
-      let cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-transparent dark:hover:bg-[#262626] hover:shadow-2xs text-slate-700 dark:text-gray-200';
-      let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-medium text-[11px]';
-
-      if (isToday) {
-        cardStyle = 'border-sky-300 dark:border-transparent bg-sky-50/40 dark:bg-[#282828] ring-1 ring-sky-200 dark:ring-0 text-sky-900 dark:text-white shadow-2xs';
-        numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 dark:bg-white/15 dark:text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
-      } else if (isPresent) {
-        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-emerald-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
-      } else if (isLate) {
-        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
-      } else if (isLeave) {
-        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-purple-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
-      } else if (isAbsent) {
-        cardStyle = 'border-slate-200/80 dark:border-transparent bg-white dark:bg-[#222222] hover:border-rose-300 dark:hover:border-transparent dark:hover:bg-[#262626] shadow-2xs';
-      } else if (isWeekend && !dayData) {
-        cardStyle = 'border-slate-100 dark:border-transparent bg-slate-50/50 dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-500';
-        numBadgeStyle = 'text-slate-400 dark:text-gray-500 font-normal text-[11px]';
-      }
-
-      cells.push(
-        <div
-          key={dateStr}
-          onClick={() => dayData && setSelectedDayRecord(dayData)}
-          className={`p-1.5 border rounded-lg transition-all h-full min-h-0 flex flex-col justify-between cursor-pointer overflow-hidden ${
-            !isFilteredMatch ? 'opacity-25 grayscale border-dashed' : ''
-          } ${cardStyle}`}
-        >
-          {/* Top Row: Date Badge & Status Badge */}
-          <div className="flex items-center justify-between gap-1 leading-none">
-            <span className={numBadgeStyle}>
-              {dayNum}
+    return (
+      <button
+        type="button"
+        key={dateStr}
+        onClick={() => d && kind !== 'NONE' && setSelectedDayRecord(d)}
+        title={label ? `${dateStr} · ${label}` : dateStr}
+        className={`group flex min-h-0 flex-col gap-0.5 overflow-hidden rounded-md border border-slate-200/90 border-l-[3px] px-1.5 py-1 text-left transition-all dark:border-[#2a2a2a] dark:bg-[#202020] ${style.cell} ${style.accent} ${
+          kind !== 'NONE' ? 'cursor-pointer hover:-translate-y-px hover:shadow-[0_3px_8px_rgba(15,23,42,0.10)]' : 'cursor-default'
+        } ${isToday ? 'ring-2 ring-[#4DD0E1] ring-offset-0' : ''} ${dimmed ? 'opacity-30' : ''}`}
+      >
+        <div className="flex items-center justify-between gap-1">
+          <span className={`text-[11px] font-bold leading-none ${
+            isToday ? 'flex h-5 w-5 items-center justify-center rounded-full bg-[#0097a7] text-white'
+              : isFuture ? 'text-slate-400 dark:text-gray-500' : 'text-slate-800 dark:text-gray-100'
+          }`}>
+            {date.getDate()}
+          </span>
+          {kind !== 'NONE' && (
+            <span className={`rounded border px-1 py-px text-[9px] font-bold leading-none tracking-wide dark:border-transparent dark:bg-white/10 dark:text-gray-200 ${style.pill}`}>
+              {DAY_KIND_BADGE[kind]}
             </span>
-            {dayData?.status && String(dayData.status).trim() !== '' && (
-              <span className={`inline-flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase leading-none truncate max-w-[70px] border ${
-                isLeave ? 'bg-purple-50 text-purple-700 border-purple-200/80 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
-                isPresent ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
-                isAbsent ? 'bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent' : 
-                isLate ? 'bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-transparent dark:text-gray-300 dark:border-transparent' :
-                'bg-slate-100 text-slate-500 border-slate-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
-              }`}>
-                <span className={`w-1 h-1 rounded-full shrink-0 ${
-                  isLeave ? 'bg-purple-500' :
-                  isPresent ? 'bg-emerald-500' :
-                  isAbsent ? 'bg-rose-500' :
-                  isLate ? 'bg-amber-500' : 'bg-gray-400'
-                }`} />
-                <span className="truncate">{dayData.status === 'CHECKED_IN' ? 'Checked In' : dayData.status}</span>
-              </span>
-            )}
-          </div>
-
-          {/* Compact Punch Info */}
-          {dayData && (hasPunch || hasWorked || dayData.holidayName || dayData.leaveType) ? (
-            <div className="space-y-0.5 font-mono text-[8.5px] leading-tight">
-              {hasPunch && (
-                <div className="text-slate-500 dark:text-gray-400 font-medium truncate">
-                  {formatDisplayTime(dayData.inTime)} {dayData.outTime ? `- ${formatDisplayTime(dayData.outTime)}` : ''}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between gap-1">
-                {hasWorked ? (
-                  <span className="font-semibold text-slate-800 dark:text-gray-200">
-                    {formatMinutesToHoursStr(dayData.workedMinutes)}
-                  </span>
-                ) : <span />}
-
-                {/* Compact Badges */}
-                <div className="flex items-center gap-0.5 overflow-hidden">
-                  {isLate && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate">
-                      -{dayData.lateMinutes}m
-                    </span>
-                  )}
-                  {isOvertime && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate">
-                      +{dayData.overtimeMinutes}m
-                    </span>
-                  )}
-                  {dayData.holidayName && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate max-w-[50px]">
-                      {dayData.holidayName}
-                    </span>
-                  )}
-                  {dayData.leaveType && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] font-medium bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-transparent dark:text-gray-400 dark:border-transparent truncate max-w-[50px]">
-                      {dayData.leaveType}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div />
           )}
         </div>
-      );
-    }
 
-    // 3. Trailing padding days for next month to complete the week
-    const remainder = cells.length % 7;
-    if (remainder !== 0) {
-      const trailingCount = 7 - remainder;
-      for (let j = 1; j <= trailingCount; j++) {
-        cells.push(
-          <div key={`next-${j}`} className="p-1 text-[11px] text-slate-300 dark:text-gray-600 bg-slate-50/50 dark:bg-[#191919]/40 rounded-lg border border-slate-100 dark:border-transparent flex items-start justify-center font-medium h-full min-h-0 pointer-events-none">
-            {j}
+        {(kind === 'HOLIDAY' || kind === 'LEAVE' || kind === 'WEEK_OFF' || kind === 'ABSENT' || d?.halfDayLeave) && (
+          <span className="truncate text-[10px] font-semibold leading-tight text-slate-600 dark:text-gray-300">{label}</span>
+        )}
+
+        {(inT || outT) && (
+          <span className="truncate font-mono text-[10px] leading-tight text-slate-600 dark:text-gray-300">
+            {inT || '--:--'} – {outT || (kind === 'CHECKED_IN' ? 'now' : '--:--')}
+          </span>
+        )}
+
+        {(d?.workedMinutes || d?.lateMinutes || d?.overtimeMinutes || d?.regularized) ? (
+          <div className="mt-auto flex flex-wrap items-center gap-1 leading-none">
+            {d?.workedMinutes ? <span className="text-[10px] font-bold text-slate-800 dark:text-gray-100">{hoursOf(d.workedMinutes)}</span> : null}
+            {d?.lateMinutes ? <span className="rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">{d.lateMinutes}m late</span> : null}
+            {d?.overtimeMinutes ? <span className="rounded bg-emerald-100 px-1 py-px text-[9px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">+{d.overtimeMinutes}m OT</span> : null}
+            {d?.regularized ? <span title="Regularized" className="rounded bg-indigo-100 px-1 py-px text-[9px] font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">REG</span> : null}
           </div>
-        );
-      }
-    }
-
-    return cells;
+        ) : null}
+      </button>
+    );
   };
+
+  const renderWeekTotal = (week: Date[], index: number) => {
+    let worked = 0, overtime = 0, present = 0, working = 0;
+    week.forEach(date => {
+      if (date.getMonth() !== currentDate.getMonth()) return;
+      const d = dayMap.get(isoOf(date));
+      const kind = dayKind(d);
+      if (isWorkingDay(kind)) working++;
+      present += presentValue(kind);
+      worked += d?.workedMinutes || 0;
+      overtime += d?.overtimeMinutes || 0;
+    });
+    return (
+      <div key={`week-${index}`} className="hidden min-h-0 flex-col justify-center gap-0.5 rounded-md border border-[#cdeef3] bg-[#e0f7fa]/70 px-2 py-1 md:flex dark:border-[#2a2a2a] dark:bg-[#1c2526]">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">Week {index + 1}</span>
+        <span className="text-xs font-bold text-slate-900 dark:text-white">{worked || working ? hoursOf(worked) : '—'}</span>
+        {working > 0 && <span className="text-[10px] font-medium text-slate-600 dark:text-gray-300">{present}/{working} days</span>}
+        {overtime > 0 && <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">+{shortHours(overtime)} OT</span>}
+      </div>
+    );
+  };
+
+  const GRID_COLS = 'grid grid-cols-7 md:grid-cols-[repeat(7,minmax(0,1fr))_96px] gap-1.5';
 
   return (
     <>
       <div className="h-full flex flex-col min-h-0 w-full animate-in fade-in duration-200">
       <div className="shrink-0 mb-1">
-        <PageMeta title="Attendance Tracking & Calendar Records" description="Live monthly attendance calendar logs, minute breakdowns, and punch audit trails" />
-        <PageBreadcrumb pageTitle="Attendance Tracking & Calendar Records" />
-      </div>
-
-      <div className="flex-1 min-h-0 flex flex-col space-y-1.5 pb-0.5">
-        
-        {/* ── TOP BANNER & MONTH NAVIGATION ───────────────────────────── */}
-        <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-transparent py-2 px-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-[#222222] border border-slate-200/80 dark:border-transparent flex items-center justify-center text-slate-700 dark:text-gray-200 font-bold text-xs shrink-0 shadow-2xs">
-              {currentUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                {employeeList.length > 0 ? (
-                  <select
-                    value={selectedEmpId}
-                    onChange={(e) => setSelectedEmpId(Number(e.target.value))}
-                    className="py-1 px-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-transparent rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-slate-400 outline-none cursor-pointer max-w-[260px] truncate shadow-2xs"
-                  >
-                    {employeeList.map(emp => (
-                      <option key={emp.id} value={emp.id} className="dark:bg-[#222222]">
-                        {emp.name} ({emp.code}) — ID #{emp.id}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser.name}</h2>
-                )}
-                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 border border-slate-200/60 dark:border-transparent">
-                  EMP-#{calendarData?.employeeId || selectedEmpId || currentUser.id}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Controls: Month Navigator & Export */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/60 dark:border-transparent">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
-                title="Previous Month"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <div className="px-2 text-center min-w-[110px]">
-                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block">
+        <PageMeta title="Attendance Tracking & Calendar Records" description="Monthly attendance calendar with punches, hours, late arrivals and leave" />
+        <PageBreadcrumb
+          pageTitle="Attendance Tracking & Calendar Records"
+          actions={
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {employeeList.length > 0 && (
+                <select
+                  value={selectedEmpId}
+                  onChange={(e) => setSelectedEmpId(Number(e.target.value))}
+                  className="h-7 py-0 pl-2 pr-7 bg-white dark:bg-[#191919] border border-slate-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-white focus:ring-1 focus:ring-cyan-400 outline-none cursor-pointer max-w-[240px] truncate"
+                  title="Employee"
+                >
+                  {employeeList.map(emp => (
+                    <option key={emp.id} value={emp.id} className="dark:bg-[#222222]">
+                      {emp.name} ({emp.code})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div className="flex h-7 items-center gap-0.5 bg-white dark:bg-[#191919] px-1 rounded-lg border border-slate-200 dark:border-gray-700">
+                <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title="Previous Month">
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-1 text-xs font-bold text-slate-800 dark:text-white min-w-[104px] text-center">
                   {monthNames[selectedMonth - 1]} {selectedYear}
                 </span>
+                <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title="Next Month">
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button type="button" onClick={fetchMyCalendarAttendance} className="p-1 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md transition cursor-pointer" title="Refresh">
+                  <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
-                title="Next Month"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
+              <button type="button" onClick={handleThisMonth} className={TOOL_BUTTON} title="Go to the current month">
+                <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                Today
               </button>
-              
-              <button
-                type="button"
-                onClick={fetchMyCalendarAttendance}
-                className="p-1 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md transition ml-0.5 cursor-pointer"
-                title="Refresh Calendar API"
-              >
-                <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-slate-600 dark:text-gray-300' : ''}`} />
-              </button>
+              {canExport && (
+                <button type="button" onClick={handleExportCSV} className={TOOL_BUTTON} title="Export Excel">
+                  <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  Excel
+                </button>
+              )}
+              {canExport && (
+                <button type="button" onClick={handleExportPDF} className={TOOL_BUTTON} title="Export PDF">
+                  <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  PDF
+                </button>
+              )}
             </div>
+          }
+        />
+      </div>
 
-            {/* Export Controls */}
-            <div className="flex items-center gap-1.5">
-              {canExport && (<button
-                type="button"
-                onClick={handleExportCSV}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 dark:bg-[#222222] dark:hover:bg-[#282828] dark:text-gray-200 dark:border dark:border-transparent active:scale-95 text-white transition shadow-xs cursor-pointer"
-                title="Export Excel"
-              >
-                <Download className="w-3.5 h-3.5 text-white dark:text-gray-300" />
-                <span>Excel</span>
-              </button>)}
+      <div className="flex-1 min-h-0 flex flex-col pb-0.5">
 
-              {canExport && (<button
-                type="button"
-                onClick={handleExportPDF}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 dark:bg-[#222222] dark:hover:bg-[#282828] dark:text-gray-200 dark:border dark:border-transparent active:scale-95 text-white transition shadow-xs cursor-pointer"
-                title="Export PDF"
-              >
-                <FileText className="w-3.5 h-3.5 text-white dark:text-gray-300" />
-                <span>PDF</span>
-              </button>)}
-            </div>
-          </div>
+        {/* ── Month summary (cards filter the calendar) ─────────────────── */}
+        {/* No list toolbar here: the calendar has its own controls in the breadcrumb */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 shrink-0 !pr-0 [&_.stats-card-actions]:!hidden">
+          <StatsCard label="Attendance" value={`${summary.rate}%`} gradient="from-cyan-50" icon={<Percent />} loading={loading} />
+          <StatsCard label="Present days" value={`${summary.present}/${summary.working}`} gradient="from-emerald-50" icon={<UserCheck />} loading={loading}
+            onClick={() => toggleFilter('PRESENT')} selected={filter === 'PRESENT'} title="Show present days" />
+          <StatsCard label="Absent" value={summary.absent} gradient="from-rose-50" icon={<UserX />} loading={loading}
+            onClick={() => toggleFilter('ABSENT')} selected={filter === 'ABSENT'} title="Show absent days" />
+          <StatsCard label="Late arrivals" value={summary.late} gradient="from-amber-50" icon={<AlertTriangle />} loading={loading}
+            onClick={() => toggleFilter('LATE')} selected={filter === 'LATE'} title="Show late days" />
+          <StatsCard label="Leave" value={summary.leave} gradient="from-purple-50" icon={<Briefcase />} loading={loading}
+            onClick={() => toggleFilter('LEAVE')} selected={filter === 'LEAVE'} title="Show leave days" />
+          <StatsCard label="Holidays & offs" value={summary.offs} gradient="from-gray-50" icon={<Gift />} loading={loading}
+            onClick={() => toggleFilter('OFF')} selected={filter === 'OFF'} title="Show holidays and week offs" />
+          <StatsCard label="Hours worked" value={hoursOf(summary.worked)} gradient="from-cyan-50" icon={<Clock />} loading={loading} />
+          <StatsCard label="Overtime" value={shortHours(summary.overtime)} gradient="from-emerald-50" icon={<TrendingUp />} loading={loading} />
         </div>
 
-        {/* ── KPI METRICS CHIPS ────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 shrink-0">
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-[#222222] text-sky-600 dark:text-gray-400 flex items-center justify-center shrink-0">
-              <Clock className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Total Worked</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{formatMinutesToHoursStr(kpiStats.totalWorkedMinutes)}</span>
-            </div>
+        {/* ── Month calendar ─────────────────────────────────────────────── */}
+        <div className="flex-1 min-h-[420px] max-h-[calc(100cqh-48px)] flex flex-col gap-1.5 rounded-xl border p-2.5 shadow-sm bg-white dark:bg-[#191919] dark:border-transparent overflow-auto">
+          <div className={`${GRID_COLS} shrink-0`}>
+            {WEEKDAYS.map((w, i) => (
+              <span key={w} className={`rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider ${i >= 5 ? 'bg-slate-200/60 text-slate-500 dark:bg-[#222] dark:text-gray-500' : 'bg-[#e0f7fa] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300'}`}>{w}</span>
+            ))}
+            <span className="hidden md:block rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider bg-[#b2ebf2] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300">Week total</span>
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-[#222222] text-emerald-600 dark:text-gray-400 flex items-center justify-center shrink-0">
-              <UserCheck className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Present</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{kpiStats.presentDays}/{kpiStats.totalDays}</span>
-            </div>
+          <div className={`flex-1 min-h-0 ${GRID_COLS}`} style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(64px, 1fr))` }}>
+            {weeks.flatMap((week, i) => [...week.map(renderDay), renderWeekTotal(week, i)])}
           </div>
 
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-[#222222] text-amber-600 dark:text-gray-400 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Late</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{kpiStats.lateCount}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-[#222222] text-sky-600 dark:text-gray-400 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Overtime</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">+{formatMinutesToHoursStr(kpiStats.totalOvertimeMinutes)}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 bg-white dark:bg-[#191919] border border-slate-200/80 dark:border-transparent rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-[#222222] text-rose-600 dark:text-gray-400 flex items-center justify-center shrink-0">
-              <Gift className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider block truncate leading-tight">Absent</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono block leading-tight">{kpiStats.absentDays}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── EXCLUSIVE INTERACTIVE 7-COLUMN MONTHLY CALENDAR GRID ───────── */}
-        <div className="flex-1 min-h-0 max-h-[calc(100vh-200px)] flex flex-col bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:border-transparent p-3 space-y-1.5">
-          {/* Weekday Headers matching SelfService Page */}
-          <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] font-medium text-slate-400 dark:text-gray-500 py-1 px-1 shrink-0">
-            <span>Su</span>
-            <span>Mo</span>
-            <span>Tu</span>
-            <span>We</span>
-            <span>Th</span>
-            <span>Fr</span>
-            <span>Sa</span>
-          </div>
-
-          {/* Calendar Days Matrix */}
-          <div 
-            className="flex-1 min-h-0 grid grid-cols-7 gap-1.5"
-            style={{ gridTemplateRows: `repeat(${totalWeeks}, minmax(0, 1fr))` }}
-          >
-            {renderInteractiveMonthCalendar()}
+          {/* Legend */}
+          <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-200/70 pt-1.5 text-[10px] font-medium text-slate-600 dark:border-[#2a2a2a] dark:text-gray-400">
+            {(['PRESENT', 'LATE', 'HALF_DAY', 'ABSENT', 'LEAVE', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'] as DayKind[]).map(k => (
+              <span key={k} className="inline-flex items-center gap-1">
+                <span className={`rounded border px-1 py-px text-[9px] font-bold leading-none ${KIND_STYLE[k].pill}`}>{DAY_KIND_BADGE[k]}</span>
+                {DAY_KIND_LABEL[k]}
+              </span>
+            ))}
+            {filter !== 'ALL' && (
+              <button type="button" onClick={() => setFilter('ALL')} className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-[#006f7a] hover:bg-[#e0f7fa] cursor-pointer">
+                <X className="h-3 w-3" /> Clear filter
+              </button>
+            )}
           </div>
         </div>
 
       </div>
     </div>
 
-      {/* ── MODAL 1: DETAILED MINUTE BREAKDOWN DAY INSPECTOR ─────────────── */}
-      {selectedDayRecord && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+      {/* ── Day details ─────────────────────────────────────────────────── */}
+      {selectedDayRecord && (() => {
+        const kind = dayKind(selectedDayRecord);
+        return (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setSelectedDayRecord(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="p-4 bg-cyan-600 dark:bg-[#222222] text-white flex items-center justify-between border-b border-transparent dark:border-[#2a2a2a]">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-white dark:text-gray-300" />
                 <div>
-                  <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase">Attendance Log Details</h3>
-                  <span className="text-[10px] text-cyan-100 dark:text-gray-400 font-mono block">{selectedDayRecord.date}</span>
+                  <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase">Attendance Details</h3>
+                  <span className="text-[11px] text-cyan-100 dark:text-gray-400 block">
+                    {new Date(`${selectedDayRecord.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {employeeName}
+                  </span>
                 </div>
               </div>
               <button type="button" onClick={() => setSelectedDayRecord(null)} className="p-1 text-white/80 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-[#2a2a2a] rounded-lg cursor-pointer">
@@ -656,63 +473,58 @@ const AttendanceTrackingPage: React.FC = () => {
 
             <div className="p-5 space-y-4 text-xs">
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200 dark:border-transparent">
-                <span className="text-slate-600 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">ATTENDANCE STATUS</span>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                  String(selectedDayRecord.status).toUpperCase() === 'PRESENT' 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-emerald-400 dark:border-transparent' 
-                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-rose-400 dark:border-transparent'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${String(selectedDayRecord.status).toUpperCase() === 'PRESENT' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                  {selectedDayRecord.status}
+                <span className="text-slate-600 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">Status</span>
+                <span className="flex items-center gap-1.5">
+                  {selectedDayRecord.regularized && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200"><PenLine className="h-3 w-3" /> Regularized</span>
+                  )}
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${KIND_STYLE[kind].pill}`}>
+                    {dayLabel(selectedDayRecord)}
+                  </span>
                 </span>
               </div>
 
-              {/* Exact Minute Breakdown Table */}
-              <div className="bg-slate-50 dark:bg-[#222222] p-3.5 rounded-xl border border-slate-200/80 dark:border-transparent space-y-2 font-mono">
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Check-In Timestamp:</span>
-                  <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatDisplayTime(selectedDayRecord.inTime)}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Check-Out Timestamp:</span>
-                  <span className="font-bold text-slate-800 dark:text-gray-200">{formatDisplayTime(selectedDayRecord.outTime)}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Worked Minutes:</span>
-                  <span className="font-bold text-cyan-800 dark:text-gray-200">{selectedDayRecord.workedMinutes || 0} mins ({formatMinutesToHoursStr(selectedDayRecord.workedMinutes)})</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Late Minutes Penalty:</span>
-                  <span className={`font-bold ${selectedDayRecord.lateMinutes ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-gray-300'}`}>
-                    {selectedDayRecord.lateMinutes || 0} mins
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Overtime Minutes:</span>
-                  <span className="font-bold text-emerald-700 dark:text-emerald-400">+{selectedDayRecord.overtimeMinutes || 0} mins</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Early Exit Minutes:</span>
-                  <span className="font-bold text-slate-800 dark:text-gray-200">{selectedDayRecord.earlyExitMinutes || 0} mins</span>
-                </div>
+              <div className="bg-slate-50 dark:bg-[#222222] p-3.5 rounded-xl border border-slate-200/80 dark:border-transparent space-y-2">
+                {[
+                  ['Check-in', timeOf(selectedDayRecord.inTime) || '-'],
+                  ['Check-out', timeOf(selectedDayRecord.outTime) || '-'],
+                  ['Hours worked', selectedDayRecord.workedMinutes ? formatMinutesToHoursStr(selectedDayRecord.workedMinutes) : '-'],
+                  ['Late by', selectedDayRecord.lateMinutes ? `${selectedDayRecord.lateMinutes} min` : '-'],
+                  ['Early exit', selectedDayRecord.earlyExitMinutes ? `${selectedDayRecord.earlyExitMinutes} min` : '-'],
+                  ['Overtime', selectedDayRecord.overtimeMinutes ? `${selectedDayRecord.overtimeMinutes} min` : '-'],
+                ].map(([k, v], i, all) => (
+                  <div key={k} className={`flex justify-between ${i < all.length - 1 ? 'border-b border-slate-200/60 dark:border-[#2a2a2a] pb-1.5' : ''}`}>
+                    <span className="text-slate-500 dark:text-gray-400 font-medium">{k}</span>
+                    <span className="font-bold font-mono text-slate-800 dark:text-gray-200">{v}</span>
+                  </div>
+                ))}
               </div>
 
+              {selectedDayRecord.attendanceMode && (
+                <div className="flex items-center gap-2 text-slate-600 dark:text-gray-300">
+                  {selectedDayRecord.attendanceMode === 'WORK_FROM_HOME' ? <Home className="w-4 h-4 text-teal-600" /> : <MapPin className="w-4 h-4 text-cyan-600" />}
+                  <span className="font-semibold">{selectedDayRecord.attendanceMode === 'WORK_FROM_HOME' ? 'Worked from home' : 'Worked from office'}</span>
+                </div>
+              )}
+
               {selectedDayRecord.holidayName && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-transparent flex items-center gap-2">
-                  <Gift className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <div className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-xl border border-orange-200 dark:border-transparent flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase block">Official Company Holiday</span>
-                    <span className="text-xs font-bold text-rose-900 dark:text-rose-200">{selectedDayRecord.holidayName}</span>
+                    <span className="text-[10px] text-orange-700 dark:text-orange-400 font-bold uppercase block">Company holiday</span>
+                    <span className="text-xs font-bold text-orange-900 dark:text-orange-200">{selectedDayRecord.holidayName}</span>
                   </div>
                 </div>
               )}
 
               {selectedDayRecord.leaveType && (
-                <div className="p-3 bg-cyan-50 dark:bg-cyan-950/20 rounded-xl border border-cyan-200 dark:border-transparent flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                <div className="p-3 bg-violet-50 dark:bg-violet-950/20 rounded-xl border border-violet-200 dark:border-transparent flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-cyan-700 dark:text-cyan-400 font-bold uppercase block">Leave Application</span>
-                    <span className="text-xs font-bold text-cyan-900 dark:text-cyan-200">{selectedDayRecord.leaveType}</span>
+                    <span className="text-[10px] text-violet-700 dark:text-violet-400 font-bold uppercase block">Approved leave</span>
+                    <span className="text-xs font-bold text-violet-900 dark:text-violet-200">
+                      {leaveTypeLabel(selectedDayRecord.leaveType)} leave{selectedDayRecord.halfDayLeave ? ' (half day)' : ''}
+                    </span>
                   </div>
                 </div>
               )}
@@ -721,7 +533,7 @@ const AttendanceTrackingPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDayRecord(null)}
-                  className="px-4 py-2 border border-slate-200 dark:border-transparent bg-white dark:bg-[#222222] rounded-xl text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#282828] cursor-pointer transition-colors"
+                  className={TOOL_BUTTON}
                 >
                   Close
                 </button>
@@ -729,58 +541,8 @@ const AttendanceTrackingPage: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ── MODAL 2: CUSTOM DELETE CONFIRMATION MODAL ───────────────────── */}
-      {deleteConfirmDay && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-3.5 bg-rose-600 dark:bg-[#222222] text-white flex items-center justify-between border-b border-transparent dark:border-[#2a2a2a]">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-white dark:text-gray-300" />
-                <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase tracking-wider">Confirm Deletion</h3>
-              </div>
-              <button type="button" onClick={() => setDeleteConfirmDay(null)} className="p-1 text-white/80 dark:text-gray-400 hover:bg-white/10 dark:hover:bg-[#2a2a2a] rounded-lg cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3 text-xs">
-              <p className="text-slate-700 dark:text-gray-300 leading-relaxed font-semibold">
-                Are you sure you want to remove the attendance log for date <span className="text-rose-700 dark:text-rose-400 font-bold font-mono">{deleteConfirmDay.date}</span>?
-              </p>
-
-              <div className="bg-slate-50 dark:bg-[#222222] p-2.5 rounded-xl border border-slate-200 dark:border-transparent space-y-1.5 font-mono text-[11px]">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Status:</span>
-                  <span className="font-bold text-slate-800 dark:text-gray-200">{deleteConfirmDay.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-gray-400 font-sans font-medium">Worked Duration:</span>
-                  <span className="font-bold text-slate-800 dark:text-gray-200">{formatMinutesToHoursStr(deleteConfirmDay.workedMinutes)}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-[#2a2a2a]">
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirmDay(null)}
-                  className="px-3.5 py-1.5 border border-slate-200 dark:border-transparent bg-white dark:bg-[#222222] rounded-lg text-xs font-semibold text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-[#282828] cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmDeleteDayRecord}
-                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
-                >
-                  Confirm Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 };
