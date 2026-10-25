@@ -255,10 +255,9 @@ const ExpenseRevenue: React.FC = () => {
   return (
     <>
       <PageMeta title="Expenses & Revenue" description="Day-to-day expenses and other income" />
-      <PageBreadcrumb pageTitle="Expenses & Revenue" />
+      <PageBreadcrumb pageTitle="Expenses & Revenue" actions={canCreate ? <AddButton onClick={openCreate} label="Record expense / income" /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
-        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Record expense / income" />}</div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Expenses" value={money(stats.expense)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />

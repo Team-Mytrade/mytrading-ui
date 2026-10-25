@@ -8,12 +8,8 @@ const AttendanceApprovalRequestPage: React.FC = () => (
   <>
     <PageMeta title="Leave Approvals" description="Approve or reject employees' leave requests" />
     <PageBreadcrumb pageTitle="Leave Approvals" />
-    <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1">
-      <ApprovalDesk
-        kind="leave"
-        title="Leave Approval Desk"
-        subtitle="Approving uses the days from the employee's leave balance; rejecting gives them back"
-      />
+    <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200">
+      <ApprovalDesk kind="leave" />
     </div>
   </>
 );

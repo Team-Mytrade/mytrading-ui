@@ -647,7 +647,7 @@ const ServiceSchedules: React.FC = () => {
         actions={<AddButton onClick={openCreate} label="Add schedule" />}
       />
 
-      <div className="w-full max-w-none space-y-6 bg-slate-50 px-0 py-6 dark:bg-slate-950 sm:py-8">
+      <div className="w-full max-w-none space-y-6 px-0 py-6 sm:py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Schedules" value={stats.total} icon={<CalendarDaysIcon />} />
           <StatsCard

@@ -1,3 +1,4 @@
+import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import React, { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -209,7 +210,7 @@ const OpportunitiesPage: React.FC = () => {
             {/* Add Opportunity Button */}
             <button
               onClick={() => { resetForm(); setShowModal(true); }}
-              className="px-4 !mb-0 py-2 bg-cyan-600 !text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2"
+              className={`px-4 !mb-0 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${ADD_BUTTON_COLORS}`}
             >
               <PlusIcon className="h-5 w-5" />
               <span className="hidden sm:inline">Add Opportunity</span>

@@ -1,3 +1,4 @@
+import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import { appUrl } from "../../utils/appPath";
 import React, { useState, useEffect, useMemo } from 'react';
@@ -762,9 +763,9 @@ const LeaveDashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsAddEventModalOpen(true)}
-              className="px-2 py-0.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95"
+              className={`px-2 py-0.5 rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95 ${ADD_BUTTON_COLORS}`}
             >
-              <Plus className="w-2.5 h-2.5 text-cyan-600" />
+              <Plus className="w-2.5 h-2.5" />
               <span>Add Event</span>
             </button>
 

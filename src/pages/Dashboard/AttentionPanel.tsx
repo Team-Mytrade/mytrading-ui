@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { getSelectedTenant, hasModule, hasPermission, type AccessInfo } from "../../access/access";
-import { formatMoney, getList, parseDate } from "./dashboardKit";
+import { DASH_CARD, formatMoney, getList, parseDate } from "./dashboardKit";
 
 /**
  * "Needs your attention": one strip across the modules with the work waiting for the signed-in user.
@@ -97,7 +97,7 @@ const ITEMS: Item[] = [
 const TONES: Record<Item["tone"], string> = {
   red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300",
-  cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300",
+  cyan: "bg-[#e0f7fa] text-[#006f7a] dark:bg-cyan-950/40 dark:text-cyan-300",
   violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300",
   emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300",
 };
@@ -143,7 +143,7 @@ export default function AttentionPanel() {
   };
 
   return (
-    <section className="mb-3 flex-none rounded-[14px] border border-[#e5eaf2] bg-white px-4 py-3 shadow-[0_6px_18px_rgb(28_46_80_/_4%)] dark:border-gray-800 dark:bg-gray-900" aria-label="Needs your attention">
+    <section className={`mb-3 flex-none px-4 py-3 ${DASH_CARD}`} aria-label="Needs your attention">
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={toggle} className="flex min-w-0 items-center gap-2 text-left" aria-expanded={!collapsed}>
           <span className={`grid h-7 w-7 flex-none place-items-center rounded-lg ${waiting.length ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}>
@@ -167,10 +167,10 @@ export default function AttentionPanel() {
             const r = results[item.key];
             return (
               <button key={item.key} type="button" onClick={() => navigate(item.route)}
-                className="group flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-left transition hover:border-cyan-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                className="group flex items-center gap-2 rounded-lg border border-[#d9eef2] bg-white px-2.5 py-1.5 text-left transition hover:border-[#4dd0e1] hover:shadow-[0_4px_10px_rgba(0,151,167,0.10)] dark:border-gray-800 dark:bg-gray-900">
                 <span className={`grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-xs font-bold ${TONES[item.tone]}`}>{r.count}</span>
-                <item.icon size={14} className="flex-none text-gray-400 group-hover:text-cyan-600" />
-                <span className="text-xs font-medium text-gray-700 group-hover:text-cyan-700 dark:text-gray-200">{item.label}</span>
+                <item.icon size={14} className="flex-none text-slate-400 group-hover:text-[#0097a7]" />
+                <span className="text-xs font-medium text-slate-700 group-hover:text-[#006f7a] dark:text-gray-200">{item.label}</span>
                 {r.amount ? <span className="text-[11px] text-gray-400">{formatMoney(r.amount, "INR", true)}</span> : null}
               </button>
             );

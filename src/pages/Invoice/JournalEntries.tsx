@@ -266,10 +266,9 @@ const JournalEntries: React.FC = () => {
   return (
     <>
       <PageMeta title="Journal Entries" description="Double-entry postings to the general ledger" />
-      <PageBreadcrumb pageTitle="Journal Entries" />
+      <PageBreadcrumb pageTitle="Journal Entries" actions={canCreate ? <AddButton onClick={openCreate} label="New journal entry" /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
-        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="New journal entry" />}</div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Entries" value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />

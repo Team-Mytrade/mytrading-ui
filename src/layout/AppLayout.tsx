@@ -20,23 +20,6 @@ const LayoutContent: React.FC = () => {
   const location = useLocation();
   const { access } = useContext(AuthContext);
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  const scrollablePages = ["/purchase-reports", "/rolesPermissions", "/delivery_dashboard", "/profile", "/vehicle-tracking"];
-  const isScrollablePage =
-    scrollablePages.includes(location.pathname) ||
-    location.pathname.startsWith("/att_leaveDashboard") ||
-    location.pathname.startsWith("/att_leaveManagerDashboard") ||
-    location.pathname.startsWith("/att_leaveRequest") ||
-    location.pathname.startsWith("/att_timesheetManagement") ||
-    location.pathname.startsWith("/att_requests") ||
-    location.pathname.startsWith("/att_punch") ||
-    location.pathname.startsWith("/att_selfService") ||
-    location.pathname.startsWith("/att_attendanceTracking") ||
-    location.pathname.startsWith("/att_holidayCalendar") ||
-    location.pathname.startsWith("/payrollSummary") ||
-    location.pathname.startsWith("/departmentSummary") ||
-    location.pathname.startsWith("/payrollEngine") ||
-    location.pathname.startsWith("/it-declaration") ||
-    location.pathname.startsWith("/addEmployee");
   const isSalesModule = [
     "/sales-dashboard", "/sales-targets", "/sales-persons", "/sales-orders",
     "/return-requests", "/refunds", "/quotations", "/quote-view", "/credit-limit",
@@ -53,7 +36,7 @@ const LayoutContent: React.FC = () => {
 
   return (
 
-    <div className="h-screen overflow-hidden bg-[#e7e9ee] dark:bg-[#1f1f1f] lg:flex">
+    <div className="h-screen overflow-hidden bg-[#eaf8fa] dark:bg-[#1f1f1f] lg:flex">
       <div>
         <AppSidebar />
         <Backdrop />
@@ -73,7 +56,9 @@ const LayoutContent: React.FC = () => {
           <AppHeader />
           <TenantBanner />
         </div>
-        <div className={`app-content-tight min-h-0 flex-1 w-full px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""} ${isScrollablePage ? "overflow-x-hidden overflow-y-auto overscroll-contain no-scrollbar" : "overflow-hidden"}`}>
+        {/* Every page scrolls vertically when its content is taller than the window (a list of "scrollable
+            pages" used to decide this, and pages missing from it were cut off); never sideways */}
+        <div className={`app-content-tight app-content-scroll min-h-0 flex-1 w-full overflow-x-hidden overflow-y-auto overscroll-contain px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""}`}>
           {canAccessPath(access, location.pathname) ? (
             // Pages are loaded on demand; header and sidebar stay while one loads
             <Suspense fallback={<PageLoading />}>

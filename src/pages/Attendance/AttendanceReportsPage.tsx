@@ -3,6 +3,7 @@ import axios from 'axios';
 import { AlertTriangle, Calendar, Clock, LayoutDashboard, RefreshCw } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from '../../utils/localDate';
@@ -233,26 +234,15 @@ const AttendanceReportsPage: React.FC = () => {
     </div>
   );
 
-  const inputClass = 'px-2.5 h-8 text-xs border border-gray-200 dark:border-transparent rounded-lg bg-white dark:bg-[#222222] text-gray-800 dark:text-white';
+  const inputClass = 'px-2.5 h-7 py-0 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#191919] text-gray-800 dark:text-white';
   const showDate = activeTab === 'dashboard' || activeTab === 'daily';
 
   return (
     <>
       <PageMeta title="Attendance Reports" description="Daily and monthly attendance, late arrivals and missing punches" />
-      <PageBreadcrumb pageTitle="Attendance Reports" />
-
-      <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200 mt-0.5">
-        <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-2.5 px-3.5 flex flex-col md:flex-row items-center justify-between gap-2.5">
-          <div className="flex items-center bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg text-[11px] font-semibold overflow-x-auto w-full md:w-auto">
-            {tabs.map((t) => (
-              <button key={t.key} type="button" onClick={() => setActiveTab(t.key)}
-                className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === t.key ? 'bg-cyan-600 text-white shadow-2xs font-bold' : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'}`}>
-                {t.icon} {t.label}
-              </button>
-            ))}
-          </div>
-
+      <PageBreadcrumb
+        pageTitle="Attendance Reports"
+        actions={
           <div className="flex flex-wrap items-center gap-2">
             {showDate ? (
               <input type="date" value={dateFilter} max={todayIso()} onChange={(e) => e.target.value && setDateFilter(e.target.value)} className={inputClass} />
@@ -269,11 +259,23 @@ const AttendanceReportsPage: React.FC = () => {
                 </select>
               </>
             )}
-            <button type="button" onClick={load} disabled={loading} title="Refresh"
-              className="p-1.5 bg-gray-50 dark:bg-[#222222] hover:bg-gray-100 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-transparent rounded-lg transition-all">
+            <button type="button" onClick={load} disabled={loading} className={TOOL_BUTTON} title="Refresh">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
+              Refresh
             </button>
           </div>
+        }
+      />
+
+      <div className="max-w-7xl mx-auto pb-4 space-y-2.5 animate-in fade-in duration-200">
+        <div className="flex items-center w-fit max-w-full bg-gray-100/80 dark:bg-[#222222] p-0.5 rounded-lg text-[11px] font-semibold overflow-x-auto">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" onClick={() => setActiveTab(t.key)}
+              className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === t.key ? 'bg-cyan-600 text-white shadow-2xs font-bold' : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'}`}>
+              {t.icon} {t.label}
+            </button>
+          ))}
         </div>
 
         {activeTab === 'dashboard' && (

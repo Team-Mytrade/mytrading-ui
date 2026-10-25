@@ -268,7 +268,7 @@ const LiveTracking: React.FC = () => {
         .vt-selected .vt-label { background: #0f172a; color: #fff; }
       `}</style>
 
-      <div className="flex flex-col gap-4 py-4 lg:h-[calc(100vh-150px)]">
+      <div className="flex flex-col gap-4 py-4 lg:h-[calc(100cqh-48px)]">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">

@@ -28,6 +28,7 @@ import {
   Users2,
 } from "lucide-react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { DASH_CARD, DASH_TITLE, toneCard, toneIcon, type Tone } from "../Dashboard/dashboardKit";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
 
@@ -62,42 +63,14 @@ const serviceModulesBase = [
   { name: "Return Requests", count: "Open", icon: ArrowDownRight, route: "/return-requests", color: "yellow" as ColorKey },
   { name: "Refunds", count: "Open", icon: DollarSign, route: "/refunds", color: "indigo" as ColorKey },
   { name: "Service Schedules", count: "Open", icon: Calendar, route: "/service-schedules", color: "emerald" as ColorKey },
-  { name: "Service Schedule Notify", count: "Open", icon: FileText, route: "/service-schedule-notify", color: "blue" as ColorKey },
+  { name: "Service Reminders", count: "Open", icon: FileText, route: "/service-schedule-notify", color: "blue" as ColorKey },
 ];
 
-const colorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:group-hover:bg-blue-900/60",
-  emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:group-hover:bg-emerald-900/60",
-  orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100 dark:bg-orange-950/40 dark:text-orange-400 dark:group-hover:bg-orange-900/60",
-  purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-400 dark:group-hover:bg-purple-900/60",
-  yellow: "bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100 dark:bg-amber-950/40 dark:text-amber-400 dark:group-hover:bg-amber-900/60",
-  indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:group-hover:bg-indigo-900/60",
-  pink: "bg-pink-50 text-pink-600 group-hover:bg-pink-100 dark:bg-pink-950/40 dark:text-pink-400 dark:group-hover:bg-pink-900/60",
-  teal: "bg-teal-50 text-teal-600 group-hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-400 dark:group-hover:bg-teal-900/60",
+// Tiles and summary cards use the shared tinted card (approval-queue look, see dashboardKit); each colour
+// key maps onto one of its tones
+const toneOf: Record<ColorKey, Tone> = {
+  blue: "blue", emerald: "emerald", orange: "orange", purple: "purple", yellow: "amber", indigo: "indigo", pink: "pink", teal: "teal",
 };
-
-const solidColorClasses: Record<ColorKey, string> = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
-  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
-  orange: "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400",
-  purple: "bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400",
-  yellow: "bg-yellow-50 text-yellow-600 dark:bg-amber-950/40 dark:text-amber-400",
-  indigo: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400",
-  pink: "bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-400",
-  teal: "bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400",
-};
-
-const accentBorderClasses: Record<ColorKey, string> = {
-  blue: "border-t-blue-400 dark:border-t-blue-500",
-  emerald: "border-t-emerald-400 dark:border-t-emerald-500",
-  orange: "border-t-orange-400 dark:border-t-orange-500",
-  purple: "border-t-purple-400 dark:border-t-purple-500",
-  yellow: "border-t-yellow-400 dark:border-t-amber-500",
-  indigo: "border-t-indigo-400 dark:border-t-indigo-500",
-  pink: "border-t-pink-400 dark:border-t-pink-500",
-  teal: "border-t-teal-400 dark:border-t-teal-500",
-};
-
 const moduleGridClasses: Record<string, string> = {
   Sales: "grid-cols-2 sm:grid-cols-3 md:grid-cols-6",
   Service: "grid-cols-2 sm:grid-cols-2 md:grid-cols-4",
@@ -261,13 +234,13 @@ const SalesDashboard: React.FC = () => {
       {/* Fixed-height flex column: breadcrumb stays put at the top,
           only the content area below it scrolls. `min-h-0` on the
           scroll child is required for flex-1 overflow to work. */}
-      <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden dark:bg-gray-950">
+      <div className="flex h-full flex-col overflow-hidden dark:bg-gray-950">
         <div className="shrink-0">
           <PageBreadcrumb pageTitle="Sales Dashboard" />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-7xl space-y-5 p-4 pb-16 sm:p-6 sm:pb-20">
+          <div className="mx-auto w-full max-w-7xl space-y-5 px-1 pb-6 pt-1">
             {groups.map((group) => (
               <div key={group.title}>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
@@ -280,17 +253,17 @@ const SalesDashboard: React.FC = () => {
                 >
                   {group.modules.map((module) => {
                     const Icon = module.icon;
-                    const colorClass = colorClasses[module.color];
+                    const tone = toneOf[module.color];
                     return (
                       <button
                         key={module.name}
                         onClick={() => navigate(module.route)}
-                        className="group flex flex-col items-center rounded-lg border border-gray-100 bg-white px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                        className={`group flex flex-col items-center px-3 py-2.5 hover:-translate-y-0.5 ${toneCard(tone)}`}
                       >
-                        <div className={`rounded-md p-1.5 ${colorClass} transition-colors duration-200`}>
+                        <div className={`rounded-md p-1.5 ${toneIcon(tone)}`}>
                           <Icon className="h-4 w-4" />
                         </div>
-                        <h4 className="mt-1.5 text-xs font-semibold text-gray-900 transition-colors group-hover:text-cyan-600 dark:text-gray-100 dark:group-hover:text-cyan-400">
+                        <h4 className="mt-1.5 text-xs font-semibold text-gray-900 transition-colors group-hover:text-[#0097a7] dark:text-gray-100 dark:group-hover:text-cyan-400">
                           {module.name}
                         </h4>
                         <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">{module.count}</p>
@@ -304,8 +277,8 @@ const SalesDashboard: React.FC = () => {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
               {cards.map((card) => {
                 const Icon = card.icon;
-                const chipClass = solidColorClasses[card.color];
-                const accentClass = accentBorderClasses[card.color];
+                const tone = toneOf[card.color];
+                
                 const subColorClass =
                   card.subTone === "positive"
                     ? "text-emerald-600 dark:text-emerald-400"
@@ -315,10 +288,10 @@ const SalesDashboard: React.FC = () => {
                 return (
                   <div
                     key={card.label}
-                    className={`flex h-full flex-col justify-between rounded-xl border border-t-[3px] border-gray-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 sm:p-5 ${accentClass}`}
+                    className={`flex h-full flex-col justify-between p-4 sm:p-5 ${toneCard(tone)}`}
                   >
                     <div className="mb-3 flex items-center justify-between">
-                      <div className={`rounded-lg p-2 ${chipClass}`}>
+                      <div className={`rounded-lg p-2 ${toneIcon(tone)}`}>
                         <Icon className="h-5 w-5" />
                       </div>
                       <span
@@ -344,10 +317,10 @@ const SalesDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+              <div className={`p-5 ${DASH_CARD}`}>
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Monthly sales</h3>
+                    <h3 className={DASH_TITLE}>Monthly sales</h3>
                     <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">From sales report API</p>
                   </div>
                   {salesDelta !== null ? (
@@ -399,10 +372,10 @@ const SalesDashboard: React.FC = () => {
                 </ResponsiveContainer>
               </div>
 
-              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+              <div className={`p-5 ${DASH_CARD}`}>
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Top products</h3>
+                    <h3 className={DASH_TITLE}>Top products</h3>
                     <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Ranked by sales volume</p>
                   </div>
                   <Package className="h-4 w-4 text-orange-500 dark:text-orange-400" />
@@ -447,10 +420,10 @@ const SalesDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className={`overflow-hidden ${DASH_CARD}`}>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Monthly sales data</h3>
+                  <h3 className={DASH_TITLE}>Monthly sales data</h3>
                   <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {monthlySales.length} month{monthlySales.length === 1 ? "" : "s"} · Total{" "}
                     {money(monthlyTotal)}

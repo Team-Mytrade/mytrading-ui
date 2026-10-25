@@ -828,7 +828,7 @@ const CreditLimit: React.FC = () => {
       <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
-      <div className="max-h-[calc(100vh-150px)] overflow-y-auto">
+      <div className="max-h-[calc(100cqh-48px)] overflow-y-auto">
         <div className="w-full max-w-none space-y-2.5 px-0 py-3 sm:py-4">
           <section className="rounded-xl border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-slate-50 p-2.5 shadow-sm sm:p-3 dark:border-gray-700 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -894,7 +894,7 @@ const CreditLimit: React.FC = () => {
                   <div className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-400">
                     {activeMethod.title}
                   </div>
-                  <button
+                  <button title="Show or hide credit actions" aria-label="Show or hide credit actions"
                     type="button"
                     onClick={() => setShowCreditActions((current) => !current)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700"
@@ -1117,7 +1117,7 @@ const CreditLimit: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap gap-1.5">
-                <button
+                <button title="Refresh history" aria-label="Refresh history"
                   type="button"
                   onClick={() => void fetchRecentTransactions()}
                   disabled={historyLoading || !isPositiveNumber(form.customerId)}
@@ -1125,7 +1125,7 @@ const CreditLimit: React.FC = () => {
                 >
                   <ArrowPathIcon className="h-4 w-4" />
                 </button>
-                {canExport && (<button
+                {canExport && (<button title="Export history" aria-label="Export history"
                   type="button"
                   onClick={openExportPopup}
                   disabled={exportLoading || !isPositiveNumber(form.customerId)}
@@ -1134,7 +1134,7 @@ const CreditLimit: React.FC = () => {
                   <ArrowDownTrayIcon className="h-4 w-4" />
                 </button>)}
                 {canDelete && (
-                  <button
+                  <button title="Delete history" aria-label="Delete history"
                     type="button"
                     onClick={() => setShowPurgeConfirm(true)}
                     disabled={purging || !isPositiveNumber(form.customerId)}

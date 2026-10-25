@@ -33,7 +33,7 @@
 .dark .common-data-table .text-cyan-600,
 .dark .common-data-table .text-cyan-700 { color: #6f9cf0 !important; }
 
-.common-data-table__filters th { background: #f8fafc; }
+.common-data-table__filters th { background: #e8f3dc; }
 .common-data-table__filters input,
 .common-data-table__filters select {
   width: 100%;
@@ -124,11 +124,12 @@
   position: sticky;
   right: 0;
   z-index: 1;
-  background: #fff;
+  /* Same shades as the table card: body #F1F8E9, header #E8F3DC, hovered row #E6F1D8 */
+  background: #f1f8e9;
   box-shadow: -8px 0 8px -8px rgb(15 23 42 / 22%);
 }
-.common-data-table thead .common-data-table__sticky-actions { background: #f9fafb; }
-.common-data-table tbody tr:hover > .common-data-table__sticky-actions { background: #f9fafb; }
+.common-data-table thead .common-data-table__sticky-actions { background: #e8f3dc; }
+.common-data-table tbody tr:hover > .common-data-table__sticky-actions { background: #e6f1d8; }
 .dark .common-data-table .common-data-table__sticky-actions { background: #191919 !important; }
 .dark .common-data-table thead .common-data-table__sticky-actions { background: #222 !important; }
 .dark .common-data-table tbody tr:hover > .common-data-table__sticky-actions { background: #242424 !important; }

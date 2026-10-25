@@ -25,7 +25,8 @@
 
   body {
     @apply relative text-base font-normal z-1 bg-gray-50 font-nunito dark:bg-gray-950;
-    background-color: #e7e9ee;
+    /* Page background: light tint of the #4DD0E1 accent; cards are #F1F8E9 */
+    background-color: #eaf8fa;
   }
 
   html.dark body { background-color: #1f1f1f; }
@@ -1070,12 +1071,6 @@ span.flatpickr-weekday,
   stroke: currentColor;
 }
 
-@media (min-width: 1024px) {
-  .app-content-tight .lg\:-mt-\[134px\] {
-    margin-top: -50px !important;
-  }
-}
-
 .app-content-tight .py-8 {
   padding-top: 3px !important;
   padding-bottom: 3px !important;
@@ -1093,4 +1088,173 @@ span.flatpickr-weekday,
 
 .app-content-tight .gap-4 {
   row-gap: 3px !important;
+}
+
+/* Every page: content starts 6px below the 48px breadcrumb row, whatever spacing the page's own wrapper or
+   first block asks for (py-4, py-8, my-5, ... gave uneven gaps). Only the block right after the breadcrumb
+   and its first child are touched. Kept after the rules above so it wins over them. */
+.app-content-tight .page-breadcrumb + * {
+  margin-top: 0 !important;
+  padding-top: 6px !important;
+}
+/* One body-card look on every module page. Pages that draw their own white / grey cards (rounded, with a
+   border or shadow) get the standard card: #F1F8E9, light-green edge, raised shadow. Light mode only, and
+   never inside pop-ups, drawers, dropdowns or tables, which keep their own look. A card inside a card keeps
+   the colour and edge but drops the shadow, so nesting doesn't stack shadows. */
+html:not(.dark) .app-content-tight :is(div, section, article, aside, form):is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .bg-gray-50, .bg-slate-50):is(.border, [class*="shadow"]):not(.fixed *, [role="dialog"] *, .absolute, .absolute *, table *, .common-data-table *) {
+  background-color: #f1f8e9 !important;
+  border-color: #dcedc8 !important;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+}
+html:not(.dark) .app-content-tight :is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .bg-gray-50, .bg-slate-50) :is(div, section, article, aside, form):is(.rounded-lg, .rounded-xl, .rounded-2xl):is(.bg-white, .bg-gray-50, .bg-slate-50):is(.border, [class*="shadow"]):not(.fixed *, [role="dialog"] *, .absolute, .absolute *, table *, .common-data-table *) {
+  box-shadow: none !important;
+}
+
+/* Same structure on every list page: breadcrumb row → stat strip → table / main card. The stat strip starts
+   where the page content starts, even when a page wraps it in a padded box of its own (py-4, py-5, ...), and
+   is always followed by a 10px gap whatever spacing the page uses (mb-[17px], space-y-4, ...). */
+.app-content-tight :not(.page-breadcrumb + *):has(> .grid:first-child > .stats-card) {
+  padding-top: 0 !important;
+}
+.app-content-tight .grid:first-child:has(> .stats-card) {
+  margin-top: 0 !important;
+}
+.app-content-tight .grid:has(> .stats-card) {
+  margin-bottom: 10px !important;
+}
+.app-content-tight .grid:has(> .stats-card) + * {
+  margin-top: 0 !important;
+}
+
+/* ...except an Add button row lifted into the breadcrumb (it needs its negative margin) */
+.app-content-tight .page-breadcrumb + * > :first-child:not(.lg\:-mt-\[134px\]) {
+  margin-top: 0 !important;
+}
+
+/* Pages that lift their Add button into the breadcrumb row: the wrapper's content starts at 48px row + 6px
+   gap, so -42px puts a 28px button in the middle of the row. The row itself takes no height (and gives the
+   42px back below), so the page's content starts in the same place as on every other page. After the .mb-6
+   squeeze above, which would otherwise win. */
+@media (min-width: 1024px) {
+  .app-content-tight .lg\:-mt-\[134px\] {
+    height: 0 !important;
+    margin-top: -42px !important;
+    margin-bottom: 42px !important;
+    align-items: flex-start !important;
+    overflow: visible !important;
+  }
+}
+
+/* Page content scrollbar: thin, only drawn when a page is taller than the window.
+   The content area is also a size container, so a page that fills the screen sizes itself with 100cqh
+   (the content area's height) instead of guessing the header + tenant bar height from 100vh: the tenant
+   bar only shows for Super Admins, so 100vh formulas came out wrong for one group or the other. Below the
+   48px breadcrumb that is calc(100cqh - 48px). */
+.app-content-scroll {
+  container-type: size;
+  scrollbar-width: thin;
+  scrollbar-color: #b2ebf2 transparent;
+  scrollbar-gutter: auto;
+}
+.app-content-scroll::-webkit-scrollbar { width: 6px; }
+.app-content-scroll::-webkit-scrollbar-thumb { background: #b2ebf2; border-radius: 6px; }
+.app-content-scroll::-webkit-scrollbar-thumb:hover { background: #4dd0e1; }
+.app-content-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ── One field style for every page and dialog ───────────────────────────────────────────────────────────
+   Text fields and dropdowns were 28–52px tall with 12/14/16px text, 6/8/12px corners and four border
+   colours depending on the page. They now share one size (36px, 13px Nunito) and one border / focus look.
+   Compact toolbar fields (breadcrumb row, table filters, h-5…h-8) and floating-label fields (.peer) keep
+   their own size. */
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select):not(.page-breadcrumb *, .peer, table *, .stats-card *, [class*="h-5"], [class*="h-6"], [class*="h-7"], [class*="h-8"]) {
+  height: 36px !important;
+  min-height: 36px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.4;
+  border-radius: 8px !important;
+}
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) textarea:not(.peer) {
+  font-size: 13px !important;
+  line-height: 1.5;
+  border-radius: 8px !important;
+}
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select, textarea) {
+  font-family: inherit;
+}
+html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select, textarea):not(.page-breadcrumb *, table *, :disabled) {
+  border-color: #cbd5e1 !important;
+}
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select, textarea):focus {
+  border-color: #26c6da !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25) !important;
+}
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input, textarea)::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+/* Field labels: one size and weight (labels that wrap a checkbox / radio are left alone) */
+html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) label:not(:has(input[type="checkbox"], input[type="radio"], input[type="file"])):not(.peer ~ label, [class*="absolute"], [class*="bg-"], [class*="uppercase"], .page-breadcrumb *) {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* ── One button colour scheme for every module ───────────────────────────────────────────────────────────
+   Primary actions (save, submit, approve, apply, selected tab) use the Add button's cyan (#4DD0E1 with the
+   #26C6DA border, see ADD_BUTTON_COLORS); destructive ones (delete, reject) one red; everything else stays the
+   white outline button. Pages still write their own bg-*-600 classes, so this maps them centrally. */
+button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500,
+  .bg-indigo-600, .bg-indigo-700, .bg-sky-500, .bg-sky-600, .bg-teal-500, .bg-teal-600, .bg-brand-500,
+  .bg-brand-600, .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-violet-500, .bg-violet-600,
+  .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-green-500, .bg-green-600, .bg-green-700,
+  .bg-orange-500, .bg-orange-600, .bg-amber-500, .bg-amber-600, .bg-gray-800, .bg-gray-900, .bg-slate-800,
+  .bg-slate-900):not([role="switch"]) {
+  border: 1px solid #26c6da !important;
+  background-color: #4dd0e1 !important;
+  color: #083344 !important;
+  box-shadow: 0 1px 3px rgba(0, 151, 167, 0.35) !important;
+}
+button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500,
+  .bg-indigo-600, .bg-indigo-700, .bg-sky-500, .bg-sky-600, .bg-teal-500, .bg-teal-600, .bg-brand-500,
+  .bg-brand-600, .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-violet-500, .bg-violet-600,
+  .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-green-500, .bg-green-600, .bg-green-700,
+  .bg-orange-500, .bg-orange-600, .bg-amber-500, .bg-amber-600, .bg-gray-800, .bg-gray-900, .bg-slate-800,
+  .bg-slate-900):not([role="switch"]):not(:disabled):hover {
+  border-color: #00acc1 !important;
+  background-color: #26c6da !important;
+  box-shadow: 0 2px 6px rgba(0, 151, 167, 0.4) !important;
+}
+button:is(.bg-red-500, .bg-red-600, .bg-red-700, .bg-rose-500, .bg-rose-600, .bg-rose-700):not([role="switch"]) {
+  border: 1px solid #b91c1c !important;
+  background-color: #dc2626 !important;
+  color: #fff !important;
+}
+button:is(.bg-red-500, .bg-red-600, .bg-red-700, .bg-rose-500, .bg-rose-600, .bg-rose-700):not([role="switch"]):not(:disabled):hover {
+  background-color: #b91c1c !important;
+}
+/* White icons / labels inside a primary button take the button's dark text */
+button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500,
+  .bg-indigo-600, .bg-indigo-700, .bg-sky-500, .bg-sky-600, .bg-teal-500, .bg-teal-600, .bg-brand-500,
+  .bg-brand-600, .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-violet-500, .bg-violet-600,
+  .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-green-500, .bg-green-600, .bg-green-700,
+  .bg-orange-500, .bg-orange-600, .bg-amber-500, .bg-amber-600, .bg-gray-800, .bg-gray-900, .bg-slate-800,
+  .bg-slate-900):not([role="switch"]) :is(.text-white, [class*="text-white/"], [class*="text-cyan-1"], [class*="text-emerald-1"], [class*="text-gray-3"]) {
+  color: inherit !important;
+}
+
+/* ── One section style for every module (light theme) ───────────────────────────────────────────────────
+   Card / section headings in one dark ink, small uppercase section labels in the brand's dark cyan, and the
+   icon in front of a heading in the brand cyan. Coloured headings inside callouts (amber, rose…) keep theirs. */
+html:not(.dark) .app-content-tight :is(h2, h3, h4):is(.text-gray-900, .text-gray-800, .text-gray-700, .text-slate-900, .text-slate-800, .text-slate-700):not(button *) {
+  color: #0f172a !important;
+}
+html:not(.dark) .app-content-tight :is(h2, h3, h4).uppercase:is(.text-gray-500, .text-gray-400, .text-slate-500, .text-slate-400, .text-gray-600, .text-slate-600) {
+  color: #006f7a !important;
+}
+html:not(.dark) .app-content-tight svg:is([class*="text-blue-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-sky-"], [class*="text-teal-"], [class*="text-gray-"], [class*="text-slate-"], [class*="text-cyan-"]):has(+ :is(h2, h3, h4)),
+html:not(.dark) .app-content-tight :is(div, span):has(> svg):has(+ div > :is(h2, h3, h4):first-child) > svg:is([class*="text-blue-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-sky-"], [class*="text-teal-"], [class*="text-cyan-"]) {
+  color: #0097a7 !important;
 }

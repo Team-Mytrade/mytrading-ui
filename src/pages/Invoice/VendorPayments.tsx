@@ -246,10 +246,9 @@ const VendorPayments: React.FC = () => {
   return (
     <>
       <PageMeta title="Vendor Payments" description="Payments made to vendors against their bills" />
-      <PageBreadcrumb pageTitle="Vendor Payments" />
+      <PageBreadcrumb pageTitle="Vendor Payments" actions={canCreate ? <AddButton onClick={openCreate} label="Pay a bill" /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
-        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Pay a bill" />}</div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Payments" value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />

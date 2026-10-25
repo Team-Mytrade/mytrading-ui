@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { LogIn, Mail, Pencil, Power, X } from "lucide-react";
+import { Building2, CheckCircle2, LogIn, Mail, Pencil, Power, PowerOff, Users, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -245,10 +245,10 @@ export default function TenantsPage() {
 
       <div className={PAGE_BODY}>
         <div className={STATS_ROW}>
-          <StatsCard label="Tenants" value={stats.total} loading={loading} />
-          <StatsCard label="Active" value={stats.active} loading={loading} />
-          <StatsCard label="Inactive" value={stats.inactive} loading={loading} />
-          <StatsCard label="Users" value={stats.users} loading={loading} />
+          <StatsCard label="Tenants" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Building2 />} loading={loading} />
+          <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircle2 />} loading={loading} />
+          <StatsCard label="Inactive" value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<PowerOff />} loading={loading} />
+          <StatsCard label="Users" value={stats.users} gradient="from-purple-50 to-indigo-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<Users />} loading={loading} />
         </div>
 
         <div className="mb-3 text-xs text-slate-600 dark:text-gray-300">

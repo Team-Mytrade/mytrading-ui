@@ -124,35 +124,17 @@ const filterNavItems = (items: NavItem[], access: AccessInfo): NavItem[] => {
 };
 
 
+/*
+ * Menu order follows how the business works:
+ *   master data → win customers (CRM) → sell → buy → hold stock → deliver → bill & collect / pay → people → reports → settings.
+ * Inside each group, everyday work comes first in the order it happens; set-up pages come last.
+ * Paths and permissions are unchanged; only the order, section headings and a few labels differ.
+ */
 export const navItems: NavItem[] = [
   {
     icon: <LayoutDashboard className="w-5 h-5" />,
     name: "Dashboard",
     path: "/",
-  },
-  {
-    icon: <BarChart3 className="w-5 h-5" />,
-    name: "Reports",
-    subItems: [
-      // Static demo reports removed; CRM reports live under CRM
-      { name: "Inventory Report", path: "/inventory-report", icon: Boxes },
-      { name: "Purchase Reports", path: "/purchase-reports", icon: ClipboardList },
-      { name: "Finance Report", path: "/financeReport", icon: Landmark },
-      { name: "Tax Report", path: "/taxReport", icon: Percent },
-    ],
-  },
-  {
-    icon: <Users className="w-5 h-5" />,
-    name: "CRM",
-    subItems: [
-      { name: "Segments", path: "/customer-segment", icon: PieChart, section: "Customers" },
-      { name: "Key Contacts", path: "/contactPerson", icon: Contact, section: "Customers" },
-      { name: "Leads", path: "/leads", icon: Target, section: "Pipeline" },
-      { name: "Deals", path: "/opportunities", icon: Handshake, section: "Pipeline" },
-      { name: "Interactions", path: "/communication-history", icon: MessagesSquare, section: "Activity" },
-      { name: "Tasks", path: "/activities", icon: ListTodo, section: "Activity" },
-      { name: "Reports", path: "/crm-reports", icon: BarChart3, section: "Activity" },
-    ],
   },
 
   {
@@ -164,8 +146,23 @@ export const navItems: NavItem[] = [
       { name: "Vendors", path: "/common/vendors", icon: Store, section: "Master data" },
       { name: "Product Categories", path: "/common/categories", icon: FolderTree, section: "Master data" },
       { name: "Products", path: "/common/products", icon: Package, section: "Master data" },
-      { name: "Tax Types", path: "/taxTypes", icon: Percent, section: "Tax" },
-      { name: "Tax Details", path: "/taxDetails", icon: FileText, section: "Tax" },
+      { name: "Payment Terms", path: "/paymentTerms", icon: CalendarClock, section: "Terms & tax" },
+      { name: "Tax Types", path: "/taxTypes", icon: Percent, section: "Terms & tax" },
+      { name: "Tax Details", path: "/taxDetails", icon: FileText, section: "Terms & tax" },
+    ],
+  },
+
+  {
+    icon: <Users className="w-5 h-5" />,
+    name: "CRM",
+    subItems: [
+      { name: "Leads", path: "/leads", icon: Target, section: "Pipeline" },
+      { name: "Deals", path: "/opportunities", icon: Handshake, section: "Pipeline" },
+      { name: "Tasks", path: "/activities", icon: ListTodo, section: "Follow-up" },
+      { name: "Interactions", path: "/communication-history", icon: MessagesSquare, section: "Follow-up" },
+      { name: "Key Contacts", path: "/contactPerson", icon: Contact, section: "Customers" },
+      { name: "Segments", path: "/customer-segment", icon: PieChart, section: "Customers" },
+      { name: "CRM Reports", path: "/crm-reports", icon: BarChart3, section: "Insights" },
     ],
   },
 
@@ -174,16 +171,28 @@ export const navItems: NavItem[] = [
     name: "Sales",
     subItems: [
       { name: "Sales Dashboard", path: "/sales-dashboard", icon: LayoutDashboard, section: "Overview" },
-      { name: "Sales Persons", path: "/sales-persons", icon: UserRound, section: "Team" },
-      { name: "Sales Targets", path: "/sales-targets", icon: Target, section: "Team" },
-      { name: "Sales Channels", path: "/sales-channels", icon: Network, section: "Team" },
-      { name: "Quotations", path: "/quotations", icon: FileText, section: "Orders" },
-      { name: "Sales Orders", path: "/sales-orders", icon: ShoppingCart, section: "Orders" },
-      { name: "Credit Limit", path: "/credit-limit", icon: Wallet, section: "Orders" },
+      { name: "Quotations", path: "/quotations", icon: FileText, section: "Selling" },
+      { name: "Sales Orders", path: "/sales-orders", icon: ShoppingCart, section: "Selling" },
+      { name: "Credit Limit", path: "/credit-limit", icon: Wallet, section: "Selling" },
       { name: "Return Requests", path: "/return-requests", icon: Undo2, section: "Returns" },
       { name: "Refunds", path: "/refunds", icon: HandCoins, section: "Returns" },
-      { name: "Service Schedules", path: "/service-schedules", icon: CalendarClock, section: "Service" },
-      { name: "Service Schedule Notify", path: "/service-schedule-notify", icon: BellRing, section: "Service" },
+      { name: "Service Schedules", path: "/service-schedules", icon: CalendarClock, section: "After-sales service" },
+      { name: "Service Reminders", path: "/service-schedule-notify", icon: BellRing, section: "After-sales service" },
+      { name: "Sales Persons", path: "/sales-persons", icon: UserRound, section: "Team set-up" },
+      { name: "Sales Channels", path: "/sales-channels", icon: Network, section: "Team set-up" },
+      { name: "Sales Targets", path: "/sales-targets", icon: Target, section: "Team set-up" },
+    ],
+  },
+
+  {
+    icon: <ShoppingBag className="w-5 h-5" />,
+    // Same name as the Purchase dashboard, so its page snapshot finds these pages
+    name: "Purchase",
+    subItems: [
+      { name: "Purchase Requisitions", path: "/purchase-service/requisitions", icon: ClipboardList, section: "Buying" },
+      { name: "Purchase Orders", path: "/purchase-service/orders", icon: ShoppingBag, section: "Buying" },
+      { name: "Goods Receipts (GRN)", path: "/purchase-service/goods-receipt-notes", icon: PackageCheck, section: "Receiving" },
+      { name: "Purchase Returns", path: "/purchase-service/returns", icon: Undo2, section: "Receiving" },
     ],
   },
 
@@ -191,25 +200,35 @@ export const navItems: NavItem[] = [
     icon: <Boxes className="w-5 h-5" />,
     name: "Inventory",
     subItems: [
-      { name: "Warehouse", path: "/warehouse", icon: Warehouse, section: "Stock" },
-      { name: "Inventory Stock", path: "/inventory", icon: Boxes, section: "Stock" },
-      { name: "Stock Level", path: "/stock-level", icon: Gauge, section: "Stock" },
-      { name: "Stock Movement", path: "/stock-movement", icon: ArrowLeftRight, section: "Movements" },
-      { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal, section: "Movements" },
-      { name: "Inventory Reservation", path: "/inventory-reservation", icon: BookmarkCheck, section: "Movements" },
+      { name: "Stock on Hand", path: "/inventory", icon: Boxes, section: "Stock" },
+      { name: "Stock Levels & Reorder", path: "/stock-level", icon: Gauge, section: "Stock" },
+      { name: "Reservations", path: "/inventory-reservation", icon: BookmarkCheck, section: "Stock" },
+      { name: "Stock Movements", path: "/stock-movement", icon: ArrowLeftRight, section: "Movements" },
+      { name: "Stock Adjustments", path: "/stock-adjustment", icon: SlidersHorizontal, section: "Movements" },
       { name: "Quality Inspection", path: "/quality-inspection", icon: ShieldCheck, section: "Quality & tracking" },
-      { name: "Batch", path: "/batch", icon: Layers, section: "Quality & tracking" },
-      { name: "Serial Number", path: "/serial-number", icon: ScanBarcode, section: "Quality & tracking" },
+      { name: "Batches", path: "/batch", icon: Layers, section: "Quality & tracking" },
+      { name: "Serial Numbers", path: "/serial-number", icon: ScanBarcode, section: "Quality & tracking" },
+      { name: "Warehouses", path: "/warehouse", icon: Warehouse, section: "Set-up" },
     ],
   },
+
   {
-    icon: <ShoppingBag className="w-5 h-5" />,
-    name: "Purchase Service",
+    icon: <Truck className="w-5 h-5" />,
+    name: "Delivery",
     subItems: [
-      { name: "Purchase Requisitions", path: "/purchase-service/requisitions", icon: ClipboardList },
-      { name: "Purchase Orders", path: "/purchase-service/orders", icon: ShoppingBag },
-      { name: "Goods Receipt Notes", path: "/purchase-service/goods-receipt-notes", icon: PackageCheck },
-      { name: "Purchase Returns", path: "/purchase-service/returns", icon: Undo2 },
+      // Order → pick (goods issue) → paperwork → ship → track
+      { name: "Delivery Orders", path: "/deliveryOrder", icon: Truck, section: "Deliveries" },
+      { name: "Goods Issue", path: "/goodsIssue", icon: PackageMinus, section: "Deliveries" },
+      { name: "Delivery Notes", path: "/delivery-note", icon: NotebookText, section: "Deliveries" },
+      { name: "Shipments", path: "/shipment", icon: PackageCheck, section: "Deliveries" },
+      { name: "Delivery Status", path: "/deliveryStatus", icon: Activity, section: "Deliveries" },
+      { name: "Live Tracking", path: "/vehicle-tracking", icon: Radar, section: "On the road" },
+      { name: "Driver Mode", path: "/driver", permission: "DELIVERY:UPDATE", icon: Smartphone, section: "On the road" },
+      { name: "Schedule", path: "/schedule", icon: CalendarRange, section: "Planning" },
+      { name: "Routes", path: "/route", icon: Route, section: "Planning" },
+      { name: "Customer Addresses", path: "/customerAddress", icon: MapPin, section: "Planning" },
+      { name: "Vehicles", path: "/vehicle", icon: Car, section: "Fleet set-up" },
+      { name: "Transporters", path: "/transporter", icon: Building2, section: "Fleet set-up" },
     ],
   },
 
@@ -217,36 +236,17 @@ export const navItems: NavItem[] = [
     icon: <CreditCard className="w-5 h-5" />,
     name: "Invoice",
     subItems: [
-      { name: "Invoices", path: "/invoices", icon: Receipt, section: "Sales" },
-      { name: "Payment Receipts", path: "/paymentReceipts", icon: ReceiptText, section: "Sales" },
-      { name: "Accounts Receivable", path: "/accountsReceivable", icon: HandCoins, section: "Sales" },
-      { name: "Purchase Invoices", path: "/purchaseInvoices", icon: FileText, section: "Purchases" },
-      { name: "Vendor Payments", path: "/vendorPayments", icon: Banknote, section: "Purchases" },
-      { name: "Accounts Payable", path: "/accountsPayable", icon: Wallet, section: "Purchases" },
-      { name: "Payment Terms", path: "/paymentTerms", icon: CalendarClock, section: "Purchases" },
-      { name: "General Accounts", path: "/generalAccounts", icon: Landmark, section: "Accounting" },
+      { name: "Invoices", path: "/invoices", icon: Receipt, section: "Receivables" },
+      { name: "Payment Receipts", path: "/paymentReceipts", icon: ReceiptText, section: "Receivables" },
+      { name: "Accounts Receivable", path: "/accountsReceivable", icon: HandCoins, section: "Receivables" },
+      { name: "Purchase Invoices", path: "/purchaseInvoices", icon: FileText, section: "Payables" },
+      { name: "Vendor Payments", path: "/vendorPayments", icon: Banknote, section: "Payables" },
+      { name: "Accounts Payable", path: "/accountsPayable", icon: Wallet, section: "Payables" },
       { name: "Journal Entries", path: "/journalEntries", icon: BookOpen, section: "Accounting" },
       { name: "General Ledger", path: "/generalLedger", icon: BookMarked, section: "Accounting" },
       { name: "Expense / Revenue", path: "/expenseRevenue", icon: Scale, section: "Accounting" },
-      { name: "Tax Records", path: "/taxRecords", icon: Percent, section: "Tax" },
-    ],
-  },
-  {
-    icon: <Truck className="w-5 h-5" />,
-    name: "Delivery",
-    subItems: [
-      { name: "Delivery Order", path: "/deliveryOrder", icon: Truck, section: "Orders" },
-      { name: "Delivery Status", path: "/deliveryStatus", icon: Activity, section: "Orders" },
-      { name: "Delivery Note", path: "/delivery-note", icon: NotebookText, section: "Orders" },
-      { name: "Shipment", path: "/shipment", icon: PackageCheck, section: "Orders" },
-      { name: "Goods Issue", path: "/goodsIssue", icon: PackageMinus, section: "Orders" },
-      { name: "Schedule", path: "/schedule", icon: CalendarRange, section: "Planning" },
-      { name: "Routes", path: "/route", icon: Route, section: "Planning" },
-      { name: "Customer Address", path: "/customerAddress", icon: MapPin, section: "Planning" },
-      { name: "Live Tracking", path: "/vehicle-tracking", icon: Radar, section: "Fleet" },
-      { name: "Vehicles", path: "/vehicle", icon: Car, section: "Fleet" },
-      { name: "Transporters", path: "/transporter", icon: Building2, section: "Fleet" },
-      { name: "Driver Mode", path: "/driver", permission: "DELIVERY:UPDATE", icon: Smartphone, section: "Fleet" },
+      { name: "Tax Records", path: "/taxRecords", icon: Percent, section: "Accounting" },
+      { name: "Chart of Accounts", path: "/generalAccounts", icon: Landmark, section: "Set-up" },
     ],
   },
 
@@ -254,17 +254,18 @@ export const navItems: NavItem[] = [
     icon: <Briefcase className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
-      { name: "Records", path: "/employeeRecords", icon: Users, section: "People" },
-      { name: "Department", path: "/employeeDepartments", icon: Building2, section: "People" },
+      { name: "Employees", path: "/employeeRecords", icon: Users, section: "People" },
+      { name: "Departments", path: "/employeeDepartments", icon: Building2, section: "People" },
       { name: "Documents", path: "/employeeDocuments", icon: FolderOpen, section: "People" },
-      { name: "Salary", path: "/employeeSalary", icon: Banknote, section: "Payroll" },
-      { name: "Salary Structure", path: "/salaryStructure", icon: Layers, section: "Payroll" },
+      // Pay components → structures → salaries → declarations → run → payslips
       { name: "Compensation", path: "/employeeCompensation", icon: Coins, section: "Payroll" },
-      { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
-      { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
+      { name: "Salary Structure", path: "/salaryStructure", icon: Layers, section: "Payroll" },
+      { name: "Salary", path: "/employeeSalary", icon: Banknote, section: "Payroll" },
       { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
+      { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
+      { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
       {
-        name: "Reports",
+        name: "Payroll Reports",
         icon: BarChart3,
         section: "Payroll",
         subItems: [
@@ -276,49 +277,56 @@ export const navItems: NavItem[] = [
       { name: "Exit Approvals", path: "/exitApprovals", permission: "HRM:APPROVE", icon: UserCheck, section: "Exits" },
     ],
   },
+
   {
     icon: <Calendar className="w-5 h-5" />,
     name: "Attendance",
     subItems: [
-      { name: "Employee Self Service", path: "/att_selfService", icon: UserRound, section: "Overview" },
-      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", permission: "ATTENDANCE:APPROVE", icon: LayoutDashboard, section: "Overview" },
-      { name: "Attendance Tracking", path: "/att_attendanceTracking", icon: Activity, section: "Overview" },
-      { name: "Holiday Calendar", path: "/att_holidayCalendar", icon: CalendarDays, section: "Overview" },
+      // What every employee uses, then managers, then HR set-up
+      { name: "My Attendance", path: "/att_selfService", icon: UserRound, section: "My attendance" },
+      { name: "Attendance Punch", path: "/att_punch", icon: Fingerprint, section: "My attendance" },
+      { name: "Leave Requests", path: "/att_leaveRequest", icon: CalendarX, section: "My attendance" },
+      { name: "Attendance Regularization", path: "/att_timesheetManagement", icon: ClipboardPen, section: "My attendance" },
+      { name: "On-Duty Requests", path: "/att_requests", icon: Briefcase, section: "My attendance" },
+      { name: "Holiday Calendar", path: "/att_holidayCalendar", icon: CalendarDays, section: "My attendance" },
 
-      { name: "Attendance Punch", path: "/att_punch", icon: Fingerprint, section: "Requests" },
-      { name: "Leave Requests", path: "/att_leaveRequest", icon: CalendarX, section: "Requests" },
-      { name: "Attendance Regularization", path: "/att_timesheetManagement", icon: ClipboardPen, section: "Requests" },
-      { name: "On-Duty Requests", path: "/att_requests", icon: Briefcase, section: "Requests" },
-
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE", icon: CalendarClock, section: "Shifts" },
-      { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN", icon: Clock, section: "Shifts" },
-
-      { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN", icon: ScrollText, section: "Policies" },
-      { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN", icon: BookOpen, section: "Policies" },
-
+      { name: "Manager Leave Dashboard", path: "/att_leaveManagerDashboard", permission: "ATTENDANCE:APPROVE", icon: LayoutDashboard, section: "Approvals" },
       { name: "Leave Approvals", path: "/att_attendanceApproval", permission: "ATTENDANCE:APPROVE", icon: CalendarCheck, section: "Approvals" },
       { name: "Regularization Approvals", path: "/att_regularizationApproval", permission: "ATTENDANCE:APPROVE", icon: ClipboardCheck, section: "Approvals" },
       { name: "On-Duty Approvals", path: "/att_onDutyApproval", permission: "ATTENDANCE:APPROVE", icon: BadgeCheck, section: "Approvals" },
 
-      { name: "Attendance Reports", path: "/att_reports", icon: BarChart3, section: "Reports" },
+      { name: "Attendance Tracking", path: "/att_attendanceTracking", icon: Activity, section: "Team" },
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE", icon: CalendarClock, section: "Team" },
+      { name: "Attendance Reports", path: "/att_reports", icon: BarChart3, section: "Team" },
+
+      { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN", icon: Clock, section: "Set-up" },
+      { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN", icon: ScrollText, section: "Set-up" },
+      { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN", icon: BookOpen, section: "Set-up" },
     ],
   },
+
+  {
+    icon: <BarChart3 className="w-5 h-5" />,
+    name: "Reports",
+    subItems: [
+      // Business reports in flow order; CRM, payroll and attendance reports are also inside their modules
+      { name: "Purchase Reports", path: "/purchase-reports", icon: ClipboardList },
+      { name: "Inventory Report", path: "/inventory-report", icon: Boxes },
+      { name: "Finance Report", path: "/financeReport", icon: Landmark },
+      { name: "Tax Report", path: "/taxReport", icon: Percent },
+    ],
+  },
+
   {
     icon: <UserCircle className="w-5 h-5" />,
-    name: "Profile",
+    name: "Settings",
     subItems: [
       { name: "My Profile", path: "/profile", icon: UserRound, section: "Account" },
       { name: "Users", path: "/role_config", icon: UserPlus, section: "Users & roles" },
       { name: "Roles & Permissions", path: "/rolesPermissions", icon: ShieldCheck, section: "Users & roles" },
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
-    ],
-  },
-  {
-    icon: <Building2 className="w-5 h-5" />,
-    name: "Platform",
-    superAdminOnly: true,
-    subItems: [
-      { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2 },
+      // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
+      { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
     ],
   },
 ];

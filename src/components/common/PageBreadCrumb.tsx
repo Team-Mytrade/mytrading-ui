@@ -76,11 +76,11 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
                 </Link>
               </li>
               {trail.map((crumb) => (
-                <li key={`${crumb.label}-${crumb.current ? "current" : "parent"}`}>
+                <li key={`${crumb.label}-${crumb.current ? "current" : "parent"}`} className={crumb.current ? "is-current" : undefined}>
                   <ChevronRight className="page-breadcrumb__separator" size={16} />
-                  <span className={crumb.current ? `page-breadcrumb__current ${titleClassName}`.trim() : "page-breadcrumb__link"}>
+                  <span className={crumb.current ? `page-breadcrumb__current ${titleClassName}`.trim() : "page-breadcrumb__link"} title={crumb.current ? undefined : crumb.label}>
                     {crumb.current ? <CircleDot size={16} /> : <FolderClosed size={17} />}
-                    {crumb.current ? pageTitle : crumb.label}
+                    <span className="page-breadcrumb__label">{crumb.current ? pageTitle : crumb.label}</span>
                   </span>
                 </li>
               ))}

@@ -279,10 +279,9 @@ const GeneralAccounts: React.FC = () => {
   return (
     <>
       <PageMeta title="General Accounts" description="The chart of accounts" />
-      <PageBreadcrumb pageTitle="General Accounts" />
+      <PageBreadcrumb pageTitle="General Accounts" actions={canCreate ? <AddButton onClick={openCreate} label="Add account" /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
-        <div className="flex justify-end">{canCreate && <AddButton onClick={openCreate} label="Add account" />}</div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label="Accounts" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />

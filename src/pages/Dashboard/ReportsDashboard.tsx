@@ -2,14 +2,14 @@ import { useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  ArrowUpRight, BarChart3, Boxes, ClipboardList, HandCoins, IndianRupee, Landmark, Percent, ShoppingBag, ShoppingCart,
+  ArrowRight, BarChart3, Boxes, ClipboardList, HandCoins, IndianRupee, Landmark, Percent, ShoppingBag, ShoppingCart,
   TrendingUp, Users, type LucideIcon,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AuthContext } from "../../context/AuthContext";
 import { hasModule } from "../../access/access";
 import {
-  CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, Panel, formatMoney, formatNumber, getList, monthKeyOf, monthsBack,
+  CHART_TOOLTIP, EmptyState, KpiCard, toneCard, toneIcon, toneLink, type Tone, LoadNotice, Panel, formatMoney, formatNumber, getList, monthKeyOf, monthsBack,
   mostCommon, sourcesForModules, sum, useDashboardSources,
 } from "./dashboardKit";
 
@@ -53,7 +53,7 @@ const byMonthKey = (values?: Record<string, number>) => {
   return out;
 };
 
-interface ReportCard { name: string; description: string; route: string; icon: LucideIcon; module: string; figure?: string; tone: string }
+interface ReportCard { name: string; description: string; route: string; icon: LucideIcon; module: string; figure?: string; tone: Tone }
 
 export default function ReportsDashboard() {
   const navigate = useNavigate();
@@ -95,35 +95,38 @@ export default function ReportsDashboard() {
 
   const money = (v?: number) => formatMoney(num(v), currency, true);
   const cards: ReportCard[] = ([
-    { name: "Sales Dashboard", description: "Orders, revenue and top products", route: "/sales-dashboard", icon: ShoppingCart, module: "SALES", tone: "text-emerald-600 bg-emerald-50",
+    { name: "Sales Dashboard", description: "Orders, revenue and top products", route: "/sales-dashboard", icon: ShoppingCart, module: "SALES", tone: "emerald",
       figure: sales ? `${money(sales.totalSales)} · ${formatNumber(num(sales.totalOrders))} orders` : undefined },
-    { name: "Purchase Reports", description: "Spend by month, vendor and turnaround", route: "/purchase-reports", icon: ClipboardList, module: "PURCHASE", tone: "text-indigo-600 bg-indigo-50",
+    { name: "Purchase Reports", description: "Spend by month, vendor and turnaround", route: "/purchase-reports", icon: ClipboardList, module: "PURCHASE", tone: "indigo",
       figure: data.orders ? `${money(purchaseTotal)} · ${formatNumber(orders.length)} orders` : undefined },
-    { name: "Inventory Report", description: "Stock, valuation, movements and expiry", route: "/inventory-report", icon: Boxes, module: "INVENTORY", tone: "text-amber-600 bg-amber-50",
+    { name: "Inventory Report", description: "Stock, valuation, movements and expiry", route: "/inventory-report", icon: Boxes, module: "INVENTORY", tone: "amber",
       figure: data.stock ? `${money(stockValue)} · ${formatNumber(lowStock)} low` : undefined },
-    { name: "Finance Report", description: "Billed, collected and overdue", route: "/financeReport", icon: Landmark, module: "INVOICE", tone: "text-cyan-600 bg-cyan-50",
+    { name: "Finance Report", description: "Billed, collected and overdue", route: "/financeReport", icon: Landmark, module: "INVOICE", tone: "cyan",
       figure: finance ? `${money(finance.outstandingAmount)} outstanding` : undefined },
-    { name: "Tax Report", description: "GST charged on sales invoices by month", route: "/taxReport", icon: Percent, module: "INVOICE", tone: "text-teal-600 bg-teal-50",
+    { name: "Tax Report", description: "GST charged on sales invoices by month", route: "/taxReport", icon: Percent, module: "INVOICE", tone: "teal",
       figure: tax ? `${money(tax.totalTaxAmount)} tax` : undefined },
-    { name: "CRM Reports", description: "Leads, deals and activity", route: "/crm-reports", icon: Users, module: "CRM", tone: "text-violet-600 bg-violet-50" },
+    { name: "CRM Reports", description: "Leads, deals and activity", route: "/crm-reports", icon: Users, module: "CRM", tone: "purple" },
   ] as ReportCard[]).filter((c) => hasModule(access, c.module));
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
       <LoadNotice failed={failed} />
 
       <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
+          // Same card as the approval queues: tinted card, icon chip, headline figure, "Open report" link
           <button key={c.name} type="button" onClick={() => navigate(c.route)}
-            className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
-            <span className={`rounded-lg p-2.5 ${c.tone}`}><c.icon className="h-5 w-5" /></span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-gray-900 group-hover:text-cyan-600 dark:text-gray-100">{c.name}</span>
-                <ArrowUpRight className="h-4 w-4 text-gray-300 group-hover:text-cyan-600" />
-              </span>
-              <span className="block text-xs text-gray-500">{c.description}</span>
-              <span className="mt-1 block truncate text-xs font-medium text-gray-700 dark:text-gray-300">{loading ? "…" : c.figure ?? "Open report"}</span>
+            className={`group flex flex-col justify-between space-y-2 p-3.5 text-left ${toneCard(c.tone)}`}>
+            <span className="flex items-center gap-2">
+              <span className={`rounded-lg p-1.5 ${toneIcon(c.tone)}`}><c.icon className="h-4 w-4" /></span>
+              <span className="text-xs font-bold text-gray-900 dark:text-white">{c.name}</span>
+            </span>
+            <span className="block text-[11px] text-gray-600 dark:text-gray-400">
+              {c.description}
+              {(loading || c.figure) && <span className="block truncate font-semibold text-gray-800 dark:text-gray-200">{loading ? "…" : c.figure}</span>}
+            </span>
+            <span className={`flex items-center gap-1 pt-1 text-xs font-bold transition-all group-hover:translate-x-0.5 ${toneLink(c.tone)}`}>
+              Open report <ArrowRight className="h-3.5 w-3.5" />
             </span>
           </button>
         ))}

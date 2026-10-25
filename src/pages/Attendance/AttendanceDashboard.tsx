@@ -157,7 +157,7 @@ const AttendanceDashboard: React.FC = () => {
       <PageMeta title="Attendance Dashboard" description="Attendance and leave overview" />
       <PageBreadcrumb pageTitle="Attendance Dashboard" />
 
-      <div className="mx-auto max-w-7xl p-6">
+      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
         <LoadNotice failed={failed} />
         <ModuleTiles tiles={tiles} loading={loading} />
 

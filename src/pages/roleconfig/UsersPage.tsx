@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Mail, Pencil, UserCheck, UserX, X } from "lucide-react";
+import { Mail, MailWarning, Pencil, UserCheck, Users, UserX, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -202,10 +202,10 @@ export default function UsersPage() {
 
       <div className={PAGE_BODY}>
         <div className={STATS_ROW}>
-          <StatsCard label="Users" value={stats.total} loading={loading} />
-          <StatsCard label="Active" value={stats.active} loading={loading} />
-          <StatsCard label="Invite pending" value={stats.pending} loading={loading} />
-          <StatsCard label="Inactive" value={stats.inactive} loading={loading} />
+          <StatsCard label="Users" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Users />} loading={loading} />
+          <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserCheck />} loading={loading} />
+          <StatsCard label="Invite pending" value={stats.pending} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<MailWarning />} loading={loading} />
+          <StatsCard label="Inactive" value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<UserX />} loading={loading} />
         </div>
 
         {filtered && (

@@ -49,8 +49,8 @@
 .dragger__cancel, .dragger__submit { height: 36px; min-width: 88px; padding: 0 16px; border-radius: 8px; font-size: 13px; font-weight: 600; line-height: 1; transition: background-color .15s ease, border-color .15s ease; }
 .dragger__cancel { border: 1px solid #d1d5db; background: #fff; color: #374151; }
 .dragger__cancel:hover:not(:disabled) { background: #f9fafb; border-color: #9ca3af; }
-.dragger__submit { border: 1px solid #0891b2; background: #0891b2; color: #fff; }   /* solid cyan, no gradient */
-.dragger__submit:hover:not(:disabled) { background: #0e7490; border-color: #0e7490; }
+.dragger__submit { border: 1px solid #26c6da; background: #4dd0e1; color: #083344; box-shadow: 0 1px 3px rgba(0, 151, 167, .35); }   /* the app's primary button (see ADD_BUTTON_COLORS) */
+.dragger__submit:hover:not(:disabled) { background: #26c6da; border-color: #00acc1; }
 .dragger__cancel:disabled, .dragger__submit:disabled { cursor: not-allowed; opacity: .5; }
 .dragger__cancel:focus-visible, .dragger__submit:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(8, 145, 178, .25); }
 
@@ -93,4 +93,4 @@
 .dark .dragger__footer { background: #0f172a; }
 .dark .dragger__cancel { border-color: #374151; background: #111827; color: #e5e7eb; }
 .dark .dragger__cancel:hover:not(:disabled) { background: #1f2937; border-color: #4b5563; }
-.dark .dragger__submit:hover:not(:disabled) { background: #06b6d4; border-color: #06b6d4; }
+.dark .dragger__submit:hover:not(:disabled) { background: #26c6da; border-color: #00acc1; }
