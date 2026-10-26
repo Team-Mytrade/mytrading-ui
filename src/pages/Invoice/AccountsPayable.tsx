@@ -209,7 +209,7 @@ const AccountsPayable: React.FC = () => {
       ToasterService.error("Failed to load accounts payable");
       setPayables([]);
     } finally {
-      setBusy(false);
+      setIsLoading(false);
     }
   };
 
@@ -570,10 +570,6 @@ const AccountsPayable: React.FC = () => {
         );
       },
     },
-    { key: "invoiceAmount", label: "Amount", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm">{money(row.invoiceAmount, row.purchaseInvoice?.currency)}</span> },
-    { key: "amountPaid", label: "Paid", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm text-slate-600">{money(row.amountPaid, row.purchaseInvoice?.currency)}</span> },
-    { key: "balance", label: "Balance", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm font-semibold text-slate-900">{money(row.balance, row.purchaseInvoice?.currency)}</span> },
-    { key: "accountsPayableStatus", label: "Status", sortable: true, render: (row) => <ArStatusBadge status={row.accountsPayableStatus} /> },
     {
       key: "actions",
       label: "Actions",
@@ -875,28 +871,6 @@ const AccountsPayable: React.FC = () => {
         </Dragger>
       </div>
 
-      <PaginatedPopup
-        isOpen={Boolean(paying)}
-        title={`Pay ${paying?.vendor?.name ?? "vendor"}`}
-        subtitle={`Bill ${paying?.purchaseInvoice?.invoiceNumber ?? ""} · ${money(paying?.balance, paying?.purchaseInvoice?.currency)} due ${dateLabel(paying?.dueDate)}`}
-        onClose={() => setPaying(null)}
-        maxWidthClassName="max-w-lg"
-        content={
-          <form onSubmit={pay} className="flex flex-col">
-            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingInput label="Amount paid" name="amountPaid" type="number" required value={form.amountPaid}
-                onChange={(event) => setForm((current) => ({ ...current, amountPaid: event.target.value }))} />
-              <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
-                onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
-              <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
-              <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
-                onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
-            </div>
-            <DialogFooter onCancel={() => setPaying(null)} submitLabel="Record payment" busy={busy} />
-          </form>
-        }
-      />
     </>
   );
 };

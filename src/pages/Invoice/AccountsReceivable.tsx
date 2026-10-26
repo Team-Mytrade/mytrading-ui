@@ -176,13 +176,8 @@ const AccountsReceivable: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  const openStatement = (row: Receivable) => {
-    setSummary(null);
-    setStatementFor({ customerId: row.customerId, customerName: row.customerName || `Customer #${row.customerId}` });
-    loadStatement(row.customerId, range.fromDate, range.toDate);
   };
+
 
   useEffect(() => {
     fetchReceivables();
@@ -322,10 +317,6 @@ const AccountsReceivable: React.FC = () => {
       exportValueGetter: (r) => statusLabel(r.status),
       render: (r) => <StatusBadge status={r.status} />,
     },
-    { key: "originalAmount", label: "Amount", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm">{money(row.originalAmount)}</span> },
-    { key: "amountPaid", label: "Paid", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm text-slate-600">{money(row.amountPaid)}</span> },
-    { key: "balanceAmount", label: "Balance", sortable: true, headerClassName: "text-right", className: "text-right", render: (row) => <span className="text-sm font-semibold text-slate-900">{money(row.balanceAmount)}</span> },
-    { key: "status", label: "Status", sortable: true, render: (row) => <ArStatusBadge status={row.status} /> },
     {
       key: "actions",
       label: "Actions",
@@ -579,96 +570,7 @@ const AccountsReceivable: React.FC = () => {
         </Dragger>
       </div>
 
-      <PaginatedPopup
-        isOpen={Boolean(statementFor)}
-        title={`Statement · ${statementFor?.customerName ?? ""}`}
-        subtitle="Invoices, payments and credits in the period, with the running balance"
-        onClose={() => setStatementFor(null)}
-        maxWidthClassName="max-w-4xl"
-        content={
-          statementFor ? (
-            <div className="max-h-[75dvh] space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-              {summary && (
-                <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm sm:grid-cols-4">
-                  <div><dt className="text-xs text-slate-500">Outstanding</dt><dd className="font-semibold text-slate-900">{money(summary.totalOutstanding)}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Unused credit</dt><dd className="font-semibold text-slate-900">{money(summary.availableCustomerCredit)}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Open invoices</dt><dd className="font-semibold text-slate-900">{summary.openInvoiceCount}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Overdue invoices</dt><dd className="font-semibold text-red-600">{summary.overdueInvoiceCount}</dd></div>
-                </dl>
-              )}
-              <form
-                className="flex flex-wrap items-end gap-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  loadStatement(statementFor.customerId, range.fromDate, range.toDate);
-                }}
-              >
-                <div className="w-44"><FloatingInput label="From" name="fromDate" type="date" value={range.fromDate} onChange={(event) => setRange((r) => ({ ...r, fromDate: event.target.value }))} /></div>
-                <div className="w-44"><FloatingInput label="To" name="toDate" type="date" value={range.toDate} onChange={(event) => setRange((r) => ({ ...r, toDate: event.target.value }))} /></div>
-                <button type="submit" className="mb-1 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700">Show</button>
-              </form>
-              {!statement ? (
-                <p className="text-sm text-slate-500">Loading…</p>
-              ) : (
-                <StatementTable statement={statement} />
-              )}
-            </div>
-          ) : undefined
-        }
-      />
     </>
-  );
-};
-
-const StatementTable = ({ statement }: { statement: Statement }) => {
-  let balance = Number(statement.openingBalance || 0);
-  return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
-      <table className="w-full min-w-[640px] text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th className="px-3 py-2 text-left">Date</th>
-            <th className="px-3 py-2 text-left">Document</th>
-            <th className="px-3 py-2 text-left">Details</th>
-            <th className="px-3 py-2 text-right">Debit</th>
-            <th className="px-3 py-2 text-right">Credit</th>
-            <th className="px-3 py-2 text-right">Balance</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          <tr className="bg-slate-50/50">
-            <td className="px-3 py-2" colSpan={5}>Opening balance</td>
-            <td className="px-3 py-2 text-right font-medium">{money(statement.openingBalance)}</td>
-          </tr>
-          {statement.entries.map((entry, index) => {
-            if (entry.affectsBalance) balance += Number(entry.debit || 0) - Number(entry.credit || 0);
-            return (
-              <tr key={index} className={entry.affectsBalance ? "" : "text-slate-400"}>
-                <td className="px-3 py-2">{dateLabel(entry.transactionDate)}</td>
-                <td className="px-3 py-2">
-                  <span className="font-medium">{entry.documentNumber}</span>
-                  <span className="block text-xs text-slate-500">{labelOf(entry.type)}</span>
-                </td>
-                <td className="px-3 py-2">
-                  {entry.description}
-                  {entry.referenceNumber && <span className="block text-xs text-slate-500">{entry.referenceNumber}</span>}
-                  {!entry.affectsBalance && <span className="block text-xs">For information: already counted when the money was received</span>}
-                </td>
-                <td className="px-3 py-2 text-right">{Number(entry.debit) ? money(entry.debit) : ""}</td>
-                <td className="px-3 py-2 text-right">{Number(entry.credit) ? money(entry.credit) : ""}</td>
-                <td className="px-3 py-2 text-right font-medium">{entry.affectsBalance ? money(balance) : ""}</td>
-              </tr>
-            );
-          })}
-          <tr className="bg-slate-50 font-semibold">
-            <td className="px-3 py-2" colSpan={3}>Closing balance</td>
-            <td className="px-3 py-2 text-right">{money(statement.totalDebit)}</td>
-            <td className="px-3 py-2 text-right">{money(statement.totalCredit)}</td>
-            <td className="px-3 py-2 text-right">{money(statement.closingBalance)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   );
 };
 

@@ -27,10 +27,8 @@ interface GeneralAccount {
   allowTransactions?: boolean;
 }
 
-const API_URL = `${INVOICE_API}/expenses-revenue`;
-const PAGE_SIZE = 10;
 
-interface Item {
+interface ExpenseRevenueItem {
   id: number;
   revenueExpenseType?: string;
   revenueExpenseCategory?: string;
@@ -54,7 +52,6 @@ interface CreateItemPayload {
   generalAccount?: { id: number };
   paymentMethod?: string;
   referenceNumber?: string;
-  generalAccount?: Pick<GeneralAccount, "id" | "accountCode" | "accountName"> | null;
 }
 
 type ItemForm = {
@@ -313,15 +310,8 @@ const ExpenseRevenue: React.FC = () => {
 
   /* ---------------- Table ---------------- */
 
-  const stats = useMemo(() => {
-    const sum = (type: string) => inMonth.filter((item) => item.revenueExpenseType === type).reduce((total, item) => total + Number(item.amount || 0), 0);
-    const expense = sum("EXPENSE");
-    const revenue = sum("REVENUE");
-    return { expense, revenue, net: revenue - expense, count: inMonth.length };
-  }, [inMonth]);
 
-  const columns: ColumnDef<Item>[] = [
-    { key: "transactionDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.transactionDate)}</span> },
+  const tableColumns: ColumnDef<ExpenseRevenueItem>[] = [
     {
       key: "description",
       label: "Description",
@@ -350,11 +340,9 @@ const ExpenseRevenue: React.FC = () => {
         </span>
       ),
     },
-    { key: "revenueExpenseType", label: "Type", sortable: true, render: (row) => <StatusBadge status={row.revenueExpenseType} tones={TYPE_TONES} /> },
-    { key: "revenueExpenseCategory", label: "Category", sortable: true, render: (row) => <span className="text-sm text-slate-600">{labelOf(row.revenueExpenseCategory)}</span> },
     {
-      key: "generalAccount",
-      label: "Account",
+      key: "revenueExpenseCategory",
+      label: "Category",
       sortable: true,
       filterOptions: categories.map((c) => ({ label: c.label, value: c.code })),
       detailFormatter: (i) => categoryLabel(i.revenueExpenseCategory),
@@ -367,7 +355,6 @@ const ExpenseRevenue: React.FC = () => {
       sortable: true,
       render: (i) => <span className="block truncate text-sm text-slate-600">{i.accountText}</span>,
     },
-    { key: "paymentMethod", label: "Paid by", sortable: true, render: (row) => <span className="text-sm text-slate-600">{row.paymentMethod ? paymentMethodLabel(row.paymentMethod) : "—"}</span> },
     {
       key: "amount",
       label: "Amount",
@@ -435,7 +422,7 @@ const ExpenseRevenue: React.FC = () => {
               <ChartBarIcon className="h-4 w-4" />
               Reports
             </button>
-            {canCreate && <AddButton className="-mr-5" label="Add Item" onClick={openCreate} />}
+            {canCreate && <AddButton className="-mr-5" label="Add ExpenseRevenueItem" onClick={openCreate} />}
           </div>
         }
       />
@@ -661,46 +648,6 @@ const ExpenseRevenue: React.FC = () => {
         </Dragger>
       </div>
 
-      <PaginatedPopup
-        isOpen={formOpen}
-        title={editing ? `Edit ${editing.referenceNumber ?? "item"}` : "Record expense or income"}
-        subtitle={editing ? undefined : "A reference number is assigned when it is saved"}
-        onClose={() => setFormOpen(false)}
-        maxWidthClassName="max-w-2xl"
-        content={
-          <form onSubmit={save} className="flex flex-col">
-            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingSelect1 label="Type" name="revenueExpenseType" value={form.revenueExpenseType} options={TYPE_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => setForm((current) => ({ ...current, revenueExpenseType: event.target.value }))} />
-              <FloatingSelect1 label="Category" name="revenueExpenseCategory" required value={form.revenueExpenseCategory} options={CATEGORY_OPTIONS}
-                onChange={(event) => setForm((current) => ({ ...current, revenueExpenseCategory: event.target.value }))} />
-              <div className="sm:col-span-2">
-                <FloatingInput label="Description" name="description" required value={form.description}
-                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-              </div>
-              <FloatingInput label="Amount" name="amount" type="number" required value={form.amount}
-                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
-              <FloatingInput label="Date" name="transactionDate" type="date" value={form.transactionDate}
-                onChange={(event) => setForm((current) => ({ ...current, transactionDate: event.target.value }))} />
-              <FloatingSelect1 label="Payment method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS}
-                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
-              <FloatingSelect1 label="Ledger account (optional)" name="generalAccountId" value={form.generalAccountId} options={accountOptions}
-                onChange={(event) => setForm((current) => ({ ...current, generalAccountId: event.target.value }))} />
-            </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record"} busy={busy} />
-          </form>
-        }
-      />
-
-      <ConfirmDialog
-        isOpen={Boolean(deleting)}
-        title="Delete item"
-        message={`Delete ${deleting?.referenceNumber ?? "this item"}: ${deleting?.description ?? ""} (${money(deleting?.amount)})?`}
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={remove}
-        onCancel={() => setDeleting(null)}
-      />
     </>
   );
 };

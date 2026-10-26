@@ -314,20 +314,10 @@ const TaxRecords: React.FC = () => {
     render: (r) => <span className={`text-sm ${bold ? "font-semibold text-slate-700" : "text-slate-600"}`}>{formatMoney(Number(r[key] || 0))}</span>,
   });
 
-  const filtered = useMemo(
-    () => (typeFilter === "ALL" ? inPeriod : inPeriod.filter((record) => record.transactionType === typeFilter)),
-    [inPeriod, typeFilter]
-  );
-
-  const collected = Number(report?.taxCollected ?? 0);
-  const paid = Number(report?.taxPaid ?? 0);
-
-  const columns: ColumnDef<TaxRecord>[] = [
-    { key: "transactionDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.transactionDate)}</span> },
-    { key: "transactionType", label: "Type", sortable: true, render: (row) => <StatusBadge status={row.transactionType} tones={TRANSACTION_TONES} /> },
+  const tableColumns: ColumnDef<TaxRecord>[] = [
     {
-      key: "taxType",
-      label: "Tax",
+      key: "transactionType",
+      label: "Type",
       sortable: true,
       filterOptions: transactionTypes.map((t) => ({ label: t.label, value: t.code })),
       detailFormatter: (r) => typeLabel(r.transactionType),
@@ -572,44 +562,6 @@ const TaxRecords: React.FC = () => {
         </Dragger>
       </div>
 
-      <PaginatedPopup
-        isOpen={formOpen}
-        title="Record tax"
-        subtitle="Tax records can't be edited or deleted afterwards"
-        onClose={() => setFormOpen(false)}
-        maxWidthClassName="max-w-2xl"
-        content={
-          <form onSubmit={save} className="flex flex-col">
-            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingSelect1 label="Type" name="transactionType" value={form.transactionType} options={TRANSACTION_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => {
-                  const transactionType = event.target.value;
-                  const sourceModule = transactionType === "SALE" ? "SALES_INVOICE" : transactionType === "PURCHASE" ? "PURCHASE_INVOICE" : "OTHER";
-                  setForm((current) => ({ ...current, transactionType, sourceModule }));
-                }} />
-              <FloatingSelect1 label="Tax type" name="taxTypeId" required value={form.taxTypeId}
-                options={taxTypes
-                  .filter((type) => type.isActive !== false || String(type.id) === form.taxTypeId)
-                  .map((type) => ({ id: String(type.id), name: `${type.taxName ?? `Tax ${type.id}`} (${Number(type.taxRate ?? 0)}%)` }))}
-                onChange={(event) => setForm((current) => ({ ...current, taxTypeId: event.target.value }))} />
-              <FloatingInput label="Taxable amount" name="taxableAmount" type="number" required value={form.taxableAmount}
-                onChange={(event) => setForm((current) => ({ ...current, taxableAmount: event.target.value }))} />
-              <FloatingInput label="Date" name="transactionDate" type="date" value={form.transactionDate}
-                onChange={(event) => setForm((current) => ({ ...current, transactionDate: event.target.value }))} />
-              <FloatingSelect1 label="Source" name="sourceModule" value={form.sourceModule} options={SOURCE_MODULE_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => setForm((current) => ({ ...current, sourceModule: event.target.value }))} />
-              <FloatingInput label="Source document id (optional)" name="sourceId" type="number" value={form.sourceId}
-                onChange={(event) => setForm((current) => ({ ...current, sourceId: event.target.value }))} />
-              {previewTax != null && (
-                <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:col-span-2">
-                  Tax: <span className="font-semibold">{money(previewTax)}</span> ({Number(selectedType?.taxRate ?? 0)}% of {money(form.taxableAmount)})
-                </p>
-              )}
-            </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel="Record tax" busy={busy} />
-          </form>
-        }
-      />
     </>
   );
 };

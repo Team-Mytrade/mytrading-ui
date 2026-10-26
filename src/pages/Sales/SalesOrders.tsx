@@ -91,16 +91,6 @@ type DispatchLine = {
   serialText: string;
 };
 
-/** Server-created dispatch retained for confirmation during this page session. */
-type SalesDispatch = {
-  id: number;
-  salesOrderId: number;
-  dispatchNumber: string;
-  status: string;
-  inventoryReservationReference?: string;
-  items?: { salesOrderItemId: number; productName?: string; quantity: number; batchNumber?: string; serialNumbers?: string[] }[];
-};
-
 type SalesOrder = {
   id: number;
   orderNumber: string;
@@ -157,10 +147,11 @@ type SalesDispatch = {
   salesOrderId: number;
   dispatchNumber: string;
   dispatchDate: string;
+  inventoryReservationReference?: string;
   status: string;
   deliveryReference?: string;
   vehicleNumber?: string;
-  items: Array<{ id: number; salesOrderItemId: number; productName?: string; quantity: number }>;
+  items: Array<{ id: number; salesOrderItemId: number; productName?: string; quantity: number; batchNumber?: string; serialNumbers?: string[] }>;
 };
 
 type DispatchDetails = {

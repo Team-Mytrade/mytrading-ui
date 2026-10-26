@@ -158,7 +158,7 @@ const AttendanceApprovalRequestPage: React.FC<AttendanceApprovalRequestPageProps
         const createdOn = item.createdDate || item.appliedDate;
         const appliedOnDisplay = formatDateOnly(createdOn);
 
-        const rowItem: Record<string, any> = {
+        const rowItem: ApprovalRequestModel = {
           id: item.id,
           employee: empLabel,
           requestType: requestTypeStr,

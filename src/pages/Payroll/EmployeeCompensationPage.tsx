@@ -367,7 +367,7 @@ const EmployeeCompensationPage: React.FC = () => {
                     <div className="flex flex-wrap gap-1.5 py-1">
                         {entries.map(([name, pct]) => (
                             <span key={name} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-50 dark:bg-[#222222] text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-transparent shadow-2xsm">
-                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{name}:</span> {String(pct).endsWith('%') ? pct : `${pct}%`}
+                                <span className="font-semibold text-gray-600 dark:text-gray-400 mr-1">{name}:</span> {String(pct).endsWith('%') ? String(pct) : `${pct}%`}
                             </span>
                         ))}
                     </div>

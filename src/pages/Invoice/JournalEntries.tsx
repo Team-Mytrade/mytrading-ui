@@ -531,7 +531,6 @@ const JournalEntries: React.FC = () => {
       exportValueGetter: (entry) => (entry.entryDate ? formatDisplayDate(entry.entryDate) : ""),
       render: (entry) => <span className="text-sm text-slate-600">{entry.entryDate ? formatDisplayDate(entry.entryDate) : "--"}</span>,
     },
-    { key: "entryDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.entryDate)}</span> },
     {
       key: "description",
       label: "Description",
@@ -586,15 +585,6 @@ const JournalEntries: React.FC = () => {
       sortValueGetter: (entry) => totalDebitOf(entry),
       exportValueGetter: (entry) => formatMoney(totalDebitOf(entry)),
       render: (entry) => <span className="text-sm font-semibold text-slate-700">{formatMoney(totalDebitOf(entry))}</span>,
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      sortable: true,
-      headerClassName: "text-right",
-      className: "text-right",
-      sortValueGetter: totalOf,
-      render: (row) => <span className="text-sm font-semibold text-slate-900">{money(totalOf(row))}</span>,
     },
     {
       key: "actions",
@@ -863,134 +853,6 @@ const JournalEntries: React.FC = () => {
         />
       </div>
 
-      <PaginatedPopup
-        isOpen={Boolean(viewing)}
-        title={viewing?.entryNumber ?? ""}
-        subtitle={`${dateLabel(viewing?.entryDate)} · ${labelOf(viewing?.sourceModule ?? "OTHER")}${viewing?.sourceId != null ? ` #${viewing.sourceId}` : ""}`}
-        onClose={() => setViewing(null)}
-        maxWidthClassName="max-w-3xl"
-        content={
-          viewing ? (
-            <div className="space-y-3 px-4 py-4 sm:px-5">
-              {viewing.description && <p className="text-sm text-slate-700">{viewing.description}</p>}
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full min-w-[560px] text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Account</th>
-                      <th className="px-3 py-2 text-left">Narration</th>
-                      <th className="px-3 py-2 text-right">Debit</th>
-                      <th className="px-3 py-2 text-right">Credit</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {(viewing.entries ?? []).map((line, index) => (
-                      <tr key={line.id ?? index}>
-                        <td className="px-3 py-2 font-medium text-slate-800">{accountLabel({ accountCode: line.accountCode ?? "", accountName: line.accountName ?? "" })}</td>
-                        <td className="px-3 py-2 text-slate-600">{line.narration || "—"}</td>
-                        <td className="px-3 py-2 text-right">{Number(line.debit) ? money(line.debit) : ""}</td>
-                        <td className="px-3 py-2 text-right">{Number(line.credit) ? money(line.credit) : ""}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-slate-50 font-semibold">
-                      <td className="px-3 py-2" colSpan={2}>Total</td>
-                      <td className="px-3 py-2 text-right">{money(totalOf(viewing))}</td>
-                      <td className="px-3 py-2 text-right">{money((viewing.entries ?? []).reduce((sum, line) => sum + Number(line.credit || 0), 0))}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end gap-2">
-                {canDelete && (
-                  <button type="button" onClick={() => setDeleting(viewing)} className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
-                    Delete
-                  </button>
-                )}
-                {canUpdate && (
-                  <button type="button" onClick={() => openEdit(viewing)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700">
-                    Edit
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : null
-        }
-      />
-
-      <PaginatedPopup
-        isOpen={formOpen}
-        title={editing ? `Edit ${editing.entryNumber}` : "New journal entry"}
-        subtitle={editing ? "Saving replaces the entry's lines" : "The entry number is assigned when it is posted"}
-        onClose={() => setFormOpen(false)}
-        maxWidthClassName="max-w-4xl"
-        content={
-          <form onSubmit={save} className="flex flex-col">
-            <div className="space-y-4 px-4 py-4 sm:px-5">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <FloatingInput label="Date" name="entryDate" type="date" value={form.entryDate}
-                  onChange={(event) => setForm((current) => ({ ...current, entryDate: event.target.value }))} />
-                <FloatingSelect1 label="Source" name="sourceModule" value={form.sourceModule} options={SOURCE_MODULE_OPTIONS} includeEmptyOption={false}
-                  onChange={(event) => setForm((current) => ({ ...current, sourceModule: event.target.value }))} />
-                <FloatingInput label="Source document id (optional)" name="sourceId" type="number" value={form.sourceId}
-                  onChange={(event) => setForm((current) => ({ ...current, sourceId: event.target.value }))} />
-              </div>
-              <FloatingTextarea label="Description" name="description" rows={2} value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-
-              <div className="space-y-2">
-                <div className="hidden grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 px-1 text-xs font-medium uppercase tracking-wide text-slate-500 sm:grid">
-                  <span>Account</span>
-                  <span className="text-right">Debit</span>
-                  <span className="text-right">Credit</span>
-                  <span>Narration</span>
-                  <span className="w-7" />
-                </div>
-                {lines.map((line, index) => (
-                  <div key={index} className="grid gap-2 rounded-lg border border-slate-100 p-2 sm:grid-cols-[2fr_1fr_1fr_2fr_auto] sm:border-0 sm:p-0">
-                    <FloatingSelect1 label="Account" name={`account_${index}`} value={line.generalAccountId} options={accountOptions}
-                      onChange={(event) => updateLine(index, { generalAccountId: event.target.value })} />
-                    <FloatingInput label="Debit" name={`debit_${index}`} type="number" value={line.debit}
-                      onChange={(event) => updateLine(index, { debit: event.target.value, credit: event.target.value ? "" : line.credit })} />
-                    <FloatingInput label="Credit" name={`credit_${index}`} type="number" value={line.credit}
-                      onChange={(event) => updateLine(index, { credit: event.target.value, debit: event.target.value ? "" : line.debit })} />
-                    <FloatingInput label="Narration" name={`narration_${index}`} value={line.narration}
-                      onChange={(event) => updateLine(index, { narration: event.target.value })} />
-                    <button
-                      type="button"
-                      disabled={lines.length <= 2}
-                      onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
-                      className="self-center rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
-                      title="Remove line"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
-                  <button type="button" onClick={() => setLines((current) => [...current, blankLine()])} className="inline-flex items-center gap-1 text-xs font-medium text-cyan-700 hover:underline">
-                    <PlusIcon className="h-3.5 w-3.5" /> Add line
-                  </button>
-                  <span className={`text-sm font-medium ${totals.difference === 0 ? "text-emerald-700" : "text-amber-700"}`}>
-                    Debit {money(totals.debit)} · Credit {money(totals.credit)}
-                    {totals.difference !== 0 && ` · off by ${money(Math.abs(totals.difference))}`}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Post entry"} busy={busy} />
-          </form>
-        }
-      />
-
-      <ConfirmDialog
-        isOpen={Boolean(deleting)}
-        title="Delete journal entry"
-        message={`Delete ${deleting?.entryNumber ?? "this entry"} (${money(deleting ? totalOf(deleting) : 0)})? Its postings leave the ledger.`}
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={remove}
-        onCancel={() => setDeleting(null)}
-      />
     </>
   );
 };

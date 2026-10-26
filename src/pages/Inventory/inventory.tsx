@@ -447,7 +447,6 @@ const InventoryStockManager: React.FC = () => {
               <span className="hidden sm:inline">{lowOnly ? "Show All" : "Low Stock"}</span>
             </button>
           </div>
-        </div>
 
         <ReusableTable
           data={visibleStocks}

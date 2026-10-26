@@ -49,7 +49,7 @@ export interface EmployeeOption {
 
 const LeavePolicyPage: React.FC = () => {
   const { canCreate, canDelete, canUpdate } = usePermissions();
-  const [policies, setPolicies] = useState<LeavePolicyModel[]>([]);
+  const [policies, setPolicies] = useState<Array<Partial<LeavePolicyModel>>>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -127,7 +127,7 @@ const LeavePolicyPage: React.FC = () => {
           // 2. policyName -> POLICY NAME
           // 3. effectivePeriod -> EFFECTIVE PERIOD
           // 4. status -> STATUS
-          const rowItem: Record<string, any> = {
+          const rowItem: Partial<LeavePolicyModel> = {
             id: p.id,
             policyCode: p.policyCode,
             policyName: p.policyName,
@@ -289,7 +289,7 @@ const LeavePolicyPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (p: LeavePolicyModel) => {
+  const openEditModal = (p: Partial<LeavePolicyModel>) => {
     const raw = (p as any)._raw || p;
     setEditingPolicy(raw);
     const rawFy = raw.financialYear;
@@ -343,7 +343,7 @@ const LeavePolicyPage: React.FC = () => {
   };
 
   // ── Table Column Definitions ──────────────────────────────────────────
-  const columns: ColumnDef<LeavePolicyModel>[] = [
+  const columns: ColumnDef<Partial<LeavePolicyModel>>[] = [
     {
       key: 'policyCode',
       label: 'Policy Code',

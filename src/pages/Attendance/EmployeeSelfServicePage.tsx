@@ -316,7 +316,7 @@ const EmployeeSelfServicePage: React.FC = () => {
       }
 
       // Calculate approved leaves taken by this employee
-      const approvedList = Array.isArray(leaveRes.status === 'fulfilled' ? leaveRes.value?.data : [])
+      const approvedList = leaveRes.status === 'fulfilled' && Array.isArray(leaveRes.value?.data)
         ? (leaveRes.value?.data as any[]).filter((l: any) => (l.status || '').toUpperCase() === 'APPROVED')
         : [];
 

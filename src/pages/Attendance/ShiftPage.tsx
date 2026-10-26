@@ -55,7 +55,7 @@ export interface ShiftPageProps {
 
 const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
   // ── States ─────────────────────────────────────────────────────────────
-  const [shifts, setShifts] = useState<ShiftModel[]>([]);
+  const [shifts, setShifts] = useState<Array<Partial<ShiftModel>>>([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -148,7 +148,7 @@ const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
           // 2. shiftName -> SHIFT NAME
           // 3. timings -> TIMINGS
           // 4. status -> STATUS
-          const rowItem: Record<string, any> = {
+          const rowItem: Partial<ShiftModel> = {
             id: s.id,
             shiftCode: s.shiftCode,
             shiftName: s.shiftName,
@@ -280,7 +280,7 @@ const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
 
   // ── API 5: GET SHIFT BY ID ──────────────────────────────────────────────
   // Endpoint: GET /v1/api/attendance/shifts/{id}
-  const handleInspectShift = async (shiftItem: ShiftModel) => {
+  const handleInspectShift = async (shiftItem: Partial<ShiftModel>) => {
     const rawShift = (shiftItem as any)._raw || shiftItem;
     const shiftId = shiftItem.id || rawShift.id;
     if (!shiftId) return;
@@ -294,7 +294,7 @@ const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
 
   // ── API 6: GET ALL WEEKLY-OFFS FOR SHIFT ────────────────────────────────
   // Endpoint: GET /v1/api/attendance/shifts/{shiftId}/weekly-offs
-  const openWeeklyOffDrawer = async (shiftItem: ShiftModel) => {
+  const openWeeklyOffDrawer = async (shiftItem: Partial<ShiftModel>) => {
     const rawShift = (shiftItem as any)._raw || shiftItem;
     const shiftId = shiftItem.id || rawShift.id;
     if (!shiftId) return;
@@ -387,7 +387,7 @@ const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
     setIsShiftModalOpen(true);
   };
 
-  const openEditModal = (s: ShiftModel) => {
+  const openEditModal = (s: Partial<ShiftModel>) => {
     const rawShift = (s as any)._raw || s;
     setEditingShift(rawShift);
     setForm({
@@ -420,7 +420,7 @@ const ShiftPage: React.FC<ShiftPageProps> = ({ isEmbedded = false }) => {
   };
 
   // ── Table Column Definitions ───────────────────────────────────────────
-  const columns: ColumnDef<ShiftModel>[] = [
+  const columns: ColumnDef<Partial<ShiftModel>>[] = [
     {
       key: 'shiftCode',
       label: 'Shift Code',

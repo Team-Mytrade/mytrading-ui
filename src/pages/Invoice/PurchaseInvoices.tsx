@@ -36,18 +36,12 @@ interface PurchaseInvoice {
 }
 
 /**
- * Fields accepted when creating or updating a purchase invoice. The payment status follows
- * the payable (vendor payments), so it is not sent.
-  /** Old records come back with the vendor (and its whole invoice list) nested inside. */
-  vendor?: { id?: number; name?: string } | null;
-}
-
-/**
  * Fields accepted when creating or updating a purchase invoice (Swagger schema).
  * Server fields (id, createdDate, updatedDate, createdBy, tenantId) are never sent.
  * There is no vendor field yet – waiting for backend.
  */
 interface PurchaseInvoicePayload {
+  purchaseInvoiceStatus: string;
   invoiceNumber: string;
   invoiceDate?: string;
   dueDate?: string;
@@ -55,17 +49,6 @@ interface PurchaseInvoicePayload {
   currency: string;
   referenceNumber?: string;
   notes?: string;
-  vendor: { id: number };
-}
-
-interface Vendor {
-  id: number;
-  name: string;
-}
-  /**
-   * Not in the Swagger example, but old records have it and the backend needs it
-   * (Accounts Payable answers "Vendor is required"). Only the id is sent.
-   */
   vendor: { id: number };
 }
 
@@ -280,8 +263,6 @@ const PurchaseInvoices: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.vendorId) {
-      ToasterService.error("Choose the vendor");
     if (!vendorId) {
       ToasterService.error("Choose the vendor this bill is from");
       return;
@@ -293,7 +274,6 @@ const PurchaseInvoices: React.FC = () => {
 
     const totalAmount = Number(form.totalAmount ?? 0);
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      ToasterService.error("Enter the bill amount");
       ToasterService.error("Total amount must be more than 0");
       return;
     }
@@ -318,7 +298,6 @@ const PurchaseInvoices: React.FC = () => {
       currency: form.currency?.trim().toUpperCase() || "INR",
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
-      vendor: { id: Number(form.vendorId) },
       vendor: { id: Number(vendorId) },
     };
 
@@ -333,11 +312,6 @@ const PurchaseInvoices: React.FC = () => {
         setShowFormModal(false);
         setForm({});
         setEditingId(null);
-        await fetchPurchaseInvoices();
-      }
-    } catch (err) {
-        ToasterService.success(editingId !== null ? "Purchase invoice updated successfully!" : "Purchase invoice added successfully!");
-        closeModal();
         await fetchPurchaseInvoices();
       }
     } catch (err) {
@@ -430,13 +404,6 @@ const PurchaseInvoices: React.FC = () => {
       ),
     },
     {
-      key: "vendor",
-      label: "Vendor",
-      sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
-      sortValueGetter: (invoice) => invoice.vendor?.name ?? "",
-      render: (invoice) => <span className="text-sm text-slate-700">{invoice.vendor?.name ?? "—"}</span>,
       // Only the vendor's name (the API nests the whole vendor with all its invoices).
       key: "vendorName",
       label: "Vendor",
@@ -509,8 +476,6 @@ const PurchaseInvoices: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[12%] text-right pr-4",
-      className: "w-[12%] text-right",
       headerClassName: "w-[10%] text-right pr-4",
       className: "w-[10%] text-right",
       render: (invoice) => (
