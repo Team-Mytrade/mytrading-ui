@@ -132,7 +132,6 @@ const PayrollRecordPage = lazy(() => import("./pages/Attendance/PayrollRecordPag
 const RemoteAttendanceLogPage = lazy(() => import("./pages/Attendance/RemoteAttendanceLogPage"));
 const ShiftPage = lazy(() => import("./pages/Attendance/ShiftPage"));
 const EmployeeSelfServicePage = lazy(() => import("./pages/Attendance/EmployeeSelfServicePage"));
-const WorkFromHomeRequestPage = lazy(() => import("./pages/Attendance/WorkFromHomeRequestPage"));
 const OverTimeEntryPage = lazy(() => import("./pages/Attendance/OverTimeEntryPage"));
 const AttendanceViolationPage = lazy(() => import("./pages/Attendance/AttendanceViolationPage"));
 const AttendanceApprovalPage = lazy(() => import("./pages/Attendance/AttendanceApprovalRequestPage"));
@@ -366,7 +365,8 @@ export default function AppRouter() {
           <Route path="/att_payrollComponent" element={<PayrollComponentPage />} />
           <Route path="/att_payrollRecord" element={<PayrollRecordPage />} />
           <Route path="/att_remoteAttendanceLog" element={<RemoteAttendanceLogPage />} />
-          <Route path="/att_workFromHomeRequests" element={<WorkFromHomeRequestPage />} />
+          {/* Work from home is requested on On-Duty Requests (the old page posted sample data for a fixed employee) */}
+          <Route path="/att_workFromHomeRequests" element={<Navigate to="/att_requests" replace />} />
           <Route path="/att_shift" element={<ShiftPage />} />
           <Route path="/att_notifications" element={<NotificationPage />} />
           <Route path="/att_attendancePolicy" element={<AttendancePolicyPage />} />

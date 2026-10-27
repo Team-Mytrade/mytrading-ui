@@ -404,7 +404,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           data={adjustments}
           columns={adjustmentColumns}
           loading={loading}
-          pageSize={5}
+          pageSize={10}
           defaultSortKey="adjustedDate"
           defaultSortOrder="desc"
           emptyState={<p className="text-xs text-slate-400 dark:text-gray-500 py-6 text-center">No adjustments yet.</p>}

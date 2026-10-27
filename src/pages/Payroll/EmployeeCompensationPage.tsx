@@ -497,7 +497,7 @@ const EmployeeCompensationPage: React.FC = () => {
 
                         <div className="p-4 sm:p-6">
                             {/* Role Input */}
-                            <div className="mb-6">
+                            <div className="mb-6 max-w-md">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Designation <span className="text-red-500">*</span>
                                 </label>

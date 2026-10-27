@@ -7,7 +7,7 @@ import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from '../../utils/localDate';
-import { apiError, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, timeOf } from './attendanceApi';
+import { apiError, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, timeOf, withBrowserOffset } from './attendanceApi';
 
 // Attendance regularization: the employee states the correct check-in / check-out times of a past day;
 // an approver applies them to the day.
@@ -242,8 +242,9 @@ const TimesheetManagementPage: React.FC = () => {
       try {
         await axios.post(REGULARIZATION_URL, {
           attendanceDate: card.date,
-          inTime: card.reasonType !== 'FORGOT_OUT' ? `${card.date}T${card.inTime}:00` : null,
-          outTime: card.reasonType !== 'FORGOT_IN' ? `${card.date}T${card.outTime}:00` : null,
+          // Typed in the browser's time zone; the offset lets the server store the right moment
+          inTime: card.reasonType !== 'FORGOT_OUT' ? withBrowserOffset(`${card.date}T${card.inTime}:00`) : null,
+          outTime: card.reasonType !== 'FORGOT_IN' ? withBrowserOffset(`${card.date}T${card.outTime}:00`) : null,
           attendanceMode: 'OFFICE',
           reason: `${REASON_LABEL[card.reasonType]}: ${card.reason.trim()}`,
         });

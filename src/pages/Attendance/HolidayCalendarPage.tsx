@@ -118,8 +118,9 @@ const HolidayCalendarPage: React.FC = () => {
   const availableYears = useMemo(() => {
     const years = new Set<string>();
     calendars.forEach(c => { if (c.calendarYear) years.add(String(c.calendarYear)); });
-    years.add('2026');
-    years.add('2027');
+    // This year and next are always offered
+    years.add(String(new Date().getFullYear()));
+    years.add(String(new Date().getFullYear() + 1));
     return Array.from(years).sort().reverse();
   }, [calendars]);
 
@@ -152,7 +153,7 @@ const HolidayCalendarPage: React.FC = () => {
   // ── One-Click Duplicate Calendar for Next Year ────────────────────────────
   const handleDuplicateCalendar = async (cal: HolidayCalendarModel) => {
     if (!cal.id) return;
-    const nextYear = (cal.calendarYear || 2026) + 1;
+    const nextYear = (cal.calendarYear || new Date().getFullYear()) + 1;
     const codeBase = cal.calendarCode.includes('_') ? cal.calendarCode.substring(0, cal.calendarCode.lastIndexOf('_')) : cal.calendarCode;
     const newCode = `${codeBase}_${nextYear}`;
 
@@ -248,7 +249,7 @@ const HolidayCalendarPage: React.FC = () => {
           calendarCode: calendarForm.calendarCode.trim(),
           calendarName: calendarForm.calendarName.trim(),
           description: calendarForm.description || "Holidays",
-          calendarYear: Number(calendarForm.calendarYear) || 2026,
+          calendarYear: Number(calendarForm.calendarYear) || new Date().getFullYear(),
           active: Boolean(calendarForm.active)
         };
 
@@ -259,7 +260,7 @@ const HolidayCalendarPage: React.FC = () => {
           calendarCode: calendarForm.calendarCode.trim(),
           calendarName: calendarForm.calendarName.trim(),
           description: calendarForm.description || "Holidays",
-          calendarYear: Number(calendarForm.calendarYear) || 2026,
+          calendarYear: Number(calendarForm.calendarYear) || new Date().getFullYear(),
           active: Boolean(calendarForm.active)
         };
 
@@ -468,7 +469,7 @@ const HolidayCalendarPage: React.FC = () => {
     setHolidaysList(prev => [
       ...prev,
       {
-        holidayDate: selectedDateStr || '2026-08-27',
+        holidayDate: selectedDateStr || todayIso(),
         holidayName: '',
         holidayType: 'NATIONAL',
         optionalHoliday: false,
@@ -593,8 +594,8 @@ const HolidayCalendarPage: React.FC = () => {
   ];
 
   // Selected Date & Mini Calendar Month State
-  const [miniCalendarDate, setMiniCalendarDate] = useState<Date>(new Date(2026, 7, 1)); // August 2026
-  const [selectedDateStr, setSelectedDateStr] = useState<string>('2026-08-27');
+  const [miniCalendarDate, setMiniCalendarDate] = useState<Date>(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); }); // opens on the current month
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(() => todayIso());
   const [selectedCalendarCodeId, setSelectedCalendarCodeId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'manager' | 'table'>('manager');
 
@@ -641,7 +642,7 @@ const HolidayCalendarPage: React.FC = () => {
     }
 
     // Current Month Days
-    const todayStr = '2026-08-27';
+    const todayStr = todayIso();
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const isToday = dateStr === todayStr;
