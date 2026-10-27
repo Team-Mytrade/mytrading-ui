@@ -242,7 +242,7 @@ export type PurchaseResourceConfig = {
   /** Icon-only or extra action buttons rendered inside the Actions cell */
   renderRowActions?: (
     row: PurchaseRecord,
-    context: { refreshRows: () => Promise<void> }
+    context: { refreshRows: () => Promise<void>; openCreate: (seed?: PurchaseRecord) => void; options: Record<string, SelectOption[]> }
   ) => React.ReactNode;
 
   renderFormExtras?: (context: {
@@ -1089,7 +1089,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         className: "text-right",
         render: (row: PurchaseRecord) => (
           <div className="flex items-center justify-end gap-1">
-            {config.renderRowActions?.(row, { refreshRows: loadRows })}
+            {config.renderRowActions?.(row, { refreshRows: loadRows, openCreate, options })}
 
             {config.allowEdit !== false && (config.canEditRow?.(row) ?? true) && (
               <button
@@ -1115,7 +1115,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ),
       },
     ];
-  }, [config, emptyForm, inlineUpdatingId, loadRows, navigate, openEdit, options, can]);
+  }, [config, emptyForm, inlineUpdatingId, loadRows, navigate, openEdit, openCreate, options, can]);
 
   // Clickable summary cards (shared component): the page's own cards, or a sensible default.
   const statsCards = useMemo(

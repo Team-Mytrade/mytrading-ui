@@ -179,7 +179,7 @@ const asOrderLines = (order: PurchaseRecord): OrderLine[] =>
     };
   });
 
-/** Create: turns PO lines into GRN lines, defaulting each line to the quantity still pending. */
+/** Create: turns PO lines into GRN lines, leaving received and accepted quantities for manual entry. */
 const asItems = (order: PurchaseRecord): GrnItem[] =>
   linesOf(order)
     .map((line) => {
@@ -191,8 +191,8 @@ const asItems = (order: PurchaseRecord): GrnItem[] =>
         productCode: productCodeOf(line),
         orderedQuantity: num(line.quantity),
         pendingQuantity: pending,
-        receivedQuantity: pending,
-        acceptedQuantity: pending,
+        receivedQuantity: "",
+        acceptedQuantity: "",
         rejectedQuantity: 0,
         batchNumber: null,
         manufacturingDate: null,
@@ -245,7 +245,8 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     const name = item.productName || "A line";
     const received = num(item.receivedQuantity);
     const rejected = num(item.rejectedQuantity);
-    const accepted = Math.max(0, received - rejected); // same rule as the read-only box
+    const accepted = num(item.acceptedQuantity);
+    if (item.acceptedQuantity === "") return `${name}: enter the accepted quantity.`;
     const max = maxFor(item, isEditing);
 
     if (received <= 0) return `${name}: received quantity must be more than 0.`;
@@ -253,7 +254,7 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     if (accepted + rejected !== received) {
       return `${name}: accepted (${accepted}) + rejected (${rejected}) must equal received (${received}).`;
     }
-    if (max != null && received > max) return `${name}: only ${max} can be received on this PO line.`;
+    if (max != null && accepted > max) return `${name}: only ${max} can be accepted for this pending replacement.`;
     // Required by the product's tracking settings (only when known).
     const t = item.tracking;
     if (t?.batch && !item.batchNumber) return `${name}: enter the batch number (this product is batch tracked).`;
@@ -406,7 +407,7 @@ export default function GoodsReceiptEditor({
   };
 
   /** Create: picking a PO fills the GRN lines and the "Ordered products" table. */
-  const loadItems = async (id: string) => {
+  const loadItems = async (id: string, preserveExistingItems = false) => {
     onChange("purchaseOrderId", id);
     if (!id) {
       setOrderLines([]);
@@ -416,14 +417,14 @@ export default function GoodsReceiptEditor({
     setLoadingItems(true);
     const order = await fetchOrder(id);
     setOrderLines(order ? asOrderLines(order) : []);
-    onChange("items", order ? asItems(order) : []);
+    if (!preserveExistingItems) onChange("items", order ? asItems(order) : []);
     if (order?.warehouseId && !form.warehouseId) onChange("warehouseId", String(order.warehouseId));
     setLoadingItems(false);
   };
 
   // Create: load lines if a PO is already set (e.g. opened from the PO page).
   useEffect(() => {
-    if (!isEditing && form.purchaseOrderId && !items.length) loadItems(String(form.purchaseOrderId));
+    if (!isEditing && form.purchaseOrderId && !orderLines.length) loadItems(String(form.purchaseOrderId), items.length > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, form.purchaseOrderId]);
 
@@ -463,21 +464,35 @@ export default function GoodsReceiptEditor({
   const updateItem = (index: number, changes: Partial<GrnItem>) =>
     onChange("items", items.map((item, current) => (current === index ? { ...item, ...changes } : item)));
 
-  // Received or rejected changes keep accepted = received - rejected.
-  const updateReceived = (index: number, value: string) => {
-    updateItem(index, {
-      receivedQuantity: value,
-      acceptedQuantity: Math.max(0, num(value) - num(items[index].rejectedQuantity)),
-    });
-  };
-  const updateRejected = (index: number, value: string) => {
-    const received = num(items[index].receivedQuantity);
-    // Can't reject more than was received.
-    const rejected = value === "" ? "" : String(Math.min(num(value), received));
-    updateItem(index, {
-      rejectedQuantity: rejected,
-      acceptedQuantity: Math.max(0, received - num(rejected)),
-    });
+  // Editing either received or accepted recalculates rejected; rejected stays editable.
+  const updateQuantity = (index: number, field: "receivedQuantity" | "acceptedQuantity" | "rejectedQuantity", value: string) => {
+    const current = items[index];
+    const lineMaximum = maxFor(current, isEditing);
+    const capped = (amount: string, maximum?: number) =>
+      amount === "" ? "" : String(Math.min(num(amount), maximum ?? Number.MAX_SAFE_INTEGER));
+    const safeValue = field === "receivedQuantity"
+      ? value
+      : field === "acceptedQuantity"
+        ? capped(value, Math.min(num(current.receivedQuantity), lineMaximum ?? Number.MAX_SAFE_INTEGER))
+        : capped(value, num(current.receivedQuantity));
+    const next = { ...current, [field]: safeValue };
+    const changes: Partial<GrnItem> = { [field]: safeValue };
+    if (field === "rejectedQuantity") {
+      if (next.receivedQuantity !== "" && safeValue !== "") {
+        const minimumRejected = Math.max(0, num(next.receivedQuantity) - (lineMaximum ?? Number.MAX_SAFE_INTEGER));
+        const rejected = Math.max(minimumRejected, num(safeValue));
+        changes.rejectedQuantity = rejected;
+        changes.acceptedQuantity = Math.max(0, num(next.receivedQuantity) - rejected);
+      }
+    } else {
+      if (field === "receivedQuantity" && next.acceptedQuantity !== "") {
+        changes.acceptedQuantity = Math.min(num(next.acceptedQuantity), num(safeValue));
+      }
+      changes.rejectedQuantity = next.receivedQuantity === "" || next.acceptedQuantity === ""
+        ? ""
+        : Math.max(0, num(next.receivedQuantity) - num(changes.acceptedQuantity ?? next.acceptedQuantity));
+    }
+    updateItem(index, changes);
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -502,6 +517,17 @@ export default function GoodsReceiptEditor({
 
   return (
     <form className="goods-receipt-editor" onSubmit={handleSubmit}>
+      {form.lastGrnReview && (
+        <section className="mb-4 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-100">
+          <div className="font-semibold">Previous GRN review</div>
+          <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+            <span>GRN: {(form.lastGrnReview as PurchaseRecord).receiptNumber || "--"}</span>
+            <span>Last updated: {displayDate((form.lastGrnReview as PurchaseRecord).updatedDate)}</span>
+            <span>Received: {num((form.lastGrnReview as PurchaseRecord).receivedQuantity)}</span>
+            <span>Accepted: {num((form.lastGrnReview as PurchaseRecord).acceptedQuantity)}</span>
+          </div>
+        </section>
+      )}
       <section className="goods-receipt-editor__receipt">
         <div className="goods-receipt-editor__receipt-head">
           <span>GRN RECEIPT</span>
@@ -639,7 +665,7 @@ export default function GoodsReceiptEditor({
                   <span>
                     {item.productCode || "PO line"}
                     {item.orderedQuantity != null && ` · Ordered ${item.orderedQuantity}`}
-                    {max != null && ` · Can receive ${max}`}
+                    {max != null && ` · Pending replacement ${max}`}
                   </span>
                   <h4>{item.productName || "Product"}</h4>
                 </div>
@@ -650,29 +676,30 @@ export default function GoodsReceiptEditor({
                   <input
                     required
                     min="0"
-                    max={max}
                     type="number"
                     value={item.receivedQuantity}
                     onKeyDown={(event) => ["-", "+", "e", "E"].includes(event.key) && event.preventDefault()}
                     onWheel={(event) => (event.target as HTMLInputElement).blur()}
-                    onChange={(event) => updateReceived(index, event.target.value)}
+                    onChange={(event) => updateQuantity(index, "receivedQuantity", event.target.value)}
                   />
                 </label>
                 <label>
                   Accepted quantity
-                  {/* Worked out, not typed: Accepted = Received − Rejected. So the three can never disagree. */}
                   <input
+                    required
                     type="number"
-                    readOnly
-                    tabIndex={-1}
-                    aria-readonly="true"
-                    value={Math.max(0, num(item.receivedQuantity) - num(item.rejectedQuantity))}
-                    title="Received − Rejected"
-                    className="cursor-default"
+                    min="0"
+                    max={item.receivedQuantity === "" ? undefined : Math.min(num(item.receivedQuantity), max ?? Number.MAX_SAFE_INTEGER)}
+                    value={item.acceptedQuantity}
+                    onKeyDown={(event) => ["-", "+", "e", "E"].includes(event.key) && event.preventDefault()}
+                    onWheel={(event) => (event.target as HTMLInputElement).blur()}
+                    onChange={(event) => updateQuantity(index, "acceptedQuantity", event.target.value)}
                   />
-                  <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">
-                    Received − Rejected
-                  </span>
+                  {max != null && (
+                    <span className="mt-1 block text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      Pending replacement: {max}
+                    </span>
+                  )}
                 </label>
                 <label>
                   Rejected quantity
@@ -683,7 +710,7 @@ export default function GoodsReceiptEditor({
                     value={item.rejectedQuantity}
                     onKeyDown={(event) => ["-", "+", "e", "E"].includes(event.key) && event.preventDefault()}
                     onWheel={(event) => (event.target as HTMLInputElement).blur()}
-                    onChange={(event) => updateRejected(index, event.target.value)}
+                    onChange={(event) => updateQuantity(index, "rejectedQuantity", event.target.value)}
                   />
                 </label>
               </div>
@@ -736,7 +763,7 @@ export default function GoodsReceiptEditor({
                     {showSerial && (
                       <div className="goods-receipt-editor__serials">
                         <SerialInputs
-                          count={Math.max(0, num(item.receivedQuantity) - num(item.rejectedQuantity))}
+                          count={num(item.acceptedQuantity)}
                           required={Boolean(t?.serial)}
                           values={item.serialNumbers}
                           onChange={(serialNumbers) => updateItem(index, { serialNumbers })}
