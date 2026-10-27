@@ -106,7 +106,8 @@ type NavItem = {
   superAdminOnly?: boolean;
 };
 
-const filterNavItems = (items: NavItem[], access: AccessInfo): NavItem[] => {
+/** The menu a user may see; the header search uses the same filter so it never offers a hidden page. */
+export const filterNavItems = (items: NavItem[], access: AccessInfo): NavItem[] => {
   const visible = (path?: string, permission?: string) =>
     (!path || canAccessPath(access, path)) && (!permission || hasPermission(access, permission));
 

@@ -517,7 +517,7 @@ const CustomerFormPage: React.FC = () => {
                     onChange={(e) => update("phone", e.target.value)}
                     maxLength={50}
                   />
-                  <div className="md:col-span-2">
+                  <div>
                     <FloatingInput
                       label="Website"
                       name="website"

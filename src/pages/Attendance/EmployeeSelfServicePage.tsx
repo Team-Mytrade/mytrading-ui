@@ -19,6 +19,27 @@ import {
 
 type DayStatus = 'TODAY' | 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE' | 'HOLIDAY' | 'WEEK_OFF' | 'ON_DUTY' | 'WFH' | 'REGULAR';
 
+/** Short codes on the small calendar (the large one shows the full label). */
+const SHORT_CODE: Record<string, string> = {
+  PRESENT: 'P', LATE: 'LT', HALF_DAY: 'HD', LEAVE: 'L', ABSENT: 'A', HOLIDAY: 'H', WEEK_OFF: 'WO', ON_DUTY: 'OD', WFH: 'WFH',
+};
+
+/** Each status has its own look on the calendar: tinted cell, coloured left edge and a labelled badge. */
+const STATUS_LOOK: Record<string, { cell: string; accent: string; badge: string; label: string }> = {
+  PRESENT: { cell: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900', accent: 'border-l-emerald-500', badge: 'bg-emerald-600 text-white', label: 'Present' },
+  LATE: { cell: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900', accent: 'border-l-amber-500', badge: 'bg-amber-500 text-white', label: 'Late' },
+  HALF_DAY: { cell: 'bg-sky-50 border-sky-200 dark:bg-sky-950/30 dark:border-sky-900', accent: 'border-l-sky-500', badge: 'bg-sky-600 text-white', label: 'Half day' },
+  LEAVE: { cell: 'bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900', accent: 'border-l-violet-500', badge: 'bg-violet-600 text-white', label: 'Leave' },
+  ABSENT: { cell: 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900', accent: 'border-l-rose-500', badge: 'bg-rose-600 text-white', label: 'Absent' },
+  HOLIDAY: { cell: 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900', accent: 'border-l-orange-400', badge: 'bg-orange-500 text-white', label: 'Holiday' },
+  WEEK_OFF: { cell: 'bg-slate-100 border-slate-200 dark:bg-[#1c1c1c] dark:border-[#303030]', accent: 'border-l-slate-400', badge: 'bg-slate-500 text-white', label: 'Week off' },
+  ON_DUTY: { cell: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-900', accent: 'border-l-cyan-500', badge: 'bg-cyan-600 text-white', label: 'On duty' },
+  WFH: { cell: 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-900', accent: 'border-l-teal-500', badge: 'bg-teal-600 text-white', label: 'WFH' },
+  // bg-[#fff], not bg-white: the app-wide card tint (index.css) would otherwise colour plain days like Present ones
+  TODAY: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: 'bg-[#0097a7] text-white', label: 'Today' },
+  REGULAR: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: '', label: '' },
+};
+
 export interface CalendarDayItem {
   date: string;
   dayNumber: number;
@@ -134,6 +155,8 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const isCheckedIn = todayDay?.status === 'CHECKED_IN';
   const isCheckedOut = !isCheckedIn && Boolean(todayDay?.outTime);
+  // A full day of approved leave: no check-in that day (the server refuses it too); a half day still can
+  const onLeaveToday = !isCheckedIn && todayDay?.status === 'ON_LEAVE' && !todayDay?.halfDayLeave;
   const todayInFormatted = timeOf(todayDay?.inTime) || null;
 
   const greeting = useMemo(() => {
@@ -358,6 +381,10 @@ const EmployeeSelfServicePage: React.FC = () => {
                     </span>
                     Clocked In {todayInFormatted ? `at ${todayInFormatted}` : ''}
                   </span>
+                ) : onLeaveToday ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 border border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-300">
+                    On leave today{todayDay?.leaveType ? ` (${leaveTypeLabel(todayDay.leaveType)})` : ''}
+                  </span>
                 ) : isCheckedOut ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-300">
                     <CheckCircle2 className="w-3.5 h-3.5 text-slate-500 dark:text-gray-400" />
@@ -410,9 +437,9 @@ const EmployeeSelfServicePage: React.FC = () => {
             ) : (
               <button
                 onClick={() => handleWebPunch('CHECK_IN')}
-                disabled={isPunching || !currentUser.hasEmployee}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-60 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
-                title="Clock In"
+                disabled={isPunching || !currentUser.hasEmployee || onLeaveToday}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-60 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white transition shadow-xs cursor-pointer"
+                title={onLeaveToday ? 'You are on leave today' : 'Clock In'}
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Clock In</span>
@@ -628,78 +655,37 @@ const EmployeeSelfServicePage: React.FC = () => {
                   }
 
                   const isToday = day.dateStr === todayStr;
-                  let cardStyle = 'border-slate-200/70 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-gray-600 hover:shadow-2xs text-slate-700 dark:text-gray-200';
-                  let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-medium';
-
-                  if (isToday) {
-                    cardStyle = 'border-sky-300 dark:border-sky-500/80 bg-sky-50/40 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-500/30 text-sky-900 dark:text-sky-300 shadow-2xs';
-                    numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
-                  } else if (day.status === 'PRESENT') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-emerald-300 dark:hover:border-emerald-700';
-                  } else if (day.status === 'LATE') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-amber-700';
-                  } else if (day.status === 'LEAVE') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-purple-300 dark:hover:border-purple-700';
-                  } else if (day.status === 'ABSENT') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-rose-300 dark:hover:border-rose-700';
-                  } else if (day.status === 'HOLIDAY') {
-                    cardStyle = 'border-slate-200/80 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-amber-300 dark:hover:border-amber-700';
-                  } else if (day.status === 'WEEK_OFF') {
-                    cardStyle = 'border-slate-100 dark:border-[#303030]/60 bg-slate-50/50 dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-500';
-                    numBadgeStyle = 'text-slate-400 dark:text-gray-500 font-normal';
-                  }
+                  const look = STATUS_LOOK[day.status as string] ?? STATUS_LOOK.REGULAR;
+                  const code = SHORT_CODE[day.status as string];
 
                   return (
                     <div
                       key={idx}
                       onClick={() => setIsCalendarExpanded(true)}
                       title={day.details || `${isToday ? 'Today: ' : 'Date: '}${day.dateStr} (Click to expand details)`}
-                      className={`h-8 px-1.5 py-1 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer hover:scale-102 overflow-hidden relative ${cardStyle}`}
+                      className={`h-8 px-1.5 py-1 rounded-lg border border-l-[3px] text-left flex items-center justify-between transition-all cursor-pointer hover:scale-102 overflow-hidden relative ${look.cell} ${look.accent} ${isToday ? 'ring-2 ring-[#4DD0E1]' : ''}`}
                     >
-                      <span className={`text-[11px] leading-none shrink-0 ${numBadgeStyle}`}>
+                      <span className={`text-[11px] leading-none shrink-0 ${
+                        isToday ? 'w-5 h-5 rounded-full bg-[#0097a7] text-white font-semibold text-[10px] flex items-center justify-center shadow-2xs' : 'font-bold text-slate-800 dark:text-gray-100'
+                      }`}>
                         {day.dayNumber}
                       </span>
-
-                      {/* Subtle Minimal Status Indicator */}
-                      {day.badgeText && (
-                        <span className={`text-[8px] font-semibold px-1 py-0.5 rounded-full uppercase leading-none shrink-0 ${
-                          day.status === 'PRESENT' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400' :
-                          day.status === 'LATE' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' :
-                          day.status === 'LEAVE' ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400' :
-                          day.status === 'ABSENT' ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400' :
-                          day.status === 'HOLIDAY' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' : 'bg-slate-100 dark:bg-[#222222] text-slate-500 dark:text-gray-400'
-                        }`}>
-                          {day.badgeText === 'LATE' ? 'LT' : day.badgeText}
-                        </span>
-                      )}
-
-                      {!day.badgeText && day.status === 'WEEK_OFF' && (
-                        <span className="text-[7.5px] font-normal px-1 py-0.5 rounded-full uppercase leading-none text-slate-400 dark:text-gray-500 shrink-0">
-                          off
-                        </span>
+                      {code && (
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded uppercase leading-none shrink-0 ${look.badge}`}>{code}</span>
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Calendar Legend Footer */}
-              <div className="pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 font-medium flex-wrap gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Today
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Leave
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Absent
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Holiday
-                </div>
+              {/* Legend: the same colours and short codes as the days */}
+              <div className="pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center text-[10px] text-slate-600 dark:text-gray-400 font-medium flex-wrap gap-x-2.5 gap-y-1">
+                {['PRESENT', 'LATE', 'HALF_DAY', 'LEAVE', 'ABSENT', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'].map((s) => (
+                  <span key={s} className="inline-flex items-center gap-1">
+                    <span className={`rounded px-1 py-px text-[8px] font-bold ${STATUS_LOOK[s].badge}`}>{SHORT_CODE[s]}</span>
+                    {STATUS_LOOK[s].label}
+                  </span>
+                ))}
               </div>
 
             </div>
@@ -761,11 +747,11 @@ const EmployeeSelfServicePage: React.FC = () => {
 
               {/* Minimalist Legend Bar */}
               <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#222222] border-b border-slate-100 dark:border-[#303030] flex items-center justify-end flex-wrap gap-3.5 text-[11px] text-slate-500 dark:text-gray-400 font-normal shrink-0">
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Today</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Leave</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Absent</div>
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Holiday</div>
+                {['PRESENT', 'LATE', 'HALF_DAY', 'LEAVE', 'ABSENT', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'].map((s) => (
+                  <div key={s} className="flex items-center gap-1.5">
+                    <span className={`rounded px-1 py-px text-[8.5px] font-bold uppercase ${STATUS_LOOK[s].badge}`}>{STATUS_LOOK[s].label}</span>
+                  </div>
+                ))}
               </div>
 
               {/* Minimal Calendar Grid Container */}
@@ -796,13 +782,11 @@ const EmployeeSelfServicePage: React.FC = () => {
                     }
 
                     const isToday = day.dateStr === todayStr;
-                    let cardStyle = 'border-slate-200/70 dark:border-[#303030] bg-white dark:bg-[#222222] hover:border-slate-300 dark:hover:border-gray-600 hover:shadow-2xs text-slate-800 dark:text-white';
-                    let numBadgeStyle = 'text-slate-700 dark:text-gray-200 font-semibold text-xs sm:text-[13px]';
-
-                    if (isToday) {
-                      cardStyle = 'border-sky-300 dark:border-sky-500/80 bg-sky-50/30 dark:bg-sky-950/30 ring-1 ring-sky-200/70 dark:ring-sky-500/30 shadow-2xs';
-                      numBadgeStyle = 'w-5 h-5 rounded-full bg-sky-600 text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs';
-                    }
+                    const look = STATUS_LOOK[day.status as string] ?? STATUS_LOOK.REGULAR;
+                    const cardStyle = `border border-l-[3px] ${look.cell} ${look.accent} hover:shadow-2xs text-slate-800 dark:text-white ${isToday ? 'ring-2 ring-[#4DD0E1]' : ''}`;
+                    const numBadgeStyle = isToday
+                      ? 'w-5 h-5 rounded-full bg-[#0097a7] text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs'
+                      : 'text-slate-800 dark:text-gray-100 font-bold text-xs sm:text-[13px]';
 
                     const inFormatted = day.inTime ? (day.inTime.includes('T') ? new Date(day.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.inTime) : null;
                     const outFormatted = day.outTime ? (day.outTime.includes('T') ? new Date(day.outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.outTime) : null;
@@ -819,27 +803,9 @@ const EmployeeSelfServicePage: React.FC = () => {
                             {day.dayNumber}
                           </span>
 
-                          {isToday && (
-                            <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
-                              Today
-                            </span>
-                          )}
-
-                          {day.status === 'WEEK_OFF' && (
-                            <span className="text-[8px] font-normal px-1.5 py-0.5 rounded-full uppercase tracking-wider text-slate-400 dark:text-gray-500">
-                              Off
-                            </span>
-                          )}
-
-                          {day.badgeText && !isToday && (
-                            <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-                              day.status === 'PRESENT' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400' :
-                              day.status === 'LATE' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' :
-                              day.status === 'LEAVE' ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400' :
-                              day.status === 'ABSENT' ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400' :
-                              day.status === 'HOLIDAY' ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400' : 'bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300'
-                            }`}>
-                              {day.badgeText === 'P' ? 'Present' : day.badgeText === 'L' ? 'Leave' : day.badgeText === 'A' ? 'Absent' : day.badgeText === 'H' ? 'Holiday' : day.badgeText}
+                          {look.label && (
+                            <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide ${look.badge}`}>
+                              {look.label}
                             </span>
                           )}
                         </div>

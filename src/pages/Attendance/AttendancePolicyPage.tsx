@@ -661,7 +661,7 @@ const AttendancePolicyPage: React.FC = () => {
                 data={queriedAssignments || assignments}
                 columns={assignmentColumns}
                 loading={loading || isQuerying}
-                pageSize={5}
+                pageSize={10}
                 defaultSortKey="id"
                 defaultSortOrder="desc"
               />
@@ -709,7 +709,7 @@ const AttendancePolicyPage: React.FC = () => {
                 data={savedPolicies}
                 columns={policyColumns}
                 loading={loading}
-                pageSize={5}
+                pageSize={10}
                 defaultSortKey="policyName"
                 defaultSortOrder="asc"
               />

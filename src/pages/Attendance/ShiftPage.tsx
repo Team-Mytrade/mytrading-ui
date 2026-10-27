@@ -34,6 +34,21 @@ export interface WeeklyOffItem {
   active: boolean;
 }
 
+const WEEK_ORDER: DayOfWeekType[] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+// Picked for a new shift (the attendance service's default weekly offs)
+const DEFAULT_WEEKLY_OFFS: DayOfWeekType[] = ["SATURDAY", "SUNDAY"];
+const OCCURRENCE_LABEL: Record<WeekOccurrenceType, string> = {
+  EVERY: "", FIRST: "1st", SECOND: "2nd", THIRD: "3rd", FOURTH: "4th", FIFTH: "5th", LAST: "Last",
+};
+const dayLabel = (day?: string) => (day ? `${day.charAt(0)}${day.slice(1).toLowerCase()}` : "");
+
+/** "Saturday, Sunday" or "2nd Saturday, Sunday": a shift's active weekly-off rules ("" when there are none). */
+const weeklyOffSummary = (list?: { dayOfWeek?: string; weekOccurrence?: string; active?: boolean }[]) =>
+  (list ?? [])
+    .filter((w) => w.active !== false && w.dayOfWeek)
+    .map((w) => `${OCCURRENCE_LABEL[w.weekOccurrence as WeekOccurrenceType] ?? ""} ${dayLabel(w.dayOfWeek)}`.trim())
+    .join(", ");
+
 export interface ShiftModel {
   id?: number;
   shiftCode: string;
@@ -73,6 +88,8 @@ const ShiftPage: React.FC = () => {
     active: true
   });
   const [editingWeeklyOffId, setEditingWeeklyOffId] = useState<number | null>(null);
+  // Weekly offs chosen on the Create Shift form (every week), saved right after the shift
+  const [newWeeklyOffDays, setNewWeeklyOffDays] = useState<DayOfWeekType[]>(DEFAULT_WEEKLY_OFFS);
 
   // Form State
   const [form, setForm] = useState<{
@@ -134,14 +151,6 @@ const ShiftPage: React.FC = () => {
           const shiftTypeLabel = isNight ? 'Night Shift' : 'Day Shift';
           const statusLabel = s.active !== false ? 'Active' : 'Inactive';
 
-          const weeklyOffsList = Array.isArray(s.weeklyOffs) && s.weeklyOffs.length > 0
-            ? s.weeklyOffs.map((w: any) => {
-                const occ = w.weekOccurrence && w.weekOccurrence !== 'EVERY' ? `${w.weekOccurrence} ` : '';
-                const day = w.dayOfWeek ? `${w.dayOfWeek.charAt(0)}${w.dayOfWeek.slice(1).toLowerCase()}` : '';
-                return `${occ}${day}`.trim();
-              }).filter(Boolean)
-            : undefined;
-
           // The first 4 scalar properties will become the top 4 highlight summary metrics in Table drawer:
           // 1. shiftCode -> SHIFT CODE
           // 2. shiftName -> SHIFT NAME
@@ -153,16 +162,13 @@ const ShiftPage: React.FC = () => {
             shiftName: s.shiftName,
             timings: timingsStr,
             status: statusLabel,
+            weeklyOffDays: weeklyOffSummary(s.weeklyOffs) || 'Not set',
             shiftType: shiftTypeLabel,
             netDuration: hoursStr,
             breakTime: `${s.breakMinutes ?? 60} mins`,
             gracePeriod: `${s.gracePeriodMinutes ?? 15} mins`,
             overtime: s.overtimeAllowed !== false ? 'Allowed' : 'Not Allowed',
           };
-
-          if (weeklyOffsList && weeklyOffsList.length > 0) {
-            rowItem.weeklyOffs = weeklyOffsList;
-          }
 
           // Attach raw reference non-enumerably so Table.tsx's Object.keys() does NOT inspect it
           Object.defineProperty(rowItem, '_raw', {
@@ -230,6 +236,13 @@ const ShiftPage: React.FC = () => {
       return t;
     };
 
+    // Time after the shift end before a missed check-out is closed automatically (the service allows 0–720)
+    const finalizeBufferMinutes = Math.max(0, Number(form.attendanceFinalizeBufferMinutes) || 0);
+    if (finalizeBufferMinutes > 720) {
+      ToasterService.error("Finalize buffer can be at most 720 minutes (12 hours).");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (editingShift?.id) {
@@ -244,6 +257,7 @@ const ShiftPage: React.FC = () => {
           gracePeriodMinutes: Math.max(0, Number(form.gracePeriodMinutes) || 0),
           nightShift: Boolean(computedNightShift),
           overtimeAllowed: Boolean(form.overtimeAllowed),
+          attendanceFinalizeBufferMinutes: finalizeBufferMinutes,
           active: Boolean(form.active)
         };
 
@@ -259,12 +273,25 @@ const ShiftPage: React.FC = () => {
           breakMinutes: Math.max(0, Number(form.breakMinutes) || 0),
           gracePeriodMinutes: Math.max(0, Number(form.gracePeriodMinutes) || 0),
           overtimeAllowed: Boolean(form.overtimeAllowed),
-          attendanceFinalizeBufferMinutes: Number(form.attendanceFinalizeBufferMinutes) || 360,
+          attendanceFinalizeBufferMinutes: finalizeBufferMinutes,
           active: Boolean(form.active)
         };
 
-        await axios.post(BASE_SHIFT_URL, createPayload);
+        const created = await axios.post(BASE_SHIFT_URL, createPayload);
         ToasterService.success("Shift created successfully!");
+        // POST /shifts/{shiftId}/weekly-offs: the days chosen on the form, every week
+        const newShiftId = created.data?.id;
+        if (newShiftId && newWeeklyOffDays.length > 0) {
+          try {
+            await axios.post(`${BASE_SHIFT_URL}/${newShiftId}/weekly-offs`, {
+              weeklyOffs: WEEK_ORDER.filter((day) => newWeeklyOffDays.includes(day))
+                .map((dayOfWeek) => ({ dayOfWeek, weekOccurrence: "EVERY", active: true })),
+            });
+          } catch (err: any) {
+            const reason = err.response?.data?.message || err.response?.data?.error;
+            ToasterService.error(`The weekly offs were not saved${reason ? `: ${reason}` : ""}. Set them from the shift's Weekly Offs column.`);
+          }
+        }
       }
 
       setIsShiftModalOpen(false);
@@ -350,6 +377,7 @@ const ShiftPage: React.FC = () => {
       setEditingWeeklyOffId(null);
       setWeeklyOffForm({ dayOfWeek: "SUNDAY", weekOccurrence: "EVERY", active: true });
       openWeeklyOffDrawer(activeShiftForWeeklyOff);
+      fetchShifts();
     } catch (err: any) {
       handleApiError(err, "Failed to save weekly off rule.");
     }
@@ -364,6 +392,7 @@ const ShiftPage: React.FC = () => {
       await axios.delete(`${BASE_SHIFT_URL}/${activeShiftForWeeklyOff.id}/weekly-offs/${id}`);
       ToasterService.success("Weekly Off rule removed!");
       openWeeklyOffDrawer(activeShiftForWeeklyOff);
+      fetchShifts();
     } catch (err: any) {
       handleApiError(err, "Failed to delete weekly off rule.");
     }
@@ -372,6 +401,7 @@ const ShiftPage: React.FC = () => {
   // ── Form Reset Helpers ─────────────────────────────────────────────────
   const openCreateModal = () => {
     setEditingShift(null);
+    setNewWeeklyOffDays(DEFAULT_WEEKLY_OFFS);
     setForm({
       shiftCode: "",
       shiftName: "",
@@ -454,6 +484,22 @@ const ShiftPage: React.FC = () => {
       )
     },
     {
+      key: 'weeklyOffDays',
+      label: 'Weekly Offs',
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => openWeeklyOffDrawer(row)}
+          title="See or change this shift's weekly offs"
+          className={`text-xs font-semibold hover:underline cursor-pointer text-left ${
+            row.weeklyOffDays === 'Not set' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-gray-300'
+          }`}
+        >
+          {row.weeklyOffDays === 'Not set' ? 'Not set: add' : row.weeklyOffDays}
+        </button>
+      )
+    },
+    {
       key: 'status',
       label: 'Status',
       sortable: true,
@@ -524,7 +570,7 @@ const ShiftPage: React.FC = () => {
             data={shifts}
             columns={columns}
             loading={loading}
-            pageSize={5}
+            pageSize={10}
             defaultSortKey="shiftName"
             defaultSortOrder="asc"
             rowDetailsTitle={(row) => `${row.shiftName} (${row.shiftCode})`}
@@ -639,12 +685,59 @@ const ShiftPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Finalize Buffer Mins</label>
                   <input
                     type="number"
+                    min={0}
+                    max={720}
+                    title="Minutes after the shift ends before a missed check-out is closed automatically (time for overtime)"
                     value={form.attendanceFinalizeBufferMinutes}
                     onChange={(e) => setForm(p => ({ ...p, attendanceFinalizeBufferMinutes: Number(e.target.value) }))}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                 </div>
               </div>
+
+              {!editingShift ? (
+                <div>
+                  <span className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Weekly Offs</span>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Weekly offs">
+                    {WEEK_ORDER.map((day) => {
+                      const on = newWeeklyOffDays.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          aria-pressed={on}
+                          title={dayLabel(day)}
+                          onClick={() => setNewWeeklyOffDays((p) => (on ? p.filter((d) => d !== day) : [...p, day]))}
+                          className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-colors cursor-pointer ${
+                            on
+                              ? 'bg-cyan-50 border-cyan-300 text-cyan-800 dark:bg-cyan-500/20 dark:border-transparent dark:text-cyan-300'
+                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 dark:bg-[#222222] dark:border-transparent dark:text-gray-400'
+                          }`}
+                        >
+                          {dayLabel(day).slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-[10.5px] text-gray-500 dark:text-gray-400">
+                    Off every week. For rules like the 2nd and 4th Saturday, use the shift's Weekly Offs column after saving.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200/80 dark:!border-transparent rounded-xl flex items-center justify-between gap-2 text-xs">
+                  <span>
+                    <span className="text-slate-500 dark:text-gray-400 font-semibold">Weekly offs: </span>
+                    <span className="font-bold text-slate-800 dark:text-white">{weeklyOffSummary(editingShift.weeklyOffs) || 'Not set'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setIsShiftModalOpen(false); openWeeklyOffDrawer(editingShift); }}
+                    className="font-semibold text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center gap-6 pt-2 text-xs">
                 <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700 dark:text-gray-300">

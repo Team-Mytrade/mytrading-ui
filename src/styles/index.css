@@ -1163,20 +1163,23 @@ html:not(.dark) .app-content-tight :is(.rounded-lg, .rounded-xl, .rounded-2xl):i
 
 /* ── One field style for every page and dialog ───────────────────────────────────────────────────────────
    Text fields and dropdowns were 28–52px tall with 12/14/16px text, 6/8/12px corners and four border
-   colours depending on the page. They now share one size (36px, 13px Nunito) and one border / focus look.
-   Compact toolbar fields (breadcrumb row, table filters, h-5…h-8) and floating-label fields (.peer) keep
-   their own size. */
+   colours depending on the page. They now all look like the Create Employee form: 32px tall, 12px Nunito,
+   10px side padding, grey-300 border, 8px corners, cyan focus ring. Compact toolbar fields (breadcrumb row,
+   table filters, h-5…h-8) and floating-label fields (.peer) keep their own size. */
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select):not(.page-breadcrumb *, .peer, table *, .stats-card *, [class*="h-5"], [class*="h-6"], [class*="h-7"], [class*="h-8"]) {
-  height: 36px !important;
-  min-height: 36px;
+  height: 32px !important;
+  min-height: 32px;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
   line-height: 1.4;
   border-radius: 8px !important;
 }
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]):not(.page-breadcrumb *, .peer, table *, .stats-card *, [class*="pl-"]) {
+  padding-left: 10px !important;
+}
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) textarea:not(.peer) {
-  font-size: 13px !important;
+  font-size: 12px !important;
   line-height: 1.5;
   border-radius: 8px !important;
 }
@@ -1184,7 +1187,7 @@ html:not(.dark) .app-content-tight :is(.rounded-lg, .rounded-xl, .rounded-2xl):i
   font-family: inherit;
 }
 html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select, textarea):not(.page-breadcrumb *, table *, :disabled) {
-  border-color: #cbd5e1 !important;
+  border-color: #d1d5db !important;
 }
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select, textarea):focus {
   border-color: #26c6da !important;
@@ -1195,11 +1198,20 @@ html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(
   color: #94a3b8;
   opacity: 1;
 }
+/* Two-column popup forms: a single text field or dropdown takes one column (as on the Create Employee form)
+   even when the page marked it md:col-span-2; only text areas, notes, tables and grouped rows stay full width. */
+@media (min-width: 768px) {
+  :where([role="dialog"], .fixed.inset-0) :is(.md\:grid-cols-2 > .md\:col-span-2, .md\:grid-cols-2 > .contents > .md\:col-span-2):has(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select):not(:has(textarea, table, [class*="grid-cols"], input ~ input, select ~ select, input[type="file"])) {
+    grid-column: auto !important;
+  }
+}
+
 /* Field labels: one size and weight (labels that wrap a checkbox / radio are left alone) */
 html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) label:not(:has(input[type="checkbox"], input[type="radio"], input[type="file"])):not(.peer ~ label, [class*="absolute"], [class*="bg-"], [class*="uppercase"], .page-breadcrumb *) {
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: #374151;
+  margin-bottom: 2px;
 }
 
 /* ── One button colour scheme for every module ───────────────────────────────────────────────────────────
@@ -1235,6 +1247,22 @@ button:is(.bg-red-500, .bg-red-600, .bg-red-700, .bg-rose-500, .bg-rose-600, .bg
 button:is(.bg-red-500, .bg-red-600, .bg-red-700, .bg-rose-500, .bg-rose-600, .bg-rose-700):not([role="switch"]):not(:disabled):hover {
   background-color: #b91c1c !important;
 }
+/* Gradient primary buttons (cyan→blue "Next" / "Save" in the shared popup and a dozen pages) get the same flat cyan */
+button.bg-gradient-to-r:is([class*="from-cyan-5"], [class*="from-cyan-6"], [class*="from-blue-6"], [class*="from-sky-5"], [class*="from-sky-6"], [class*="from-indigo-6"]) {
+  border: 1px solid #26c6da !important;
+  background-image: none !important;
+  background-color: #4dd0e1 !important;
+  color: #083344 !important;
+  box-shadow: 0 1px 3px rgba(0, 151, 167, 0.35) !important;
+}
+button.bg-gradient-to-r:is([class*="from-cyan-5"], [class*="from-cyan-6"], [class*="from-blue-6"], [class*="from-sky-5"], [class*="from-sky-6"], [class*="from-indigo-6"]):not(:disabled):hover {
+  border-color: #00acc1 !important;
+  background-color: #26c6da !important;
+}
+button.bg-gradient-to-r:is([class*="from-cyan-5"], [class*="from-cyan-6"], [class*="from-blue-6"], [class*="from-sky-5"], [class*="from-sky-6"], [class*="from-indigo-6"]) :is(.text-white, svg) {
+  color: inherit !important;
+}
+
 /* White icons / labels inside a primary button take the button's dark text */
 button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500,
   .bg-indigo-600, .bg-indigo-700, .bg-sky-500, .bg-sky-600, .bg-teal-500, .bg-teal-600, .bg-brand-500,

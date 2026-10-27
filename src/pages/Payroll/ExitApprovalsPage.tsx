@@ -40,6 +40,38 @@ const ExitApprovalsPage: React.FC = () => {
     const [busyId, setBusyId] = useState<number | null>(null);
     const [rejectingId, setRejectingId] = useState<number | null>(null);
     const [rejectReason, setRejectReason] = useState("");
+    // The request open in the details popup; while it is still open HR can change its dates and notes
+    const [viewing, setViewing] = useState<ExitRequest | null>(null);
+    const [edit, setEdit] = useState({ lastWorkingDay: '', reason: '', exitInterviewFeedback: '' });
+    const [savingEdit, setSavingEdit] = useState(false);
+
+    const openDetails = (row: ExitRequest) => {
+        setViewing(row);
+        setEdit({ lastWorkingDay: row.lastWorkingDay || '', reason: row.reason || '', exitInterviewFeedback: row.exitInterviewFeedback || '' });
+    };
+    const editable = (row: ExitRequest | null) => !!row && !!row.active && (UNDECIDED.includes(row.status) || ACCEPTED.includes(row.status));
+
+    const saveDetails = async () => {
+        if (!viewing?.id) return;
+        if (!edit.lastWorkingDay) return ToasterService.warning("Pick the last working day");
+        if (edit.lastWorkingDay < viewing.resignationDate) return ToasterService.warning("The last working day can't be before the resignation date");
+        setSavingEdit(true);
+        try {
+            const saved = await ExitManagementService.updateExitDetails({
+                id: viewing.id,
+                lastWorkingDay: edit.lastWorkingDay,
+                reason: edit.reason.trim() || undefined,
+                exitInterviewFeedback: edit.exitInterviewFeedback.trim() || undefined,
+            });
+            ToasterService.success("Exit details saved");
+            setViewing(saved);
+            await fetchRequests();
+        } catch (error) {
+            ToasterService.error(apiError(error, "The exit details were not saved"));
+        } finally {
+            setSavingEdit(false);
+        }
+    };
 
     useEffect(() => {
         if (canApprove) fetchRequests();
@@ -158,6 +190,11 @@ const ExitApprovalsPage: React.FC = () => {
                 const lastDayReached = !!row.lastWorkingDay && row.lastWorkingDay <= todayIso();
                 return (
                     <div className="flex flex-wrap justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                        <button disabled={busy} onClick={() => openDetails(row)}
+                            title={editable(row) ? "See the request and change the last working day before deciding" : "See the request"}
+                            className={`${actionButton} border-cyan-200 text-cyan-700 hover:bg-cyan-50 dark:border-transparent dark:text-cyan-300 dark:hover:bg-[#222222]`}>
+                            {editable(row) ? 'Details / Edit' : 'Details'}
+                        </button>
                         {UNDECIDED.includes(row.status) && (rejectingId === id ? (
                             <div className="flex items-center gap-1.5">
                                 <input
@@ -269,6 +306,83 @@ const ExitApprovalsPage: React.FC = () => {
                     }
                 />
             </div>
+
+            {viewing && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewing(null)}>
+                    <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl dark:bg-[#191919]" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-white">{viewing.employeeName || `EMP-${viewing.employeeId}`}</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {viewing.employeeCode || '—'} · {viewing.designation || '—'} · {STATUS_LABEL[viewing.status] || viewing.status}
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600" aria-label="Close"><X size={18} /></button>
+                        </div>
+
+                        <div className="space-y-4 px-5 py-4 text-xs">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-3 dark:border-[#2a2a2a] dark:bg-[#222222]">
+                                {([
+                                    ['Resigned on', showDate(viewing.resignationDate)],
+                                    ['Notice', viewing.noticeDays != null ? `${viewing.noticeDays} days` : '—'],
+                                    ['Location', viewing.location || '—'],
+                                    ['Phone', viewing.employeePhone || '—'],
+                                    ['Approved on', showDate(viewing.approvedDate)],
+                                    ['Notice started', showDate(viewing.noticePeriodStartDate)],
+                                    ['Clearance', viewing.clearanceCompleted ? 'Done' : 'Pending'],
+                                    ['Final settlement', viewing.finalSettlementProcessed ? 'Done' : 'Pending'],
+                                    ['Relieved on', showDate(viewing.relievedDate)],
+                                ] as const).map(([k, v]) => (
+                                    <div key={k}>
+                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500">{k}</span>
+                                        <span className="font-semibold text-gray-800 dark:text-gray-100">{v}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {(viewing.rejectedReason || viewing.revertReason) && (
+                                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                                    {viewing.rejectedReason ? `Rejected: ${viewing.rejectedReason}` : `Withdrawal: ${viewing.revertReason}`}
+                                </p>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Last working day *</label>
+                                    <input type="date" value={edit.lastWorkingDay} min={viewing.resignationDate} disabled={!editable(viewing)}
+                                        onChange={(e) => setEdit((p) => ({ ...p, lastWorkingDay: e.target.value }))}
+                                        className="h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Reason</label>
+                                    <input type="text" value={edit.reason} maxLength={255} disabled={!editable(viewing)}
+                                        onChange={(e) => setEdit((p) => ({ ...p, reason: e.target.value }))}
+                                        className="h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Exit interview notes</label>
+                                    <textarea rows={3} value={edit.exitInterviewFeedback} maxLength={2000} disabled={!editable(viewing)}
+                                        onChange={(e) => setEdit((p) => ({ ...p, exitInterviewFeedback: e.target.value }))}
+                                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
+                            <button type="button" onClick={() => setViewing(null)}
+                                className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                {editable(viewing) ? 'Cancel' : 'Close'}
+                            </button>
+                            {editable(viewing) && (
+                                <button type="button" onClick={saveDetails} disabled={savingEdit}
+                                    className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+                                    {savingEdit ? 'Saving...' : 'Save changes'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

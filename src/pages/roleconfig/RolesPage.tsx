@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { AuthContext } from "../../context/AuthContext";
 import { Lock, Pencil, ShieldCheck, ShieldOff, SlidersHorizontal, Trash2 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -62,6 +63,9 @@ export default function RolesPage() {
 
   const selected = roles.find((r) => r.id === selectedId) ?? null;
   const editing = draft !== null;
+  // System roles are platform-managed: only the Super Admin may change their permissions (the server allows it)
+  const { access } = useContext(AuthContext);
+  const canEditSelected = Boolean(selected && (!selected.systemRole || access.superAdmin));
   const shown: Set<string> = draft ? draft.permissions : new Set(selected?.permissions ?? []);
 
   const stats = useMemo(() => ({
@@ -177,7 +181,9 @@ export default function RolesPage() {
                       <h3 className={CARD_TITLE}>{selected!.roleName}</h3>
                       <p className="text-[11px] text-slate-500 dark:text-gray-400">
                         {selected!.systemRole
-                          ? "System role: managed by the platform, can't be changed here."
+                          ? access.superAdmin
+                            ? `System role (${selected!.userCount ?? 0} user(s)): as Super Admin you can change its permissions.`
+                            : "System role: only the Super Admin can change it. Create a custom role for different permissions."
                           : `${selected!.userCount ?? 0} user(s) have this role.`}
                         {!selected!.grantable && " Includes permissions you can't grant."}
                       </p>
@@ -189,12 +195,12 @@ export default function RolesPage() {
                         <button type="button" className={SECONDARY_BUTTON} onClick={() => setDraft(null)}>Cancel</button>
                         <button type="button" className={PRIMARY_BUTTON} disabled={saving} onClick={save}>{saving ? "Saving..." : "Save role"}</button>
                       </>
-                    ) : selected && !selected.systemRole && (
+                    ) : selected && canEditSelected && (
                       <>
                         {canUpdate && selected.grantable && (
                           <button type="button" title="Edit role" className={ROW_ICON_BUTTON} onClick={() => startEdit(selected)}><Pencil className="h-4 w-4" /></button>
                         )}
-                        {canDelete && (
+                        {canDelete && !selected.systemRole && (
                           <button type="button" title={(selected.userCount ?? 0) > 0 ? "Remove it from its users first" : "Delete role"}
                             disabled={(selected.userCount ?? 0) > 0} className={`${ROW_ICON_BUTTON_DANGER} disabled:opacity-40`} onClick={() => remove(selected)}>
                             <Trash2 className="h-4 w-4" />

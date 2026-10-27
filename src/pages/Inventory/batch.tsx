@@ -33,17 +33,10 @@ import { usePermissions } from "../../access/usePermissions";
  * CORRECTIONS MADE — checked against the confirmed batches-controller Swagger
  * (GET /batches, GET /batches/{id}, POST /batches, PUT /batches/{id}, DELETE /batches/{id}):
  *
- * 1. `supplierName` DOES NOT EXIST on the Batch entity in any confirmed schema
- *    (GET, POST, or PUT). The previous code sent it in the payload anyway (where
- *    it has nowhere to be stored) AND displayed a completely FAKE hardcoded
- *    value for it (STATIC_BATCH_DATA_MAP had 3 made-up supplier names, and
- *    every other batch silently showed "Default Supplier" as if it were real
- *    data). That's actively misleading — removed the fake map entirely.
- *    Supplier is now handled as a LOCAL-ONLY field (same pattern used for
- *    Stock Level thresholds and Warehouse status): stored in localStorage per
- *    batch id, clearly labeled in the UI as not yet saved to the server, and
- *    never sent in the POST/PUT payload. Ask backend to add a real
- *    `supplierName` column if this needs to be tracked properly.
+ * 1. `supplierName` is now a real Batch column: it is sent on POST/PUT and read
+ *    back from GET. Batches saved before that kept the name in this browser's
+ *    localStorage only; that old value is still shown as a fallback until the
+ *    batch is saved again.
  *
  * 2. `batchNumber` was being OMITTED from the PUT payload, based on an
  *    assumption that the backend "keeps it as-is" on update. But the PUT
@@ -96,7 +89,6 @@ type Batch = {
   quantity?: number;
   reserved?: number;
   available?: number;
-  // Local-only display field — NOT part of the real backend schema. See note above.
   supplierName?: string;
   fifoPriority?: number;
   fefoPriority?: number;
@@ -252,7 +244,7 @@ const getFEFORank = (batches: Batch[], batch: Batch) => {
   return sorted.findIndex((b) => b.id === batch.id) + 1;
 };
 
-// ---------- Local-only supplier storage (backend has no supplierName field) ----------
+// ---------- Supplier names from before the server stored them (read-only fallback) ----------
 function loadSupplierMap(): Record<number, string> {
   try {
     return JSON.parse(localStorage.getItem(SUPPLIER_STORAGE_KEY) || "{}");
@@ -261,23 +253,11 @@ function loadSupplierMap(): Record<number, string> {
   }
 }
 
-function saveSupplierName(id: number, name: string) {
-  const all = loadSupplierMap();
-  if (name?.trim()) {
-    all[id] = name.trim();
-  } else {
-    delete all[id];
-  }
-  try {
-    localStorage.setItem(SUPPLIER_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // localStorage can throw in private/incognito modes — fail silently.
-  }
-}
-
 function getLocalSupplierName(id: number): string {
   return loadSupplierMap()[id] || "";
 }
+
+const supplierOf = (batch: { id: number; supplierName?: string | null }) => batch.supplierName || getLocalSupplierName(batch.id);
 
 // ============ COMPONENT ============
 const BatchManagement: React.FC = () => {
@@ -339,9 +319,7 @@ const BatchManagement: React.FC = () => {
           quantity: stock.quantity || 0,
           reserved: stock.reserved || 0,
           available: stock.available || 0,
-          // CORRECTED: real local-only value (or blank), never a fake
-          // hardcoded "Default Supplier".
-          supplierName: getLocalSupplierName(batch.id),
+          supplierName: supplierOf(batch),
           daysUntilExpiry: getDaysUntilExpiry(batch),
           fifoPriority: 0,
           fefoPriority: 0,
@@ -405,7 +383,7 @@ const BatchManagement: React.FC = () => {
         typeof batch.warehouse === "object"
           ? String(batch.warehouse?.id || "")
           : String(batch.warehouse || ""),
-      supplierName: getLocalSupplierName(batch.id),
+      supplierName: supplierOf(batch),
     });
     setShowFormModal(true);
   };
@@ -424,6 +402,7 @@ const BatchManagement: React.FC = () => {
       expiryDate: form.expiryDate,
       productId: toNumber(form.productId),
       warehouse: selectedWarehouse ? { id: selectedWarehouse.id } : null,
+      supplierName: form.supplierName?.trim() || null,
     };
 
     // CORRECTED: batchNumber is only meaningful (and only known) once editing
@@ -433,10 +412,6 @@ const BatchManagement: React.FC = () => {
       payload.id = editingId;
       payload.batchNumber = form.batchNumber;
     }
-
-    // NOTE: supplierName is deliberately NOT sent — the backend schema has no
-    // field for it. Saved locally instead via saveSupplierName() after a
-    // successful save. See note at top of file.
 
     return payload;
   };
@@ -468,9 +443,6 @@ const BatchManagement: React.FC = () => {
         response = await axios.put<Batch>(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Batch updated successfully");
 
-        // Persist supplier locally (see note at top of file).
-        saveSupplierName(editingId, form.supplierName);
-
         setBatches((prev) => {
           return prev.map((batch) => {
             if (batch.id === editingId) {
@@ -479,7 +451,7 @@ const BatchManagement: React.FC = () => {
                 quantity: batch.quantity || 0,
                 reserved: batch.reserved || 0,
                 available: batch.available || 0,
-                supplierName: getLocalSupplierName(editingId),
+                supplierName: supplierOf(response.data),
                 daysUntilExpiry: getDaysUntilExpiry(response.data),
                 fifoPriority: 0,
                 fefoPriority: 0,
@@ -503,17 +475,12 @@ const BatchManagement: React.FC = () => {
         response = await axios.post<Batch>(API_URL, payload, { headers });
         ToasterService.success("Batch created successfully");
 
-        // Persist supplier locally against the newly created batch's real id.
-        if (response.data?.id) {
-          saveSupplierName(response.data.id, form.supplierName);
-        }
-
         const newBatch = {
           ...response.data,
           quantity: 0,
           reserved: 0,
           available: 0,
-          supplierName: response.data?.id ? getLocalSupplierName(response.data.id) : "",
+          supplierName: response.data?.supplierName || "",
           daysUntilExpiry: getDaysUntilExpiry(response.data),
           fifoPriority: 0,
           fefoPriority: 0,
@@ -682,9 +649,6 @@ const BatchManagement: React.FC = () => {
         </Field>
         <Field label="Supplier">
           {batch.supplierName || "--"}
-          <div className="mt-0.5 text-[10px] font-normal text-amber-600 dark:text-amber-400">
-            stored locally, not on server
-          </div>
         </Field>
 
         <Field label="MFG Date">
@@ -1130,14 +1094,8 @@ const BatchManagement: React.FC = () => {
                 name="supplierName"
                 value={form.supplierName}
                 onChange={handleChange}
+                maxLength={150}
               />,
-              <p
-                key="supplier-hint"
-                className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400"
-              >
-                ⚠ Supplier is currently stored locally in this browser only —
-                the backend does not yet have a field to persist it server-side.
-              </p>,
             ],
           },
         ]}

@@ -853,7 +853,9 @@ export function ReusableTable<T extends { id?: number | string }>({
         bottomPadding;
       const rowsThatFit = Math.max(1, Math.floor(availableHeight / rowHeight));
 
-      setViewportPageSize(Math.max(1, Math.min(pageSize, rowsThatFit)));
+      // Never fewer than 10 rows a page (or the page's own size if smaller): a table low on a page used to
+      // shrink to a few rows, so 5 requests were split over 2 pages. Pages scroll now, so the rest is reachable.
+      setViewportPageSize(Math.max(Math.min(pageSize, 10), Math.min(pageSize, rowsThatFit)));
     };
 
     calculatePageSize();

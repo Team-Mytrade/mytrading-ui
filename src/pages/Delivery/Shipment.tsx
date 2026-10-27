@@ -406,7 +406,7 @@ const Shipment: React.FC = () => {
 
     for (const item of form.items) {
       if (!item.productId || item.productId <= 0) {
-        toast.warning("Please enter a valid Product ID for all items!");
+        toast.warning("Please choose a product for every item.");
         return;
       }
       if (!item.shippedQty || item.shippedQty <= 0) {

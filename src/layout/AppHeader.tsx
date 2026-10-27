@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useContext,
   useEffect,
   useLayoutEffect,
   useImperativeHandle,
@@ -12,7 +13,9 @@ import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import { CUSTOMER_UTILS } from "../config/constants";
-import { navItems } from "../layout/AppSidebar";  // ← Correct import path
+import { filterNavItems, navItems } from "../layout/AppSidebar";
+import { AuthContext } from "../context/AuthContext";
+import { canAccessPath } from "../access/access";
 
 // Search result types
 type SearchResult = {
@@ -738,9 +741,13 @@ const AppHeader: React.FC = () => {
     }
   };
 
-  // Build search results from navItems — main modules (top level) + children (sub-items)
+  // Search results: only the modules and pages this user may open (same filter as the sidebar), so a
+  // user with Attendance alone no longer sees every module
+  const { access } = useContext(AuthContext);
+  // Recent picks may include pages from another login on this browser
+  const visibleRecents = useMemo(() => recents.filter((r) => !r.path || canAccessPath(access, r.path.split("?")[0])), [recents, access]);
   const mainModules = useMemo<SearchResult[]>(() => {
-    return (navItems as any[]).map((item) => {
+    return (filterNavItems(navItems, access) as any[]).map((item) => {
       const children: SearchResult[] = [];
 
       // Process subItems (one level or nested) into flyout children
@@ -782,31 +789,25 @@ const AppHeader: React.FC = () => {
         children,
       };
     });
-  }, []);
+  }, [access]);
 
   // Actions — only shown while typing
   const actions = useMemo<SearchResult[]>(
-    () => [
-      { id: "create-customer", label: "Add New Customer", category: "action",
-        action: () => navigate("/customer-management?action=create") },
-      { id: "create-sales-order", label: "Create Sales Order", category: "action",
-        action: () => navigate("/sales-orders?action=create") },
-      { id: "create-purchase-order", label: "Create Purchase Order", category: "action",
-        action: () => navigate("/purchase-orders?action=create") },
-      { id: "create-invoice", label: "Create Invoice", category: "action",
-        action: () => navigate("/invoices?action=create") },
-      { id: "create-batch", label: "Create New Batch", category: "action",
-        action: () => navigate("/batch?action=create") },
-      { id: "create-warehouse", label: "Add Warehouse", category: "action",
-        action: () => navigate("/warehouse?action=create") },
-      { id: "create-employee", label: "Add Employee", category: "action",
-        action: () => navigate("/employeeRecords?action=create") },
-      { id: "create-leave", label: "Apply for Leave", category: "action",
-        action: () => navigate("/att_leaveRequest?action=create") },
-      { id: "punch-attendance", label: "Punch Attendance", category: "action",
-        action: () => navigate("/att_punch") },
-    ],
-    [navigate]
+    () => ([
+      ["create-customer", "Add New Customer", "/customer-management", "?action=create"],
+      ["create-sales-order", "Create Sales Order", "/sales-orders", "?action=create"],
+      ["create-purchase-order", "Create Purchase Order", "/purchase-service/orders", ""],
+      ["create-invoice", "Create Invoice", "/invoices", "?action=create"],
+      ["create-batch", "Create New Batch", "/batch", "?action=create"],
+      ["create-warehouse", "Add Warehouse", "/warehouse", "?action=create"],
+      ["create-employee", "Add Employee", "/employeeRecords", "?action=create"],
+      ["create-leave", "Apply for Leave", "/att_leaveRequest", "?action=create"],
+      ["punch-attendance", "Punch Attendance", "/att_punch", ""],
+    ] as const)
+      // Only actions on pages this user may open
+      .filter(([, , path]) => canAccessPath(access, path))
+      .map(([id, label, path, query]) => ({ id, label, category: "action" as const, action: () => navigate(`${path}${query}`) })),
+    [navigate, access]
   );
 
   // Centralized pick handler so desktop and mobile behave identically.
@@ -975,7 +976,7 @@ const AppHeader: React.FC = () => {
               onOpenChange={setIsSearchOpen}
               mainModules={mainModules}
               actions={actions}
-              recents={recents}
+              recents={visibleRecents}
               onPick={handlePick}
             />
           </div>
@@ -1014,7 +1015,7 @@ const AppHeader: React.FC = () => {
                   onOpenChange={setIsSearchOpen}
                   mainModules={mainModules}
                   actions={actions}
-                  recents={recents}
+                  recents={visibleRecents}
                   onPick={handlePick}
                 />
               </div>

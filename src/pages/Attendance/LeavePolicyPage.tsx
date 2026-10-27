@@ -11,14 +11,14 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
-import { apiError } from "./attendanceApi";
+import { apiError, LEAVE_TYPE_LABELS, leaveTypeLabel } from "./attendanceApi";
 
 const LEAVE_POLICY_ENDPOINT = '/v1/api/attendance/leave-policies';
 const ASSIGN_POLICY_ENDPOINT = '/v1/api/attendance/employee-leave-balances/assign-policy';
 
 export interface PolicyDetailItem {
   id?: number;
-  leaveType: 'CASUAL' | 'SICK' | 'EARNED';
+  leaveType: string;
   allocatedLeaves: number;
   carryForwardAllowed: boolean;
   maxCarryForward: number;
@@ -296,6 +296,12 @@ const LeavePolicyPage: React.FC = () => {
     setFormErrors({});
   };
 
+  const availableLeaveTypes = Object.keys(LEAVE_TYPE_LABELS).filter((t) => !form.policyDetails.some((d) => d.leaveType === t));
+  const addLeaveType = (leaveType: string) =>
+    setForm((p) => ({ ...p, policyDetails: [...p.policyDetails, { leaveType, allocatedLeaves: 0, carryForwardAllowed: false, maxCarryForward: 0, allowNegativeBalance: false }] }));
+  const removeLeaveType = (leaveType: string) =>
+    setForm((p) => ({ ...p, policyDetails: p.policyDetails.filter((d) => d.leaveType !== leaveType) }));
+
   const openCreateModal = () => {
     resetForm();
     setEditingPolicy(null);
@@ -306,7 +312,7 @@ const LeavePolicyPage: React.FC = () => {
     const raw = (p as any)._raw || p;
     setEditingPolicy(raw);
     const rawFy = raw.financialYear;
-    const fyNum = typeof rawFy === 'number' ? rawFy : Number(String(rawFy || '').replace(/\D/g, '')) || 2026;
+    const fyNum = typeof rawFy === 'number' ? rawFy : Number(String(rawFy || '').replace(/\D/g, '')) || new Date().getFullYear();
     setForm({
       policyCode: raw.policyCode,
       policyName: raw.policyName,
@@ -427,7 +433,7 @@ const LeavePolicyPage: React.FC = () => {
         <div className="flex items-center gap-1.5 whitespace-nowrap">
           <button
             type="button"
-            onClick={() => setViewingPolicy(row)}
+            onClick={() => setViewingPolicy((row as LeavePolicyModel)._raw || row)}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-transparent dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent rounded-lg text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             title="View Policy Details"
           >
@@ -446,12 +452,14 @@ const LeavePolicyPage: React.FC = () => {
             onClick={() => {
               const raw = (row as any)._raw || row;
               setAssigningPolicy(raw);
-              setSelectedEmployeeIds([12]);
+              // Nobody is picked in advance (an employee id used to be hard-coded here)
+              setSelectedEmployeeIds([]);
             }}
-            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-purple-200 dark:border-transparent text-purple-700 dark:text-gray-300 dark:hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-2xs"
+            className="p-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-transparent dark:hover:bg-[#222222] border border-purple-200 dark:border-transparent text-purple-700 dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors"
             title="Assign Policy to Employees"
+            aria-label="Assign Policy to Employees"
           >
-            <Users className="w-3.5 h-3.5 text-purple-600 dark:text-gray-400" /> Assign
+            <Users className="w-3.5 h-3.5" />
           </button>
           {row.id && (
             canDelete && <button
@@ -488,7 +496,7 @@ const LeavePolicyPage: React.FC = () => {
             data={policies}
             columns={columns}
             loading={loading}
-            pageSize={5}
+            pageSize={10}
             defaultSortKey="policyCode"
             defaultSortOrder="asc"
             rowDetailsTitle={(row) => `${row.policyName} (${row.policyCode})`}
@@ -571,65 +579,72 @@ const LeavePolicyPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Policy Detail Allocations */}
-                <div className="border border-cyan-100 dark:border-cyan-900/50 bg-cyan-50/40 dark:bg-cyan-950/20 rounded-xl p-3.5 space-y-3">
-                  <h4 className="text-xs font-bold text-cyan-900 dark:text-cyan-300 uppercase tracking-wider">Leave Category Allocations</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {form.policyDetails.map((detail, idx) => (
-                      <div key={idx} className="bg-white dark:bg-[#222222] p-3 rounded-lg border border-cyan-200/80 dark:border-cyan-800/60 shadow-2xs space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-cyan-800 dark:text-cyan-300 font-mono">{detail.leaveType} LEAVE</span>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-gray-500 dark:text-gray-400 font-medium mb-0.5">Allocated Days</label>
-                          <input
-                            type="number"
-                            value={detail.allocatedLeaves}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setForm(p => ({
-                                ...p,
-                                policyDetails: p.policyDetails.map((d, i) => i === idx ? { ...d, allocatedLeaves: val } : d)
-                              }));
-                            }}
-                            className="w-full py-1 px-2 border border-gray-200 dark:border-[#3a3a3a] bg-white dark:bg-[#191919] rounded text-xs font-bold text-gray-900 dark:text-white outline-none focus:border-cyan-500"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] pt-1">
-                          <label className="flex items-center gap-1 cursor-pointer text-gray-700 dark:text-gray-300">
-                            <input
-                              type="checkbox"
-                              checked={detail.carryForwardAllowed}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setForm(p => ({
-                                  ...p,
-                                  policyDetails: p.policyDetails.map((d, i) => i === idx ? { ...d, carryForwardAllowed: checked } : d)
-                                }));
-                              }}
-                              className="rounded text-cyan-600"
-                            />
-                            <span>Carry Forward</span>
-                          </label>
-                          {detail.carryForwardAllowed && (
-                            <input
-                              type="number"
-                              placeholder="Max"
-                              value={detail.maxCarryForward}
-                              onChange={(e) => {
-                                const val = Number(e.target.value);
-                                setForm(p => ({
-                                  ...p,
-                                  policyDetails: p.policyDetails.map((d, i) => i === idx ? { ...d, maxCarryForward: val } : d)
-                                }));
-                              }}
-                              className="w-14 py-0.5 px-1 border border-gray-200 dark:border-[#3a3a3a] bg-white dark:bg-[#191919] rounded text-xs font-semibold text-right text-gray-900 dark:text-white outline-none focus:border-cyan-500"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                {/* Leave types in the policy: one row each, removable; other types can be added */}
+                <div className="rounded-xl border border-slate-200 dark:border-[#303030]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 dark:border-[#303030]">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">Leave types in this policy</h4>
+                    {availableLeaveTypes.length > 0 && (
+                      <select
+                        value=""
+                        onChange={(e) => e.target.value && addLeaveType(e.target.value)}
+                        className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-gray-700 dark:bg-[#222222] dark:text-white"
+                        aria-label="Add a leave type"
+                      >
+                        <option value="">+ Add leave type</option>
+                        {availableLeaveTypes.map((t) => <option key={t} value={t}>{leaveTypeLabel(t)}</option>)}
+                      </select>
+                    )}
                   </div>
+                  {form.policyDetails.length === 0 ? (
+                    <p className="px-3 py-4 text-center text-xs text-slate-400">No leave types yet. Add at least one.</p>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead className="bg-[#e8f3dc] text-left text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-gray-800/70 dark:text-gray-200">
+                        <tr>
+                          <th className="px-3 py-2">Leave type</th>
+                          <th className="px-3 py-2">Days per year</th>
+                          <th className="px-3 py-2">Carry forward</th>
+                          <th className="px-3 py-2">Max carry forward</th>
+                          <th className="w-12 px-3 py-2 text-center">Remove</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
+                        {form.policyDetails.map((detail, idx) => {
+                          const update = (patch: Partial<typeof detail>) =>
+                            setForm(p => ({ ...p, policyDetails: p.policyDetails.map((d, i) => (i === idx ? { ...d, ...patch } : d)) }));
+                          return (
+                            <tr key={detail.leaveType}>
+                              <td className="px-3 py-2 font-semibold text-slate-800 dark:text-gray-100">{leaveTypeLabel(detail.leaveType)} leave</td>
+                              <td className="px-3 py-2">
+                                <input type="number" min={0} step={0.5} value={detail.allocatedLeaves}
+                                  onChange={(e) => update({ allocatedLeaves: Number(e.target.value) })}
+                                  className="h-8 w-24 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-gray-700 dark:bg-[#191919] dark:text-white" />
+                              </td>
+                              <td className="px-3 py-2">
+                                <label className="inline-flex cursor-pointer items-center gap-1.5 text-slate-700 dark:text-gray-300">
+                                  <input type="checkbox" checked={detail.carryForwardAllowed}
+                                    onChange={(e) => update({ carryForwardAllowed: e.target.checked, maxCarryForward: e.target.checked ? detail.maxCarryForward : 0 })}
+                                    className="h-4 w-4 accent-[#0097a7]" />
+                                  Allowed
+                                </label>
+                              </td>
+                              <td className="px-3 py-2">
+                                <input type="number" min={0} value={detail.maxCarryForward} disabled={!detail.carryForwardAllowed}
+                                  onChange={(e) => update({ maxCarryForward: Number(e.target.value) })}
+                                  className="h-8 w-24 rounded-lg border border-slate-300 bg-white px-2 text-xs disabled:bg-slate-50 disabled:text-slate-400 dark:border-gray-700 dark:bg-[#191919] dark:text-white" />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button type="button" onClick={() => removeLeaveType(detail.leaveType)} title={`Remove ${leaveTypeLabel(detail.leaveType)} leave`}
+                                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-between">
@@ -684,9 +699,12 @@ const LeavePolicyPage: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="bg-purple-50 dark:bg-purple-950/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800/60 text-xs">
-                  <span className="font-bold text-purple-900 dark:text-purple-300 block">{assigningPolicy.policyName}</span>
-                  <span className="text-purple-700 dark:text-purple-400">POST /v1/api/attendance/employee-leave-balances/assign-policy</span>
+                <div className="bg-[#e0f7fa] dark:bg-cyan-950/30 p-3 rounded-lg border border-[#b2ebf2] dark:border-cyan-800/60 text-xs">
+                  <span className="font-bold text-slate-900 dark:text-cyan-200 block">{assigningPolicy.policyName}</span>
+                  <span className="text-slate-600 dark:text-cyan-300/80">
+                    The chosen employees get this policy's leave balances
+                    {assigningPolicy.policyDetails?.length ? `: ${assigningPolicy.policyDetails.map((d) => `${d.allocatedLeaves} ${leaveTypeLabel(d.leaveType)}`).join(', ')}` : ''}.
+                  </span>
                 </div>
 
                 <div>
@@ -726,6 +744,71 @@ const LeavePolicyPage: React.FC = () => {
                 </button>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* ── VIEW POLICY (read-only) ──────────────────────────────────────── */}
+        {viewingPolicy && (
+          <div
+            className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={(e) => { if (e.target === e.currentTarget) setViewingPolicy(null); }}
+          >
+            <div className="bg-white dark:bg-[#191919] rounded-xl max-w-lg w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
+                    {viewingPolicy.policyName} ({viewingPolicy.policyCode})
+                  </h3>
+                </div>
+                <button type="button" onClick={() => setViewingPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-3 text-xs mb-4">
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Financial year</dt>
+                  <dd className="font-semibold">{viewingPolicy.financialYear || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Status</dt>
+                  <dd className="font-semibold">{viewingPolicy.active !== false ? 'Active' : 'Inactive'}</dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="text-gray-500 dark:text-gray-400">Effective period</dt>
+                  <dd className="font-semibold">{viewingPolicy.effectiveFrom || '-'} to {viewingPolicy.effectiveTo || '-'}</dd>
+                </div>
+                {viewingPolicy.description && (
+                  <div className="col-span-2">
+                    <dt className="text-gray-500 dark:text-gray-400">Description</dt>
+                    <dd>{viewingPolicy.description}</dd>
+                  </div>
+                )}
+              </dl>
+
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-[#303030]">
+                    <th className="py-1.5 font-semibold">Leave type</th>
+                    <th className="py-1.5 font-semibold text-right">Days / year</th>
+                    <th className="py-1.5 font-semibold text-right">Carry forward</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(viewingPolicy.policyDetails ?? []).map((d, i) => (
+                    <tr key={d.id ?? i} className="border-b border-gray-50 dark:border-[#2a2a2a]">
+                      <td className="py-1.5 font-semibold">{leaveTypeLabel(d.leaveType)}</td>
+                      <td className="py-1.5 text-right font-mono">{d.allocatedLeaves}</td>
+                      <td className="py-1.5 text-right">{d.carryForwardAllowed ? `Up to ${d.maxCarryForward ?? 0}` : 'No'}</td>
+                    </tr>
+                  ))}
+                  {!(viewingPolicy.policyDetails ?? []).length && (
+                    <tr><td colSpan={3} className="py-3 text-center text-gray-400">No leave types in this policy.</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

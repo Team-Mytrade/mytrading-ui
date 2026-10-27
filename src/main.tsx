@@ -11,6 +11,19 @@ import PageLoader from "./components/common/PageLoader.tsx";
 
 import { AUTH_BOOTSTRAP_COMPLETE_EVENT, isAuthBootstrapComplete } from "./utils/authBootstrap";
 
+// The browser's calendar / clock icon is hidden app-wide (index.css), and Chrome only opens the picker from
+// that icon, so clicking a date or time field did nothing. Open the picker on any click on such a field.
+const PICKER_TYPES = new Set(["date", "time", "month", "week", "datetime-local"]);
+document.addEventListener("click", (event) => {
+  const field = event.target;
+  if (!(field instanceof HTMLInputElement) || !PICKER_TYPES.has(field.type) || field.disabled || field.readOnly) return;
+  try {
+    field.showPicker?.();
+  } catch {
+    /* already open, or not allowed in this frame */
+  }
+});
+
 const LOGIN_PRELOADER_SHOWN_KEY = "loginPreloaderShown";
 const LOGIN_SUCCESS_EVENT = "app-login-success";
 

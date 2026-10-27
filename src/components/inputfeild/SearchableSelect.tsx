@@ -166,6 +166,12 @@ export default function SearchableSelect({
 
   return (
     <div ref={wrapperRef} className="relative">
+      {/* Label above a 32px field, like the Create Employee form (it used to float inside a taller box) */}
+      <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">
+        {label}
+        {required && <span className="text-red-500"> *</span>}
+      </label>
+      <div className="relative">
       <input
         type="text"
         role="combobox"
@@ -190,18 +196,10 @@ export default function SearchableSelect({
           event.target.select();
         }}
         onKeyDown={onKeyDown}
-        className="peer w-full rounded-xl border border-slate-300 bg-white px-4 pb-2 pt-5 pr-16 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
+        className="h-8 w-full rounded-lg border border-gray-300 bg-white px-2.5 pr-14 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
       />
-      <label
-        className={`pointer-events-none absolute left-4 text-slate-500 transition-all dark:text-gray-400 ${
-          hasText || open || emptyOptionLabel ? "top-1.5 text-xs" : "top-3.5 text-sm"
-        } peer-focus:text-cyan-600 dark:peer-focus:text-cyan-400`}
-      >
-        {label}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
 
-      <div className="absolute inset-y-0 right-3 flex items-center gap-1">
+      <div className="absolute inset-y-0 right-2.5 flex items-center gap-1">
         {hasText && (
           <button
             type="button"
@@ -215,6 +213,7 @@ export default function SearchableSelect({
           </button>
         )}
         <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition dark:text-gray-500 ${open ? "rotate-180" : ""}`} />
+      </div>
       </div>
 
       {open && (

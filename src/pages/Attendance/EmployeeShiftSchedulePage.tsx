@@ -428,7 +428,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
             data={assignments}
             columns={columns}
             loading={loading}
-            pageSize={5}
+            pageSize={10}
             defaultSortKey="effectiveFrom"
             defaultSortOrder="desc"
           />

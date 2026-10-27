@@ -133,11 +133,38 @@ export const DAY_KIND_BADGE: Record<DayKind, string> = {
   NONE: "",
 };
 
-/** Local time "09:35" from an ISO date-time. */
+/**
+ * "09:35" in the browser's time zone. The attendance service sends date-times with the server's offset
+ * ("2026-10-27T04:05:00Z"), so a server running in UTC no longer shows UTC times; a value without an offset
+ * (or a bare "09:35") is shown as it is.
+ */
 export const timeOf = (iso?: string | null) => {
   if (!iso) return "";
+  if (/T.*(Z|[+-]\d{2}:?\d{2})$/.test(iso)) {
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
   const t = iso.includes("T") ? iso.split("T")[1] : iso;
   return t.slice(0, 5);
+};
+
+/** Browser date in the browser's time zone ("2026-10-27") for a date-time from the server. */
+export const dateOf = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!/T.*(Z|[+-]\d{2}:?\d{2})$/.test(iso) || Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** "2026-10-27T09:00:00" typed in this browser → "2026-10-27T09:00:00+05:30", so the server stores the right moment. */
+export const withBrowserOffset = (localDateTime?: string | null) => {
+  if (!localDateTime) return localDateTime ?? null;
+  const d = new Date(localDateTime);
+  if (Number.isNaN(d.getTime())) return localDateTime;
+  const minutes = -d.getTimezoneOffset();
+  const sign = minutes >= 0 ? "+" : "-";
+  const abs = Math.abs(minutes);
+  return `${localDateTime.length === 16 ? `${localDateTime}:00` : localDateTime}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
 };
 
 export const hoursOf = (minutes?: number | null) => {

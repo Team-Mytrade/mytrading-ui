@@ -86,23 +86,29 @@ const CONFIG: Record<ApprovalKind, {
     act: (id, action) => `${ATTENDANCE_API}/attendance-approvals/${id}/${action}`,
     body: (_action, remarks) => ({ remarks, approveAll: true }),
     toRows: (data) => data.map((r) => {
-      const details: any[] = Array.isArray(r.responseDetails) ? r.responseDetails : [];
+      // One detail per day (each with its own shift and working times); the visit / work notes are shared
+      const details: any[] = (Array.isArray(r.responseDetails) ? [...r.responseDetails] : [])
+        .sort((a, b) => String(a.fromDate).localeCompare(String(b.fromDate)));
       const first = details[0] || {};
+      const shared = [
+        first.clientName && `Client: ${first.clientName}`,
+        first.visitLocation && `Location: ${first.visitLocation}`,
+        first.purpose && `Purpose: ${first.purpose}`,
+        first.projectTaskName && `Work: ${first.projectTaskName}`,
+      ].filter(Boolean) as string[];
+      const perDay = details
+        .filter((d) => d.checkInTime || d.shiftInTime)
+        .map((d) => `${String(d.fromDate).split('-').reverse().join('/')}: work ${timeOf(d.checkInTime) || '—'}–${timeOf(d.checkOutTime) || '—'} (shift ${timeOf(d.shiftInTime) || '—'}–${timeOf(d.shiftOutTime) || '—'})`);
       return {
         id: r.id,
         employeeId: r.employeeId,
         employee: r.employeeName || `Employee #${r.employeeId}`,
         employeeCode: r.employeeCode || '',
         type: REQUEST_TYPE_LABEL[first.requestType] || first.requestType || 'Request',
-        dates: range(first.fromDate, details[details.length - 1]?.toDate),
+        dates: `${range(first.fromDate, details[details.length - 1]?.toDate)}${details.length > 1 ? ` (${details.length} days)` : ''}`,
         reason: first.reason || '',
         status: r.overallStatus,
-        details: details.flatMap((d) => [
-          d.clientName && `Client: ${d.clientName}`,
-          d.visitLocation && `Location: ${d.visitLocation}`,
-          d.purpose && `Purpose: ${d.purpose}`,
-          d.projectTaskName && `Work: ${d.projectTaskName}`,
-        ].filter(Boolean)) as string[],
+        details: [...shared, ...perDay],
         decidedOn: dateOnly(r.actionDate),
         remarks: r.approverRemarks || undefined,
       };
