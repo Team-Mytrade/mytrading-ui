@@ -205,8 +205,11 @@ const PurchaseReturns: React.FC = () => {
       .map((line) => ({ grnItemId: line.grnItemId, quantity: Number(quantities[line.grnItemId]) || 0, line }))
       .filter((item) => item.quantity > 0);
     if (items.length === 0) return ToasterService.error("Enter a quantity for at least one item");
-    const tooMany = items.find((item) => item.quantity > item.line.returnableQuantity);
-    if (tooMany) return ToasterService.error(`Only ${tooMany.line.returnableQuantity} of ${tooMany.line.productName} can be returned`);
+    const tooMany = items.find((item) => item.quantity > Math.min(item.line.acceptedQuantity, item.line.returnableQuantity));
+    if (tooMany) {
+      const maximum = Math.min(tooMany.line.acceptedQuantity, tooMany.line.returnableQuantity);
+      return ToasterService.error(`Only ${maximum} of ${tooMany.line.productName} can be returned`);
+    }
     const payload = {
       grnId: Number(grnId),
       reason: form.reason,
@@ -460,29 +463,36 @@ const PurchaseReturns: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {lines.map((line) => (
+                      {lines.map((line) => {
+                        const maximumReturn = Math.min(line.acceptedQuantity, line.returnableQuantity);
+                        return (
                         <tr key={line.grnItemId}>
                           <td className="px-3 py-2">
                             <span className="font-medium text-slate-800">{line.productName}</span>
                             <span className="block text-xs text-slate-400">{line.productCode}</span>
                           </td>
                           <td className="px-3 py-2 text-right">{line.acceptedQuantity} {line.unitOfMeasure}</td>
-                          <td className="px-3 py-2 text-right">{line.returnableQuantity}</td>
+                          <td className="px-3 py-2 text-right">{maximumReturn}</td>
                           <td className="px-3 py-2 text-right">{money(line.unitPrice)}</td>
                           <td className="px-3 py-2 text-right">
                             <input
                               type="number"
                               min={0}
-                              max={line.returnableQuantity}
-                              disabled={line.returnableQuantity === 0}
+                              max={maximumReturn}
+                              disabled={maximumReturn === 0}
                               value={quantities[line.grnItemId] ?? ""}
-                              onChange={(event) => setQuantities((current) => ({ ...current, [line.grnItemId]: event.target.value }))}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                const quantity = value === "" ? "" : String(Math.min(Math.max(0, Number(value) || 0), maximumReturn));
+                                setQuantities((current) => ({ ...current, [line.grnItemId]: quantity }));
+                              }}
                               className="w-20 rounded-md border border-slate-300 px-2 py-1 text-right text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50"
                               aria-label={`Quantity of ${line.productName} to return`}
                             />
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                     <tfoot className="bg-slate-50">
                       <tr>

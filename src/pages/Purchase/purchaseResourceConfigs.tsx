@@ -1034,7 +1034,9 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       "Its quantities count as pending on the purchase order again. Goods already in stock can't be cancelled; return them with a Supplier Return stock movement.",
     done: "Goods receipt cancelled",
   },
-  renderRowActions: (row, { refreshRows }) => <GoodsReceiptSyncAction row={row} refreshRows={refreshRows} />,
+  renderRowActions: (row, { refreshRows, openCreate }) => (
+    <GoodsReceiptSyncAction row={row} refreshRows={refreshRows} onReceive={openCreate} />
+  ),
   columns: [
     { key: "receiptNumber", label: "GRN Number" },
     {
@@ -1137,8 +1139,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       productCode: item.productCode || null,
       productName: item.productName && item.productName !== "Product" ? item.productName : null,
       receivedQuantity: toNumberOrZero(item.receivedQuantity),
-      // Always Received − Rejected (the form shows it read-only).
-      acceptedQuantity: Math.max(0, toNumberOrZero(item.receivedQuantity) - toNumberOrZero(item.rejectedQuantity)),
+      acceptedQuantity: toNumberOrZero(item.acceptedQuantity),
       rejectedQuantity: toNumberOrZero(item.rejectedQuantity),
       // Only send what the product tracks (tracking unknown = send whatever was entered).
       batchNumber: item.tracking?.batch === false ? null : item.batchNumber || null,
