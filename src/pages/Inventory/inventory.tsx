@@ -427,30 +427,6 @@ const InventoryStockManager: React.FC = () => {
             )}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <ListingPdfExportButton
-              title="Inventory Stock"
-              subtitle="Stock on hand per product and warehouse"
-              reportLabel="Inventory Stock Report"
-              data={visibleStocks}
-              fileName="Inventory_Stock"
-              disabled={loading}
-              columns={[
-                { header: "Product", accessor: (row) => productName(row.productId) },
-                { header: "Warehouse", accessor: (row) => warehouseLabel(row.warehouse) },
-                { header: "On Hand", accessor: (row) => String(num(row.quantity)) },
-                { header: "Reserved", accessor: (row) => String(num(row.reserved)) },
-                { header: "Available", accessor: (row) => String(num(row.available)) },
-                { header: "Reorder Level", accessor: (row) => (row.reorderLevel != null ? String(row.reorderLevel) : "-") },
-                { header: "Status", accessor: (row) => getStockStatus(row).label },
-              ]}
-              metadata={(rows) => [
-                { label: "Stock Records", value: rows.length },
-                { label: "On Hand", value: rows.reduce((sum, s) => sum + num(s.quantity), 0) },
-                { label: "Reserved", value: rows.reduce((sum, s) => sum + num(s.reserved), 0) },
-                { label: "Low / Out of Stock", value: rows.filter((s) => getStockStatus(s).key !== "ok").length },
-              ]}
-            />
-
             <button
               onClick={() => setShowAvailabilityModal(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
