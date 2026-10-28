@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatMoney } from "../../company/format";
 // -------------------------
 // Types
 // -------------------------
@@ -89,7 +90,7 @@ const SalesSummary: React.FC = () => {
         </li>
         <li className="flex justify-between">
           <span>Total Revenue:</span>
-          <span>${summary.totalRevenue.toLocaleString()}</span>
+          <span>{formatMoney(summary.totalRevenue)}</span>
         </li>
         <li className="flex justify-between">
           <span>Won Deals:</span>

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { formatMoney } from "../../company/format";
 
 interface Opportunity {
   id: number;
@@ -35,12 +36,12 @@ const WonLostAnalysis: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-gray-100 dark:bg-meta-4 p-4 rounded shadow">
           <h4 className="text-sm text-gray-500">Deals Won</h4>
-          <p className="text-xl font-bold text-green-600">${totalWon.toLocaleString()}</p>
+          <p className="text-xl font-bold text-green-600">{formatMoney(totalWon)}</p>
           <p className="text-sm">{wonDeals.length} deals</p>
         </div>
         <div className="bg-gray-100 dark:bg-meta-4 p-4 rounded shadow">
           <h4 className="text-sm text-gray-500">Deals Lost</h4>
-          <p className="text-xl font-bold text-red-600">${totalLost.toLocaleString()}</p>
+          <p className="text-xl font-bold text-red-600">{formatMoney(totalLost)}</p>
           <p className="text-sm">{lostDeals.length} deals</p>
         </div>
         <div className="bg-gray-100 dark:bg-meta-4 p-4 rounded shadow">
@@ -67,7 +68,7 @@ const WonLostAnalysis: React.FC = () => {
                 <td className={`px-4 py-2 font-medium ${o.stage === 'Closed Won' ? 'text-green-600' : 'text-red-600'}`}>
                   {o.stage}
                 </td>
-                <td className="px-4 py-2">${o.amount.toLocaleString()}</td>
+                <td className="px-4 py-2">{formatMoney(o.amount)}</td>
                 <td className="px-4 py-2">{o.closedDate}</td>
               </tr>
             ))}

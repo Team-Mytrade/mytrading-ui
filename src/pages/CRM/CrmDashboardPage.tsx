@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { DASH_CARD, DASH_TITLE, TONE_CYCLE, formatMoney, toneCard, toneLink } from "../Dashboard/dashboardKit";
+import { formatDateTime } from "../../company/format";
 
 // Live CRM overview. Every figure comes from the CRM service; nothing is hard-coded.
 
@@ -38,7 +39,7 @@ const listOf = <T,>(data: unknown): T[] => {
   return Array.isArray(content) ? (content as T[]) : [];
 };
 
-const money = (value: number) => formatMoney(value, "INR");
+const money = (value: number) => formatMoney(value);
 
 export default function CrmDashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -182,7 +183,7 @@ export default function CrmDashboardPage() {
               <li key={a.id} className="py-2">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{a.title || "Untitled"}</p>
                 <p className="text-xs text-gray-500">
-                  {a.scheduledTime ? new Date(a.scheduledTime).toLocaleString() : "No date"}
+                  {a.scheduledTime ? formatDateTime(a.scheduledTime) : "No date"}
                   {a.assignedTo ? ` · ${a.assignedTo}` : ""}
                 </p>
               </li>

@@ -39,6 +39,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatMoney, formatDate, formatDateTime, companyCurrency } from "../../company/format";
 
 type TaxDeduction = {
     id: number;
@@ -153,7 +154,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Tax Deductions Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Records: ${filtered.length}`, 14, 28);
         
         autoTable(doc, {
@@ -161,8 +162,8 @@ const PayrollTaxDeductionsPage: React.FC = () => {
             body: filtered.map(d => [
                 d.employeeName || d.employeeId,
                 d.deductionType,
-                `₹${d.amount.toLocaleString()}`,
-                new Date(d.effectiveDate).toLocaleDateString(),
+                formatMoney(d.amount),
+                formatDate(d.effectiveDate),
                 d.status
             ]),
             startY: 35,
@@ -179,10 +180,10 @@ const PayrollTaxDeductionsPage: React.FC = () => {
             'Employee Code': d.employeeCode || "",
             'Deduction Type': d.deductionType,
             'Amount': d.amount,
-            'Effective Date': new Date(d.effectiveDate).toLocaleDateString(),
+            'Effective Date': formatDate(d.effectiveDate),
             'Status': d.status,
             'Remarks': d.remarks,
-            'Created At': d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "",
+            'Created At': d.createdAt ? formatDate(d.createdAt) : "",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Tax Deductions");
@@ -291,7 +292,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm text-gray-600">Total Amount</p>
-                                <p className="text-2xl font-semibold text-green-600">₹{(totalAmount / 1000).toFixed(1)}K</p>
+                                <p className="text-2xl font-semibold text-green-600">{formatMoney(totalAmount, { compact: true })}</p>
                             </div>
                             <div className="p-3 bg-green-100 rounded-full">
                                 <CurrencyDollarIcon className="h-6 w-6 text-green-600" />
@@ -523,13 +524,13 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-medium text-gray-900">₹{deduction.amount.toLocaleString()}</span>
+                                            <span className="text-sm font-medium text-gray-900">{formatMoney(deduction.amount)}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
                                                 <span className="text-sm text-gray-900">
-                                                    {new Date(deduction.effectiveDate).toLocaleDateString()}
+                                                    {formatDate(deduction.effectiveDate)}
                                                 </span>
                                             </div>
                                         </td>
@@ -739,11 +740,11 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">Amount:</span>
-                                                        <span className="font-bold text-gray-900">₹{selectedDeduction.amount.toLocaleString()}</span>
+                                                        <span className="font-bold text-gray-900">{formatMoney(selectedDeduction.amount)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">Effective Date:</span>
-                                                        <span className="font-medium">{new Date(selectedDeduction.effectiveDate).toLocaleDateString()}</span>
+                                                        <span className="font-medium">{formatDate(selectedDeduction.effectiveDate)}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -759,7 +760,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
 
                                             {selectedDeduction.createdAt && (
                                                 <div className="text-xs text-gray-400 mt-4">
-                                                    Created: {new Date(selectedDeduction.createdAt).toLocaleString()}
+                                                    Created: {formatDateTime(selectedDeduction.createdAt)}
                                                 </div>
                                             )}
                                         </div>
@@ -826,7 +827,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Amount (₹)</label>
+                                                    <label className="block text-sm font-medium text-gray-700">Amount ({companyCurrency()})</label>
                                                     <input
                                                         type="number"
                                                         value={form.amount}

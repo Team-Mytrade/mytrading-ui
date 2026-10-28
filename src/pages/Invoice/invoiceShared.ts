@@ -1,5 +1,6 @@
 // Shared by the Invoice (finance) pages. Values follow the invoice service's enums; labels are what users see.
 import { formatEnumLabel } from "./invoiceEnums";
+import { formatMoney, formatDate } from "../../company/format";
 
 export { apiError, apiFieldErrors } from "../../utils/apiError";
 
@@ -10,21 +11,11 @@ export type Option = { id: string; name: string };
 
 /* ================= Formatting ================= */
 
-// Finance amounts keep their paise; dashboards round, ledgers don't
-export const money = (value: number | string | null | undefined, currency = "INR"): string => {
-  const amount = Number(value ?? 0);
-  try {
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-  } catch {
-    return amount.toFixed(2);
-  }
-};
+// Finance amounts keep the currency's decimals; dashboards round, ledgers don't
+export const money = (value: number | string | null | undefined, currency?: string | null): string =>
+  formatMoney(value, { currency });
 
-export const dateLabel = (value?: string | null): string => {
-  if (!value) return "—";
-  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
+export const dateLabel = (value?: string | null): string => formatDate(value);
 
 export const todayInput = (): string => {
   const now = new Date();

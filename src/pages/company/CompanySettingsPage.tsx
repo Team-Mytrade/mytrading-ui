@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Building2, Image, ImageUp, MapPin, Phone, Save, SlidersHorizontal, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Building2, Globe2, Image, ImageUp, MapPin, Phone, Save, Trash2 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -9,8 +9,13 @@ import {
   INDIAN_STATES, findIndianState, validateEmail, validateGstin, validatePan, validatePhone, validatePinCode,
   validatePinState, validateWebsite,
 } from "../../utils/indiaValidators";
+import {
+  DATE_FORMATS, DEFAULT_REGIONAL, LANGUAGES, NUMBER_LOCALES, WEEK_DAYS, WEEK_STARTS, countries, currencies, currencyDigits,
+  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, timeZones,
+} from "../../company/regional";
 import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
+import { formatDateTime } from "../../company/format";
 
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
@@ -36,6 +41,14 @@ const toForm = (p: CompanyProfile): Form => ({
   addressLine1: p.addressLine1 ?? "", addressLine2: p.addressLine2 ?? "", city: p.city ?? "", state: p.state ?? "",
   postalCode: p.postalCode ?? "", country: p.country || "India", phone: p.phone ?? "", email: p.email ?? "",
   website: p.website ?? "", financialYearStartMonth: p.financialYearStartMonth || 4, currency: p.currency || "INR",
+  currencyDecimals: p.currencyDecimals ?? currencyDigits(p.currency || "INR"),
+  language: p.language || DEFAULT_REGIONAL.language,
+  timeZone: p.timeZone || DEFAULT_REGIONAL.timeZone,
+  dateFormat: p.dateFormat || DEFAULT_REGIONAL.dateFormat,
+  timeFormat: p.timeFormat || DEFAULT_REGIONAL.timeFormat,
+  numberLocale: p.numberLocale || DEFAULT_REGIONAL.numberLocale,
+  weekStart: p.weekStart || DEFAULT_REGIONAL.weekStart,
+  weekendDays: p.weekendDays ?? DEFAULT_REGIONAL.weekendDays,
 });
 
 const validate = (f: Form): Record<string, string> => {
@@ -78,12 +91,50 @@ export default function CompanySettingsPage() {
   const editable = !!company?.editable;
   const dirty = !!company && !!form && JSON.stringify(toForm(company)) !== JSON.stringify(form);
   const india = (form?.country || "India").toLowerCase() === "india";
+  const countryList = useMemo(() => countries(), []);
+  const zoneList = useMemo(() => timeZones(), []);
+  const currencyList = useMemo(() => currencies(), []);
 
-  const set = (key: keyof Form, value: string | number) => {
+  const set = (key: keyof Form, value: string | number | string[]) => {
     if (!form) return;
     setForm({ ...form, [key]: value });
     if (errors[key]) setErrors({ ...errors, [key]: "" });
   };
+
+  // A new country brings its usual currency, time zone, weekend and number style (all can still be changed)
+  const changeCountry = (name: string) => {
+    if (!form) return;
+    const country = findCountry(name);
+    if (!country || name === form.country) {
+      set("country", name);
+      return;
+    }
+    setForm({ ...form, country: name, ...presetForCountry(country) });
+    ToasterService.info(`Currency, time zone, weekend and number format set for ${country.name}. Change them below if needed.`);
+  };
+
+  const changeCurrency = (code: string) => form && setForm({ ...form, currency: code, currencyDecimals: currencyDigits(code) });
+
+  const toggleWeekend = (day: string) => {
+    if (!form) return;
+    const days = form.weekendDays.includes(day) ? form.weekendDays.filter((d) => d !== day) : [...form.weekendDays, day];
+    if (days.length > 3) {
+      ToasterService.error("Choose at most 3 weekend days.");
+      return;
+    }
+    set("weekendDays", WEEK_DAYS.filter((d) => days.includes(d)));
+  };
+
+  // How dates, times and amounts will look with the chosen settings
+  const preview = useMemo(() => {
+    if (!form) return "";
+    try {
+      const now = new Date();
+      return `${formatDateIn(now, form.dateFormat, form.timeZone)} · ${formatTimeIn(now, form.timeFormat, form.timeZone)} · ${formatMoneyIn(1234567.891, form.currency, form.currencyDecimals, form.numberLocale)}`;
+    } catch {
+      return "";
+    }
+  }, [form]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,9 +232,10 @@ export default function CompanySettingsPage() {
                   {sectionTitle(Building2, "Company")}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {field("companyName", "Company name *", { maxLength: 255 })}
-                    {field("legalName", "Registered (legal) name", { maxLength: 200, placeholder: "As on the GST certificate" })}
-                    {field("gstin", "GSTIN", { maxLength: 15, placeholder: "e.g. 29ABCDE1234F1ZW", style: { textTransform: "uppercase" } })}
-                    {field("pan", "PAN", { maxLength: 10, placeholder: "Filled from the GSTIN if left empty", style: { textTransform: "uppercase" } })}
+                    {field("legalName", "Registered (legal) name", { maxLength: 200, placeholder: india ? "As on the GST certificate" : "As on the trade licence" })}
+                    {/* Indian registrations; a VAT number (TRN) for other countries comes with the VAT settings */}
+                    {india && field("gstin", "GSTIN", { maxLength: 15, placeholder: "e.g. 29ABCDE1234F1ZW", style: { textTransform: "uppercase" } })}
+                    {india && field("pan", "PAN", { maxLength: 10, placeholder: "Filled from the GSTIN if left empty", style: { textTransform: "uppercase" } })}
                   </div>
                 </section>
 
@@ -207,8 +259,15 @@ export default function CompanySettingsPage() {
                           onChange={(e) => set("state", e.target.value)} />
                       )}
                     </div>
-                    {field("postalCode", india ? "PIN code" : "Postal code", { maxLength: 20 })}
-                    {field("country", "Country", { maxLength: 100 })}
+                    {field("postalCode", india ? "PIN code" : "Postal code / PO Box", { maxLength: 20 })}
+                    <div>
+                      <label className={LABEL} htmlFor="company-country">Country</label>
+                      <select id="company-country" className={INPUT} disabled={!editable} value={form.country ?? ""}
+                        onChange={(e) => changeCountry(e.target.value)}>
+                        {form.country && !findCountry(form.country) && <option value={form.country}>{form.country}</option>}
+                        {countryList.map((c) => <option key={c.isoCode} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </div>
                   </div>
                 </section>
 
@@ -219,6 +278,99 @@ export default function CompanySettingsPage() {
                     {field("email", "Email", { maxLength: 150, type: "email" })}
                     {field("website", "Website", { maxLength: 200, placeholder: "www.example.com" })}
                   </div>
+                </section>
+
+                <section className={`${CARD} p-4`}>
+                  {sectionTitle(Globe2, "Regional settings")}
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div>
+                      <label className={LABEL} htmlFor="company-currency">Currency</label>
+                      <select id="company-currency" className={INPUT} disabled={!editable} value={form.currency}
+                        onChange={(e) => changeCurrency(e.target.value)}>
+                        {!currencyList.some((c) => c.code === form.currency) && <option value={form.currency}>{form.currency}</option>}
+                        {currencyList.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-decimals">Decimal places for amounts</label>
+                      <select id="company-decimals" className={INPUT} disabled={!editable} value={form.currencyDecimals}
+                        onChange={(e) => set("currencyDecimals", Number(e.target.value))}>
+                        {[0, 1, 2, 3].map((d) => <option key={d} value={d}>{d}{d === currencyDigits(form.currency) ? ` (usual for ${form.currency})` : ""}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-language">Language</label>
+                      <select id="company-language" className={INPUT} disabled={!editable} value={form.language}
+                        onChange={(e) => set("language", e.target.value)}>
+                        {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-zone">Time zone</label>
+                      <select id="company-zone" className={INPUT} disabled={!editable} value={form.timeZone}
+                        onChange={(e) => set("timeZone", e.target.value)}>
+                        {!zoneList.includes(form.timeZone) && <option value={form.timeZone}>{form.timeZone}</option>}
+                        {zoneList.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-date-format">Date format</label>
+                      <select id="company-date-format" className={INPUT} disabled={!editable} value={form.dateFormat}
+                        onChange={(e) => set("dateFormat", e.target.value)}>
+                        {DATE_FORMATS.map((f) => <option key={f} value={f}>{f.replace("yyyy", "YYYY").replace("dd", "DD")}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-time-format">Time format</label>
+                      <select id="company-time-format" className={INPUT} disabled={!editable} value={form.timeFormat}
+                        onChange={(e) => set("timeFormat", e.target.value)}>
+                        <option value="12h">12-hour (2:30 PM)</option>
+                        <option value="24h">24-hour (14:30)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-number-format">Number format</label>
+                      <select id="company-number-format" className={INPUT} disabled={!editable} value={form.numberLocale}
+                        onChange={(e) => set("numberLocale", e.target.value)}>
+                        {NUMBER_LOCALES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-week-start">Week starts on</label>
+                      <select id="company-week-start" className={INPUT} disabled={!editable} value={form.weekStart}
+                        onChange={(e) => set("weekStart", e.target.value)}>
+                        {WEEK_STARTS.map((d) => <option key={d} value={d}>{dayLabel(d)}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL} htmlFor="company-fy">Financial year starts in</label>
+                      <select id="company-fy" className={INPUT} disabled={!editable} value={form.financialYearStartMonth}
+                        onChange={(e) => set("financialYearStartMonth", Number(e.target.value))}>
+                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="md:col-span-3">
+                      <span className={LABEL}>Weekend days</span>
+                      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Weekend days">
+                        {WEEK_DAYS.map((day) => {
+                          const on = form.weekendDays.includes(day);
+                          return (
+                            <button key={day} type="button" aria-pressed={on} disabled={!editable} onClick={() => toggleWeekend(day)}
+                              className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${on
+                                ? "border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-transparent dark:bg-cyan-500/20 dark:text-cyan-300"
+                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-transparent dark:bg-[#222222] dark:text-gray-400"}`}>
+                              {dayLabel(day).slice(0, 3)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  {preview && (
+                    <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-[#222222] dark:text-gray-300">
+                      <span className="font-semibold">Preview:</span> {preview}
+                    </p>
+                  )}
                 </section>
               </div>
 
@@ -248,25 +400,11 @@ export default function CompanySettingsPage() {
                     </div>
                   )}
                 </section>
-
-                <section className={`${CARD} p-4`}>
-                  {sectionTitle(SlidersHorizontal, "Preferences")}
-                  <div className="space-y-3">
-                    <div>
-                      <label className={LABEL} htmlFor="company-fy">Financial year starts in</label>
-                      <select id="company-fy" className={INPUT} disabled={!editable} value={form.financialYearStartMonth}
-                        onChange={(e) => set("financialYearStartMonth", Number(e.target.value))}>
-                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                      </select>
-                    </div>
-                    {field("currency", "Currency", { maxLength: 3, style: { textTransform: "uppercase" } })}
-                  </div>
-                </section>
               </div>
             </div>
 
             {company?.updatedDate && (
-              <p className="text-right text-[11px] text-slate-400">Last changed {new Date(company.updatedDate).toLocaleString("en-IN")}</p>
+              <p className="text-right text-[11px] text-slate-400">Last changed {formatDateTime(company.updatedDate)}</p>
             )}
           </form>
         )}

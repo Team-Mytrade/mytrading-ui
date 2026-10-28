@@ -25,6 +25,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatNumber } from "../../company/format";
 
 // ---------- Type Definitions ----------
 interface Product {
@@ -576,12 +577,12 @@ const StockLevelsManager: React.FC = () => {
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Stock"
-            value={stats.totalStock.toLocaleString()}
+            value={formatNumber(stats.totalStock)}
             icon={<CubeIcon />}
           />
           <StatsCard
             label="Available Stock"
-            value={stats.totalAvailable.toLocaleString()}
+            value={formatNumber(stats.totalAvailable)}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
@@ -589,7 +590,7 @@ const StockLevelsManager: React.FC = () => {
           />
           <StatsCard
             label="Reserved Stock"
-            value={stats.totalReserved.toLocaleString()}
+            value={formatNumber(stats.totalReserved)}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-700"

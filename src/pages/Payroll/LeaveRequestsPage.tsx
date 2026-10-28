@@ -33,6 +33,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, formatDateTime } from "../../company/format";
 
 type LeaveRequest = {
     id: number;
@@ -124,7 +125,7 @@ const LeaveRequestsPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Leave Requests Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Requests: ${filtered.length}`, 14, 28);
         
         autoTable(doc, {
@@ -132,8 +133,8 @@ const LeaveRequestsPage: React.FC = () => {
             body: filtered.map(r => [
                 r.employeeName || r.employeeId,
                 r.leaveType,
-                new Date(r.startDate).toLocaleDateString(),
-                new Date(r.endDate).toLocaleDateString(),
+                formatDate(r.startDate),
+                formatDate(r.endDate),
                 r.days.toString(),
                 r.status
             ]),
@@ -150,13 +151,13 @@ const LeaveRequestsPage: React.FC = () => {
             'Employee Name': r.employeeName || r.employeeId,
             'Employee Code': r.employeeCode || "",
             'Leave Type': r.leaveType,
-            'Start Date': new Date(r.startDate).toLocaleDateString(),
-            'End Date': new Date(r.endDate).toLocaleDateString(),
+            'Start Date': formatDate(r.startDate),
+            'End Date': formatDate(r.endDate),
             'Days': r.days,
             'Reason': r.reason,
             'Status': r.status,
             'Remarks': r.remarks || "",
-            'Created At': r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
+            'Created At': r.createdAt ? formatDate(r.createdAt) : "",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Leave Requests");
@@ -491,7 +492,7 @@ const LeaveRequestsPage: React.FC = () => {
                                             <div className="flex items-center">
                                                 <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
                                                 <span className="text-sm text-gray-900">
-                                                    {new Date(request.startDate).toLocaleDateString()}
+                                                    {formatDate(request.startDate)}
                                                 </span>
                                             </div>
                                         </td>
@@ -499,7 +500,7 @@ const LeaveRequestsPage: React.FC = () => {
                                             <div className="flex items-center">
                                                 <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
                                                 <span className="text-sm text-gray-900">
-                                                    {new Date(request.endDate).toLocaleDateString()}
+                                                    {formatDate(request.endDate)}
                                                 </span>
                                             </div>
                                         </td>
@@ -717,11 +718,11 @@ const LeaveRequestsPage: React.FC = () => {
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">Start Date:</span>
-                                                        <span className="font-medium">{new Date(selectedRequest.startDate).toLocaleDateString()}</span>
+                                                        <span className="font-medium">{formatDate(selectedRequest.startDate)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">End Date:</span>
-                                                        <span className="font-medium">{new Date(selectedRequest.endDate).toLocaleDateString()}</span>
+                                                        <span className="font-medium">{formatDate(selectedRequest.endDate)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-500">Total Days:</span>
@@ -748,7 +749,7 @@ const LeaveRequestsPage: React.FC = () => {
 
                                             {selectedRequest.createdAt && (
                                                 <div className="text-xs text-gray-400 mt-4">
-                                                    Created: {new Date(selectedRequest.createdAt).toLocaleString()}
+                                                    Created: {formatDateTime(selectedRequest.createdAt)}
                                                 </div>
                                             )}
                                         </div>
@@ -816,7 +817,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                 <div className="text-sm">
                                                     <p><span className="font-medium">Employee:</span> {selectedRequest.employeeName || selectedRequest.employeeId}</p>
                                                     <p><span className="font-medium">Leave Type:</span> {selectedRequest.leaveType}</p>
-                                                    <p><span className="font-medium">Duration:</span> {new Date(selectedRequest.startDate).toLocaleDateString()} - {new Date(selectedRequest.endDate).toLocaleDateString()}</p>
+                                                    <p><span className="font-medium">Duration:</span> {formatDate(selectedRequest.startDate)} - {formatDate(selectedRequest.endDate)}</p>
                                                     <p><span className="font-medium">Days:</span> {selectedRequest.days}</p>
                                                     <p className="mt-2"><span className="font-medium">Reason:</span> {selectedRequest.reason}</p>
                                                 </div>

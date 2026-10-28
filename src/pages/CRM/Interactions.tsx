@@ -42,6 +42,7 @@ import {
   toLocalDateTime,
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate as companyFormatDate } from "../../company/format";
 interface CommunicationEntry {
   id: number;
   type: string;
@@ -341,13 +342,7 @@ const Interactions: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
-    return d.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return companyFormatDate(d);
   };
 
   const getContactName = (entry: CommunicationEntry) =>

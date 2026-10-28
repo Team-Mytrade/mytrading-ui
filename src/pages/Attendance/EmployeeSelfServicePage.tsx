@@ -16,6 +16,7 @@ import {
   apiError, CalendarDay, DAY_KIND_BADGE, dayKind, fetchLeaveBalances, fetchMonth, formatDays, freeDays,
   hoursOf, LeaveBalance, leaveTypeLabel, punch, timeOf,
 } from "./attendanceApi";
+import { formatTime, leadingDays, weekdayLabels } from "../../company/format";
 
 type DayStatus = 'TODAY' | 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE' | 'HOLIDAY' | 'WEEK_OFF' | 'ON_DUTY' | 'WFH' | 'REGULAR';
 
@@ -222,7 +223,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const calendarDays = useMemo(() => {
     const totalDays = new Date(year, month + 1, 0).getDate();
-    const firstDayIndex = new Date(year, month, 1).getDay();
+    const firstDayIndex = leadingDays(year, month);
     const prevMonthLastDate = new Date(year, month, 0).getDate();
 
     const days: { 
@@ -634,13 +635,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
               {/* Month Days Weekday Headers */}
               <div className="grid grid-cols-7 gap-1 text-center text-[10.5px] font-medium text-slate-400 dark:text-gray-500 py-1 px-1 mb-1">
-                <span>Su</span>
-                <span>Mo</span>
-                <span>Tu</span>
-                <span>We</span>
-                <span>Th</span>
-                <span>Fr</span>
-                <span>Sa</span>
+                {weekdayLabels("min").map((d) => <span key={d}>{d}</span>)}
               </div>
 
               {/* Month Days Matrix with Clean Minimal Aesthetic */}
@@ -758,13 +753,7 @@ const EmployeeSelfServicePage: React.FC = () => {
               <div className="p-2 sm:p-3 flex-1 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-[#141414] min-h-0">
                 {/* Weekday Labels */}
                 <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider py-1 shrink-0 mb-1">
-                  <span>Sun</span>
-                  <span>Mon</span>
-                  <span>Tue</span>
-                  <span>Wed</span>
-                  <span>Thu</span>
-                  <span>Fri</span>
-                  <span>Sat</span>
+                  {weekdayLabels().map((d) => <span key={d}>{d}</span>)}
                 </div>
 
                 {/* Minimal Month Days Matrix */}
@@ -788,8 +777,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                       ? 'w-5 h-5 rounded-full bg-[#0097a7] text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs'
                       : 'text-slate-800 dark:text-gray-100 font-bold text-xs sm:text-[13px]';
 
-                    const inFormatted = day.inTime ? (day.inTime.includes('T') ? new Date(day.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.inTime) : null;
-                    const outFormatted = day.outTime ? (day.outTime.includes('T') ? new Date(day.outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : day.outTime) : null;
+                    const inFormatted = day.inTime ? (day.inTime.includes('T') ? formatTime(day.inTime) : day.inTime) : null;
+                    const outFormatted = day.outTime ? (day.outTime.includes('T') ? formatTime(day.outTime) : day.outTime) : null;
 
                     return (
                       <div

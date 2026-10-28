@@ -20,6 +20,7 @@ import {
   money,
   todayInput,
 } from "./invoiceShared";
+import { companyCurrency } from "../../company/format";
 
 type View = "LEDGER" | "TRIAL";
 
@@ -127,7 +128,7 @@ const GeneralLedger: React.FC = () => {
     return { rows: rows.filter((row) => row.debit || row.credit), totalDebit, totalCredit };
   }, [accounts, ordered, to]);
 
-  const currency = account?.currency || "INR";
+  const currency = account?.currency || companyCurrency();
   let running = ledger?.opening ?? 0;
 
   return (

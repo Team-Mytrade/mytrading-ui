@@ -1,3 +1,4 @@
+import { formatDate } from "../company/format";
 export type AttendanceNotificationType =
   | "ATTENDANCE"
   | "LEAVE"
@@ -92,5 +93,5 @@ export const formatNotificationTime = (createdAt: string) => {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 
-  return new Date(createdAt).toLocaleDateString();
+  return formatDate(createdAt);
 };

@@ -27,6 +27,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, formatDateTime } from "../../company/format";
 
 /**
  * =====================================================================================
@@ -580,10 +581,10 @@ const BatchManagement: React.FC = () => {
     const statusInfo = getBatchStatus(batch);
 
     const createdAt = batch.createdDate
-      ? new Date(batch.createdDate).toLocaleString()
+      ? formatDateTime(batch.createdDate)
       : "--";
     const updatedAt = batch.updatedDate
-      ? new Date(batch.updatedDate).toLocaleString()
+      ? formatDateTime(batch.updatedDate)
       : "--";
 
     const Field = ({
@@ -653,7 +654,7 @@ const BatchManagement: React.FC = () => {
 
         <Field label="MFG Date">
           {batch.manufacturingDate
-            ? new Date(batch.manufacturingDate).toLocaleDateString()
+            ? formatDate(batch.manufacturingDate)
             : "--"}
         </Field>
         <Field label="Expiry Date">
@@ -667,7 +668,7 @@ const BatchManagement: React.FC = () => {
             }
           >
             {batch.expiryDate
-              ? new Date(batch.expiryDate).toLocaleDateString()
+              ? formatDate(batch.expiryDate)
               : "--"}
           </span>
           {days >= 0 && (
@@ -765,7 +766,7 @@ const BatchManagement: React.FC = () => {
       sortable: true,
       render: (batch) => (
         <span className="text-sm text-slate-700 dark:text-slate-300">
-          {batch.manufacturingDate ? new Date(batch.manufacturingDate).toLocaleDateString() : "--"}
+          {batch.manufacturingDate ? formatDate(batch.manufacturingDate) : "--"}
         </span>
       ),
     },
@@ -786,7 +787,7 @@ const BatchManagement: React.FC = () => {
                   : "text-slate-600 dark:text-slate-300"
               }`}
             >
-              {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : "--"}
+              {batch.expiryDate ? formatDate(batch.expiryDate) : "--"}
             </span>
             {days >= 0 && (
               <p className="text-xs text-slate-400 dark:text-slate-500">{days} days left</p>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { formatDateTime } from "../../company/format";
 
 interface ScheduledAction {
   id: number;
@@ -125,7 +126,7 @@ const ScheduledActions: React.FC = () => {
             paginatedActions.map(({ id, actionName, scheduledAt, status }) => (
               <tr key={id} className="border-t hover:bg-gray-50">
                 <td className="px-4 py-2">{actionName}</td>
-                <td className="px-4 py-2">{new Date(scheduledAt).toLocaleString()}</td>
+                <td className="px-4 py-2">{formatDateTime(scheduledAt)}</td>
                 <td className="px-4 py-2 text-center">
                   <span
                     className={`font-semibold ${

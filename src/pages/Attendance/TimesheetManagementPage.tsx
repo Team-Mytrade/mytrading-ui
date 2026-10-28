@@ -8,6 +8,7 @@ import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from '../../utils/localDate';
 import { apiError, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, timeOf, withBrowserOffset } from './attendanceApi';
+import { leadingDays, weekdayLabels } from "../../company/format";
 
 // Attendance regularization: the employee states the correct check-in / check-out times of a past day;
 // an approver applies them to the day.
@@ -98,7 +99,7 @@ const TimesheetManagementPage: React.FC = () => {
   );
 
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+  const firstDayOfMonth = (month: number, year: number) => leadingDays(year, month);
 
   const handlePrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
@@ -325,7 +326,7 @@ const TimesheetManagementPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
-                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                {weekdayLabels("min").map((d) => <span key={d}>{d}</span>)}
               </div>
 
               <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">

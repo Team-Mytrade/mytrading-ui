@@ -27,6 +27,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
+import { formatDate } from "../../company/format";
 
 // API endpoints
 const COMPENSATION_API_URL = "/v1/api/payroll/employee";
@@ -272,7 +273,7 @@ const EmployeeCompensationPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Employee Compensation Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
 
         const tableData = compensations.flatMap((compItem) => {
             const components = compItem.componentDetails || {};

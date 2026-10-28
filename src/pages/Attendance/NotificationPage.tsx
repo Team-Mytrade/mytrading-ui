@@ -121,7 +121,7 @@ const emptyForm: Notification = {
 
 const formatDateTime = (dateStr: string | null) => {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleString();
+  return companyFormatDateTime(dateStr);
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -752,5 +752,6 @@ const NotificationPage: React.FC = () => {
 // Missing imports
 import { ClockIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDateTime as companyFormatDateTime } from "../../company/format";
 
 export default NotificationPage;

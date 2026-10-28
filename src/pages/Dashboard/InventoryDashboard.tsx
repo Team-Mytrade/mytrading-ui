@@ -131,7 +131,7 @@ export default function InventoryDashboard() {
       <ModuleTiles tiles={tiles} loading={loading} />
 
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Stock Value" value={data.stock && data.products ? formatMoney(totals.value, "INR", true) : "—"}
+        <KpiCard label="Stock Value" value={data.stock && data.products ? formatMoney(totals.value, null, true) : "—"}
           hint={totals.unpriced ? `${totals.unpriced} record(s) have no standard cost` : "On hand × standard cost"} icon={IndianRupee} tone="emerald" loading={loading} />
         <KpiCard label="Units on Hand" value={data.stock ? formatNumber(totals.onHand) : "—"}
           hint={`${formatNumber(totals.reserved)} reserved · ${formatNumber(totals.products)} products`} icon={Boxes} tone="blue" loading={loading} />

@@ -15,6 +15,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import noDataImage from "../../images/no_data.png";
 import RecordDetailDrawer from "./RecordDetailDrawer";
 import TableExportModal from "./TableExportModal";
+import { formatMoney as formatCompanyMoney, formatNumber, formatDate, formatDateTime } from "../../company/format";
 import "../../styles/Table.css";
 
 export interface ColumnDef<T> {
@@ -99,37 +100,22 @@ function getCellValue<T>(row: T, key: string): unknown {
 }
 
 /* ------------------------------------------------------------------ */
-/* Display formats used by the table, the details drawer and export     */
-/*   Date:      13 Oct 2026                                              */
-/*   Date-time: 13 Oct 2026, 03:45 PM (12-hour)                          */
-/*   Money:     ₹25,000.00                                               */
+/* Display formats used by the table, the details drawer and export:    */
+/* the company's regional settings (company/format.ts)                  */
 /* ------------------------------------------------------------------ */
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
 export function formatDisplayDate(value: string): string {
-  // Date-only values are read as local dates, so 2026-10-13 never shifts to the 12th.
-  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(value.slice(0, 10), value);
 }
 
 export function formatDisplayDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).replace(/\b(am|pm)\b/i, (part) => part.toUpperCase());
+  return formatDateTime(value, value);
 }
 
 export function formatMoney(value: number): string {
-  return value.toLocaleString("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
+  return formatCompanyMoney(value);
 }
 
 /** Turns a date / date-time string into the display format; other text is returned unchanged. */
@@ -218,7 +204,7 @@ function formatDetailLabel(key: string): string {
 function formatPrimitiveValue(v: unknown, fieldName = ""): string {
   if (v == null || v === "") return "--";
   if (typeof v === "boolean") return formatBooleanFor(fieldName, v);
-  if (typeof v === "number") return isMoneyLikeKey(fieldName) ? formatMoney(v) : v.toLocaleString("en-IN");
+  if (typeof v === "number") return isMoneyLikeKey(fieldName) ? formatMoney(v) : formatNumber(v);
   return formatDisplayText(String(v));
 }
 

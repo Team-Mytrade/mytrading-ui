@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { decodeAccess, getSelectedTenant } from "../access/access";
+import { onRegionalChange, setRegional } from "./format";
 
 export interface CompanyProfile {
   tenantId: string;
@@ -20,6 +21,15 @@ export interface CompanyProfile {
   website?: string | null;
   financialYearStartMonth: number;
   currency: string;
+  // Regional settings (see regional.ts); a save that leaves one out keeps the stored value
+  currencyDecimals: number;
+  language: string;
+  timeZone: string;
+  dateFormat: string;
+  timeFormat: "12h" | "24h";
+  numberLocale: string;
+  weekStart: string;
+  weekendDays: string[];
   hasLogo: boolean;
   updatedDate?: string | null;
   // The signed-in user may change these details
@@ -60,11 +70,13 @@ const resetIfOtherCompany = () => {
     profilePromise = null;
     logoPromise = null;
     current = null;
+    setRegional(null);
   }
 };
 
 const changed = (profile: CompanyProfile) => {
   current = profile;
+  setRegional(profile);
   profilePromise = Promise.resolve(profile);
   logoPromise = null;
   window.dispatchEvent(new Event(CHANGED));
@@ -103,7 +115,10 @@ export const loadCompany = (): Promise<CompanyProfile | null> => {
   resetIfOtherCompany();
   if (!profilePromise) {
     profilePromise = companyApi.get().then(
-      (profile) => (current = profile),
+      (profile) => {
+        setRegional(profile);
+        return (current = profile);
+      },
       () => {
         profilePromise = null;
         return null;
@@ -174,4 +189,31 @@ export const useCompany = () => {
   }, []);
 
   return { company, logo, loading };
+};
+
+/**
+ * For the layouts: loads the company's regional settings before the first page shows (so pages
+ * format with them), and returns a number that changes when they change later, to re-render pages.
+ */
+export const useRegionalVersion = (enabled: boolean): { ready: boolean; version: number } => {
+  const [ready, setReady] = useState(current !== null);
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    const load = () => {
+      loadCompany().finally(() => alive && setReady(true));
+    };
+    load();
+    const stop = onRegionalChange(() => alive && setVersion((v) => v + 1));
+    window.addEventListener("app-tenant-changed", load);
+    return () => {
+      alive = false;
+      stop();
+      window.removeEventListener("app-tenant-changed", load);
+    };
+  }, [enabled]);
+
+  return { ready, version };
 };

@@ -13,6 +13,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "./attendanceApi";
+import { leadingDays, weekdayLabels } from "../../company/format";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -627,7 +628,7 @@ const HolidayCalendarPage: React.FC = () => {
     const year = miniCalendarDate.getFullYear();
     const month = miniCalendarDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayIndex = new Date(year, month, 1).getDay();
+    const firstDayIndex = leadingDays(year, month);
     const prevMonthDays = new Date(year, month, 0).getDate();
 
     const cells = [];
@@ -749,7 +750,7 @@ const HolidayCalendarPage: React.FC = () => {
 
                 {/* Weekday Headers */}
                 <div className="grid grid-cols-7 gap-1 text-center text-[9.5px] font-bold text-gray-400 dark:text-gray-500 mb-1">
-                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                  {weekdayLabels("min").map((d) => <span key={d}>{d}</span>)}
                 </div>
 
                 {/* Days Matrix */}

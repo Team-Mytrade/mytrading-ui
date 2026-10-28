@@ -23,6 +23,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, apiError, dateLabel, labelOf, money, todayInput } from "./invoiceShared";
 import { ActionButton, DialogFooter } from "./invoiceUi";
 import BillFromGrnDialog from "./BillFromGrnDialog";
+import { companyCurrency } from "../../company/format";
 
 interface PurchaseInvoice {
   id: number;
@@ -184,7 +185,7 @@ const PurchaseInvoices: React.FC = () => {
       invoiceDate: form.invoiceDate || undefined,
       dueDate: form.dueDate || undefined,
       totalAmount,
-      currency: form.currency?.trim() || "INR",
+      currency: form.currency?.trim() || companyCurrency(),
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
       vendor: { id: Number(form.vendorId) },
@@ -218,7 +219,7 @@ const PurchaseInvoices: React.FC = () => {
 
   const openCreate = () => {
     setShowFormModal(true);
-    setForm({ currency: "INR", vendorId: "" });
+    setForm({ currency: companyCurrency(), vendorId: "" });
     setEditingId(null);
   };
 

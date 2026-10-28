@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { formatMoney } from "../../company/format";
 
 interface Opportunity {
   id: number;
@@ -55,15 +56,15 @@ const ForecastPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gray-100 dark:bg-meta-4 p-4 rounded shadow">
           <h4 className="text-sm text-gray-500">Forecasted Revenue</h4>
-          <p className="text-xl font-semibold text-gray-800 dark:text-white">${totalForecast.toLocaleString()}</p>
+          <p className="text-xl font-semibold text-gray-800 dark:text-white">{formatMoney(totalForecast)}</p>
         </div>
         <div className="bg-gray-100 dark:bg-meta-4 p-4 rounded shadow">
           <h4 className="text-sm text-gray-500">Closed Won</h4>
-          <p className="text-xl font-semibold text-green-600">${closedWonTotal.toLocaleString()}</p>
+          <p className="text-xl font-semibold text-green-600">{formatMoney(closedWonTotal)}</p>
         </div>
         <div className="bg-gray-100 dark:bg-meta-4 p-4 rounded shadow">
           <h4 className="text-sm text-gray-500">Gap</h4>
-          <p className="text-xl font-semibold text-red-600">${(totalForecast - closedWonTotal).toLocaleString()}</p>
+          <p className="text-xl font-semibold text-red-600">{formatMoney((totalForecast - closedWonTotal))}</p>
         </div>
       </div>
 
@@ -79,7 +80,7 @@ const ForecastPage: React.FC = () => {
             {Object.entries(forecastByMonth).map(([month, amount]) => (
               <tr key={month} className="border-t">
                 <td className="px-4 py-2">{month}</td>
-                <td className="px-4 py-2">${amount.toLocaleString()}</td>
+                <td className="px-4 py-2">{formatMoney(amount)}</td>
               </tr>
             ))}
             {Object.keys(forecastByMonth).length === 0 && (

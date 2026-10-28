@@ -10,6 +10,7 @@ import {
   countOf, formatDate, formatMoney, formatNumber, getList, monthsBack, mostCommon, parseDate, sum, titleCase,
   useDashboardSources,
 } from "./dashboardKit";
+import { companyCurrency } from "../../company/format";
 
 // Live billing, collections and payables from the invoice service.
 
@@ -62,7 +63,7 @@ export default function InvoiceDashboard() {
   const aging = data.aging as Aging | undefined;
   const payables = (data.payables as Payable[] | undefined) ?? [];
   const receipts = (data.receipts as Receipt[] | undefined) ?? [];
-  const currency = mostCommon(invoices.map((i) => i.currencyCode), "INR");
+  const currency = mostCommon(invoices.map((i) => i.currencyCode), companyCurrency());
 
   const openPayables = payables.filter((p) => num(p.balance) > 0);
   const payableTotal = sum(openPayables, (p) => p.balance);

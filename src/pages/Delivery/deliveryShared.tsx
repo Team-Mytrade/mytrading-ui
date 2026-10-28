@@ -10,6 +10,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { listOf } from "../Dashboard/dashboardKit";
+import { formatDate as companyDate, formatDateTime as companyDateTime } from "../../company/format";
 
 // Shared by the delivery order, delivery note and delivery status pages. Shapes follow the
 // delivery-service DTOs.
@@ -172,5 +173,5 @@ export const useDeliveryLookups = (needed: (keyof DeliveryLookups)[]) => {
 export const apiError = (err: any, fallback: string): string =>
   err?.response?.data?.message || err?.response?.data?.error || fallback;
 
-export const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString() : "-");
-export const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString() : "-");
+export const formatDate = (value?: string) => companyDate(value, "-");
+export const formatDateTime = (value?: string) => companyDateTime(value, "-");

@@ -10,6 +10,7 @@ import PurchaseResourcePage, {
   toNumberOrZero,
 } from "../Purchase/PurchaseResourcePage";
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
+import { formatMoney, companyCurrency, getRegional } from "../../company/format";
 
 /* ------------------------------------------------------------------ */
 /* Endpoints & constants                                               */
@@ -52,11 +53,6 @@ const toId = (value: unknown): number | null => {
 /** Non-negative amount. */
 const toAmount = (value: unknown): number => Math.max(0, toNumberOrZero(value));
 
-const currencyFormatter = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 2,
-});
 
 const formatFileSize = (sizeInBytes: number) => {
   if (!Number.isFinite(sizeInBytes) || sizeInBytes <= 0) return "0 B";
@@ -518,7 +514,7 @@ const renderItemType = (row: PurchaseRecord) => {
 };
 
 const renderAmount = (key: string) => (row: PurchaseRecord) =>
-  row[key] == null ? "--" : currencyFormatter.format(Number(row[key]));
+  row[key] == null ? "--" : formatMoney(row[key]);
 
 const baseProductConfig: PurchaseResourceConfig = {
   title: "Products",
@@ -631,8 +627,17 @@ const baseProductConfig: PurchaseResourceConfig = {
       defaultValue: "PIECES",
       options: UOM_OPTIONS.map((item) => ({ value: item, label: item })),
     },
-    { name: "standardCost", section: "Pricing & Tax", label: "Standard Cost (₹)", type: "number", defaultValue: 0, min: 0, decimals: 2, max: 99999999 },
-    { name: "sellingPrice", section: "Pricing & Tax", label: "Selling Price (₹)", type: "number", defaultValue: 0, min: 0, decimals: 2, max: 99999999 },
+    // Labels and decimals follow the company's currency (KWD prices have 3 decimals)
+    {
+      name: "standardCost", section: "Pricing & Tax", type: "number", defaultValue: 0, min: 0, max: 99999999,
+      get label() { return `Standard Cost (${companyCurrency()})`; },
+      get decimals() { return getRegional().currencyDecimals; },
+    },
+    {
+      name: "sellingPrice", section: "Pricing & Tax", type: "number", defaultValue: 0, min: 0, max: 99999999,
+      get label() { return `Selling Price (${companyCurrency()})`; },
+      get decimals() { return getRegional().currencyDecimals; },
+    },
     {
       name: "taxCode", section: "Pricing & Tax",
       label: "Tax Code",

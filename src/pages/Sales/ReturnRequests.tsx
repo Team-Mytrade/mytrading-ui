@@ -25,6 +25,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatAmount } from "../../company/format";
 
 type ReturnItem = {
   id: number;
@@ -208,7 +209,7 @@ function toInputDateValue(date: Date | null) {
 }
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 function toFriendlyLabel(value: string) {

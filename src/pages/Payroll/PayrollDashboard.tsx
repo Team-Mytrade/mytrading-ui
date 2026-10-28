@@ -185,7 +185,7 @@ const PayrollHrmsDashboard: React.FC = () => {
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard label="Active Employees" value={data.employees ? formatNumber(active.length) : "—"} hint={data.employees ? `${formatNumber(employees.length)} on record` : undefined} icon={Users} tone="blue" loading={loading} />
-          <KpiCard label="Monthly Payroll" value={latest ? formatMoney(latestTotal, "INR", true) : "—"} hint={latest ? `Last run: ${monthLabel(latestMonth, true)}` : "No completed payroll run yet"} icon={TrendingUp} tone="emerald" loading={loading} />
+          <KpiCard label="Monthly Payroll" value={latest ? formatMoney(latestTotal, null, true) : "—"} hint={latest ? `Last run: ${monthLabel(latestMonth, true)}` : "No completed payroll run yet"} icon={TrendingUp} tone="emerald" loading={loading} />
           <KpiCard label="Avg Salary" value={latest && latestCount ? formatMoney(latestTotal / latestCount) : "—"} hint={latest ? `${formatNumber(latestCount)} employees paid` : undefined} icon={DollarSign} tone="orange" loading={loading} />
           <KpiCard label="Departments" value={departments === null ? "—" : formatNumber(departments)} icon={Building2} tone="purple" loading={loading} />
         </div>
@@ -205,7 +205,7 @@ const PayrollHrmsDashboard: React.FC = () => {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), "INR", true)} width={70} />
+                  <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), null, true)} width={70} />
                   <Tooltip contentStyle={CHART_TOOLTIP}
                     formatter={(value, _name, item) => [`${formatMoney(Number(value))} · ${item?.payload?.employees ?? 0} employees`, "Payroll"]} />
                   <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} fill="url(#payrollGradient)" />
@@ -222,7 +222,7 @@ const PayrollHrmsDashboard: React.FC = () => {
                 <BarChart data={departmentChart} layout="vertical" margin={{ left: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false}
-                    tickFormatter={(v) => (departmentChartIsMoney ? formatMoney(Number(v), "INR", true) : String(v))} />
+                    tickFormatter={(v) => (departmentChartIsMoney ? formatMoney(Number(v), null, true) : String(v))} />
                   <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={100} />
                   <Tooltip contentStyle={CHART_TOOLTIP}
                     formatter={(value, _name, item) => departmentChartIsMoney
@@ -258,7 +258,7 @@ const PayrollHrmsDashboard: React.FC = () => {
                     <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>{monthLabel(monthOf(run), true)}</td>
                     <td className={TABLE_CELL}>{formatDate(run.completedDate || run.startDate)}</td>
                     <td className={`${TABLE_CELL} font-medium text-gray-900 dark:text-white`}>
-                      {run.status !== "COMPLETED" && !Number(run.totalSalaryAmount) ? "—" : formatMoney(Number(run.totalSalaryAmount) || 0, "INR", true)}
+                      {run.status !== "COMPLETED" && !Number(run.totalSalaryAmount) ? "—" : formatMoney(Number(run.totalSalaryAmount) || 0, null, true)}
                     </td>
                     <td className={TABLE_CELL}>{formatNumber(Number(run.employeeCount) || 0)}</td>
                     <td className={TABLE_CELL}>

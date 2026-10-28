@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDateTime } from "../../company/format";
 
 interface SMSCampaign {
   id: number;
@@ -168,7 +169,7 @@ const SMSCampaignPage: React.FC = () => {
                 <tr key={c.id} className="border-t">
                   <td className="px-4 py-2">{c.name}</td>
                   <td className="px-4 py-2">{c.audience}</td>
-                  <td className="px-4 py-2">{new Date(c.sendDate).toLocaleString()}</td>
+                  <td className="px-4 py-2">{formatDateTime(c.sendDate)}</td>
                   <td className="px-4 py-2">
                     <span
                       className={`text-xs px-2 py-1 rounded ${

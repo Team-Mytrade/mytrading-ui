@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
 
 export type LineItem = {
   id?: number | string;
@@ -29,6 +30,8 @@ type Props = {
    * Return null for a product with no tax code: its Tax box stays editable.
    */
   taxRateFor?: (productId: number | string) => number | null;
+  /** The document's currency (the company's when not set): prices, rounding and labels follow it. */
+  currency?: string | null;
 };
 
 /** "GST18" → 18, "GST 5%" → 5, "IGST_12" → 12, "18" → 18. No number → null. */
@@ -38,8 +41,6 @@ export const taxRateFromCode = (code: unknown): number | null => {
   const rate = Number(match[1]);
   return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : null;
 };
-
-const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const DEFAULT_UOM = ["PIECES", "KG", "LITER", "METER", "BOX", "PACK"];
 
@@ -54,9 +55,6 @@ const toNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
-
-const money = (value: number) =>
-  `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Keeps only digits and (when allowed) one dot with at most `decimals` digits after it. */
 const cleanNumberText = (raw: string, decimals: number) => {
@@ -146,7 +144,10 @@ export default function LineItemsEditor({
   showPricing = false,
   disabled = false,
   taxRateFor,
+  currency,
 }: Props) {
+  const money = (value: number) => formatMoney(value, { currency });
+  const code = currency || companyCurrency();
   const rateOf = (row: LineItem) => (taxRateFor && row.productId !== "" ? taxRateFor(row.productId) : null);
 
   /** Lines with a known GST % get their tax recalculated; others keep what was typed. */
@@ -155,7 +156,7 @@ export default function LineItemsEditor({
       const rate = rateOf(row);
       if (rate == null) return row;
       const taxable = Math.max(0, toNumber(row.quantity) * toNumber(row.unitPrice) - toNumber(row.discountAmount));
-      return { ...row, taxAmount: round2((taxable * rate) / 100) };
+      return { ...row, taxAmount: roundMoney((taxable * rate) / 100, currency) };
     });
 
   /** Every change goes through here, so tax always matches qty, price and discount. */
@@ -244,9 +245,9 @@ export default function LineItemsEditor({
                 {categories.length > 0 && <th className={headCell}>Category</th>}
                 <th className={`${headCell} w-24 text-right`}>Qty</th>
                 {showUom && <th className={`${headCell} w-28`}>UOM</th>}
-                {showPricing && <th className={`${headCell} w-28 text-right`}>Unit Price (₹)</th>}
-                {showPricing && <th className={`${headCell} w-28 text-right`}>Discount (₹)</th>}
-                {showPricing && <th className={`${headCell} w-28 text-right`}>Tax (₹)</th>}
+                {showPricing && <th className={`${headCell} w-28 text-right`}>Unit Price ({code})</th>}
+                {showPricing && <th className={`${headCell} w-28 text-right`}>Discount ({code})</th>}
+                {showPricing && <th className={`${headCell} w-28 text-right`}>Tax ({code})</th>}
                 {showPricing && <th className={`${headCell} w-32 text-right`}>Line Total</th>}
                 <th className={headCell}>Remarks</th>
                 <th className="w-10 px-3 py-2" />
@@ -357,7 +358,7 @@ export default function LineItemsEditor({
                           <NumberCell
                             label={field === "unitPrice" ? "Unit price" : field === "discountAmount" ? "Discount" : "Tax"}
                             value={row[field] ?? 0}
-                            decimals={2}
+                            decimals={moneyDecimals(currency)}
                             onValue={(amount) => updateRow(index, { [field]: amount })}
                             disabled={disabled}
                             error={field === "taxAmount" ? null : errors[field]}

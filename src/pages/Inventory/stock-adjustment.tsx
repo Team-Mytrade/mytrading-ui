@@ -22,6 +22,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatNumber, formatDate, formatDateTime } from "../../company/format";
 
 // ========================== ENUM OPTION TYPE ==========================
 interface EnumOption {
@@ -617,7 +618,7 @@ const StockAdjustmentManager: React.FC = () => {
 
       let label = batch.batchNumber;
       if (batch.expiryDate) {
-        label += ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`;
+        label += ` (Exp: ${formatDate(batch.expiryDate)})`;
       }
       if (mismatch) {
         label += ` — warehouse: ${
@@ -655,7 +656,7 @@ const StockAdjustmentManager: React.FC = () => {
   // ======================== ROW DETAILS RENDERER ========================
   const renderAdjustmentDetails = (adjustment: StockAdjustment) => {
     const createdAt = adjustment.createdDate
-      ? new Date(adjustment.createdDate).toLocaleString()
+      ? formatDateTime(adjustment.createdDate)
       : "--";
 
     const Field = ({
@@ -687,7 +688,7 @@ const StockAdjustmentManager: React.FC = () => {
       <div className="grid grid-cols-2 gap-3">
         <Field label="Adjustment ID">#{adjustment.id}</Field>
         <Field label="Date">
-          {new Date(adjustment.adjustmentDate).toLocaleDateString()}
+          {formatDate(adjustment.adjustmentDate)}
         </Field>
 
         <Field label="Type" full>
@@ -783,7 +784,7 @@ const StockAdjustmentManager: React.FC = () => {
       sortValueGetter: (adjustment) => new Date(adjustment.adjustmentDate).getTime(),
       render: (adjustment) => (
         <p className="text-sm font-medium text-gray-900 dark:text-slate-200">
-          {new Date(adjustment.adjustmentDate).toLocaleDateString()}
+          {formatDate(adjustment.adjustmentDate)}
         </p>
       ),
     },
@@ -960,7 +961,7 @@ const StockAdjustmentManager: React.FC = () => {
           />
           <StatsCard
             label="Net Change"
-            value={`${netChange >= 0 ? "+" : ""}${netChange.toLocaleString()}`}
+            value={`${netChange >= 0 ? "+" : ""}${formatNumber(netChange)}`}
             gradient="from-amber-50 to-orange-50"
             borderColor="border-amber-100"
             labelColor="text-amber-600"

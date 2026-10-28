@@ -11,6 +11,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
+import { companyWeekendDays } from "../../company/format";
 
 // Relative API Base URLs (routing via Vite dev proxy)
 const BASE_SHIFT_URL = '/v1/api/attendance/shifts';
@@ -35,8 +36,8 @@ export interface WeeklyOffItem {
 }
 
 const WEEK_ORDER: DayOfWeekType[] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
-// Picked for a new shift (the attendance service's default weekly offs)
-const DEFAULT_WEEKLY_OFFS: DayOfWeekType[] = ["SATURDAY", "SUNDAY"];
+// Picked for a new shift: the company's weekend days (Company Settings), which attendance also uses without a shift
+const defaultWeeklyOffs = (): DayOfWeekType[] => companyWeekendDays() as DayOfWeekType[];
 const OCCURRENCE_LABEL: Record<WeekOccurrenceType, string> = {
   EVERY: "", FIRST: "1st", SECOND: "2nd", THIRD: "3rd", FOURTH: "4th", FIFTH: "5th", LAST: "Last",
 };
@@ -89,7 +90,7 @@ const ShiftPage: React.FC = () => {
   });
   const [editingWeeklyOffId, setEditingWeeklyOffId] = useState<number | null>(null);
   // Weekly offs chosen on the Create Shift form (every week), saved right after the shift
-  const [newWeeklyOffDays, setNewWeeklyOffDays] = useState<DayOfWeekType[]>(DEFAULT_WEEKLY_OFFS);
+  const [newWeeklyOffDays, setNewWeeklyOffDays] = useState<DayOfWeekType[]>(defaultWeeklyOffs);
 
   // Form State
   const [form, setForm] = useState<{
@@ -401,7 +402,7 @@ const ShiftPage: React.FC = () => {
   // ── Form Reset Helpers ─────────────────────────────────────────────────
   const openCreateModal = () => {
     setEditingShift(null);
-    setNewWeeklyOffDays(DEFAULT_WEEKLY_OFFS);
+    setNewWeeklyOffDays(defaultWeeklyOffs());
     setForm({
       shiftCode: "",
       shiftName: "",

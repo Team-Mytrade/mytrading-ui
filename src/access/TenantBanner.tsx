@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { Building2, Globe, Settings2, ShieldCheck } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { getSelectedTenant, setSelectedTenant } from "./access";
-import { TenantAccess, platformApi } from "./accessApi";
+import { TenantAccess, platformApi, tenantStatusOf } from "./accessApi";
 import { ToasterService } from "../Services/ToasterService";
 
 const ALL = "";
@@ -79,7 +79,7 @@ export default function TenantBanner() {
             {tenantId && !current && <option value={tenantId}>{tenantId}</option>}
             {sorted.map((t) => (
               <option key={t.tenantId} value={t.tenantId} disabled={!t.active && t.tenantId !== tenantId}>
-                {t.tenantName}{t.active ? "" : " (inactive)"}
+                {t.tenantName}{t.active ? "" : ` (${tenantStatusOf(t).toLowerCase()})`}
               </option>
             ))}
           </select>

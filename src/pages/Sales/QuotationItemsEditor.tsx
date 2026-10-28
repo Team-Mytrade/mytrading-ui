@@ -1,5 +1,6 @@
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { allowsFraction, cellInput, NumberCell, taxRateFromCode } from "../Purchase/LineItemsEditor";
+import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
 
 /** One quotation line as edited on screen. Discount is a % of the line value, tax a % of what is left. */
 export type QuotationLine = {
@@ -38,24 +39,25 @@ export type QuotationProduct = {
   active?: boolean;
 };
 
-const round2 = (value: number) => Math.round(value * 100) / 100;
 const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
-export const formatRupees = (value: number) =>
-  `₹${num(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// currency: the quotation's (the company's when not given); amounts round to its decimals, as the server does
+export const formatPrice = (value: number, currency?: string | null) => formatMoney(num(value), { currency });
 
 /** Same arithmetic as the Sales service, so the screen shows what will be saved. */
-export const lineAmounts = (line: QuotationLine) => {
-  const gross = round2(num(line.quantity) * num(line.unitPrice));
-  const discount = Math.min(gross, round2((gross * num(line.discountPercentage)) / 100));
+export const lineAmounts = (line: QuotationLine, currency?: string | null) => {
+  const round = (value: number) => roundMoney(value, currency);
+  const gross = round(num(line.quantity) * num(line.unitPrice));
+  const discount = Math.min(gross, round((gross * num(line.discountPercentage)) / 100));
   const taxable = gross - discount;
-  const tax = round2((taxable * num(line.taxRate)) / 100);
-  return { gross, discount, taxable, tax, total: round2(taxable + tax) };
+  const tax = round((taxable * num(line.taxRate)) / 100);
+  return { gross, discount, taxable, tax, total: round(taxable + tax) };
 };
 
 /** Additional discount is an amount taken off the taxable total of the whole quotation (tax stays as is). */
-export const quotationTotals = (lines: QuotationLine[], additionalDiscount: number) => {
-  const sums = lines.map(lineAmounts).reduce(
+export const quotationTotals = (lines: QuotationLine[], additionalDiscount: number, currency?: string | null) => {
+  const round2 = (value: number) => roundMoney(value, currency);
+  const sums = lines.map((line) => lineAmounts(line, currency)).reduce(
     (acc, line) => ({
       subTotal: acc.subTotal + line.gross,
       discount: acc.discount + line.discount,
@@ -110,6 +112,8 @@ type Props = {
   /** Show line errors (after a save attempt). */
   showErrors?: boolean;
   onCreateProduct?: () => void;
+  /** The quotation's currency (the company's when not set). */
+  currency?: string | null;
 };
 
 /** Units a service can be priced in (the Sales service only accepts its own unit names). */
@@ -134,8 +138,11 @@ export default function QuotationItemsEditor({
   onAdditionalDiscountChange,
   showErrors = false,
   onCreateProduct,
+  currency,
 }: Props) {
-  const totals = quotationTotals(lines, additionalDiscount);
+  const totals = quotationTotals(lines, additionalDiscount, currency);
+  const code = currency || companyCurrency();
+  const priceDecimals = moneyDecimals(currency);
 
   const update = (index: number, patch: Partial<QuotationLine>) =>
     onChange(lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -202,7 +209,7 @@ export default function QuotationItemsEditor({
               <tr>
                 <th className={`${headCell} min-w-[190px] pl-4`}>Item</th>
                 <th className={`${headCell} w-[76px] text-right`}>Qty</th>
-                <th className={`${headCell} w-[104px] text-right`}>Rate (₹)</th>
+                <th className={`${headCell} w-[104px] text-right`}>Rate ({code})</th>
                 <th className={`${headCell} w-[72px] text-right`}>Disc %</th>
                 <th className={`${headCell} w-[72px] text-right`}>Tax %</th>
                 <th className={`${headCell} w-[110px] text-right`}>Amount</th>
@@ -297,7 +304,7 @@ export default function QuotationItemsEditor({
                       <NumberCell
                         label="Rate"
                         value={line.unitPrice}
-                        decimals={2}
+                        decimals={priceDecimals}
                         onValue={(unitPrice) => update(index, { unitPrice })}
                       />
                     </td>
@@ -318,7 +325,7 @@ export default function QuotationItemsEditor({
                       />
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 pt-3.5 text-right text-sm font-medium text-slate-800 dark:text-gray-100">
-                      {formatRupees(lineAmounts(line).total)}
+                      {formatPrice(lineAmounts(line, currency).total, currency)}
                     </td>
                     <td className="px-1 py-2">
                       <button
@@ -344,30 +351,30 @@ export default function QuotationItemsEditor({
         <dl className="w-full max-w-[300px] space-y-1.5 text-sm">
           <div className="flex justify-between">
             <dt className="text-slate-500 dark:text-gray-400">Sub Total</dt>
-            <dd className="font-medium text-slate-800 dark:text-gray-100">{formatRupees(totals.subTotal)}</dd>
+            <dd className="font-medium text-slate-800 dark:text-gray-100">{formatPrice(totals.subTotal, currency)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500 dark:text-gray-400">Discount</dt>
-            <dd className="font-medium text-rose-600 dark:text-rose-400">−{formatRupees(totals.discount)}</dd>
+            <dd className="font-medium text-rose-600 dark:text-rose-400">−{formatPrice(totals.discount, currency)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500 dark:text-gray-400">Tax</dt>
-            <dd className="font-medium text-slate-800 dark:text-gray-100">{formatRupees(totals.tax)}</dd>
+            <dd className="font-medium text-slate-800 dark:text-gray-100">{formatPrice(totals.tax, currency)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-slate-500 dark:text-gray-400">Additional Discount (₹)</dt>
+            <dt className="text-slate-500 dark:text-gray-400">Additional Discount ({code})</dt>
             <dd className="w-28">
               <NumberCell
                 label="Additional discount"
                 value={additionalDiscount}
-                decimals={2}
+                decimals={priceDecimals}
                 onValue={onAdditionalDiscountChange}
               />
             </dd>
           </div>
           <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold dark:border-gray-700">
             <dt className="text-slate-900 dark:text-gray-50">Grand Total</dt>
-            <dd className="text-cyan-700 dark:text-cyan-400">{formatRupees(totals.grandTotal)}</dd>
+            <dd className="text-cyan-700 dark:text-cyan-400">{formatPrice(totals.grandTotal, currency)}</dd>
           </div>
         </dl>
       </div>

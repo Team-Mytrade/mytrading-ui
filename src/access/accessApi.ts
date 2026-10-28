@@ -10,10 +10,17 @@ export interface TenantAdmin {
   invitePending: boolean;
 }
 
+// SUSPENDED and INACTIVE companies' users can't sign in; SUSPENDED is meant to be temporary
+export type TenantStatus = "ACTIVE" | "SUSPENDED" | "INACTIVE";
+
 export interface TenantAccess {
   tenantId: string;
   tenantName: string;
+  // True only when the status is ACTIVE
   active: boolean;
+  status?: TenantStatus;
+  statusReason?: string | null;
+  statusChangedAt?: string | null;
   modules: AppModule[];
   admins: TenantAdmin[];
   userCount: number;
@@ -107,12 +114,16 @@ export const platformApi = {
       method: "PUT",
       body: JSON.stringify(modules),
     }),
-  setActive: (tenantId: string, active: boolean) =>
-    request<TenantAccess>(
-      `/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/status?active=${active}`,
-      { method: "PUT" },
-    ),
+  // The reason is required for SUSPENDED and INACTIVE
+  setStatus: (tenantId: string, status: TenantStatus, reason: string) =>
+    request<TenantAccess>(`/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status, reason }),
+    }),
 };
+
+export const tenantStatusOf = (t: Pick<TenantAccess, "active" | "status">): TenantStatus =>
+  t.status ?? (t.active ? "ACTIVE" : "INACTIVE");
 
 // Users and custom roles of the current company (axios, so expired tokens are refreshed)
 const ACCESS = "/v1/api/user/access";

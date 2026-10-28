@@ -30,6 +30,7 @@ import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, formatTime as companyFormatTime, formatDateTime as companyFormatDateTime } from "../../company/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -379,12 +380,12 @@ const RemoteAttendancePage: React.FC = () => {
 
   const formatDateTime = (dateTime: string | null) => {
     if (!dateTime) return "—";
-    return new Date(dateTime).toLocaleString();
+    return companyFormatDateTime(dateTime);
   };
 
   const formatTime = (dateTime: string | null) => {
     if (!dateTime) return "—";
-    return new Date(dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return companyFormatTime(dateTime);
   };
 
   const columns: ColumnDef<RemoteAttendanceLog>[] = [
@@ -394,7 +395,7 @@ const RemoteAttendancePage: React.FC = () => {
         <div className="flex items-center gap-2">
           <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm font-medium text-gray-900">
-            {v ? new Date(String(v)).toLocaleDateString() : "—"}
+            {v ? formatDate(String(v)) : "—"}
           </span>
         </div>
       ),

@@ -1,4 +1,5 @@
 import { DELIVERY_API } from "./deliveryShared";
+import { formatDateTime } from "../../company/format";
 
 // Vehicle tracking from the driver's phone. Shapes follow the delivery-service tracking DTOs.
 
@@ -64,7 +65,7 @@ export const timeAgo = (value?: string): string => {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  return hours < 24 ? `${hours} h ago` : new Date(value).toLocaleString();
+  return hours < 24 ? `${hours} h ago` : formatDateTime(value);
 };
 
 // Moving / stopped / signal lost, for the live map and lists

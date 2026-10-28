@@ -56,8 +56,9 @@ const typeIcons: Record<AttendanceNotificationRecord["type"], React.ReactNode> =
 
 // Missing imports
 import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
+import { formatDateTime as companyFormatDateTime } from "../../company/format";
 
-const formatDateTime = (value: string) => new Date(value).toLocaleString();
+const formatDateTime = (value: string) => companyFormatDateTime(value);
 
 const NotificationDetailPage: React.FC = () => {
   const params = useParams();

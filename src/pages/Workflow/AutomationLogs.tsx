@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { formatDateTime } from "../../company/format";
 
 interface AutomationLog {
   id: number;
@@ -115,7 +116,7 @@ const AutomationLogs: React.FC = () => {
               <tr key={id} className="border-t hover:bg-gray-50">
                 <td className="px-4 py-2">{workflowName}</td>
                 <td className="px-4 py-2">
-                  {new Date(triggeredAt).toLocaleString()}
+                  {formatDateTime(triggeredAt)}
                 </td>
                 <td className="px-4 py-2 text-center">
                   <span

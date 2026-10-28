@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { EnvelopeIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
+import { formatDateTime } from "../../company/format";
 
 const API_URL = "/v1/api/sales/quotations";
 
@@ -145,7 +146,7 @@ export default function QuotationEmailDialog({
                     <span className="min-w-0 truncate text-slate-700 dark:text-gray-300">{h.sentTo}{h.cc ? ` (cc ${h.cc})` : ""}</span>
                     <span className={`shrink-0 ${h.delivered ? "text-slate-500" : "text-red-600"}`} title={h.failure ?? undefined}>
                       {h.delivered ? "" : "Failed · "}
-                      {h.sentAt ? new Date(h.sentAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : ""}
+                      {h.sentAt ? formatDateTime(h.sentAt) : ""}
                       {h.sentBy ? ` · ${h.sentBy}` : ""}
                     </span>
                   </li>

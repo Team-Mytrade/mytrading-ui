@@ -17,6 +17,7 @@ import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
 import { useNavigate } from 'react-router-dom';
 import { todayIso } from "../../utils/localDate";
+import { leadingDays, weekdayLabels, startOfCompanyWeek } from "../../company/format";
 
 const safeString = (val: any, fallback = ""): string => {
   if (val === null || val === undefined) return fallback;
@@ -883,7 +884,7 @@ const LeaveDashboardPage: React.FC = () => {
                     const monthHeaderTitle = calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
                     
                     const daysInCurrentMonth = new Date(currYear, currMonth + 1, 0).getDate();
-                    const firstDayIndex = new Date(currYear, currMonth, 1).getDay();
+                    const firstDayIndex = leadingDays(currYear, currMonth);
                     const prevMonthLastDate = new Date(currYear, currMonth, 0).getDate();
 
                     const prevTrailDays = Array.from({ length: firstDayIndex }, (_, i) => prevMonthLastDate - firstDayIndex + 1 + i);
@@ -921,7 +922,7 @@ const LeaveDashboardPage: React.FC = () => {
                           <>
                             {/* Days of Week Header */}
                             <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/40 py-0.5 text-center text-[9.5px] font-bold text-gray-600">
-                              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                              {weekdayLabels().map((d) => <span key={d}>{d}</span>)}
                             </div>
 
                             {/* Calendar Grid Matrix */}
@@ -1002,8 +1003,7 @@ const LeaveDashboardPage: React.FC = () => {
 
                   {/* ── MODE 2: WEEK VIEW ────────────────────────────────────────── */}
                   {calendarViewMode === 'week' && (() => {
-                    const startOfWeek = new Date(calendarDate);
-                    startOfWeek.setDate(calendarDate.getDate() - calendarDate.getDay());
+                    const startOfWeek = startOfCompanyWeek(calendarDate);
 
                     const endOfWeek = new Date(startOfWeek);
                     endOfWeek.setDate(startOfWeek.getDate() + 6);

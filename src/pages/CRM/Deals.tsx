@@ -42,6 +42,7 @@ import {
   isClosedStage,
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, companyCurrency } from "../../company/format";
 
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";
@@ -313,7 +314,7 @@ export default function Deals() {
 
   // Rupees, like the rest of the app (a deal's customer may use another currency)
   const formatCurrency = (amount: number, currency?: string) =>
-    formatMoney(Number(amount) || 0, currency || "INR");
+    formatMoney(Number(amount) || 0, currency || companyCurrency());
 
   const getStageColor = (stage: string) => {
     switch (normalizeStage(stage)) {
@@ -379,11 +380,7 @@ export default function Deals() {
         <div className="flex items-center text-xs text-gray-600">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {o.expectedCloseDate
-            ? new Date(o.expectedCloseDate).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })
+            ? formatDate(o.expectedCloseDate)
             : "-"}
         </div>
       ),

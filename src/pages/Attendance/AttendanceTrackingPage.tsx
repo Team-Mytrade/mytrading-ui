@@ -18,6 +18,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { ATTENDANCE_API, CalendarDay, DayKind, dayKind, DAY_KIND_BADGE, DAY_KIND_LABEL, hoursOf, leaveTypeLabel, timeOf } from './attendanceApi';
+import { leadingDays, weekdayLabels, isCompanyWeekend, weekDays } from "../../company/format";
 
 // GET /v1/api/attendance/records/my-calendar/{employeeId}: one entry per day of the month, already resolved
 // by the server into holidays, weekly offs, approved leave and absence
@@ -32,7 +33,6 @@ const monthNames = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const PRESENT_KINDS: DayKind[] = ['PRESENT', 'LATE', 'ON_DUTY', 'WFH', 'CHECKED_IN'];
 
@@ -240,7 +240,7 @@ const AttendanceTrackingPage: React.FC = () => {
   const weeks = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+    const offset = leadingDays(year, month);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const count = Math.ceil((offset + daysInMonth) / 7);
     return Array.from({ length: count }, (_, w) =>
@@ -421,8 +421,8 @@ const AttendanceTrackingPage: React.FC = () => {
         {/* ── Month calendar ─────────────────────────────────────────────── */}
         <div className="flex-1 min-h-[420px] max-h-[calc(100cqh-48px)] flex flex-col gap-1.5 rounded-xl border p-2.5 shadow-sm bg-white dark:bg-[#191919] dark:border-transparent overflow-auto">
           <div className={`${GRID_COLS} shrink-0`}>
-            {WEEKDAYS.map((w, i) => (
-              <span key={w} className={`rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider ${i >= 5 ? 'bg-slate-200/60 text-slate-500 dark:bg-[#222] dark:text-gray-500' : 'bg-[#e0f7fa] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300'}`}>{w}</span>
+            {weekdayLabels().map((w, i) => (
+              <span key={w} className={`rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider ${isCompanyWeekend(weekDays()[i]) ? 'bg-slate-200/60 text-slate-500 dark:bg-[#222] dark:text-gray-500' : 'bg-[#e0f7fa] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300'}`}>{w}</span>
             ))}
             <span className="hidden md:block rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider bg-[#b2ebf2] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300">Week total</span>
           </div>
