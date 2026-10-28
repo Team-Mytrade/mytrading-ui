@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { DocumentTextIcon, PencilSquareIcon, PlusIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { DocumentTextIcon, LockClosedIcon, PencilSquareIcon, PlusIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import StatsCard from "../../components/common/Statscard";
@@ -16,6 +16,7 @@ import {
   INVOICE_API,
   JournalEntry,
   SOURCE_MODULE_OPTIONS,
+  AUTOMATIC_SOURCE_OPTIONS,
   accountLabel,
   apiError,
   dateLabel,
@@ -227,6 +228,11 @@ const JournalEntries: React.FC = () => {
       render: (row) => (
         <span className="text-sm text-slate-600">
           {labelOf(row.sourceModule ?? "OTHER")}
+          {row.automatic && (
+            <span className="ml-1.5 rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700" title="Posted automatically from the document">
+              {row.reversalOf ? "Auto · reversal" : "Auto"}
+            </span>
+          )}
           {row.sourceId != null && <span className="block text-xs text-slate-400">#{row.sourceId}</span>}
         </span>
       ),
@@ -248,12 +254,17 @@ const JournalEntries: React.FC = () => {
       className: "text-right",
       render: (row) => (
         <div className="flex justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
-          {canUpdate && (
+          {row.automatic && (
+            <span className="p-1.5 text-slate-300" title="Posted automatically: correct or cancel the document instead">
+              <LockClosedIcon className="h-4 w-4" />
+            </span>
+          )}
+          {canUpdate && !row.automatic && (
             <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit entry">
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
-          {canDelete && (
+          {canDelete && !row.automatic && (
             <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete entry">
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -278,7 +289,7 @@ const JournalEntries: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {[{ id: "ALL", name: "All sources" }, ...SOURCE_MODULE_OPTIONS].map((option) => (
+          {[{ id: "ALL", name: "All sources" }, ...SOURCE_MODULE_OPTIONS, ...AUTOMATIC_SOURCE_OPTIONS].map((option) => (
             <button
               key={option.id}
               type="button"
@@ -343,13 +354,19 @@ const JournalEntries: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              {viewing.automatic && (
+                <p className="rounded-lg bg-cyan-50 px-3 py-2 text-xs text-cyan-800">
+                  Posted automatically{viewing.reversalOf ? " to reverse an earlier entry" : ""}. It follows its document: to change
+                  it, correct, cancel or reverse the document.
+                </p>
+              )}
               <div className="flex justify-end gap-2">
-                {canDelete && (
+                {canDelete && !viewing.automatic && (
                   <button type="button" onClick={() => setDeleting(viewing)} className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
                     Delete
                   </button>
                 )}
-                {canUpdate && (
+                {canUpdate && !viewing.automatic && (
                   <button type="button" onClick={() => openEdit(viewing)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700">
                     Edit
                   </button>

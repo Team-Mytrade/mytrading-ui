@@ -13,6 +13,8 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, dateLabel, money, paymentMethodLabel, todayInput } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
+import { defaultBankAccountId, useBankAccounts } from "./bankShared";
+import BankAccountField from "./BankAccountField";
 
 const API_URL = `${INVOICE_API}/vendor-payments`;
 const PAGE_SIZE = 10;
@@ -25,6 +27,8 @@ interface VendorPayment {
   invoice?: { id: number; invoiceNumber?: string; currency?: string };
   amountPaid?: number;
   paymentMethod?: string;
+  // Bank account / cash box it was paid from (none on older payments)
+  bankAccountId?: number | null;
   paidBy?: string;
 }
 
@@ -47,6 +51,7 @@ const emptyForm = () => ({
   amountPaid: "",
   paymentDate: todayInput(),
   paymentMethod: "BANK_TRANSFER",
+  bankAccountId: "",
   paymentReference: "",
   paidBy: "",
 });
@@ -63,6 +68,8 @@ const VendorPayments: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<VendorPayment | null>(null);
+  const bankAccounts = useBankAccounts();
+  const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -104,7 +111,8 @@ const VendorPayments: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm());
+    const fresh = emptyForm();
+    setForm({ ...fresh, bankAccountId: bankAccounts ? defaultBankAccountId(bankAccounts, fresh.paymentMethod) : "" });
     setFormOpen(true);
   };
 
@@ -116,6 +124,7 @@ const VendorPayments: React.FC = () => {
       amountPaid: String(payment.amountPaid ?? ""),
       paymentDate: payment.paymentDate ?? todayInput(),
       paymentMethod: payment.paymentMethod || "BANK_TRANSFER",
+      bankAccountId: payment.bankAccountId != null ? String(payment.bankAccountId) : "",
       paymentReference: payment.paymentReference ?? "",
       paidBy: payment.paidBy ?? "",
     });
@@ -140,6 +149,7 @@ const VendorPayments: React.FC = () => {
       amountPaid: amount,
       paymentDate: form.paymentDate || null,
       paymentMethod: form.paymentMethod,
+      bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
       paymentReference: form.paymentReference.trim() || null,
       paidBy: form.paidBy.trim() || null,
     };
@@ -320,7 +330,11 @@ const VendorPayments: React.FC = () => {
               <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
                 onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
               <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
+                onChange={(event) => {
+                  const paymentMethod = event.target.value;
+                  setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
+                }} />
+              <BankAccountField accounts={bankAccounts} label="Paid from" value={form.bankAccountId} onChange={setBankAccount} />
               <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
                 onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
               <FloatingInput label="Paid by" name="paidBy" value={form.paidBy}
