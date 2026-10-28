@@ -477,7 +477,7 @@ const CustomerFormPage: React.FC = () => {
                     includeEmptyOption={false}
                   />
                   <FloatingInput
-                    label="GSTIN / Tax number"
+                    label="GSTIN / VAT TRN"
                     name="taxNumber"
                     value={form.taxNumber}
                     onChange={(e) => update("taxNumber", e.target.value.toUpperCase())}

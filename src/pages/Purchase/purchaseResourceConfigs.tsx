@@ -12,6 +12,7 @@ import LineItemsEditor, { LineItem, taxRateFromCode } from "../Purchase/LineItem
 import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
 import GoodsReceiptSyncAction from "../purchase-service/GoodsReceiptSyncAction";
 import RequisitionWorkflowActions from "./RequisitionWorkflowActions";
+import PurchaseOrderDocumentActions from "../purchase-service/PurchaseOrderDocumentActions";
 import { todayIso } from "../../utils/localDate";
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { formatMoney, formatDate, companyCurrency, currencyChoices } from "../../company/format";
@@ -31,6 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "Pending Approval",
   PENDING: "Pending",
   APPROVED: "Approved",
+  SENT: "Sent to Vendor",
   REJECTED: "Rejected",
   CANCELLED: "Cancelled",
   CLOSED: "Closed",
@@ -57,7 +59,7 @@ const statusBadge = (value: string) => {
       ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300"
       : ["REJECTED", "INACTIVE"].includes(status)
         ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-        : ["SUBMITTED", "PENDING", "PARTIALLY_RECEIVED"].includes(status)
+        : ["SUBMITTED", "PENDING", "PARTIALLY_RECEIVED", "SENT"].includes(status)
           ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
           : status === "DRAFT"
             ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -983,6 +985,8 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   },
   // No approval record is posted after create: a new PO is already PENDING on the server, and that
   // endpoint needs PURCHASE:APPROVE, so a buyer would get an error after the order was saved.
+  // Print (any order; unapproved ones are marked) and email to the vendor (approved ones)
+  renderRowActions: (row, { refreshRows }) => <PurchaseOrderDocumentActions row={row} refreshRows={refreshRows} />,
 };
 
 // ─────────────────────────────────────────────────────────────

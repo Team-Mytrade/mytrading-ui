@@ -69,6 +69,7 @@ interface AddressOption {
 }
 
 interface DispatchableItem {
+  salesOrderItemId: number;
   productId: number;
   productName?: string;
   remainingQuantity: number;
@@ -79,6 +80,8 @@ interface FormItem {
   productId: string;
   productName?: string;
   quantity: string;
+  // The sales order line it delivers (its sales dispatch line)
+  salesOrderItemId?: number;
 }
 
 interface OrderForm {
@@ -234,7 +237,8 @@ const DeliveryOrderPage: React.FC = () => {
       deliveryAddressId: order.deliveryAddressId ? String(order.deliveryAddressId) : "",
       remarks: order.remarks ?? "",
       items: order.items.length
-        ? order.items.map((i) => ({ productId: String(i.productId), productName: i.productName, quantity: String(i.quantity) }))
+        ? order.items.map((i) => ({ productId: String(i.productId), productName: i.productName, quantity: String(Number(i.quantity)),
+          salesOrderItemId: i.salesOrderItemId ?? undefined }))
         : [emptyItem()],
     });
     setShowDetailModal(false);
@@ -278,7 +282,8 @@ const DeliveryOrderPage: React.FC = () => {
         items: data.map((d) => ({
           productId: String(d.productId),
           productName: d.productName,
-          quantity: String(Math.floor(Number(d.remainingQuantity))),
+          quantity: String(Number(d.remainingQuantity)),
+          salesOrderItemId: d.salesOrderItemId,
         })),
       }));
       toast.success(`Loaded ${data.length} line(s) from the sales order`);
@@ -295,8 +300,9 @@ const DeliveryOrderPage: React.FC = () => {
     if (!form.customerId) return void toast.warning("Choose a customer");
     if (!form.deliveryDate) return void toast.warning("Choose the delivery date");
     if (!lines.length) return void toast.warning("Add at least one product");
-    if (lines.some((i) => !Number.isInteger(Number(i.quantity)) || Number(i.quantity) <= 0)) {
-      return void toast.warning("Quantities must be whole numbers greater than 0");
+    // Up to 3 decimals for weight/length units (2.5 KG), as on the sales order
+    if (lines.some((i) => !(Number(i.quantity) > 0) || !/^\d+(\.\d{1,3})?$/.test(String(i.quantity).trim()))) {
+      return void toast.warning("Quantities must be greater than 0, with at most 3 decimals");
     }
 
     const customer = lookups.customers.find((c) => String(c.id) === form.customerId);
@@ -316,6 +322,7 @@ const DeliveryOrderPage: React.FC = () => {
         productId: Number(i.productId),
         productName: i.productName || lookups.products.find((p) => String(p.id) === i.productId)?.productName,
         quantity: Number(i.quantity),
+        salesOrderItemId: form.salesOrderId ? i.salesOrderItemId : undefined,
       })),
     };
 
@@ -837,6 +844,12 @@ const DeliveryOrderPage: React.FC = () => {
                 <Detail label="Customer" value={lookups.customerName(selected.customerId, selected.customerName)} icon={<UserIcon className="h-4 w-4 text-slate-400" />} />
                 <Detail label="Delivery Date" value={formatDateTime(selected.deliveryDate)} icon={<CalendarIcon className="h-4 w-4 text-slate-400" />} />
                 <Detail label="Sales Order" value={selected.salesOrderId ? lookups.salesOrderLabel(selected.salesOrderId) : "-"} />
+                {/* Holds the quantities in Sales; confirming the delivery note takes them out of stock */}
+                {selected.salesOrderId ? (
+                  <Detail label="Sales Dispatch" value={selected.salesDispatchNumber
+                    ? `${selected.salesDispatchNumber}${["DELIVERED", "PARTIAL"].includes(selected.status) ? " (confirmed)" : " (draft until the delivery note is confirmed)"}`
+                    : "None: save the order to reserve its quantities"} />
+                ) : null}
                 <Detail label="Warehouse" value={selected.warehouseId ? lookups.warehouseName(selected.warehouseId) : "-"} />
                 <Detail label="Vehicle" value={selected.vehiclePlate ?? "Not assigned"} icon={<TruckIcon className="h-4 w-4 text-slate-400" />} />
                 <Detail label="Transporter" value={selected.transporterName ?? "Not assigned"} />

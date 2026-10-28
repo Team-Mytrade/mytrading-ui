@@ -24,6 +24,8 @@ import {
   todayInput,
 } from "./invoiceShared";
 import { ActionButton, DialogFooter, StatusBadge } from "./invoiceUi";
+import { bankAccountName, defaultBankAccountId, useBankAccounts } from "./bankShared";
+import BankAccountField from "./BankAccountField";
 
 const API_URL = `${INVOICE_API}/receipts`;
 const PAGE_SIZE = 10;
@@ -52,6 +54,8 @@ interface Receipt {
   unallocatedAmount: number;
   paymentMethod?: string;
   referenceNumber?: string;
+  // Bank account / cash box it went into (none on older receipts)
+  bankAccountId?: number | null;
   receivedBy?: string;
   notes?: string;
   allocations?: Allocation[];
@@ -60,7 +64,15 @@ interface Receipt {
   reversalReason?: string;
 }
 
-const emptyForm = () => ({ customerId: "", paymentDate: todayInput(), amount: "", paymentMethod: "BANK_TRANSFER", referenceNumber: "", notes: "" });
+const emptyForm = () => ({
+  customerId: "",
+  paymentDate: todayInput(),
+  amount: "",
+  paymentMethod: "BANK_TRANSFER",
+  bankAccountId: "",
+  referenceNumber: "",
+  notes: "",
+});
 
 const PaymentReceipts: React.FC = () => {
   const navigate = useNavigate();
@@ -79,6 +91,8 @@ const PaymentReceipts: React.FC = () => {
   const [outstanding, setOutstanding] = useState<Invoice[]>([]);
   const [allocations, setAllocations] = useState<Record<number, string>>({});
   const [reverseReason, setReverseReason] = useState("");
+  const bankAccounts = useBankAccounts();
+  const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -124,7 +138,8 @@ const PaymentReceipts: React.FC = () => {
   };
 
   const openForm = (customerId = "", invoiceId?: number) => {
-    setForm({ ...emptyForm(), customerId });
+    const fresh = emptyForm();
+    setForm({ ...fresh, customerId, bankAccountId: bankAccounts ? defaultBankAccountId(bankAccounts, fresh.paymentMethod) : "" });
     setShowForm(true);
     loadOutstanding(customerId, invoiceId, true);
   };
@@ -173,6 +188,7 @@ const PaymentReceipts: React.FC = () => {
         paymentDate: form.paymentDate || null,
         totalAmountReceived: amountReceived,
         paymentMethod: form.paymentMethod,
+        bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
         referenceNumber: form.referenceNumber.trim() || null,
         notes: form.notes.trim() || null,
         allocations: Object.entries(allocations)
@@ -345,7 +361,11 @@ const PaymentReceipts: React.FC = () => {
                 <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
                   onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
                 <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
-                  onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
+                  onChange={(event) => {
+                    const paymentMethod = event.target.value;
+                    setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
+                  }} />
+                <BankAccountField accounts={bankAccounts} label="Deposit to" value={form.bankAccountId} onChange={setBankAccount} />
                 <FloatingInput label="Reference (UTR, cheque no.)" name="referenceNumber" value={form.referenceNumber}
                   onChange={(event) => setForm((current) => ({ ...current, referenceNumber: event.target.value }))} />
                 <FloatingInput label="Notes" name="notes" value={form.notes}
@@ -425,6 +445,9 @@ const PaymentReceipts: React.FC = () => {
                   <div><dt className="text-xs text-slate-500">Received</dt><dd className="font-semibold text-slate-900">{money(selected.totalAmountReceived)}</dd></div>
                   <div><dt className="text-xs text-slate-500">Method</dt><dd className="text-slate-800">{paymentMethodLabel(selected.paymentMethod)}</dd></div>
                   <div><dt className="text-xs text-slate-500">Reference</dt><dd className="text-slate-800">{selected.referenceNumber || "—"}</dd></div>
+                  {bankAccountName(bankAccounts, selected.bankAccountId) && (
+                    <div><dt className="text-xs text-slate-500">Deposited to</dt><dd className="text-slate-800">{bankAccountName(bankAccounts, selected.bankAccountId)}</dd></div>
+                  )}
                   <div><dt className="text-xs text-slate-500">Status</dt><dd><StatusBadge status={selected.status} tones={RECEIPT_STATUS_TONES} /></dd></div>
                 </dl>
                 <div className="rounded-xl border border-slate-200">

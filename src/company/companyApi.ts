@@ -30,11 +30,17 @@ export interface CompanyProfile {
   numberLocale: string;
   weekStart: string;
   weekendDays: string[];
+  // VAT (Gulf: TRN on tax invoices, VAT return), GST (India: GSTIN) or NONE (not registered)
+  taxRegime?: TaxRegime;
+  // VAT registration number (TRN); GST companies use gstin
+  taxNumber?: string | null;
   hasLogo: boolean;
   updatedDate?: string | null;
   // The signed-in user may change these details
   editable: boolean;
 }
+
+export type TaxRegime = "VAT" | "GST" | "NONE";
 
 export interface CompanyLogo {
   dataUrl: string;

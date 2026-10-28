@@ -29,12 +29,23 @@ interface TaxType {
   region?: string;
   isActive?: boolean;
   description?: string;
+  // How sales lines with this tax code count on the VAT return; empty: by rate
+  vatCategory?: string | null;
 }
 
 const API_URL = "/v1/api/invoice/tax-types";
 const PAGE_SIZE = 10;
 
 const REGIONS = ["INDIA", "EU", "USA", "QATAR", "UAE", "CANADA", "AUSTRALIA", "UK", "OTHER"];
+
+// VAT treatment of sales lines whose product carries this tax code (the VAT return and the invoice's tax summary)
+const VAT_CATEGORIES = [
+  { id: "STANDARD", name: "Standard rated" },
+  { id: "ZERO_RATED", name: "Zero rated (0%, e.g. exports)" },
+  { id: "EXEMPT", name: "Exempt (outside VAT)" },
+  { id: "REVERSE_CHARGE", name: "Reverse charge (customer accounts for VAT)" },
+];
+const vatCategoryLabel = (code?: string | null) => VAT_CATEGORIES.find((c) => c.id === code)?.name.replace(/ \(.*\)$/, "") ?? "By rate";
 
 const TaxTypes: React.FC = () => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
@@ -196,11 +207,20 @@ const TaxTypes: React.FC = () => {
       ),
     },
     {
+      key: "vatCategory",
+      label: "VAT Category",
+      sortable: true,
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
+      sortValueGetter: (taxType) => vatCategoryLabel(taxType.vatCategory),
+      render: (taxType) => <span className="text-sm text-slate-600">{vatCategoryLabel(taxType.vatCategory)}</span>,
+    },
+    {
       key: "region",
       label: "Region",
       sortable: true,
-      headerClassName: "w-[20%] text-left",
-      className: "w-[20%]",
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
       render: (taxType) => (
         <span className="inline-flex items-center gap-1 text-sm text-slate-600">
           <GlobeAltIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
@@ -212,8 +232,8 @@ const TaxTypes: React.FC = () => {
       key: "description",
       label: "Description",
       sortable: true,
-      headerClassName: "w-[25%] text-left",
-      className: "w-[25%]",
+      headerClassName: "w-[18%] text-left",
+      className: "w-[18%]",
       render: (taxType) => (
         <span className="text-sm text-slate-600 truncate" title={taxType.description}>
           {taxType.description || <span className="text-slate-400 italic">No description</span>}
@@ -350,7 +370,7 @@ const TaxTypes: React.FC = () => {
               fields: [
                 <FloatingInput
                   key="taxName"
-                  label="Tax Name"
+                  label="Tax Code (as on products, e.g. VAT5)"
                   name="taxName"
                   value={form.taxName || ""}
                   onChange={handleChange}
@@ -363,6 +383,14 @@ const TaxTypes: React.FC = () => {
                   type="number"
                   value={form.taxRate ?? ""}
                   onChange={handleChange}
+                />,
+                <FloatingSelect
+                  key="vatCategory"
+                  label="VAT Category"
+                  name="vatCategory"
+                  value={form.vatCategory || ""}
+                  onChange={(e) => setForm({ ...form, vatCategory: e.target.value || null })}
+                  options={VAT_CATEGORIES}
                 />,
                 <FloatingSelect
                   key="region"

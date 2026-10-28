@@ -98,17 +98,18 @@ const vendorConfig: PurchaseResourceConfig = {
       options: PAYMENT_TERMS.map((value) => ({ value, label: value })),
     },
     {
+      // Indian vendors: GSTIN (checked when Country is India); Gulf vendors: VAT TRN, for input VAT on their bills
       name: "gstNumber", section: "Terms & Tax",
-      label: "GSTIN (e.g. 33ABCDE1234F1Z7)",
+      label: "GSTIN / VAT TRN",
       textCase: "upper",
-      maxLength: 15,
-      // A GSTIN contains the PAN (characters 3–12), so a full GSTIN fills PAN by itself.
+      maxLength: 20,
+      // A GSTIN contains the PAN (characters 3–12), so a full GSTIN fills PAN by itself (not a 15-digit UAE TRN)
       onValueChange: (value) => {
         const gst = String(value ?? "").toUpperCase();
-        return gst.length === 15 ? { panNumber: gst.slice(2, 12) } : undefined;
+        return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]/.test(gst) && gst.length === 15 ? { panNumber: gst.slice(2, 12) } : undefined;
       },
     },
-    { name: "panNumber", section: "Terms & Tax", label: "PAN (filled from GSTIN)", textCase: "upper", maxLength: 10 },
+    { name: "panNumber", section: "Terms & Tax", label: "PAN (India; filled from GSTIN)", textCase: "upper", maxLength: 10 },
     { name: "bankName", section: "Bank Details", label: "Bank Name", textCase: "title", maxLength: 100 },
     { name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number", maxLength: 18 },
     { name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)", textCase: "upper", maxLength: 11 },

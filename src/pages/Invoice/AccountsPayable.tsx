@@ -13,6 +13,8 @@ import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, dateLabel, daysOverdue, money, todayInput } from "./invoiceShared";
 import { ArStatusBadge, DialogFooter } from "./invoiceUi";
 import { ApAging, DebitNote, DebitNotesList, PayablesAging } from "./PayablesAging";
+import { defaultBankAccountId, useBankAccounts } from "./bankShared";
+import BankAccountField from "./BankAccountField";
 
 const API_URL = `${INVOICE_API}/accounts-payable`;
 const PAGE_SIZE = 10;
@@ -38,7 +40,9 @@ const AccountsPayable: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("OPEN_ONLY");
   const [paying, setPaying] = useState<Payable | null>(null);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ amountPaid: "", paymentDate: todayInput(), paymentMethod: "BANK_TRANSFER", paymentReference: "" });
+  const [form, setForm] = useState({ amountPaid: "", paymentDate: todayInput(), paymentMethod: "BANK_TRANSFER", bankAccountId: "", paymentReference: "" });
+  const bankAccounts = useBankAccounts();
+  const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const [aging, setAging] = useState<ApAging | null>(null);
   const [debitNotes, setDebitNotes] = useState<DebitNote[]>([]);
@@ -66,7 +70,13 @@ const AccountsPayable: React.FC = () => {
   }, [fetchRows]);
 
   const openPay = (row: Payable) => {
-    setForm({ amountPaid: String(row.balance), paymentDate: todayInput(), paymentMethod: "BANK_TRANSFER", paymentReference: "" });
+    setForm({
+      amountPaid: String(row.balance),
+      paymentDate: todayInput(),
+      paymentMethod: "BANK_TRANSFER",
+      bankAccountId: defaultBankAccountId(bankAccounts ?? [], "BANK_TRANSFER"),
+      paymentReference: "",
+    });
     setPaying(row);
   };
 
@@ -85,6 +95,7 @@ const AccountsPayable: React.FC = () => {
         amountPaid: amount,
         paymentDate: form.paymentDate || null,
         paymentMethod: form.paymentMethod,
+        bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
         paymentReference: form.paymentReference.trim() || null,
       });
       ToasterService.success(`${money(amount)} paid to ${paying.vendor?.name ?? "the vendor"}`);
@@ -241,7 +252,11 @@ const AccountsPayable: React.FC = () => {
               <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
                 onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
               <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
+                onChange={(event) => {
+                  const paymentMethod = event.target.value;
+                  setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
+                }} />
+              <BankAccountField accounts={bankAccounts} label="Paid from" value={form.bankAccountId} onChange={setBankAccount} />
               <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
                 onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
             </div>

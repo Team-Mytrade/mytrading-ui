@@ -7,6 +7,7 @@ import {
   CheckCircleIcon,
   DocumentPlusIcon,
   DocumentTextIcon,
+  EnvelopeIcon,
   EyeIcon,
   NoSymbolIcon,
   PencilSquareIcon,
@@ -91,7 +92,7 @@ const Invoices: React.FC = () => {
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<"issue" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<"issue" | "delete" | "remind" | null>(null);
 
   // Generate from dispatch
   const [pendingDispatches, setPendingDispatches] = useState<PendingDispatch[] | null>(null);
@@ -229,6 +230,23 @@ const Invoices: React.FC = () => {
       await refreshSelected(selected.id);
     } catch (err) {
       ToasterService.error(apiError(err, "Could not issue the invoice"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Emails the customer a payment reminder now (the company's template; overdue or before the due date)
+  const sendReminder = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const { data } = await axios.post<{ subject?: string }>(`${API_URL}/${selected.id}/reminder`);
+      ToasterService.success(`Payment reminder emailed to ${selected.customerEmail}`, data?.subject);
+      setConfirm(null);
+      await refreshSelected(selected.id);
+    } catch (err) {
+      setConfirm(null);
+      ToasterService.error(apiError(err, "Could not send the reminder"));
     } finally {
       setBusy(false);
     }
@@ -570,6 +588,15 @@ const Invoices: React.FC = () => {
             <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-900"><dt>Total</dt><dd>{money(selected.grandTotal, selected.currencyCode)}</dd></div>
             <div className="flex justify-between"><dt className="text-slate-500">Paid</dt><dd>{money(selected.amountPaid, selected.currencyCode)}</dd></div>
             <div className="flex justify-between font-semibold text-cyan-700"><dt>Balance due</dt><dd>{money(selected.balanceAmount, selected.currencyCode)}</dd></div>
+            {selected.lastReminderOn && (
+              <div className="flex justify-between border-t border-slate-100 pt-1 text-xs text-slate-500">
+                <dt>Last payment reminder</dt>
+                <dd>
+                  {dateLabel(selected.lastReminderOn)}
+                  {selected.overdueRemindersSent ? ` · ${selected.overdueRemindersSent} overdue sent` : " · before due"}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
       </div>
@@ -601,6 +628,11 @@ const Invoices: React.FC = () => {
         )}
         {isOpenInvoice(selected.status) && canCreate && (
           <ActionButton icon={DocumentPlusIcon} label="Apply credit" onClick={openApplyCredit} disabled={busy} />
+        )}
+        {isOpenInvoice(selected.status) && Number(selected.balanceAmount || 0) > 0 && canCreate && (
+          <ActionButton icon={EnvelopeIcon} label="Send payment reminder" disabled={busy || !selected.customerEmail}
+            title={selected.customerEmail ? `Email ${selected.customerEmail}` : "The invoice has no customer email address"}
+            onClick={() => setConfirm("remind")} />
         )}
         {selected.status !== "DRAFT" && canExport && (
           <ActionButton icon={ArrowDownTrayIcon} label={busy ? "Preparing…" : "Download PDF"} onClick={downloadPdf} disabled={busy} />
@@ -839,6 +871,15 @@ const Invoices: React.FC = () => {
         confirmLabel={busy ? "Issuing…" : "Issue"}
         variant="info"
         onConfirm={issue}
+        onCancel={() => setConfirm(null)}
+      />
+      <ConfirmDialog
+        isOpen={confirm === "remind"}
+        title={`Email a payment reminder for ${selected?.invoiceNumber ?? "this invoice"}?`}
+        message={`${selected?.customerName ?? "The customer"} (${selected?.customerEmail ?? "no email"}) is reminded that ${money(selected?.balanceAmount, selected?.currencyCode)} ${selected?.dueDate && selected.dueDate < todayInput() ? "was" : "is"} due on ${dateLabel(selected?.dueDate)}. The wording comes from Notification Settings.`}
+        confirmLabel={busy ? "Sending…" : "Send reminder"}
+        variant="info"
+        onConfirm={sendReminder}
         onCancel={() => setConfirm(null)}
       />
       <ConfirmDialog

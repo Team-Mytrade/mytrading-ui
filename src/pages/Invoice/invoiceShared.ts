@@ -89,6 +89,10 @@ export interface Invoice {
   items?: InvoiceLine[];
   issuedAt?: string;
   issuedBy?: string;
+  // Payment reminders emailed to the customer (automatic or by hand)
+  overdueRemindersSent?: number | null;
+  lastReminderOn?: string | null;
+  lastReminderType?: "BEFORE_DUE" | "OVERDUE" | null;
 }
 
 export const INVOICE_STATUS_TONES: Record<string, string> = {
@@ -170,6 +174,11 @@ export interface JournalEntry {
   sourceModule?: string;
   sourceId?: number;
   entries: JournalLine[];
+  // Posted by the system from a document: read-only (the document is corrected instead)
+  automatic?: boolean;
+  postingKey?: string | null;
+  // The entry this one reverses (cancelled invoice, reversed receipt, corrected bill)
+  reversalOf?: number | null;
 }
 
 export const ACCOUNT_TYPE_OPTIONS: Option[] = [
@@ -188,6 +197,15 @@ export const SOURCE_MODULE_OPTIONS: Option[] = [
   { id: "DEBIT_NOTE", name: "Debit note" },
   { id: "ADJUSTMENT_NOTE", name: "Adjustment" },
   { id: "OTHER", name: "Other" },
+];
+
+// Sources only automatic postings have (not offered for entries made by hand)
+export const AUTOMATIC_SOURCE_OPTIONS: Option[] = [
+  { id: "RECEIPT", name: "Customer receipt" },
+  { id: "CUSTOMER_CREDIT", name: "Customer credit used" },
+  { id: "VENDOR_PAYMENT", name: "Vendor payment" },
+  { id: "STOCK", name: "Stock" },
+  { id: "BANK", name: "Bank" },
 ];
 
 // Assets and expenses grow with debits; liabilities, equity and income with credits
