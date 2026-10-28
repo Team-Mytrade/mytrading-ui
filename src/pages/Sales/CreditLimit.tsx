@@ -35,6 +35,7 @@ import {
 } from "recharts";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatAmount, formatDate, formatDateTime } from "../../company/format";
 
 type CreditCheckResponse = {
   sufficient: boolean;
@@ -164,7 +165,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 function isPositiveNumber(value: string) {
@@ -290,7 +291,7 @@ function mapTransaction(raw: RawCreditTransaction, fallbackCustomerId: number, i
     toStringValue(raw.timestamp) ??
     toStringValue(raw.date);
 
-  const createdAt = rawDate ? new Date(rawDate).toLocaleString() : new Date().toLocaleString();
+  const createdAt = rawDate ? formatDateTime(rawDate) : formatDateTime(new Date());
 
   return {
     id: toNumberValue(raw.id) ?? toNumberValue(raw.transactionId) ?? Date.now() + index,
@@ -388,7 +389,7 @@ const CreditLimit: React.FC = () => {
       {
         ...log,
         id: Date.now(),
-        createdAt: new Date().toLocaleString(),
+        createdAt: formatDateTime(new Date()),
       },
       ...current,
     ]);
@@ -687,7 +688,7 @@ const CreditLimit: React.FC = () => {
             label: "Range",
             value:
               fromDate && toDate
-                ? `${fromDate.toLocaleDateString()} to ${toDate.toLocaleDateString()}`
+                ? `${formatDate(fromDate)} to ${formatDate(toDate)}`
                 : "All records",
           },
           { label: "Format", value: "PDF" },
@@ -859,7 +860,7 @@ const CreditLimit: React.FC = () => {
                 <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">History</div>
                 <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
                   {historyFrom && historyTo
-                    ? `${historyFrom.toLocaleDateString()} - ${historyTo.toLocaleDateString()}`
+                    ? `${formatDate(historyFrom)} - ${formatDate(historyTo)}`
                     : "None"}
                 </div>
               </div>
@@ -1232,7 +1233,7 @@ const CreditLimit: React.FC = () => {
         title="Purge Credit History"
         message={
           canPurgeDialogDescribeTarget
-            ? `Delete credit history for ${customerDisplayName(selectedCustomer)} from ${historyFrom?.toLocaleDateString()} to ${historyTo?.toLocaleDateString()}?`
+            ? `Delete credit history for ${customerDisplayName(selectedCustomer)} from ${formatDate(historyFrom)} to ${formatDate(historyTo)}?`
             : "Select a customer and valid date range before purging credit history."
         }
         confirmLabel={purging ? "Purging..." : "Purge"}
@@ -1277,7 +1278,7 @@ const CreditLimit: React.FC = () => {
               />,
               <div className="md:col-span-2 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm leading-6 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200">
                 {exportFrom && exportTo
-                  ? `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for ${exportFrom.toLocaleDateString()} to ${exportTo.toLocaleDateString()}.`
+                  ? `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for ${formatDate(exportFrom)} to ${formatDate(exportTo)}.`
                   : `Exporting ${exportFormat === "PDF" ? "PDF" : "Excel"} for all available records.`}
               </div>,
             ],

@@ -23,6 +23,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { ToasterService } from '../../Services/ToasterService';
 import { apiError } from '../../utils/apiError';
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from './hrmsUi';
+import { formatDate } from "../../company/format";
 
 type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -240,7 +241,7 @@ const DocumentManagementPage: React.FC = () => {
             key: "uploadedAt",
             label: "Uploaded",
             sortable: true,
-            render: (doc) => <span className="text-sm text-slate-600 dark:text-slate-300">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "-"}</span>,
+            render: (doc) => <span className="text-sm text-slate-600 dark:text-slate-300">{doc.uploadedAt ? formatDate(doc.uploadedAt) : "-"}</span>,
         },
         {
             key: "status",

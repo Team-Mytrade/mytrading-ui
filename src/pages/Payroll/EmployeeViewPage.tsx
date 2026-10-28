@@ -47,6 +47,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import MyPayslipsTab from "./MyPayslipsTab";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatNumber, formatDate as companyFormatDate, companyCurrency } from "../../company/format";
 
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
@@ -187,11 +188,7 @@ const EmployeeViewPage: React.FC = () => {
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return companyFormatDate(dateStr);
   };
 
   const maskValue = (value: string, isVisible: boolean, visibleChars: number = 4) => {
@@ -233,7 +230,7 @@ const EmployeeViewPage: React.FC = () => {
     );
   }
 
-  const currencySymbol = getCurrencySymbol(employee.salary?.currency || "INR");
+  const currencySymbol = getCurrencySymbol(employee.salary?.currency || companyCurrency());
   const totalEarnings = employee.salary?.earnings
     ? Object.values(employee.salary.earnings).reduce((a, b) => a + b, 0)
     : 0;
@@ -619,13 +616,13 @@ const EmployeeViewPage: React.FC = () => {
                       <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl p-4 text-center">
                         <span className="text-sm text-cyan-700">Total CTC</span>
                         <h2 className="text-2xl font-bold text-cyan-900">
-                          {currencySymbol} {employee.salary?.ctc?.toLocaleString()}
+                          {currencySymbol} {formatNumber(employee.salary?.ctc)}
                         </h2>
                       </div>
                       <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center">
                         <span className="text-sm text-purple-700">Gross Salary (Annual)</span>
                         <h2 className="text-2xl font-bold text-purple-900">
-                          {currencySymbol} {(totalEarnings + totalBenefits)?.toLocaleString()}
+                          {currencySymbol} {formatNumber((totalEarnings + totalBenefits))}
                         </h2>
                       </div>
                     </div>
@@ -639,7 +636,7 @@ const EmployeeViewPage: React.FC = () => {
                         {employee.salary?.earnings && Object.entries(employee.salary.earnings).map(([name, amount]) => (
                           <div key={name} className="flex justify-between py-2 border-b border-gray-100">
                             <span className="text-sm text-gray-600">{name}</span>
-                            <span className="text-sm font-medium text-gray-900">{currencySymbol} {amount?.toLocaleString()}</span>
+                            <span className="text-sm font-medium text-gray-900">{currencySymbol} {formatNumber(amount)}</span>
                           </div>
                         ))}
                         {(!employee.salary?.earnings || Object.keys(employee.salary.earnings).length === 0) && (
@@ -657,7 +654,7 @@ const EmployeeViewPage: React.FC = () => {
                         {employee.salary?.additionalBenefits && Object.entries(employee.salary.additionalBenefits).map(([name, amount]) => (
                           <div key={name} className="flex justify-between py-2 border-b border-gray-100">
                             <span className="text-sm text-gray-600">{name}</span>
-                            <span className="text-sm font-medium text-gray-900">{currencySymbol} {amount?.toLocaleString()}</span>
+                            <span className="text-sm font-medium text-gray-900">{currencySymbol} {formatNumber(amount)}</span>
                           </div>
                         ))}
                         {(!employee.salary?.additionalBenefits || Object.keys(employee.salary.additionalBenefits).length === 0) && (
@@ -680,13 +677,13 @@ const EmployeeViewPage: React.FC = () => {
                                 {name}
                                 {v?.frequency && <span className="ml-2 text-xs text-gray-400">{v.frequency.replace("_", "-").toLowerCase()}</span>}
                               </span>
-                              <span className="text-sm font-medium text-gray-900">{currencySymbol} {Number(v?.targetAmount ?? 0).toLocaleString()}</span>
+                              <span className="text-sm font-medium text-gray-900">{currencySymbol} {formatNumber(Number(v?.targetAmount ?? 0))}</span>
                             </div>
                           ))}
                           <div className="flex justify-between py-2 text-sm font-semibold text-gray-900">
                             <span>CTC incl. variable</span>
                             <span>
-                              {currencySymbol} {(Number(employee.salary?.ctc ?? 0) + Number(employee.salary?.totalTargetVariablePay ?? 0)).toLocaleString()}
+                              {currencySymbol} {formatNumber((Number(employee.salary?.ctc ?? 0) + Number(employee.salary?.totalTargetVariablePay ?? 0)))}
                             </span>
                           </div>
                         </div>

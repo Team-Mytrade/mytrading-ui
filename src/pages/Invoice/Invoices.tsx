@@ -38,6 +38,7 @@ import {
   todayInput,
 } from "./invoiceShared";
 import { ActionButton, DialogFooter, StatusBadge } from "./invoiceUi";
+import { companyCurrency } from "../../company/format";
 
 const API_URL = `${INVOICE_API}/invoices`;
 const PAGE_SIZE = 10;
@@ -492,7 +493,7 @@ const Invoices: React.FC = () => {
           <div><dt className="text-xs text-slate-500">Sales order</dt><dd className="font-medium text-slate-800">{selected.salesOrderNumber || "—"}</dd></div>
           <div><dt className="text-xs text-slate-500">Dispatch</dt><dd className="font-medium text-slate-800">{selected.salesDispatchNumber || "—"}</dd></div>
           <div><dt className="text-xs text-slate-500">Customer reference</dt><dd className="font-medium text-slate-800">{selected.customerReference || "—"}</dd></div>
-          <div><dt className="text-xs text-slate-500">Currency</dt><dd className="font-medium text-slate-800">{selected.currencyCode || "INR"}</dd></div>
+          <div><dt className="text-xs text-slate-500">Currency</dt><dd className="font-medium text-slate-800">{selected.currencyCode || companyCurrency()}</dd></div>
         </dl>
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">

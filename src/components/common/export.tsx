@@ -8,6 +8,7 @@ import { todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
 import { loadCompany, loadCompanyLogo } from "../../company/companyApi";
+import { formatDate, formatDateTime, pdfText } from "../../company/format";
 
 type Primitive = string | number | boolean | null | undefined | Date;
 type ExportRangePreset = "all" | "1m" | "3m" | "6m" | "custom";
@@ -63,6 +64,9 @@ const BRAND = {
   surface: [248, 250, 252] as [number, number, number],
 };
 
+// A number with an optional currency before or after it: "Rs. 25,000.00", "AED -1,234.5", "1.234,50 €", "12"
+const AMOUNT_TEXT = /^(?:[A-Z]{3}\s?|Rs\.\s?|[$€£¥]\s?)?-?[\d.,\s]*\d(?:\s?(?:[A-Z]{3}|[$€£¥]))?$|^-+$/;
+
 const toTitle = (value: string) =>
   value
     .replace(/([A-Z])/g, " $1")
@@ -73,7 +77,7 @@ const toTitle = (value: string) =>
 
 const formatValue = (value: Primitive): string => {
   if (value == null || value === "") return "-";
-  if (value instanceof Date) return value.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  if (value instanceof Date) return formatDate(value);
   if (typeof value === "boolean") return value ? "Active" : "Inactive";
   return String(value);
 };
@@ -283,10 +287,8 @@ const drawHeader = <T extends object>(
     doc.text(options.subtitle, 14, 38.5);
   }
 
-  // e.g. "Generated 13 Oct 2026, 05:45 PM"
-  const generated = `Generated ${new Date()
-    .toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
-    .replace(/\b(am|pm)\b/i, (part) => part.toUpperCase())}`;
+  // e.g. "Generated 13/10/2026, 05:45 PM" in the company's date and time style
+  const generated = `Generated ${formatDateTime(new Date())}`;
   doc.setTextColor(...BRAND.muted);
   doc.setFontSize(8);
   doc.text(generated, pageWidth - 14, 32, { align: "right" });
@@ -364,8 +366,8 @@ export function exportListingPdf<T extends object>({
     data.length > 0
       ? data.map((row, index) => [
           ...(includeSerialNumber ? [String(index + 1)] : []),
-          // The built-in PDF font has no ₹ sign, so amounts print as "Rs. 25,000.00".
-          ...exportColumns.map((column) => formatValue(getColumnValue(row, column, index)).replace(/₹\s?/g, "Rs. ")),
+          // The built-in PDF font has no ₹ sign (or other non-Latin symbols), see pdfText
+          ...exportColumns.map((column) => pdfText(formatValue(getColumnValue(row, column, index)))),
         ])
       : [[emptyMessage]];
 
@@ -380,10 +382,10 @@ export function exportListingPdf<T extends object>({
     );
 
     const columnStyles: UserOptions["columnStyles"] = {};
-    // Amount columns (values like "Rs. 25,000.00") line up on the right.
+    // Amount and number columns ("Rs. 25,000.00", "AED 1,234.50", "1.234,50 €") line up on the right.
     const isAmountColumn = (column: PdfExportColumn<T>) =>
       data.length > 0 &&
-      data.every((row, rowIndex) => /^(₹|Rs\.)\s?[\d,]+(\.\d+)?$|^-+$/.test(formatValue(getColumnValue(row, column, rowIndex))));
+      data.every((row, rowIndex) => AMOUNT_TEXT.test(pdfText(formatValue(getColumnValue(row, column, rowIndex)))));
     exportColumns.forEach((column, index) => {
       columnStyles[(includeSerialNumber ? index + 1 : index).toString()] = {
         halign: column.align ?? (isAmountColumn(column) ? "right" : "left"),

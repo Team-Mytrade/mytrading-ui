@@ -25,6 +25,7 @@ import {
   markAttendanceNotificationAsRead,
   type AttendanceNotificationRecord,
 } from "../../utils/attendanceNotifications";
+import { formatDateTime as companyFormatDateTime } from "../../company/format";
 
 const typeStyles: Record<AttendanceNotificationRecord["type"], string> = {
   ATTENDANCE: "bg-blue-100 text-blue-700",
@@ -50,7 +51,7 @@ const typeIcons: Record<AttendanceNotificationRecord["type"], React.ReactNode> =
   VIOLATION: <ExclamationTriangleIcon className="h-4 w-4" />,
 };
 
-const formatDateTime = (value: string) => new Date(value).toLocaleString();
+const formatDateTime = (value: string) => companyFormatDateTime(value);
 
 const formatRelativeTime = (value: string) => {
   const date = new Date(value);

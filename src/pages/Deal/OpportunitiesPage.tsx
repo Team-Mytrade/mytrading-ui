@@ -17,6 +17,7 @@ import {
   BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
 import StatsCard from "../../components/common/Statscard";
+import { formatMoney, formatNumber } from "../../company/format";
 
 interface Opportunity {
   id: number;
@@ -163,7 +164,7 @@ const OpportunitiesPage: React.FC = () => {
           />
           <StatsCard
             label="Total Value"
-            value={`$${totalValue.toLocaleString()}`}
+            value={formatMoney(totalValue)}
             icon={
               <div className="p-3 bg-purple-100 rounded-full">
                 <CurrencyDollarIcon className="h-6 w-6 text-purple-600" />
@@ -172,7 +173,7 @@ const OpportunitiesPage: React.FC = () => {
           />
           <StatsCard
             label="Avg. Deal Size"
-            value={`$${avgDeal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            value={formatMoney(avgDeal, { whole: true })}
             icon={
               <div className="p-3 bg-cyan-100 rounded-full">
                 <ChartBarIcon className="h-6 w-6 text-cyan-600" />
@@ -293,7 +294,7 @@ const OpportunitiesPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center text-sm font-medium text-gray-900">
                           <CurrencyDollarIcon className="h-3.5 w-3.5 mr-0.5 text-gray-400 flex-shrink-0" />
-                          {op.amount.toLocaleString()}
+                          {formatNumber(op.amount)}
                         </div>
                       </td>
 

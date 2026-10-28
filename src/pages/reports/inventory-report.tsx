@@ -7,6 +7,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCardFilter, { StatsCardOption, useStatsCardFilter } from "../../components/common/StatsCardFilter";
 import { ToasterService } from "../../Services/ToasterService";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
+import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
 /**
  * Inventory reports built from the live inventory records (stock levels, movements, adjustments, batches,
@@ -83,9 +84,9 @@ const ISSUE_TYPES = ["ISSUE", "SALES_ISSUE"];
 const TRANSFER_TYPES = ["TRANSFER", "WAREHOUSE_TRANSFER"];
 
 const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
-const qty = (value: unknown) => num(value).toLocaleString("en-IN");
+const qty = (value: unknown) => formatNumber(num(value));
 const rupees = (value: unknown) =>
-  `₹${num(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  formatMoney(num(value));
 const humanize = (value: unknown) =>
   String(value ?? "")
     .toLowerCase()
@@ -104,7 +105,7 @@ const showDate = (value: unknown) => {
   const iso = toIso(value);
   if (!iso) return "--";
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(new Date(y, m - 1, d));
 };
 
 const daysFromToday = (iso: string) => {

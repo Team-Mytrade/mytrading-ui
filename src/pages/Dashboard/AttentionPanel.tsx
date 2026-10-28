@@ -171,7 +171,7 @@ export default function AttentionPanel() {
                 <span className={`grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-xs font-bold ${TONES[item.tone]}`}>{r.count}</span>
                 <item.icon size={14} className="flex-none text-slate-400 group-hover:text-[#0097a7]" />
                 <span className="text-xs font-medium text-slate-700 group-hover:text-[#006f7a] dark:text-gray-200">{item.label}</span>
-                {r.amount ? <span className="text-[11px] text-gray-400">{formatMoney(r.amount, "INR", true)}</span> : null}
+                {r.amount ? <span className="text-[11px] text-gray-400">{formatMoney(r.amount, null, true)}</span> : null}
               </button>
             );
           })}

@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Building2, CheckCircle2, LogIn, Mail, Pencil, Power, PowerOff, Users, X } from "lucide-react";
+import { Building2, CheckCircle2, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -8,10 +8,11 @@ import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { APP_MODULES, AppModule, MODULE_LABELS, getSelectedTenant, setSelectedTenant } from "../../access/access";
-import { TenantAccess, TenantAdmin, platformApi } from "../../access/accessApi";
+import { TenantAccess, TenantAdmin, TenantStatus, platformApi, tenantStatusOf } from "../../access/accessApi";
 import {
   CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
+import { formatDate } from "../../company/format";
 
 const OPTIONAL_MODULES = APP_MODULES.filter((m) => m !== "USERS");
 const INPUT =
@@ -23,9 +24,27 @@ const emptyForm = { tenantName: "", modules: [] as AppModule[], email: "", first
 
 const message = (e: unknown, fallback: string) => (e as Error)?.message || fallback;
 
+const STATUS: Record<TenantStatus, { label: string; chip: string; effect: string }> = {
+  ACTIVE: {
+    label: "Active", chip: "bg-emerald-50 text-emerald-700",
+    effect: "Its users can sign in and work as usual.",
+  },
+  SUSPENDED: {
+    label: "Suspended", chip: "bg-amber-50 text-amber-700",
+    effect: "Its users can't sign in, and open sessions end within 15 minutes. Use it for a temporary stop such as an unpaid subscription; nothing is deleted.",
+  },
+  INACTIVE: {
+    label: "Inactive", chip: "bg-slate-100 text-slate-500",
+    effect: "The account is closed: its users can't sign in, and open sessions end within 15 minutes. Its data is kept and it can be made active again.",
+  },
+};
+
+const changedOn = (value?: string | null) =>
+  value ? formatDate(value) : "";
+
 /**
  * Super Admin: the companies on the platform. Create one (its first Tenant Administrator is invited by
- * email), rename it, choose its modules, switch it on or off, resend the admin's invite, or work inside it.
+ * email), rename it, choose its modules, suspend or close it, resend the admin's invite, or work inside it.
  */
 export default function TenantsPage() {
   const navigate = useNavigate();
@@ -37,6 +56,9 @@ export default function TenantsPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [statusFor, setStatusFor] = useState<TenantAccess | null>(null);
+  const [nextStatus, setNextStatus] = useState<TenantStatus>("ACTIVE");
+  const [reason, setReason] = useState("");
   const selected = getSelectedTenant();
 
   const load = useCallback(async () => {
@@ -56,9 +78,9 @@ export default function TenantsPage() {
 
   const stats = useMemo(() => ({
     total: tenants.length,
-    active: tenants.filter((t) => t.active).length,
-    inactive: tenants.filter((t) => !t.active).length,
-    users: tenants.reduce((sum, t) => sum + (t.userCount ?? 0), 0),
+    active: tenants.filter((t) => tenantStatusOf(t) === "ACTIVE").length,
+    suspended: tenants.filter((t) => tenantStatusOf(t) === "SUSPENDED").length,
+    inactive: tenants.filter((t) => tenantStatusOf(t) === "INACTIVE").length,
   }), [tenants]);
 
   const toggle = (list: AppModule[], module: AppModule) =>
@@ -91,15 +113,29 @@ export default function TenantsPage() {
     }
   };
 
-  const setActive = async (t: TenantAccess) => {
-    const verb = t.active ? "Deactivate" : "Activate";
-    if (!window.confirm(`${verb} ${t.tenantName}?${t.active ? " None of its users will be able to sign in." : ""}`)) return;
+  const openStatus = (t: TenantAccess) => {
+    setStatusFor(t);
+    // Offer the likely next step: suspend an active company, reactivate a stopped one
+    setNextStatus(tenantStatusOf(t) === "ACTIVE" ? "SUSPENDED" : "ACTIVE");
+    setReason("");
+  };
+
+  const saveStatus = async () => {
+    if (!statusFor) return;
+    if (nextStatus !== "ACTIVE" && !reason.trim()) {
+      ToasterService.error(`Give the reason for ${nextStatus === "SUSPENDED" ? "suspending" : "deactivating"} ${statusFor.tenantName}.`);
+      return;
+    }
+    setSaving(true);
     try {
-      await platformApi.setActive(t.tenantId, !t.active);
-      ToasterService.success(`${t.tenantName} ${t.active ? "deactivated" : "activated"}.`);
+      await platformApi.setStatus(statusFor.tenantId, nextStatus, reason.trim());
+      ToasterService.success(`${statusFor.tenantName} is now ${STATUS[nextStatus].label.toLowerCase()}.`);
+      setStatusFor(null);
       load();
     } catch (e) {
-      ToasterService.error(message(e, `Could not ${verb.toLowerCase()} the tenant.`));
+      ToasterService.error(message(e, "Could not change the status."));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -213,12 +249,21 @@ export default function TenantsPage() {
     },
     { key: "userCount", label: "Users", sortable: true },
     {
-      key: "active", label: "Status", sortable: true, sortValueGetter: (t) => (t.active ? "Active" : "Inactive"),
-      render: (t) => (
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${t.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-          {t.active ? "Active" : "Inactive"}
-        </span>
-      ),
+      key: "status", label: "Status", sortable: true, sortValueGetter: (t) => STATUS[tenantStatusOf(t)].label,
+      render: (t) => {
+        const status = STATUS[tenantStatusOf(t)];
+        return (
+          <div className="max-w-[14rem]">
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.chip}`}>{status.label}</span>
+            {t.statusReason && (
+              <span className="mt-1 block truncate text-[11px] text-slate-500 dark:text-gray-400" title={t.statusReason}>
+                {t.statusReason}
+              </span>
+            )}
+            {t.statusChangedAt && <span className="block text-[10px] text-slate-400">since {changedOn(t.statusChangedAt)}</span>}
+          </div>
+        );
+      },
     },
     {
       key: "actions", label: "Actions",
@@ -229,8 +274,8 @@ export default function TenantsPage() {
             disabled={selected === t.tenantId || !t.active} onClick={() => workIn(t.tenantId)}>
             <LogIn className="h-4 w-4" />
           </button>
-          <button type="button" title={t.active ? "Deactivate" : "Activate"} className={t.active ? ROW_ICON_BUTTON_DANGER : ROW_ICON_BUTTON}
-            onClick={() => setActive(t)}>
+          <button type="button" title="Change status (suspend, close or reactivate)" className={t.active ? ROW_ICON_BUTTON_DANGER : ROW_ICON_BUTTON}
+            onClick={() => openStatus(t)}>
             <Power className="h-4 w-4" />
           </button>
         </div>
@@ -247,8 +292,8 @@ export default function TenantsPage() {
         <div className={STATS_ROW}>
           <StatsCard label="Tenants" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Building2 />} loading={loading} />
           <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircle2 />} loading={loading} />
+          <StatsCard label="Suspended" value={stats.suspended} gradient="from-amber-50 to-orange-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<PauseCircle />} loading={loading} />
           <StatsCard label="Inactive" value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<PowerOff />} loading={loading} />
-          <StatsCard label="Users" value={stats.users} gradient="from-purple-50 to-indigo-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<Users />} loading={loading} />
         </div>
 
         <div className="mb-3 text-xs text-slate-600 dark:text-gray-300">
@@ -292,6 +337,44 @@ export default function TenantsPage() {
             <div className="flex justify-end gap-2">
               <button type="button" className={SECONDARY_BUTTON} onClick={() => setEditing(null)}>Cancel</button>
               <button type="button" className={PRIMARY_BUTTON} disabled={saving} onClick={saveEdit}>{saving ? "Saving..." : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className={`${CARD} w-full max-w-lg space-y-4 p-5`} role="dialog" aria-labelledby="tenant-status-title">
+            <div className="flex items-center justify-between">
+              <h3 id="tenant-status-title" className="text-sm font-semibold text-slate-900 dark:text-white">Status of {statusFor.tenantName}</h3>
+              <button type="button" onClick={() => setStatusFor(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-gray-300">
+              Now <b>{STATUS[tenantStatusOf(statusFor)].label}</b>
+              {statusFor.statusChangedAt && <> since {changedOn(statusFor.statusChangedAt)}</>}
+              {statusFor.statusReason && <>: {statusFor.statusReason}</>}
+            </p>
+            <div>
+              <label className={LABEL} htmlFor="tenant-status">New status</label>
+              <select id="tenant-status" className={INPUT} value={nextStatus} onChange={(e) => setNextStatus(e.target.value as TenantStatus)}>
+                {(Object.keys(STATUS) as TenantStatus[]).map((s) => <option key={s} value={s}>{STATUS[s].label}</option>)}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{STATUS[nextStatus].effect}</p>
+            </div>
+            <div>
+              <label className={LABEL} htmlFor="tenant-status-reason">
+                {nextStatus === "ACTIVE" ? "Note (optional)" : "Reason *"}
+              </label>
+              <textarea id="tenant-status-reason" className={INPUT} rows={3} maxLength={500} value={reason}
+                placeholder={nextStatus === "ACTIVE" ? "e.g. Payment received" : nextStatus === "SUSPENDED" ? "e.g. Subscription unpaid since 1 Oct" : "e.g. Customer cancelled the contract"}
+                onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => setStatusFor(null)}>Cancel</button>
+              <button type="button" className={PRIMARY_BUTTON} disabled={saving || (nextStatus === "ACTIVE" && tenantStatusOf(statusFor) === "ACTIVE")}
+                onClick={saveStatus}>
+                {saving ? "Saving..." : nextStatus === "ACTIVE" ? "Make active" : nextStatus === "SUSPENDED" ? "Suspend" : "Deactivate"}
+              </button>
             </div>
           </div>
         </div>

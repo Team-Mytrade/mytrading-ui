@@ -12,6 +12,7 @@ import {
   CHART_TOOLTIP, EmptyState, KpiCard, toneCard, toneIcon, toneLink, type Tone, LoadNotice, Panel, formatMoney, formatNumber, getList, monthKeyOf, monthsBack,
   mostCommon, sourcesForModules, sum, useDashboardSources,
 } from "./dashboardKit";
+import { companyCurrency } from "../../company/format";
 
 // One page across the modules: headline figures and a way into every detailed report.
 
@@ -67,7 +68,7 @@ export default function ReportsDashboard() {
   const orders = ((data.orders as PurchaseOrder[] | undefined) ?? []).filter((o) => o.status !== "CANCELLED");
   const stock = (data.stock as StockLevel[] | undefined) ?? [];
   const products = (data.products as Product[] | undefined) ?? [];
-  const currency = mostCommon(orders.map((o) => o.currency), "INR");
+  const currency = mostCommon(orders.map((o) => o.currency), companyCurrency());
 
   const stockValue = useMemo(() => {
     const cost = new Map(products.map((p) => [p.id, p.standardCost]));

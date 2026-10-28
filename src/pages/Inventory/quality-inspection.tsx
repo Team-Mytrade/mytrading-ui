@@ -28,6 +28,7 @@ import {
 import { AuthContext } from "../../context/AuthContext";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate } from "../../company/format";
 
 interface Product { id: number; productName: string; sku?: string; code?: string; }
 type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
@@ -363,7 +364,7 @@ const QualityInspectionManager: React.FC = () => {
       render: (record) => (
         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <CalendarIcon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
-          <span className="font-medium">{new Date(record.inspectionDate).toLocaleDateString()}</span>
+          <span className="font-medium">{formatDate(record.inspectionDate)}</span>
         </div>
       ),
     },
@@ -471,7 +472,7 @@ const QualityInspectionManager: React.FC = () => {
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Inspection Date</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{new Date(selectedRecord.inspectionDate).toLocaleDateString()}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatDate(selectedRecord.inspectionDate)}</div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Inspection Type</div>

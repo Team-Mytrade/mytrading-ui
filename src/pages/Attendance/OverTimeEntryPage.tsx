@@ -30,6 +30,7 @@ import PaginatedPopup from "../../components/common/unpopup";
 import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate } from "../../company/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -445,7 +446,7 @@ const OverTimeEntryPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm font-medium text-gray-900">
-            {v ? new Date(String(v)).toLocaleDateString() : "—"}
+            {v ? formatDate(String(v)) : "—"}
           </span>
         </div>
       ),
@@ -840,7 +841,7 @@ const OverTimeEntryPage: React.FC = () => {
                         {actionType === "APPROVE" ? "Approve Overtime Entry" : "Reject Overtime Entry"}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
-                        {selectedEntry && `${actionType === "APPROVE" ? "Approving" : "Rejecting"} overtime entry for ${selectedEntry.employeeName} on ${new Date(selectedEntry.date).toLocaleDateString()}`}
+                        {selectedEntry && `${actionType === "APPROVE" ? "Approving" : "Rejecting"} overtime entry for ${selectedEntry.employeeName} on ${formatDate(selectedEntry.date)}`}
                       </p>
                       <div className="mt-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">

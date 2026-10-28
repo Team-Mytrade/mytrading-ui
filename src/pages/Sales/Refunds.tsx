@@ -23,6 +23,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatAmount, formatDateTime } from "../../company/format";
 
 type Refund = {
   id: number;
@@ -132,7 +133,7 @@ function toLocalDateTimeValue(date: Date | null) {
 }
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 const Refunds: React.FC = () => {
@@ -380,7 +381,7 @@ const Refunds: React.FC = () => {
       key: "refundDate",
       label: "Refund Date",
       sortable: true,
-      render: (refund) => (refund.refundDate ? new Date(refund.refundDate).toLocaleString() : "--"),
+      render: (refund) => (refund.refundDate ? formatDateTime(refund.refundDate) : "--"),
     },
     {
       key: "status",

@@ -31,6 +31,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate } from "../../company/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -431,7 +432,7 @@ const AttendanceViolationPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm font-medium text-gray-900">
-            {v ? new Date(String(v)).toLocaleDateString() : "—"}
+            {v ? formatDate(String(v)) : "—"}
           </span>
         </div>
       ),

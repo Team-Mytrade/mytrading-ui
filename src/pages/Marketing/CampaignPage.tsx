@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatMoney } from "../../company/format";
 
 interface Campaign {
   id: number;
@@ -193,7 +194,7 @@ const CampaignPage: React.FC = () => {
                     {c.startDate} → {c.endDate}
                   </td>
                   <td className="px-4 py-2">{c.audience}</td>
-                  <td className="px-4 py-2">${c.budget.toLocaleString()}</td>
+                  <td className="px-4 py-2">{formatMoney(c.budget)}</td>
                   <td className="px-4 py-2">{c.notes}</td>
                   <td className="px-4 py-2 flex gap-2 text-sm">
                     <button

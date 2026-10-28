@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatMoney } from "../../company/format";
 
 interface Opportunity {
   id: number;
@@ -111,7 +112,7 @@ const SalesPipeline: React.FC = () => {
               >
                 <div className="font-medium text-gray-800 dark:text-white">{deal.title}</div>
                 <div className="text-gray-500">{deal.account}</div>
-                <div className="text-gray-600 font-semibold">${deal.amount.toLocaleString()}</div>
+                <div className="text-gray-600 font-semibold">{formatMoney(deal.amount)}</div>
               </div>
             ))}
           </div>

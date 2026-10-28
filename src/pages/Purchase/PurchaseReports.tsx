@@ -21,6 +21,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
+import { formatMoney, formatDate as companyFormatDate, formatMonth } from "../../company/format";
 
 type TurnaroundRow = {
   id?: number;
@@ -51,19 +52,11 @@ type MonthlySpendRow = {
   monthRank: number;
 };
 
-const money = (value: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  }).format(Number(value || 0));
+const money = (value: number) => formatMoney(value);
 
 /** "2026-10" → "Oct 2026" (the server sends the last 12 months, oldest first); other keys are shown as they are. */
 function monthLabel(key: string) {
-  const match = /^(\d{4})-(\d{2})$/.exec(String(key || ""));
-  if (!match) return key;
-  return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+  return /^\d{4}-\d{2}$/.test(String(key || "")) ? formatMonth(key) : key;
 }
 
 const monthRanks: Record<string, number> = {
@@ -106,14 +99,7 @@ function getMonthRank(value: string) {
 }
 
 function formatDate(value: string) {
-  if (!value) return "--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return companyFormatDate(value, "--");
 }
 
 function formatTooltipValue(value: unknown) {

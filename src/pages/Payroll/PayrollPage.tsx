@@ -44,6 +44,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
+import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
@@ -183,7 +184,7 @@ const PayrollPage: React.FC = () => {
                 const deductions = s.totalDeductions || 0;
                 const isProc = !!s.processedDate || Boolean(s.isProcessed);
                 const procDateStr = s.processedDate
-                    ? new Date(s.processedDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    ? formatDate(s.processedDate)
                     : "Pending Processing";
 
                 // Enumerable properties visible in Table & drawer:
@@ -215,7 +216,7 @@ const PayrollPage: React.FC = () => {
                     id: { value: s.employeeSalaryId ?? `row-${index}`, enumerable: false, writable: true },
                     payslipGenerated: { value: Boolean(s.payslipGenerated), enumerable: false, writable: true },
                     isProcessed: { value: isProc, enumerable: false, writable: true },
-                    currency: { value: s.currency || 'INR', enumerable: false, writable: true },
+                    currency: { value: s.currency || companyCurrency(), enumerable: false, writable: true },
                     totalEarnings: { value: s.totalEarnings || gross, enumerable: false, writable: true },
                     employee: { value: emp, enumerable: false, writable: true },
                     rawEmployee: { value: emp, enumerable: false, writable: true },
@@ -366,7 +367,7 @@ const PayrollPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Payroll Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Records: ${filtered.length}`, 14, 28);
 
         autoTable(doc, {
@@ -374,8 +375,8 @@ const PayrollPage: React.FC = () => {
             body: filtered.map(s => [
                 s.employee ? `${s.employee.firstName} ${s.employee.lastName}` : "N/A",
                 s.month,
-                `₹${s.grossSalary.toLocaleString()}`,
-                `₹${s.netSalary.toLocaleString()}`,
+                formatMoney(s.grossSalary),
+                formatMoney(s.netSalary),
                 s.isProcessed ? "Processed" : "Draft"
             ]),
             startY: 35,
@@ -403,7 +404,7 @@ const PayrollPage: React.FC = () => {
             'Total Deductions': s.totalDeductions,
             'Net Salary': s.netSalary,
             'Status': s.isProcessed ? "Processed" : "Draft",
-            'Processed Date': s.processedDate ? new Date(s.processedDate).toLocaleDateString() : "N/A",
+            'Processed Date': s.processedDate ? formatDate(s.processedDate) : "N/A",
             'Payment Mode': s.paymentMode || "N/A",
         })));
         const wb = XLSX.utils.book_new();
@@ -472,13 +473,13 @@ const PayrollPage: React.FC = () => {
             key: "grossSalary",
             label: "Gross Salary",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono">₹{row.grossSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono">{formatMoney(row.grossSalary)}</span>
         },
         {
             key: "netSalary",
             label: "Net Payable",
             sortable: true,
-            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono">₹{row.netSalary.toLocaleString()}</span>
+            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono">{formatMoney(row.netSalary)}</span>
         },
         {
             key: "status",
@@ -641,7 +642,7 @@ const PayrollPage: React.FC = () => {
                     <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
                     <StatsCard label="Processed" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
                     <StatsCard label="Draft" value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
-                    <StatsCard label="Total Disbursement" value={"Rs " + (totalDisbursement / 100000).toFixed(1) + "L"} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchAll} />
+                    <StatsCard label="Total Disbursement" value={formatMoney(totalDisbursement, { compact: true })} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchAll} />
                 </div>
 
                 {/* Table */}

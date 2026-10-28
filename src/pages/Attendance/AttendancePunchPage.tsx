@@ -12,6 +12,7 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
+import { formatTime } from "../../company/format";
 
 const CHECK_IN_URL = '/v1/api/attendance/records/check-in';
 const CHECK_OUT_URL = '/v1/api/attendance/records/check-out';
@@ -160,7 +161,7 @@ const AttendancePunchPage: React.FC = () => {
           type: punch.type === 'OUT' || punch.type === 'CHECK_OUT' ? 'CHECK_OUT' : 'CHECK_IN',
           employeeId: record.employeeId,
           employeeName: record.employeeName || currentUser.name,
-          timestamp: punch.time ? new Date(punch.time).toLocaleTimeString() : '—',
+          timestamp: punch.time ? formatTime(punch.time) : '—',
           attendanceSource: punch.source || '—',
           attendanceMode: punch.mode || record.attendanceMode || '—',
           deviceId: '—',

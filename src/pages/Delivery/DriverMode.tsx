@@ -20,6 +20,7 @@ import PageMeta from "../../components/common/PageMeta";
 import { AuthContext } from "../../context/AuthContext";
 import { DeliveryOrder, DeliveryStatus, StatusBadge, apiError, formatDateTime } from "./deliveryShared";
 import { DRIVER_API, DriverVehicle, LocationPoint, Trip, directionsUrl, timeAgo } from "./trackingApi";
+import { formatTime, formatDateTime as companyFormatDateTime } from "../../company/format";
 
 // Driver Mode: the driver's phone shares the vehicle's location during a trip and updates deliveries.
 // Browsers only give GPS to HTTPS pages (or localhost) and pause it when the page is in the background,
@@ -431,7 +432,7 @@ const DriverMode: React.FC = () => {
                   <TruckIcon className="h-5 w-5 text-cyan-600" />
                   {trip.vehiclePlate}
                 </p>
-                <p className="text-xs text-slate-500">Since {new Date(trip.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                <p className="text-xs text-slate-500">Since {formatTime(trip.startedAt)}</p>
               </div>
               <span
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -618,7 +619,7 @@ const DeliveryCard: React.FC<{
         <div className="min-w-0">
           <p className="truncate text-base font-semibold">{order.customerName || `Customer #${order.customerId}`}</p>
           <p className="text-xs text-slate-500">
-            {order.deliveryOrderNumber} · due {new Date(order.deliveryDate).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+            {order.deliveryOrderNumber} · due {companyFormatDateTime(order.deliveryDate)}
           </p>
         </div>
         <StatusBadge status={order.status} />

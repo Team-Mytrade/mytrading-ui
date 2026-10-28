@@ -20,6 +20,7 @@ import { PAGE_BODY, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
+import { formatMoney } from "../../company/format";
 
 const SALARY_API = "/v1/api/payroll/employee-salaries";
 
@@ -249,7 +250,7 @@ const EmployeeSalaryPage: React.FC = () => {
     const yearlyPayroll = filteredSalaries.reduce((sum, s) => sum + (s?.grossSalary || 0), 0);
     const monthlyPayroll = yearlyPayroll / 12;
     const averageMonthly = filteredSalaries.length > 0 ? monthlyPayroll / filteredSalaries.length : 0;
-    const lakhs = (value: number) => "Rs " + (value / 100000).toFixed(2) + "L";
+    const lakhs = (value: number) => formatMoney(value, { compact: true });
 
     // Get unique employees for filter
     const uniqueEmployees = [...new Map(salaries.map(s => [s.employeeId, { id: s.employeeId, name: s.employeeName, code: s.employeeCode }])).values()];
@@ -297,19 +298,19 @@ const EmployeeSalaryPage: React.FC = () => {
             key: "basic",
             label: "Basic (yearly)",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">₹{row.basic.toLocaleString("en-IN")}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">{formatMoney(row.basic)}</span>
         },
         {
             key: "grossSalary",
             label: "Yearly Gross",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">₹{row.grossSalary.toLocaleString("en-IN")}</span>
+            render: (row) => <span className="text-xs text-gray-900 dark:text-gray-300 font-mono whitespace-nowrap">{formatMoney(row.grossSalary)}</span>
         },
         {
             key: "monthlyGross",
             label: "Monthly Gross",
             sortable: true,
-            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono whitespace-nowrap">₹{row.monthlyGross.toLocaleString("en-IN")}</span>
+            render: (row) => <span className="text-xs font-bold text-cyan-600 dark:text-gray-200 font-mono whitespace-nowrap">{formatMoney(row.monthlyGross)}</span>
         }
     ];
 
@@ -331,7 +332,7 @@ const EmployeeSalaryPage: React.FC = () => {
                     <StatsCard label="Employees" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
                     <StatsCard label="Yearly Gross Payroll" value={lakhs(yearlyPayroll)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label="Monthly Gross Payroll" value={lakhs(monthlyPayroll)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                    <StatsCard label="Average Monthly Gross" value={"Rs " + Math.round(averageMonthly).toLocaleString("en-IN")} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
+                    <StatsCard label="Average Monthly Gross" value={formatMoney(averageMonthly, { whole: true })} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Table */}

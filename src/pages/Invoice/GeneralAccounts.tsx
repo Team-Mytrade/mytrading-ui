@@ -14,14 +14,13 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { ACCOUNT_TYPE_OPTIONS, GeneralAccount, INVOICE_API, apiError, isDebitNormal, labelOf, money } from "./invoiceShared";
 import { DialogFooter, StatusBadge } from "./invoiceUi";
+import { companyCurrency, currencyChoices } from "../../company/format";
 
 const API_URL = `${INVOICE_API}/general-accounts`;
 const PAGE_SIZE = 15;
 
 // The invoice service's Currency enum
-const CURRENCY_OPTIONS = ["INR", "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "CNY", "JPY", "SGD", "NZD", "SEK", "NOK", "DKK", "PLN", "TRY", "ZAR", "BRL", "MXN", "KRW", "RUB"].map(
-  (id) => ({ id, name: id })
-);
+const currencyOptions = (stored?: string) => currencyChoices(stored).map((id) => ({ id, name: id }));
 
 const TYPE_TONES: Record<string, string> = {
   ASSET: "bg-blue-50 text-blue-700 border-blue-200/60",
@@ -56,7 +55,7 @@ const emptyForm = () => ({
   accountCode: "",
   accountName: "",
   accountType: "",
-  currency: "INR",
+  currency: companyCurrency(),
   openingBalance: "",
   description: "",
   isActive: true,
@@ -114,7 +113,7 @@ const GeneralAccounts: React.FC = () => {
       accountCode: account.accountCode ?? "",
       accountName: account.accountName ?? "",
       accountType: account.accountType ?? "",
-      currency: account.currency || "INR",
+      currency: account.currency || companyCurrency(),
       openingBalance: account.openingBalance != null ? String(account.openingBalance) : "",
       description: account.description ?? "",
       isActive: account.isActive !== false,
@@ -180,7 +179,7 @@ const GeneralAccounts: React.FC = () => {
     try {
       for (const [accountCode, accountName, accountType] of STARTER_ACCOUNTS) {
         if (existing.has(accountCode)) continue;
-        await axios.post(API_URL, { accountCode, accountName, accountType, currency: "INR", openingBalance: 0, isActive: true, allowTransactions: true });
+        await axios.post(API_URL, { accountCode, accountName, accountType, currency: companyCurrency(), openingBalance: 0, isActive: true, allowTransactions: true });
         added++;
       }
       ToasterService.success(`${added} accounts added`);
@@ -345,7 +344,7 @@ const GeneralAccounts: React.FC = () => {
                 onChange={(event) => setForm((current) => ({ ...current, accountName: event.target.value }))} />
               <FloatingSelect1 label="Type" name="accountType" required value={form.accountType} options={ACCOUNT_TYPE_OPTIONS}
                 onChange={(event) => setForm((current) => ({ ...current, accountType: event.target.value }))} />
-              <FloatingSelect1 label="Currency" name="currency" value={form.currency} options={CURRENCY_OPTIONS}
+              <FloatingSelect1 label="Currency" name="currency" value={form.currency} options={currencyOptions(form.currency)}
                 onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} />
               <FloatingInput label="Opening balance" name="openingBalance" type="number" value={form.openingBalance}
                 onChange={(event) => setForm((current) => ({ ...current, openingBalance: event.target.value }))} />

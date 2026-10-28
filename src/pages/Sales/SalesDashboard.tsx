@@ -31,6 +31,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { DASH_CARD, DASH_TITLE, toneCard, toneIcon, type Tone } from "../Dashboard/dashboardKit";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
+import { formatAmount, formatNumber } from "../../company/format";
 
 type SalesReport = {
   totalSales: number;
@@ -79,7 +80,7 @@ const moduleGridClasses: Record<string, string> = {
 const chartColors = ["#06b6d4", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#6366f1"];
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 function formatMonthLabel(raw: string): string {
@@ -198,7 +199,7 @@ const SalesDashboard: React.FC = () => {
     },
     {
       label: "Total Orders",
-      value: Number(report.totalOrders || 0).toLocaleString(),
+      value: formatNumber(Number(report.totalOrders || 0)),
       icon: ShoppingCart,
       color: "emerald",
       sub: avgOrderValue !== null ? `Avg ${money(avgOrderValue)} / order` : undefined,
@@ -206,7 +207,7 @@ const SalesDashboard: React.FC = () => {
     },
     {
       label: "Total Customers",
-      value: Number(report.totalCustomers || 0).toLocaleString(),
+      value: formatNumber(Number(report.totalCustomers || 0)),
       icon: Users,
       color: "purple",
       sub: avgOrdersPerCustomer !== null ? `${avgOrdersPerCustomer.toFixed(1)} orders / customer` : undefined,
@@ -214,7 +215,7 @@ const SalesDashboard: React.FC = () => {
     },
     {
       label: "Top Products",
-      value: Number(report.topProducts?.length || 0).toLocaleString(),
+      value: formatNumber(Number(report.topProducts?.length || 0)),
       icon: Package,
       color: "orange",
       sub: topProductName ? `#1: ${topProductName}` : undefined,

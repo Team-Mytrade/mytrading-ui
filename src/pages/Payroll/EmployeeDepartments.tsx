@@ -30,6 +30,7 @@ import { apiError } from "../../utils/apiError";
 import PaginatedPopup from "../../components/common/unpopup";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from "./hrmsUi";
+import { formatDate as companyFormatDate } from "../../company/format";
 
 const API_URL = "/v1/api/payroll/department";
 
@@ -164,7 +165,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
       const formatDate = (dStr?: string) => {
         if (!dStr) return "-";
         const d = new Date(dStr);
-        return isNaN(d.getTime()) ? dStr : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        return isNaN(d.getTime()) ? dStr : companyFormatDate(d);
       };
 
       const createdDateStr = formatDate(dept.createdDate);

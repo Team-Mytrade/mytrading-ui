@@ -35,13 +35,14 @@ import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
 import QuotationItemsEditor, {
   blankLine,
-  formatRupees,
+  formatPrice,
   lineAmounts,
   lineError,
   QuotationLine,
   QuotationProduct,
   quotationTotals,
 } from "./QuotationItemsEditor";
+import { formatAmount, formatDate, companyCurrency } from "../../company/format";
 
 type Address = {
   id: number;
@@ -268,7 +269,9 @@ const emptyForm: QuotationForm = {
   customerCode: "",
   quotationType: "PRODUCT",
   validUntil: defaultValidUntil(),
-  currencyCode: "INR",
+  get currencyCode() {
+    return companyCurrency();
+  },
   customerReference: "",
   customerReferenceDate: "",
   paymentTerms: "",
@@ -321,17 +324,13 @@ function toNumber(value: string | number | undefined | null) {
 }
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 const formatPdfDate = (value?: string) => {
   if (!value) return "--";
   const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return Number.isNaN(date.getTime()) ? value : formatDate(date);
 };
 
 const quotationItemAmount = (item: QuotationItemPayload) => {
@@ -356,7 +355,7 @@ const createQuotationPdfUrl = async (
   const reportWidth = doc.internal.pageSize.getWidth();
   const reportHeight = doc.internal.pageSize.getHeight();
   const reportMargin = 14;
-  const reportCurrency = quotation.currencyCode || "INR";
+  const reportCurrency = quotation.currencyCode || companyCurrency();
   const reportTotals = calculateQuotationTotals(quotation.items || []);
   const apiHasTotals = [quotation.subTotal, quotation.discountAmount, quotation.additionalDiscount, quotation.taxAmount, quotation.grandTotal]
     .some((value) => Number(value || 0) !== 0);
@@ -660,7 +659,7 @@ const Quotations: React.FC = () => {
 
         next.customerName = customer?.customerName || "";
         next.customerCode = customer?.customerCode || "";
-        next.currencyCode = customer?.currencyCode || current.currencyCode || "INR";
+        next.currencyCode = customer?.currencyCode || current.currencyCode || companyCurrency();
         next.billingAddressLine1 = billingAddress?.addressLine1 || "";
         next.billingAddressLine2 = billingAddress?.addressLine2 || "";
         next.billingStreet = billingAddress?.street || "";
@@ -722,7 +721,7 @@ const Quotations: React.FC = () => {
   };
 
   const buildPayload = () => {
-    const totals = quotationTotals(lines, toNumber(form.quotationAdditionalDiscount));
+    const totals = quotationTotals(lines, toNumber(form.quotationAdditionalDiscount), form.currencyCode);
 
     return {
       id: editingId || 0,
@@ -758,7 +757,7 @@ const Quotations: React.FC = () => {
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         discountPercentage: line.discountPercentage,
-        discountAmount: lineAmounts(line).discount,
+        discountAmount: lineAmounts(line, form.currencyCode).discount,
         taxRate: line.taxRate,
         taxCode: line.taxCode,
         remarks: line.remarks,
@@ -865,7 +864,7 @@ const Quotations: React.FC = () => {
         customerCode: customer?.customerCode || full.billingAddress?.customerCode || "",
         quotationType: full.quotationType || "PRODUCT",
         validUntil: full.validUntil || today,
-        currencyCode: full.currencyCode || "INR",
+        currencyCode: full.currencyCode || companyCurrency(),
         customerReference: full.customerReference || "",
         customerReferenceDate: full.customerReferenceDate || "",
         paymentTerms: full.paymentTerms || "",
@@ -1174,7 +1173,7 @@ const Quotations: React.FC = () => {
       headerClassName: "text-right",
       render: (quotation) => (
         <span className="font-semibold text-slate-900 dark:text-white">
-          {formatRupees(Number(quotation.grandTotal || 0))}
+          {formatPrice(Number(quotation.grandTotal || 0), quotation.currencyCode)}
         </span>
       ),
     },
@@ -1399,6 +1398,7 @@ const Quotations: React.FC = () => {
           <h3 className={sectionTitle}>Items</h3>
           <div className="mb-5 md:col-span-2">
             <QuotationItemsEditor
+              currency={form.currencyCode}
               lines={lines}
               onChange={setLines}
               products={activeProducts}

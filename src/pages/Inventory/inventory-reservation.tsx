@@ -28,6 +28,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate } from "../../company/format";
 
 /**
  * =====================================================================================
@@ -1008,7 +1009,7 @@ const InventoryReservationManager: React.FC = () => {
               {
                 header: "Reservation Date",
                 accessor: (row) =>
-                  row.reservationDate ? new Date(row.reservationDate).toLocaleDateString() : "-",
+                  row.reservationDate ? formatDate(row.reservationDate) : "-",
               },
             ]}
             metadata={(rows) => [

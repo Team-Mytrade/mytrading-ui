@@ -6,10 +6,9 @@ import {
   XMarkIcon,
   UserIcon,
   CalendarIcon,
-  CurrencyRupeeIcon,
+  BanknotesIcon,
   PlusCircleIcon,
   MinusCircleIcon,
-  BanknotesIcon,
   HashtagIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -22,6 +21,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 import { usePermissions } from "../../access/usePermissions";
+import { formatMoney, formatNumber, companyCurrency } from "../../company/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ const calcTotals = (record: PayrollRecord): PayrollRecord => {
   return { ...record, totalEarnings: earnings, totalDeductions: deductions, netPay: record.baseSalary + earnings - deductions };
 };
 
-const fmt = (n: number) => `₹${n.toLocaleString()}`;
+const fmt = (n: number) => formatMoney(n);
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -197,8 +197,8 @@ const PayrollRecordPage: React.FC = () => {
       key: "baseSalary", label: "Base Salary", sortable: true,
       render: (_, v) => (
         <div className="flex items-center gap-1">
-          <CurrencyRupeeIcon className="h-3.5 w-3.5 text-gray-400" />
-          <span className="text-sm text-gray-700">{Number(v).toLocaleString()}</span>
+          <BanknotesIcon className="h-3.5 w-3.5 text-gray-400" />
+          <span className="text-sm text-gray-700">{formatNumber(Number(v))}</span>
         </div>
       ),
     },
@@ -206,7 +206,7 @@ const PayrollRecordPage: React.FC = () => {
       key: "totalEarnings", label: "Earnings", sortable: true,
       render: (_, v) => (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-          <PlusCircleIcon className="h-3 w-3" />{Number(v).toLocaleString()}
+          <PlusCircleIcon className="h-3 w-3" />{formatNumber(Number(v))}
         </span>
       ),
     },
@@ -214,7 +214,7 @@ const PayrollRecordPage: React.FC = () => {
       key: "totalDeductions", label: "Deductions", sortable: true,
       render: (_, v) => (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-          <MinusCircleIcon className="h-3 w-3" />{Number(v).toLocaleString()}
+          <MinusCircleIcon className="h-3 w-3" />{formatNumber(Number(v))}
         </span>
       ),
     },
@@ -222,7 +222,7 @@ const PayrollRecordPage: React.FC = () => {
       key: "netPay", label: "Net Pay", sortable: true,
       render: (_, v) => (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-          <CurrencyRupeeIcon className="h-3 w-3" />{Number(v).toLocaleString()}
+          {formatMoney(Number(v))}
         </span>
       ),
     },
@@ -314,7 +314,7 @@ const PayrollRecordPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Base Salary (₹) <span className="text-red-500">*</span>
+                    Base Salary ({companyCurrency()}) <span className="text-red-500">*</span>
                   </label>
                   <input type="number" min={0} value={form.baseSalary} required
                     onChange={e => setForm(calcTotals({ ...form, baseSalary: Number(e.target.value) }))}

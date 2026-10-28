@@ -48,6 +48,7 @@ import {
   toDateTimeInput,
   toLocalDateTime,
 } from "./crmShared";
+import { formatDate as companyFormatDate, formatDateTime } from "../../company/format";
 
 const API_BASE = "/v1/api/crm/activities";
 const LEADS_API = "/v1/api/crm/leads";
@@ -346,13 +347,7 @@ const Tasks: React.FC = () => {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not set";
-    return new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatDateTime(dateString);
   };
 
   const filteredContacts = useMemo(() => {
@@ -431,11 +426,7 @@ const Tasks: React.FC = () => {
         <div className="flex items-center text-xs text-gray-600">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {a.scheduledTime
-            ? new Date(a.scheduledTime).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "numeric",
-                day: "numeric",
-              })
+            ? companyFormatDate(a.scheduledTime)
             : "-"}
         </div>
       ),

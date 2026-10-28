@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { formatNumber, formatDate } from "../../company/format";
 
 interface Campaign {
   id: number;
@@ -167,12 +168,12 @@ const CampaignReports: React.FC = () => {
                 <tr key={c.id} className="border-t hover:bg-gray-50 dark:hover:bg-meta-3 cursor-pointer">
                   <td className="px-4 py-2">{c.name}</td>
                   <td className="px-4 py-2">{c.type}</td>
-                  <td className="px-4 py-2 text-right">{c.sent.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">{c.opened.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">{c.clicked.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">{c.bounced.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">{c.unsubscribed.toLocaleString()}</td>
-                  <td className="px-4 py-2">{new Date(c.date).toLocaleDateString()}</td>
+                  <td className="px-4 py-2 text-right">{formatNumber(c.sent)}</td>
+                  <td className="px-4 py-2 text-right">{formatNumber(c.opened)}</td>
+                  <td className="px-4 py-2 text-right">{formatNumber(c.clicked)}</td>
+                  <td className="px-4 py-2 text-right">{formatNumber(c.bounced)}</td>
+                  <td className="px-4 py-2 text-right">{formatNumber(c.unsubscribed)}</td>
+                  <td className="px-4 py-2">{formatDate(c.date)}</td>
                 </tr>
               ))
             )}

@@ -37,6 +37,7 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { Refresh } from '@mui/icons-material';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, formatDateTime } from "../../company/format";
 
 type AttendanceLog = {
     id: number;
@@ -150,7 +151,7 @@ const AttendanceLogsPage: React.FC = () => {
 
     const handleDelete = async (id: number, employeeId: string, date: string) => {
         const ok = await confirm({
-            message: `Are you sure you want to delete attendance record for ${employeeId} on ${new Date(date).toLocaleDateString()}? This action cannot be undone.`,
+            message: `Are you sure you want to delete attendance record for ${employeeId} on ${formatDate(date)}? This action cannot be undone.`,
             confirmLabel: "Delete",
             variant: "danger",
         });
@@ -170,14 +171,14 @@ const AttendanceLogsPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Attendance Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Records: ${filteredLogs.length}`, 14, 28);
 
         autoTable(doc, {
             head: [["Employee ID", "Date", "Check In", "Check Out", "Status", "Source"]],
             body: filteredLogs.map(l => [
                 l.employeeId,
-                new Date(l.date).toLocaleDateString(),
+                formatDate(l.date),
                 l.checkIn,
                 l.checkOut || "-",
                 l.status,
@@ -195,13 +196,13 @@ const AttendanceLogsPage: React.FC = () => {
         const ws = XLSX.utils.json_to_sheet(filteredLogs.map(l => ({
             'Employee ID': l.employeeId,
             'Employee Name': l.employeeName || "",
-            'Date': new Date(l.date).toLocaleDateString(),
+            'Date': formatDate(l.date),
             'Check In': l.checkIn,
             'Check Out': l.checkOut,
             'Status': l.status,
             'Source': l.source || "Manual",
             'Remarks': l.remarks || "",
-            'Created At': l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "",
+            'Created At': l.createdAt ? formatDate(l.createdAt) : "",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Attendance Logs");
@@ -578,7 +579,7 @@ const AttendanceLogsPage: React.FC = () => {
                                             <div className="flex items-center">
                                                 <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
                                                 <span className="text-sm text-gray-900">
-                                                    {new Date(log.date).toLocaleDateString()}
+                                                    {formatDate(log.date)}
                                                 </span>
                                             </div>
                                         </td>
@@ -792,7 +793,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                     )}
                                                     <div>
                                                         <p className="text-xs text-gray-500">Date</p>
-                                                        <p className="text-sm text-gray-700">{new Date(selectedLog.date).toLocaleDateString()}</p>
+                                                        <p className="text-sm text-gray-700">{formatDate(selectedLog.date)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Status</p>
@@ -822,7 +823,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                     {selectedLog.createdAt && (
                                                         <div className="col-span-2">
                                                             <p className="text-xs text-gray-500">Record Created</p>
-                                                            <p className="text-sm text-gray-600">{new Date(selectedLog.createdAt).toLocaleString()}</p>
+                                                            <p className="text-sm text-gray-600">{formatDateTime(selectedLog.createdAt)}</p>
                                                         </div>
                                                     )}
                                                 </div>

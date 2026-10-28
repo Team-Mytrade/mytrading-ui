@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { ChartBarIcon, DocumentArrowDownIcon, BanknotesIcon, UsersIcon, CurrencyRupeeIcon } from "@heroicons/react/24/outline";
+import { ChartBarIcon, DocumentArrowDownIcon, BanknotesIcon, UsersIcon } from "@heroicons/react/24/outline";
 import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ToasterService } from "../../Services/ToasterService";
@@ -9,6 +9,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import StatsCard from "../../components/common/Statscard";
 import { usePermissions } from "../../access/usePermissions";
 import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
+import { formatMoney, formatNumber as companyFormatNumber } from "../../company/format";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -89,13 +90,13 @@ const PayrollSummaryPage: React.FC = () => {
     };
 
     const formatCurrency = (val: any) => {
-        if (val === null || val === undefined || isNaN(val)) return '₹0';
-        return `₹${Number(val).toLocaleString('en-IN')}`;
+        if (val === null || val === undefined || isNaN(val)) return formatMoney(0);
+        return formatMoney(Number(val));
     };
 
     const formatNumber = (val: any) => {
         if (val === null || val === undefined || isNaN(val)) return '0';
-        return Number(val).toLocaleString('en-IN');
+        return companyFormatNumber(Number(val));
     };
 
     return (
@@ -133,7 +134,7 @@ const PayrollSummaryPage: React.FC = () => {
                 ) : (
                     <div className="space-y-4">
                         <div className={STATS_ROW}>
-                            <StatsCard label="Total Gross" value={formatCurrency(overallSalarySummary.totalGrossSalary)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<CurrencyRupeeIcon className="h-5 w-5" />} />
+                            <StatsCard label="Total Gross" value={formatCurrency(overallSalarySummary.totalGrossSalary)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BanknotesIcon className="h-5 w-5" />} />
                             <StatsCard label="Total Net" value={formatCurrency(overallSalarySummary.totalNetSalary)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<BanknotesIcon className="h-5 w-5" />} />
                             <StatsCard label="Total Deductions" value={formatCurrency(overallSalarySummary.totalDeductions)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<ChartBarIcon className="h-5 w-5" />} />
                             <StatsCard label="Employees" value={formatNumber(overallSalarySummary.totalEmployees)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<UsersIcon className="h-5 w-5" />} onRefresh={fetchSummary} />
@@ -155,7 +156,7 @@ const PayrollSummaryPage: React.FC = () => {
                                         >
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" className="dark:stroke-[#2a2a2a]" />
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(val) => `₹${val/1000}k`} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(val) => formatMoney(Number(val), { compact: true })} />
                                             <Tooltip 
                                                 formatter={(value: any) => formatCurrency(value)}
                                                 contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#191919', color: '#fff', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.2)' }}

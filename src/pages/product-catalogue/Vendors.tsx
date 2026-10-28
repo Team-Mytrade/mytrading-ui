@@ -1,10 +1,10 @@
 import PurchaseResourcePage, { PurchaseResourceConfig } from "../Purchase/PurchaseResourcePage";
 import { INDIAN_STATE_OPTIONS, normalizePhone, toStateName, validateVendorForm } from "../../utils/indiaValidators";
+import { companyCurrency, currencyChoices } from "../../company/format";
 
 const VENDORS = "/v1/api/common/vendors";
 
 const PAYMENT_TERMS = ["Due on Receipt", "Advance Payment", "7 Days", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"];
-const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "AUD", "CAD", "SGD", "JPY"];
 
 /** Trimmed string, or null when empty (so the API stores NULL instead of ""). */
 const text = (value: unknown): string | null => {
@@ -85,7 +85,10 @@ const vendorConfig: PurchaseResourceConfig = {
       label: "Currency",
       type: "select",
       placeholderOption: "Select Currency",
-      options: CURRENCIES.map((value) => ({ value, label: value })),
+      // Read when the form opens: the company's currency first
+      get options() {
+        return currencyChoices().map((value) => ({ value, label: value }));
+      },
     },
     {
       name: "paymentTerms", section: "Terms & Tax",
@@ -125,7 +128,7 @@ const vendorConfig: PurchaseResourceConfig = {
     gstNumber: "",
     panNumber: "",
     paymentTerms: "30 Days",
-    currency: "INR",
+    currency: companyCurrency(),
     address: "",
     city: "",
     state: "",

@@ -28,6 +28,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatAmount, companyCurrency } from "../../company/format";
 
 type Address = {
   id: number;
@@ -388,7 +389,9 @@ const emptyForm: OrderForm = {
   salesPersonId: "",
   subject: "",
   email: "",
-  currencyCode: "INR",
+  get currencyCode() {
+    return companyCurrency();
+  },
   subTotal: "0",
   discountAmount: "0",
   additionalDiscount: "0",
@@ -443,7 +446,7 @@ function toNumber(value: string) {
 }
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 function toDateValue(value?: string) {
@@ -849,7 +852,7 @@ const SalesOrders: React.FC = () => {
         const customer = customers.find((item) => String(item.id) === value);
         if (customer) {
           next.email = customer.email || next.email;
-          next.currencyCode = customer.currencyCode || next.currencyCode || "INR";
+          next.currencyCode = customer.currencyCode || next.currencyCode || companyCurrency();
         }
       }
 
@@ -1029,7 +1032,7 @@ const SalesOrders: React.FC = () => {
       salesPersonId: String(order.salesPersonId || ""),
       subject: order.subject || "",
       email: order.email || "",
-      currencyCode: order.currencyCode || "INR",
+      currencyCode: order.currencyCode || companyCurrency(),
       subTotal: String(order.subTotal || 0),
       discountAmount: String(order.discountAmount || 0),
       additionalDiscount: String(order.additionalDiscount || 0),

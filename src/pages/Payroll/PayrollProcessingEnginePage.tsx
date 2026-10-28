@@ -22,6 +22,7 @@ import { usePermissions } from "../../access/usePermissions";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { apiError } from "../../utils/apiError";
+import { formatMoney } from "../../company/format";
 
 export interface UploadedFile {
     fileName: string;
@@ -47,7 +48,7 @@ interface MonthReview {
 type UploadKind = "earnings" | "deductions" | "attendance";
 
 const localMonth = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-const rupees = (value: number | undefined) => `₹${(value ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const rupees = (value: number | undefined) => formatMoney((value ?? 0));
 
 // Saves a downloaded file under the given name
 const saveBlob = (data: BlobPart, fileName: string) => {

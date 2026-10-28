@@ -12,6 +12,7 @@ import { todayIso } from "../../utils/localDate";
 import {
   apiError, CalendarDay, fetchLeaveBalances, fetchMonth, formatDays, freeDays, LeaveBalance, leaveTypeLabel,
 } from "./attendanceApi";
+import { leadingDays, weekdayLabels } from "../../company/format";
 
 const LEAVE_API_URL = "/v1/api/attendance/leave-requests";
 
@@ -185,7 +186,7 @@ const LeaveRequestPage: React.FC = () => {
   };
 
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+  const firstDayOfMonth = (month: number, year: number) => leadingDays(year, month);
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -345,7 +346,7 @@ const LeaveRequestPage: React.FC = () => {
 
                     {/* Weekday Labels */}
                     <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
-                      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                      {weekdayLabels("min").map((d) => <span key={d}>{d}</span>)}
                     </div>
 
                     {/* Dates Grid */}

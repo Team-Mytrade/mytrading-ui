@@ -39,6 +39,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatMoney, formatDate } from "../../company/format";
 
 type Payslip = {
     employeeId: string;
@@ -158,17 +159,17 @@ const PayrollRunsPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Payroll Runs Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Runs: ${filtered.length}`, 14, 28);
         
         autoTable(doc, {
             head: [["Period", "Run Date", "Status", "Employees", "Total Amount"]],
             body: filtered.map(r => [
                 r.period,
-                new Date(r.runDate).toLocaleDateString(),
+                formatDate(r.runDate),
                 r.status,
                 r.totalEmployees.toString(),
-                `₹${r.totalAmount.toLocaleString()}`
+                formatMoney(r.totalAmount)
             ]),
             startY: 35,
             styles: { fontSize: 8 },
@@ -181,11 +182,11 @@ const PayrollRunsPage: React.FC = () => {
     const exportExcel = () => {
         const ws = XLSX.utils.json_to_sheet(filtered.map(r => ({
             'Period': r.period,
-            'Run Date': new Date(r.runDate).toLocaleDateString(),
+            'Run Date': formatDate(r.runDate),
             'Status': r.status,
             'Total Employees': r.totalEmployees,
             'Total Amount': r.totalAmount,
-            'Created At': r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
+            'Created At': r.createdAt ? formatDate(r.createdAt) : "",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Payroll Runs");
@@ -287,7 +288,7 @@ const PayrollRunsPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <StatsCard label="Total Cycles" value={totalRuns} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ClockIcon className="h-6 w-6" />} />
                     <StatsCard label="Employees Processed" value={totalEmployeesProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />
-                    <StatsCard label="Total Amount" value={"Rs " + (totalAmountProcessed / 100000).toFixed(1) + "L"} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
+                    <StatsCard label="Total Amount" value={formatMoney(totalAmountProcessed, { compact: true })} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
                     <StatsCard label="Completed / Pending" value={completedRuns + " / " + pendingRuns} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<ChartBarIcon className="h-6 w-6" />} />
                 </div>
 
@@ -449,14 +450,14 @@ const PayrollRunsPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-600">
-                                                {new Date(run.runDate).toLocaleDateString()}
+                                                {formatDate(run.runDate)}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-sm font-medium text-gray-900">{run.totalEmployees}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-cyan-600">₹{run.totalAmount.toLocaleString()}</span>
+                                            <span className="text-sm font-bold text-cyan-600">{formatMoney(run.totalAmount)}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(run.status)}`}>
@@ -647,7 +648,7 @@ const PayrollRunsPage: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Run Date</p>
-                                                        <p className="text-sm font-medium">{new Date(selectedRun.runDate).toLocaleDateString()}</p>
+                                                        <p className="text-sm font-medium">{formatDate(selectedRun.runDate)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Status</p>
@@ -661,7 +662,7 @@ const PayrollRunsPage: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500">Total Amount</p>
-                                                        <p className="text-sm font-bold text-cyan-600">₹{selectedRun.totalAmount.toLocaleString()}</p>
+                                                        <p className="text-sm font-bold text-cyan-600">{formatMoney(selectedRun.totalAmount)}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -685,10 +686,10 @@ const PayrollRunsPage: React.FC = () => {
                                                                 <tr key={p.employeeId} className="hover:bg-gray-50">
                                                                     <td className="px-4 py-2 text-sm text-gray-900">{p.employeeId}</td>
                                                                     <td className="px-4 py-2 text-sm font-medium text-gray-900">{p.employeeName}</td>
-                                                                    <td className="px-4 py-2 text-sm text-right text-gray-600">₹{p.basicSalary.toLocaleString()}</td>
-                                                                    <td className="px-4 py-2 text-sm text-right text-green-600">+₹{p.allowances.toLocaleString()}</td>
-                                                                    <td className="px-4 py-2 text-sm text-right text-red-600">-₹{p.deductions.toLocaleString()}</td>
-                                                                    <td className="px-4 py-2 text-sm text-right font-bold text-cyan-600">₹{p.netPay.toLocaleString()}</td>
+                                                                    <td className="px-4 py-2 text-sm text-right text-gray-600">{formatMoney(p.basicSalary)}</td>
+                                                                    <td className="px-4 py-2 text-sm text-right text-green-600">+{formatMoney(p.allowances)}</td>
+                                                                    <td className="px-4 py-2 text-sm text-right text-red-600">-{formatMoney(p.deductions)}</td>
+                                                                    <td className="px-4 py-2 text-sm text-right font-bold text-cyan-600">{formatMoney(p.netPay)}</td>
                                                                 </tr>
                                                             )) : (
                                                                 <tr>
