@@ -93,6 +93,20 @@ export const blankLine = (itemType: QuotationLine["itemType"] = "PRODUCT"): Quot
   remarks: "",
 });
 
+/** A catalogue product's code, name, unit, price and tax % as line fields. */
+export const productLinePatch = (product: QuotationProduct | undefined, taxRate = 0): Partial<QuotationLine> => ({
+  productId: product?.id,
+  productName: product?.productName || "",
+  productCode: product?.productCode || "",
+  description: product?.description || "",
+  uom: product?.uom || "",
+  categoryId: product?.category?.id ?? product?.categoryId,
+  categoryName: product?.category?.categoryName || product?.categoryName || "",
+  unitPrice: num(product?.sellingPrice ?? product?.standardCost),
+  taxCode: product?.taxCode || "",
+  taxRate: taxRateFromCode(product?.taxCode) ?? taxRate,
+});
+
 /** What is wrong with a line, or null. Shown under the line once the user has tried to save. */
 export const lineError = (line: QuotationLine): string | null => {
   if (line.itemType === "PRODUCT" && !line.productId) return "Choose a product";
@@ -150,18 +164,7 @@ export default function QuotationItemsEditor({
   /** Picking a product copies its code, name, unit, price and GST % onto the line. */
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((item) => String(item.id) === productId);
-    update(index, {
-      productId: product?.id,
-      productName: product?.productName || "",
-      productCode: product?.productCode || "",
-      description: product?.description || "",
-      uom: product?.uom || "",
-      categoryId: product?.category?.id ?? product?.categoryId,
-      categoryName: product?.category?.categoryName || product?.categoryName || "",
-      unitPrice: num(product?.sellingPrice ?? product?.standardCost),
-      taxCode: product?.taxCode || "",
-      taxRate: taxRateFromCode(product?.taxCode) ?? lines[index].taxRate,
-    });
+    update(index, productLinePatch(product, lines[index].taxRate));
   };
 
   return (

@@ -315,6 +315,7 @@ export const navItems: NavItem[] = [
       { name: "Inventory Report", path: "/inventory-report", icon: Boxes },
       { name: "Finance Report", path: "/financeReport", icon: Landmark },
       { name: "Tax Report", path: "/taxReport", icon: Percent },
+      { name: "VAT Return", path: "/vatReturn", icon: Receipt },
     ],
   },
 
@@ -326,6 +327,7 @@ export const navItems: NavItem[] = [
       { name: "Users", path: "/role_config", icon: UserPlus, section: "Users & roles" },
       { name: "Roles & Permissions", path: "/rolesPermissions", icon: ShieldCheck, section: "Users & roles" },
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
+      { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
     ],

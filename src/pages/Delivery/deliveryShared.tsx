@@ -76,6 +76,8 @@ export interface DeliveryOrderItem {
   productId: number;
   productName?: string;
   quantity: number;
+  // The sales order line delivered (its sales dispatch line)
+  salesOrderItemId?: number | null;
 }
 
 export interface DeliveryOrder {
@@ -87,6 +89,9 @@ export interface DeliveryOrder {
   customerName?: string;
   customerNumber?: string;
   salesOrderId?: number;
+  // The sales dispatch holding the quantities: a draft until the delivery note is confirmed
+  salesDispatchId?: number | null;
+  salesDispatchNumber?: string | null;
   reservationId?: number;
   warehouseId?: number;
   vehicleId?: number;

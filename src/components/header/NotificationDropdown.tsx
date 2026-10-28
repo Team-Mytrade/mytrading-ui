@@ -8,23 +8,30 @@ import {
   type AttendanceNotificationRecord,
 } from "../../utils/attendanceNotifications";
 import {
-  Bell, Trash2, Clock, AlertCircle, CheckCircle,
+  Bell, Trash2, Clock, AlertCircle, CheckCircle, ClipboardCheck, Package, Receipt, Wallet,
   Calendar, Zap, TrendingUp, AlertTriangle, Eye, Inbox,
 } from "lucide-react";
-import { publicAsset } from "../../utils/assets";
+import { InboxItem, NOTIFICATIONS_CHANGED, notificationsApi } from "../../notifications/notificationsApi";
+import { formatDateTime } from "../../company/format";
 
+// Server items (approvals, stock, invoices) and the attendance module's own items kept in the browser
 type HeaderNotification = {
+  key: string;
   id: number;
-  user: { name: string; avatar: string };
+  source: "server" | "attendance";
   title: string;
   message: string;
   type: string;
   time: string;
+  sortTime: number;
   read: boolean;
+  resolved?: boolean;
   priority?: "LOW" | "MEDIUM" | "HIGH";
+  link?: string | null;
 };
 
-const DEFAULT_AVATAR = publicAsset("images/user/user-01.jpg");
+// The unread count is checked this often (and whenever the window regains focus)
+const POLL_MS = 60_000;
 
 const getPriorityColor = (priority?: string) => {
   switch (priority) {
@@ -37,6 +44,10 @@ const getPriorityColor = (priority?: string) => {
 
 const getTypeStyles = (type: string) => {
   switch (type) {
+    case "approval": return "bg-cyan-50 text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300";
+    case "stock": return "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400";
+    case "invoice": return "bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400";
+    case "payment": return "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400";
     case "attendance": return "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400";
     case "leave": return "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400";
     case "overtime": return "bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400";
@@ -48,6 +59,10 @@ const getTypeStyles = (type: string) => {
 
 const getTypeIcon = (type: string) => {
   switch (type) {
+    case "approval": return <ClipboardCheck className="w-4 h-4" />;
+    case "stock": return <Package className="w-4 h-4" />;
+    case "invoice": return <Receipt className="w-4 h-4" />;
+    case "payment": return <Wallet className="w-4 h-4" />;
     case "attendance": return <Clock className="w-4 h-4" />;
     case "leave": return <Calendar className="w-4 h-4" />;
     case "overtime": return <Zap className="w-4 h-4" />;
@@ -57,43 +72,92 @@ const getTypeIcon = (type: string) => {
   }
 };
 
-const mapNotificationToHeaderItem = (
-  notification: AttendanceNotificationRecord,
-  index: number
-): HeaderNotification => ({
-  id: notification.id ?? Date.parse(notification.createdAt) + index,
-  user: {
-    name: notification.employeeName || "Employee",
-    avatar: DEFAULT_AVATAR,
-  },
-  title: notification.title,
-  message: notification.message,
-  type: notification.type.toLowerCase(),
-  time: formatNotificationTime(notification.createdAt),
-  read: notification.isRead,
-  priority: notification.priority,
+const TYPE_LABELS: Record<string, string> = { approval: "Approval", stock: "Stock", invoice: "Invoice", payment: "Payment", system: "System" };
+
+/** "Just now", "5m ago", "3h ago", then the date and time in the company's format. */
+const timeAgo = (iso: string): string => {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return "";
+  const minutes = Math.floor((Date.now() - at) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h ago`;
+  return formatDateTime(iso);
+};
+
+const fromServer = (item: InboxItem): HeaderNotification => ({
+  key: `s-${item.id}`,
+  id: item.id,
+  source: "server",
+  title: item.title,
+  message: item.message ?? "",
+  type: item.category.toLowerCase(),
+  time: timeAgo(item.raisedAt),
+  sortTime: Date.parse(item.raisedAt) || 0,
+  read: !!item.readAt,
+  resolved: item.resolved,
+  priority: item.priority ?? undefined,
+  link: item.link,
 });
+
+const fromAttendance = (notification: AttendanceNotificationRecord, index: number): HeaderNotification => {
+  const id = notification.id ?? Date.parse(notification.createdAt) + index;
+  return {
+    key: `a-${id}`,
+    id,
+    source: "attendance",
+    title: notification.title,
+    message: notification.message,
+    type: notification.type.toLowerCase(),
+    time: formatNotificationTime(notification.createdAt),
+    sortTime: Date.parse(notification.createdAt) || 0,
+    read: notification.isRead,
+    priority: notification.priority,
+  };
+};
 
 export default function NotificationDropdown() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
+  const [serverItems, setServerItems] = useState<HeaderNotification[]>([]);
+  const [serverUnread, setServerUnread] = useState(0);
+  const [localItems, setLocalItems] = useState<HeaderNotification[]>([]);
   const [activeTab, setActiveTab] = useState("all");
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const syncFromStore = useCallback(() => {
-    const stored = getStoredAttendanceNotifications();
-    const mapped = stored
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map(mapNotificationToHeaderItem);
-    setNotifications(mapped);
+    setLocalItems(getStoredAttendanceNotifications().map(fromAttendance));
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Count only: cheap enough to poll; the list loads when the bell opens
+  const refreshCount = useCallback(() => {
+    notificationsApi.unreadCount().then(setServerUnread, () => setServerUnread(0));
+  }, []);
+
+  const refreshList = useCallback(() => {
+    notificationsApi.inbox(false, 30).then((items) => setServerItems(items.map(fromServer)), () => setServerItems([]));
+    refreshCount();
+  }, [refreshCount]);
+
+  const notifications = [...serverItems, ...localItems].sort((a, b) => b.sortTime - a.sortTime);
+  const unreadCount = serverUnread + localItems.filter((n) => !n.read).length;
 
   useEffect(() => {
     syncFromStore();
-  }, [syncFromStore]);
+    refreshCount();
+    const timer = window.setInterval(refreshCount, POLL_MS);
+    window.addEventListener("focus", refreshCount);
+    window.addEventListener(NOTIFICATIONS_CHANGED, refreshCount);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshCount);
+      window.removeEventListener(NOTIFICATIONS_CHANGED, refreshCount);
+    };
+  }, [syncFromStore, refreshCount]);
+
+  useEffect(() => {
+    if (isOpen) refreshList();
+  }, [isOpen, refreshList]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -113,59 +177,62 @@ export default function NotificationDropdown() {
 
   const updateStoredNotifications = useCallback(
     (updater: (items: AttendanceNotificationRecord[]) => AttendanceNotificationRecord[]) => {
-      const next = updater(getStoredAttendanceNotifications());
-      saveAttendanceNotifications(next);
+      saveAttendanceNotifications(updater(getStoredAttendanceNotifications()));
       syncFromStore();
     },
     [syncFromStore]
   );
 
-  const markAsRead = useCallback((id: number) => {
-    updateStoredNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id ? { ...notification, isRead: true } : notification
-      )
-    );
-  }, [updateStoredNotifications]);
+  const setServerRead = useCallback((id: number, read: boolean) => {
+    setServerItems((items) => items.map((n) => (n.source === "server" && n.id === id ? { ...n, read } : n)));
+    notificationsApi.markRead(id, read).then(refreshCount, refreshList);
+  }, [refreshCount, refreshList]);
 
-  const openNotification = useCallback((id: number) => {
-    markAsRead(id);
+  const setRead = useCallback((n: HeaderNotification, read: boolean) => {
+    if (n.source === "server") {
+      setServerRead(n.id, read);
+    } else {
+      updateStoredNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, isRead: read } : item)));
+    }
+  }, [setServerRead, updateStoredNotifications]);
+
+  const openNotification = useCallback((n: HeaderNotification) => {
+    if (!n.read) setRead(n, true);
     setIsOpen(false);
-    navigate(`/notifications/${id}`);
-  }, [markAsRead, navigate]);
+    if (n.source === "server") navigate(n.link || "/");
+    else navigate(`/notifications/${n.id}`);
+  }, [navigate, setRead]);
 
   const markAllAsRead = useCallback(() => {
-    updateStoredNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
-  }, [updateStoredNotifications]);
+    setServerItems((items) => items.map((n) => ({ ...n, read: true })));
+    notificationsApi.markAllRead().then(refreshCount, refreshList);
+    updateStoredNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+  }, [refreshCount, refreshList, updateStoredNotifications]);
 
-  const deleteNotification = useCallback((id: number, e?: ReactMouseEvent) => {
+  const deleteNotification = useCallback((n: HeaderNotification, e?: ReactMouseEvent) => {
     if (e) e.stopPropagation();
-    updateStoredNotifications(prev => prev.filter(notification => notification.id !== id));
-  }, [updateStoredNotifications]);
+    if (n.source === "server") {
+      setServerItems((items) => items.filter((item) => item.key !== n.key));
+      notificationsApi.dismiss(n.id).then(refreshCount, refreshList);
+    } else {
+      updateStoredNotifications((prev) => prev.filter((item) => item.id !== n.id));
+    }
+  }, [refreshCount, refreshList, updateStoredNotifications]);
 
-  const markAsUnread = useCallback((id: number, e?: ReactMouseEvent) => {
-    if (e) e.stopPropagation();
-    updateStoredNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id ? { ...notification, isRead: false } : notification
-      )
-    );
-  }, [updateStoredNotifications]);
-
-  const filteredNotifications = notifications.filter(notification => {
+  const filteredNotifications = notifications.filter((notification) => {
     if (activeTab === "all") return true;
     if (activeTab === "unread") return !notification.read;
+    if (activeTab === "attendance") return notification.source === "attendance";
     return notification.type === activeTab;
   });
 
   const tabs = [
     { id: "all", label: "All", count: notifications.length },
     { id: "unread", label: "Unread", count: unreadCount },
+    { id: "approval", label: "Approvals" },
+    { id: "stock", label: "Stock" },
+    { id: "invoice", label: "Invoices" },
     { id: "attendance", label: "Attendance" },
-    { id: "leave", label: "Leave" },
-    { id: "payroll", label: "Payroll" },
   ];
 
   return (
@@ -174,7 +241,7 @@ export default function NotificationDropdown() {
       <button
         className="relative flex items-center justify-center w-9 h-9 text-gray-500 transition-all rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -235,7 +302,7 @@ export default function NotificationDropdown() {
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
                 {filteredNotifications.map((notification) => (
                   <div
-                    key={notification.id}
+                    key={notification.key}
                     className={`group p-4 transition-colors ${!notification.read ? "bg-blue-50/30 dark:bg-blue-900/10" : ""
                       }`}
                   >
@@ -243,7 +310,7 @@ export default function NotificationDropdown() {
                       {/* Icon */}
                       <div
                         className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer ${getTypeStyles(notification.type)}`}
-                        onClick={() => openNotification(notification.id)}
+                        onClick={() => openNotification(notification)}
                       >
                         {getTypeIcon(notification.type)}
                       </div>
@@ -251,27 +318,32 @@ export default function NotificationDropdown() {
                       {/* Content */}
                       <div
                         className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => openNotification(notification.id)}
+                        onClick={() => openNotification(notification)}
                       >
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="text-sm font-medium text-gray-900 dark:!text-white">
+                          <p className={`text-sm font-medium ${notification.resolved ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:!text-white"}`}>
                             {notification.title}
                           </p>
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
+                          <span className="flex shrink-0 items-center gap-1 text-xs text-gray-400">
                             <Clock className="w-3 h-3" />
                             {notification.time}
                           </span>
                         </div>
 
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
-                          {notification.message}
-                        </p>
+                        {notification.message && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                            {notification.message}
+                          </p>
+                        )}
 
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400 capitalize">
-                            {notification.type}
+                            {TYPE_LABELS[notification.type] ?? notification.type}
                           </span>
-                          {notification.priority && notification.priority !== "MEDIUM" && (
+                          {notification.resolved && (
+                            <span className="rounded-full bg-gray-100 px-1.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800">Done</span>
+                          )}
+                          {!notification.resolved && notification.priority && notification.priority !== "MEDIUM" && (
                             <span className={`text-xs font-medium ${getPriorityColor(notification.priority)}`}>
                               {notification.priority}
                             </span>
@@ -280,15 +352,16 @@ export default function NotificationDropdown() {
                       </div>
 
                       {/* Inline Actions */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         {!notification.read ? (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              markAsRead(notification.id);
+                              setRead(notification, true);
                             }}
                             className="p-1.5 text-gray-400 rounded hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/20"
                             title="Mark as read"
+                            aria-label="Mark as read"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                           </button>
@@ -296,21 +369,20 @@ export default function NotificationDropdown() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              markAsUnread(notification.id, e);
+                              setRead(notification, false);
                             }}
                             className="p-1.5 text-gray-400 rounded hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-900/20"
                             title="Mark as unread"
+                            aria-label="Mark as unread"
                           >
                             <AlertCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNotification(notification.id, e);
-                          }}
+                          onClick={(e) => deleteNotification(notification, e)}
                           className="p-1.5 text-gray-400 rounded hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/20"
                           title="Delete"
+                          aria-label="Delete"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -330,7 +402,7 @@ export default function NotificationDropdown() {
               className="flex items-center justify-center gap-2 w-full text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
             >
               <Eye className="w-4 h-4" />
-              View all
+              View all attendance notifications
             </Link>
           </div>
         </div>

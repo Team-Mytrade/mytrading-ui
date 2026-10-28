@@ -89,6 +89,10 @@ export interface Invoice {
   items?: InvoiceLine[];
   issuedAt?: string;
   issuedBy?: string;
+  // Payment reminders emailed to the customer (automatic or by hand)
+  overdueRemindersSent?: number | null;
+  lastReminderOn?: string | null;
+  lastReminderType?: "BEFORE_DUE" | "OVERDUE" | null;
 }
 
 export const INVOICE_STATUS_TONES: Record<string, string> = {

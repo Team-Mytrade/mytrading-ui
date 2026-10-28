@@ -537,7 +537,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const responseInterceptor = axios.interceptors.response.use(
       (response) => {
         const config = response.config as any;
-        if (wantsFeedback(config?.method, String(config?.url ?? ''))) {
+        // quiet: bookkeeping calls (e.g. marking a notification read) that need no "Saved" toast
+        if (!config?.quiet && wantsFeedback(config?.method, String(config?.url ?? ''))) {
           ToasterService.notifyIfPageSilent('success', successText(config.method), config._startedAt ?? Date.now());
         }
         return response;
@@ -569,7 +570,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (isSessionExpiredResponse(status, message)) {
           handleSessionExpired();
-        } else if (config && wantsFeedback(config.method, String(config.url ?? ''))) {
+        } else if (config && !config.quiet && wantsFeedback(config.method, String(config.url ?? ''))) {
           ToasterService.notifyIfPageSilent('error', errorText(error?.response?.data, status), config._startedAt ?? Date.now());
         }
 

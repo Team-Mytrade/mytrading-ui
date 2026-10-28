@@ -100,6 +100,26 @@ export const presetForCountry = (country: ICountry): Partial<RegionalSettings> =
   return preset;
 };
 
+// Countries with VAT (5% UAE/Oman, 15% Saudi Arabia, 10% Bahrain); Kuwait and Qatar have none yet
+const VAT_COUNTRIES = ["AE", "SA", "BH", "OM", "GB", "DE", "FR", "IT", "ES", "NL", "BE", "AT", "EG", "JO"];
+const NO_VAT_COUNTRIES = ["KW", "QA"];
+
+/** The usual tax registration for a country, or undefined to keep the current choice. */
+export const taxRegimeForCountry = (country: ICountry): "VAT" | "GST" | "NONE" | undefined =>
+  country.isoCode === "IN" ? "GST" : VAT_COUNTRIES.includes(country.isoCode) ? "VAT"
+    : NO_VAT_COUNTRIES.includes(country.isoCode) ? "NONE" : undefined;
+
+/** A VAT registration number's problem for the country, or null when it looks right. */
+export const vatNumberError = (value: string | null | undefined, countryName?: string | null): string | null => {
+  const number = String(value ?? "").replace(/\s+/g, "").toUpperCase();
+  if (!number) return "Enter the VAT registration number (TRN)";
+  const iso = findCountry(countryName)?.isoCode;
+  if (iso === "AE" && !/^100\d{12}$/.test(number)) return "A UAE TRN is 15 digits starting with 100";
+  if (iso === "SA" && !/^3\d{13}3$/.test(number)) return "A Saudi VAT number is 15 digits that start and end with 3";
+  if (!/^[A-Z0-9-]{5,20}$/.test(number)) return "Use 5 to 20 letters, digits or hyphens";
+  return null;
+};
+
 type SupportedValues = (key: "timeZone" | "currency") => string[];
 const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: SupportedValues }).supportedValuesOf;
 

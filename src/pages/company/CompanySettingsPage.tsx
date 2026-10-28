@@ -11,7 +11,7 @@ import {
 } from "../../utils/indiaValidators";
 import {
   DATE_FORMATS, DEFAULT_REGIONAL, LANGUAGES, NUMBER_LOCALES, WEEK_DAYS, WEEK_STARTS, countries, currencies, currencyDigits,
-  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, timeZones,
+  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, vatNumberError,
 } from "../../company/regional";
 import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
@@ -49,14 +49,20 @@ const toForm = (p: CompanyProfile): Form => ({
   numberLocale: p.numberLocale || DEFAULT_REGIONAL.numberLocale,
   weekStart: p.weekStart || DEFAULT_REGIONAL.weekStart,
   weekendDays: p.weekendDays ?? DEFAULT_REGIONAL.weekendDays,
+  taxRegime: p.taxRegime || ((p.country || "India").toLowerCase() === "india" ? "GST" : "NONE"),
+  taxNumber: p.taxNumber ?? "",
 });
 
 const validate = (f: Form): Record<string, string> => {
   const errors: Record<string, string | null> = {};
   const india = (f.country || "India").toLowerCase() === "india";
   if (!f.companyName.trim()) errors.companyName = "Enter the company name";
-  errors.gstin = validateGstin(f.gstin, f.pan);
-  errors.pan = validatePan(f.pan);
+  if (f.taxRegime === "GST") {
+    errors.gstin = validateGstin(f.gstin, f.pan);
+    errors.pan = validatePan(f.pan);
+  }
+  // Tax invoices of a VAT-registered company must show its TRN
+  if (f.taxRegime === "VAT") errors.taxNumber = vatNumberError(f.taxNumber, f.country);
   errors.email = validateEmail(f.email);
   errors.website = validateWebsite(f.website);
   if (india) {
@@ -109,8 +115,8 @@ export default function CompanySettingsPage() {
       set("country", name);
       return;
     }
-    setForm({ ...form, country: name, ...presetForCountry(country) });
-    ToasterService.info(`Currency, time zone, weekend and number format set for ${country.name}. Change them below if needed.`);
+    setForm({ ...form, country: name, ...presetForCountry(country), taxRegime: taxRegimeForCountry(country) ?? form.taxRegime });
+    ToasterService.info(`Currency, time zone, weekend, number format and tax registration set for ${country.name}. Change them below if needed.`);
   };
 
   const changeCurrency = (code: string) => form && setForm({ ...form, currency: code, currencyDecimals: currencyDigits(code) });
@@ -147,7 +153,8 @@ export default function CompanySettingsPage() {
     }
     setSaving(true);
     try {
-      await companyApi.update({ ...form, gstin: form.gstin?.toUpperCase(), pan: form.pan?.toUpperCase(), currency: form.currency.toUpperCase() });
+      await companyApi.update({ ...form, gstin: form.gstin?.toUpperCase(), pan: form.pan?.toUpperCase(), currency: form.currency.toUpperCase(),
+        taxNumber: form.taxRegime === "VAT" ? form.taxNumber?.replace(/\s+/g, "").toUpperCase() : null });
       ToasterService.success("Company details saved.");
     } catch (err) {
       ToasterService.error(errorText(err, "Could not save the company details."));
@@ -233,9 +240,23 @@ export default function CompanySettingsPage() {
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {field("companyName", "Company name *", { maxLength: 255 })}
                     {field("legalName", "Registered (legal) name", { maxLength: 200, placeholder: india ? "As on the GST certificate" : "As on the trade licence" })}
-                    {/* Indian registrations; a VAT number (TRN) for other countries comes with the VAT settings */}
-                    {india && field("gstin", "GSTIN", { maxLength: 15, placeholder: "e.g. 29ABCDE1234F1ZW", style: { textTransform: "uppercase" } })}
-                    {india && field("pan", "PAN", { maxLength: 10, placeholder: "Filled from the GSTIN if left empty", style: { textTransform: "uppercase" } })}
+                    {/* VAT companies print their TRN on tax invoices and file VAT returns; GST companies use the GSTIN */}
+                    <div>
+                      <label className={LABEL} htmlFor="company-taxRegime">Tax registration</label>
+                      <select id="company-taxRegime" className={INPUT} disabled={!editable} value={form.taxRegime ?? "NONE"}
+                        onChange={(e) => set("taxRegime", e.target.value)}>
+                        <option value="VAT">VAT registered</option>
+                        <option value="GST">GST registered (India)</option>
+                        <option value="NONE">Not registered for tax</option>
+                      </select>
+                    </div>
+                    {form.taxRegime === "VAT" && field("taxNumber", "VAT registration number (TRN) *", {
+                      maxLength: 20, style: { textTransform: "uppercase" },
+                      placeholder: findCountry(form.country)?.isoCode === "AE" ? "15 digits, e.g. 100123456700003"
+                        : findCountry(form.country)?.isoCode === "SA" ? "15 digits starting and ending with 3" : "As on the VAT certificate",
+                    })}
+                    {form.taxRegime === "GST" && field("gstin", "GSTIN", { maxLength: 15, placeholder: "e.g. 29ABCDE1234F1ZW", style: { textTransform: "uppercase" } })}
+                    {form.taxRegime === "GST" && field("pan", "PAN", { maxLength: 10, placeholder: "Filled from the GSTIN if left empty", style: { textTransform: "uppercase" } })}
                   </div>
                 </section>
 

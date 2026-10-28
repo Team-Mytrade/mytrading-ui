@@ -149,6 +149,7 @@ const UserDashboard = lazy(() => import("./components/UserProfile/UserDashboard"
 const UsersPage = lazy(() => import("./pages/roleconfig/UsersPage"));
 const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
 const CompanySettingsPage = lazy(() => import("./pages/company/CompanySettingsPage"));
+const NotificationSettingsPage = lazy(() => import("./pages/company/NotificationSettingsPage"));
 const Batch = lazy(() => import("./pages/Inventory/batch"));
 const EmployeeCompensationPage = lazy(() => import("./pages/Payroll/EmployeeCompensationPage"));
 const EmployeeDepartmentsPage = lazy(() => import("./pages/Payroll/EmployeeDepartments"));
@@ -176,6 +177,7 @@ const GeneralLedger = lazy(() => import("./pages/Invoice/GeneralLedger"));
 const ExpenseRevenue = lazy(() => import("./pages/Invoice/ExpenseRevenue"));
 const AccountsReceivable = lazy(() => import("./pages/Invoice/AccountsReceivable"));
 const TaxReport = lazy(() => import("./pages/reports/TaxReport"));
+const VatReturn = lazy(() => import("./pages/reports/VatReturn"));
 const FinanceReport = lazy(() => import("./pages/reports/FinanceReport"));
 const Reports = lazy(() => import("./pages/CRM/Reports"));
 export default function AppRouter() {
@@ -220,6 +222,7 @@ export default function AppRouter() {
           <Route path="/role_config/*" element={<Navigate to="/role_config" replace />} />
           <Route path="/platform/tenants" element={<TenantsPage />} />
           <Route path="/company-settings" element={<CompanySettingsPage />} />
+          <Route path="/notification-settings" element={<NotificationSettingsPage />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
           <Route path="/sales-targets" element={<SalesTargets />} />
@@ -296,6 +299,7 @@ export default function AppRouter() {
           <Route path="/expenseRevenue" element={<ExpenseRevenue />} />
           <Route path="/accountsReceivable" element={<AccountsReceivable />} />
           <Route path="/taxReport" element={<TaxReport />} />
+          <Route path="/vatReturn" element={<VatReturn />} />
           <Route path="/financeReport" element={<FinanceReport />} />
 
           <Route path="/deliveryOrder" element={<DeliveryOrderPage />} />

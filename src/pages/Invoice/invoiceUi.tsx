@@ -15,17 +15,21 @@ export const ActionButton = ({
   onClick,
   disabled,
   tone = "default",
+  title,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   tone?: "default" | "primary" | "danger";
+  // Tooltip, e.g. why the button is disabled
+  title?: string;
 }) => (
   <button
     type="button"
     onClick={onClick}
     disabled={disabled}
+    title={title}
     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
       tone === "primary"
         ? "bg-cyan-600 text-white hover:bg-cyan-700"

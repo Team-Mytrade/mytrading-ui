@@ -31,6 +31,10 @@ interface PurchaseInvoice {
   invoiceDate?: string;
   dueDate?: string;
   totalAmount?: number;
+  // Input VAT: part of the total, or for reverse charge self-assessed on top of it
+  taxableAmount?: number | null;
+  taxAmount?: number | null;
+  reverseCharge?: boolean | null;
   purchaseInvoiceStatus?: string;
   currency?: string;
   referenceNumber?: string;
@@ -52,6 +56,8 @@ interface PurchaseInvoicePayload {
   invoiceDate?: string;
   dueDate?: string;
   totalAmount: number;
+  taxAmount: number;
+  reverseCharge: boolean;
   currency: string;
   referenceNumber?: string;
   notes?: string;
@@ -180,11 +186,23 @@ const PurchaseInvoices: React.FC = () => {
       return;
     }
 
+    const taxAmount = Number(form.taxAmount ?? 0);
+    if (!Number.isFinite(taxAmount) || taxAmount < 0) {
+      ToasterService.error("VAT cannot be negative");
+      return;
+    }
+    if (!form.reverseCharge && taxAmount >= totalAmount) {
+      ToasterService.error("The VAT must be less than the bill amount, which includes it");
+      return;
+    }
+
     const payload: PurchaseInvoicePayload = {
       invoiceNumber: form.invoiceNumber.trim(),
       invoiceDate: form.invoiceDate || undefined,
       dueDate: form.dueDate || undefined,
       totalAmount,
+      taxAmount,
+      reverseCharge: Boolean(form.reverseCharge),
       currency: form.currency?.trim() || companyCurrency(),
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
@@ -285,8 +303,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "invoiceNumber",
       label: "Invoice Number",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
       render: (invoice) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -305,8 +323,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "vendor",
       label: "Vendor",
       sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
+      headerClassName: "w-[14%] text-left",
+      className: "w-[14%]",
       sortValueGetter: (invoice) => invoice.vendor?.name ?? "",
       render: (invoice) => <span className="text-sm text-slate-700">{invoice.vendor?.name ?? "—"}</span>,
     },
@@ -314,8 +332,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "invoiceDate",
       label: "Invoice Date",
       sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
       render: (invoice) => (
         <span className="text-sm text-slate-600">
           {dateLabel(invoice.invoiceDate)}
@@ -326,8 +344,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "dueDate",
       label: "Due Date",
       sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
       render: (invoice) => (
         <span className="text-sm text-slate-600">
           {dateLabel(invoice.dueDate)}
@@ -338,12 +356,26 @@ const PurchaseInvoices: React.FC = () => {
       key: "totalAmount",
       label: "Total Amount",
       sortable: true,
-      headerClassName: "w-[15%] text-right",
-      className: "w-[15%] text-right",
+      headerClassName: "w-[13%] text-right",
+      className: "w-[13%] text-right",
       sortValueGetter: (invoice) => Number(invoice.totalAmount || 0),
       render: (invoice) => (
         <span className="text-sm font-semibold text-slate-700">
           {money(invoice.totalAmount, invoice.currency)}
+        </span>
+      ),
+    },
+    {
+      key: "taxAmount",
+      label: "VAT",
+      sortable: true,
+      headerClassName: "w-[10%] text-right",
+      className: "w-[10%] text-right",
+      sortValueGetter: (invoice) => Number(invoice.taxAmount || 0),
+      render: (invoice) => (
+        <span className="text-sm text-slate-600" title={invoice.reverseCharge ? "Reverse charge: self-assessed, not paid to the vendor" : undefined}>
+          {invoice.taxAmount ? money(invoice.taxAmount, invoice.currency) : "—"}
+          {invoice.reverseCharge ? " (RC)" : ""}
         </span>
       ),
     },
@@ -573,6 +605,24 @@ const PurchaseInvoices: React.FC = () => {
                   disabled={Boolean(form.grnId)}
                   required
                 />,
+                <FloatingInput
+                  key="taxAmount"
+                  label={form.reverseCharge ? "VAT you account for (reverse charge)" : "VAT on the bill (input VAT)"}
+                  name="taxAmount"
+                  type="number"
+                  value={form.taxAmount ?? ""}
+                  onChange={handleChange}
+                  disabled={Boolean(form.grnId)}
+                />,
+                <label key="reverseCharge" className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.reverseCharge)}
+                    disabled={Boolean(form.grnId)}
+                    onChange={(e) => setForm({ ...form, reverseCharge: e.target.checked })}
+                  />
+                  Reverse charge (imported service: the vendor charged no VAT; you account for it)
+                </label>,
                 <FloatingInput
                   key="currency"
                   label="Currency"
