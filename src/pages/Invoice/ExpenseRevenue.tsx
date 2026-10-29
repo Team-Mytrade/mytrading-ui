@@ -26,6 +26,7 @@ import {
 } from "./invoiceShared";
 import { DialogFooter, StatusBadge } from "./invoiceUi";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/expenses-revenue`;
 const PAGE_SIZE = 10;
 
@@ -238,12 +239,12 @@ const ExpenseRevenue: React.FC = () => {
       render: (row) => (
         <div className="flex justify-end gap-0.5">
           {canUpdate && (
-            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit")}>
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
           {canDelete && (
-            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete">
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("Delete")}>
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -254,16 +255,16 @@ const ExpenseRevenue: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Expenses & Revenue" description="Day-to-day expenses and other income" />
-      <PageBreadcrumb pageTitle="Expenses & Revenue" actions={canCreate ? <AddButton onClick={openCreate} label="Record expense / income" /> : undefined} />
+      <PageMeta title={t("Expenses & Revenue")} description="Day-to-day expenses and other income" />
+      <PageBreadcrumb pageTitle="Expenses & Revenue" actions={canCreate ? <AddButton onClick={openCreate} label={t("Record expense / income")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Expenses" value={money(stats.expense)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
-          <StatsCard label="Revenue" value={money(stats.revenue)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Net" value={money(stats.net)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Items" value={stats.count} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label={t("Expenses")} value={money(stats.expense)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Revenue")} value={money(stats.revenue)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Net")} value={money(stats.net)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Items")} value={stats.count} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -278,10 +279,10 @@ const ExpenseRevenue: React.FC = () => {
             </button>
           ))}
           <label className="ml-auto flex items-center gap-2 text-xs text-slate-600">
-            Month
+            {t("Month")}
             <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" />
             {month && (
-              <button type="button" onClick={() => setMonth("")} className="text-cyan-700 hover:underline">All months</button>
+              <button type="button" onClick={() => setMonth("")} className="text-cyan-700 hover:underline">{t("All months")}</button>
             )}
           </label>
         </div>
@@ -294,7 +295,7 @@ const ExpenseRevenue: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <CheckCircleIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-sm text-gray-500">Nothing recorded{month ? " this month" : ""}</p>
+              <p className="text-sm text-gray-500">{t("Nothing recorded")}{month ? " this month" : ""}</p>
             </div>
           }
         />
@@ -309,21 +310,21 @@ const ExpenseRevenue: React.FC = () => {
         content={
           <form onSubmit={save} className="flex flex-col">
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingSelect1 label="Type" name="revenueExpenseType" value={form.revenueExpenseType} options={TYPE_OPTIONS} includeEmptyOption={false}
+              <FloatingSelect1 label={t("Type")} name="revenueExpenseType" value={form.revenueExpenseType} options={TYPE_OPTIONS} includeEmptyOption={false}
                 onChange={(event) => setForm((current) => ({ ...current, revenueExpenseType: event.target.value }))} />
-              <FloatingSelect1 label="Category" name="revenueExpenseCategory" required value={form.revenueExpenseCategory} options={CATEGORY_OPTIONS}
+              <FloatingSelect1 label={t("Category")} name="revenueExpenseCategory" required value={form.revenueExpenseCategory} options={CATEGORY_OPTIONS}
                 onChange={(event) => setForm((current) => ({ ...current, revenueExpenseCategory: event.target.value }))} />
               <div className="sm:col-span-2">
-                <FloatingInput label="Description" name="description" required value={form.description}
+                <FloatingInput label={t("Description")} name="description" required value={form.description}
                   onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
               </div>
-              <FloatingInput label="Amount" name="amount" type="number" required value={form.amount}
+              <FloatingInput label={t("Amount")} name="amount" type="number" required value={form.amount}
                 onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
-              <FloatingInput label="Date" name="transactionDate" type="date" value={form.transactionDate}
+              <FloatingInput label={t("Date")} name="transactionDate" type="date" value={form.transactionDate}
                 onChange={(event) => setForm((current) => ({ ...current, transactionDate: event.target.value }))} />
-              <FloatingSelect1 label="Payment method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS}
+              <FloatingSelect1 label={t("Payment method")} name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS}
                 onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
-              <FloatingSelect1 label="Ledger account (optional)" name="generalAccountId" value={form.generalAccountId} options={accountOptions}
+              <FloatingSelect1 label={t("Ledger account (optional)")} name="generalAccountId" value={form.generalAccountId} options={accountOptions}
                 onChange={(event) => setForm((current) => ({ ...current, generalAccountId: event.target.value }))} />
             </div>
             <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record"} busy={busy} />
@@ -333,9 +334,9 @@ const ExpenseRevenue: React.FC = () => {
 
       <ConfirmDialog
         isOpen={Boolean(deleting)}
-        title="Delete item"
+        title={t("Delete item")}
         message={`Delete ${deleting?.referenceNumber ?? "this item"}: ${deleting?.description ?? ""} (${money(deleting?.amount)})?`}
-        confirmLabel="Delete"
+        confirmLabel={t("Delete")}
         variant="danger"
         onConfirm={remove}
         onCancel={() => setDeleting(null)}

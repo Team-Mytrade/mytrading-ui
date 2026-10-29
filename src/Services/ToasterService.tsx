@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { t } from "../i18n/i18n";
 import { createRoot } from "react-dom/client";
 import {
   XMarkIcon,
@@ -127,11 +128,11 @@ const Toast: React.FC<ToastOptions & { onClose: () => void }> = ({
           {/* Text Content */}
           <div className="flex-1 min-w-0">
             <h4 className={`text-sm font-semibold ${config.titleColor} mb-0.5`}>
-              {message}
+              {t(message)}
             </h4>
             {description && (
               <p className={`text-sm ${config.messageColor}`}>
-                {description}
+                {description && t(description)}
               </p>
             )}
           </div>

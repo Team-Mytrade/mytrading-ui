@@ -20,6 +20,7 @@ import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "./invoiceShared";
 
+import { t } from "../../i18n/i18n";
 interface PaymentTerm {
   id: number;
   termCode?: string;
@@ -183,7 +184,7 @@ const PaymentTerms: React.FC = () => {
       className: "w-[45%]",
       render: (term) => (
         <span className="text-sm text-slate-600 truncate" title={term.description}>
-          {term.description || <span className="text-slate-400 italic">No description</span>}
+          {term.description || <span className="text-slate-400 italic">{t("No description")}</span>}
         </span>
       ),
     },
@@ -212,7 +213,7 @@ const PaymentTerms: React.FC = () => {
             type="button"
             onClick={() => handleEdit(term)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Payment Term"
+            title={t("Edit Payment Term")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -220,7 +221,7 @@ const PaymentTerms: React.FC = () => {
             type="button"
             onClick={() => handleDelete(term)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Payment Term"
+            title={t("Delete Payment Term")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -231,37 +232,37 @@ const PaymentTerms: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Payment Terms" description="Manage payment terms" />
+      <PageMeta title={t("Payment Terms")} description="Manage payment terms" />
       <PageBreadcrumb pageTitle="Payment Terms" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Payment Term" />}
+          {canCreate && <AddButton onClick={openCreate} label={t("Add Payment Term")} />}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Terms"
+            label={t("Total Terms")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="<= 30 Days"
+            label={t("<= 30 Days")}
             value={stats.shortTerm}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="> 30 Days"
+            label={t("> 30 Days")}
             value={stats.longTerm}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
             labelColor="text-orange-600"
           />
           <StatsCard
-            label="Filtered"
+            label={t("Filtered")}
             value={filteredTerms.length}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -275,7 +276,7 @@ const PaymentTerms: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search payment terms by code or description..."
+                placeholder={t("Search payment terms by code or description...")}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); }}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -293,9 +294,9 @@ const PaymentTerms: React.FC = () => {
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
-              title="Filter Payment Terms"
+              title={t("Filter Payment Terms")}
               buttonLabel="Filters"
-              label="Filter"
+              label={t("Filter")}
               value={activeFilter}
               options={[
                 { label: "All Terms", value: "ALL" },
@@ -319,9 +320,9 @@ const PaymentTerms: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ClockIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No payment terms found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No payment terms found")}</p>
               {search ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search")}</p>
               ) : (
                 canCreate && <button
                   type="button"
@@ -350,21 +351,21 @@ const PaymentTerms: React.FC = () => {
               fields: [
                 <FloatingInput
                   key="termCode"
-                  label="Term code (blank = NET + days)"
+                  label={t("Term code (blank = NET + days)")}
                   name="termCode"
                   value={form.termCode || ""}
                   onChange={handleChange}
                 />,
                 <FloatingInput
                   key="description"
-                  label="Description"
+                  label={t("Description")}
                   name="description"
                   value={form.description || ""}
                   onChange={handleChange}
                 />,
                 <FloatingInput
                   key="dueDays"
-                  label="Due in (days)"
+                  label={t("Due in (days)")}
                   name="dueDays"
                   type="number"
                   value={form.dueDays ?? ""}
@@ -381,14 +382,14 @@ const PaymentTerms: React.FC = () => {
           setIsPopupOpen={setShowDeletePopup}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Payment Term"
+          innerText={t("Delete Payment Term")}
           subText={
             termToDelete
               ? `Are you sure you want to delete "${termToDelete.termCode}"? This action cannot be undone.`
               : "Are you sure you want to delete this payment term?"
           }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete")}
+          cancelLabel={t("Cancel")}
           onConfirm={confirmDelete}
           onCancel={() => setTermToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

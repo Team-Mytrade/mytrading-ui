@@ -27,6 +27,7 @@ import {
   toStatementLines,
 } from "./bankShared";
 
+import { t } from "../../i18n/i18n";
 type LineFilter = "OPEN" | "MATCHED" | "ALL";
 
 const near = (value?: number | null) => value != null && Math.abs(value) < 0.005;
@@ -188,7 +189,7 @@ const BankReconciliation: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Bank Reconciliation" description="Bank statement against the books" />
+      <PageMeta title={t("Bank Reconciliation")} description="Bank statement against the books" />
       <PageBreadcrumb pageTitle={account ? `Reconcile ${account.accountName}` : "Bank Reconciliation"} />
 
       <div className="w-full max-w-none space-y-4 py-4">
@@ -201,20 +202,20 @@ const BankReconciliation: React.FC = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-slate-500">
-              As at
+              {t("As at")}
               <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)}
                 className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-800 focus:border-cyan-400 focus:outline-none" />
             </label>
             {canCreate && (
               <button type="button" onClick={() => setImporting(true)} disabled={busy}
                 className="flex h-8 items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-100 disabled:opacity-50">
-                <ArrowUpTrayIcon className="h-4 w-4" /> Import statement
+                <ArrowUpTrayIcon className="h-4 w-4" /> {t("Import statement")}
               </button>
             )}
             {canUpdate && (
               <button type="button" onClick={autoMatch} disabled={busy || openCount === 0}
                 className="flex h-8 items-center gap-1.5 rounded-md bg-cyan-600 px-3 text-xs font-medium text-white hover:bg-cyan-700 disabled:opacity-50">
-                <SparklesIcon className="h-4 w-4" /> Auto-match
+                <SparklesIcon className="h-4 w-4" /> {t("Auto-match")}
               </button>
             )}
           </div>
@@ -222,9 +223,9 @@ const BankReconciliation: React.FC = () => {
 
         {data && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatsCard label="Balance in books" value={money(data.bookBalance, currency)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-            <StatsCard label="In books, not yet in bank" value={money(data.unclearedBook, currency)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-            <StatsCard label="In bank, not yet in books" value={money(data.unrecordedStatement, currency)} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
+            <StatsCard label={t("Balance in books")} value={money(data.bookBalance, currency)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+            <StatsCard label={t("In books, not yet in bank")} value={money(data.unclearedBook, currency)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+            <StatsCard label={t("In bank, not yet in books")} value={money(data.unrecordedStatement, currency)} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
             <StatsCard
               label={data.statementBalance == null ? "Statement should show" : near(data.difference) ? "Reconciled" : "Difference to explain"}
               value={money(data.statementBalance == null ? data.expectedStatementBalance : data.difference ?? 0, currency)}
@@ -237,7 +238,7 @@ const BankReconciliation: React.FC = () => {
 
         {data && (
           <p className="text-xs text-slate-500">
-            Books {money(data.bookBalance, currency)} − not yet in bank {money(data.unclearedBook, currency)} + not yet in books{" "}
+            {t("Books")} {money(data.bookBalance, currency)} − not yet in bank {money(data.unclearedBook, currency)} + not yet in books{" "}
             {money(data.unrecordedStatement, currency)} = statement should show <b>{money(data.expectedStatementBalance, currency)}</b>
             {data.statementBalance != null && (
               <> · the statement shows {money(data.statementBalance, currency)} on {dateLabel(data.statementBalanceDate)}</>
@@ -249,7 +250,7 @@ const BankReconciliation: React.FC = () => {
         <div className="grid gap-4 xl:grid-cols-5">
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white xl:col-span-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2">
-              <span className="text-sm font-semibold text-slate-800">Bank statement</span>
+              <span className="text-sm font-semibold text-slate-800">{t("Bank statement")}</span>
               <div className="flex gap-1">
                 {([["OPEN", `Open (${openCount})`], ["MATCHED", "Matched"], ["ALL", "All"]] as [LineFilter, string][]).map(([value, label]) => (
                   <button key={value} type="button" onClick={() => setFilter(value)}
@@ -263,10 +264,10 @@ const BankReconciliation: React.FC = () => {
               <table className="w-full min-w-[560px] text-sm">
                 <thead className="sticky top-0 bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Details</th>
-                    <th className="px-3 py-2 text-right">Amount</th>
-                    <th className="px-3 py-2 text-right">Status</th>
+                    <th className="px-3 py-2">{t("Date")}</th>
+                    <th className="px-3 py-2">{t("Details")}</th>
+                    <th className="px-3 py-2 text-right">{t("Amount")}</th>
+                    <th className="px-3 py-2 text-right">{t("Status")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -280,7 +281,7 @@ const BankReconciliation: React.FC = () => {
                       <td className="whitespace-nowrap px-3 py-2 text-slate-600">{dateLabel(line.date)}</td>
                       <td className="px-3 py-2">
                         <span className="text-slate-800">{line.description || "—"}</span>
-                        {line.reference && <span className="block text-xs text-slate-500">Ref {line.reference}</span>}
+                        {line.reference && <span className="block text-xs text-slate-500">{t("Ref")} {line.reference}</span>}
                         {line.matches.map((book) => (
                           <span key={book.id} className="block text-xs text-emerald-700">
                             <LinkIcon className="mr-1 inline h-3 w-3" />{book.entryNumber} · {book.description || book.narration}
@@ -289,24 +290,24 @@ const BankReconciliation: React.FC = () => {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right font-medium">
                         {signed(Number(line.amount), currency)}
-                        {line.balance != null && <span className="block text-[11px] font-normal text-slate-400">bal {money(line.balance, currency)}</span>}
+                        {line.balance != null && <span className="block text-[11px] font-normal text-slate-400">{t("bal")} {money(line.balance, currency)}</span>}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {line.matched ? (
                           <span className="flex items-center justify-end gap-2">
                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">{line.posted ? "Posted" : "Matched"}</span>
-                            {canUpdate && <button type="button" disabled={busy} onClick={() => unmatch(line)} className="text-xs text-slate-500 hover:text-rose-600 hover:underline">Unmatch</button>}
+                            {canUpdate && <button type="button" disabled={busy} onClick={() => unmatch(line)} className="text-xs text-slate-500 hover:text-rose-600 hover:underline">{t("Unmatch")}</button>}
                           </span>
                         ) : (
                           <span className="flex items-center justify-end gap-2">
-                            {canUpdate && <button type="button" disabled={busy} onClick={() => openMatch(line)} className="text-xs font-medium text-cyan-700 hover:underline">Match</button>}
+                            {canUpdate && <button type="button" disabled={busy} onClick={() => openMatch(line)} className="text-xs font-medium text-cyan-700 hover:underline">{t("Match")}</button>}
                             {canCreate && (
                               <button type="button" disabled={busy} className="text-xs font-medium text-cyan-700 hover:underline"
                                 onClick={() => { setPosting(line); setPostForm({ accountId: "", description: line.description ?? "" }); }}>
-                                Post
+                                {t("Post")}
                               </button>
                             )}
-                            {canDelete && <button type="button" disabled={busy} onClick={() => removeLine(line)} className="text-xs text-slate-400 hover:text-rose-600 hover:underline">Remove</button>}
+                            {canDelete && <button type="button" disabled={busy} onClick={() => removeLine(line)} className="text-xs text-slate-400 hover:text-rose-600 hover:underline">{t("Remove")}</button>}
                           </span>
                         )}
                       </td>
@@ -319,8 +320,8 @@ const BankReconciliation: React.FC = () => {
 
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white xl:col-span-2">
             <div className="border-b border-slate-100 px-4 py-2">
-              <span className="text-sm font-semibold text-slate-800">In the books, not yet matched</span>
-              <span className="block text-xs text-slate-500">Receipts, payments and entries on {account?.generalAccountCode ?? "the account"} the statement hasn't cleared</span>
+              <span className="text-sm font-semibold text-slate-800">{t("In the books, not yet matched")}</span>
+              <span className="block text-xs text-slate-500">{t("Receipts, payments and entries on")} {account?.generalAccountCode ?? "the account"} the statement hasn't cleared</span>
             </div>
             <div className="max-h-[60dvh] overflow-auto">
               <table className="w-full text-sm">
@@ -348,7 +349,7 @@ const BankReconciliation: React.FC = () => {
       {/* Match a statement line with ledger lines */}
       <PaginatedPopup
         isOpen={!!matching}
-        title="Match statement line"
+        title={t("Match statement line")}
         subtitle={matching ? `${dateLabel(matching.date)} · ${matching.description ?? ""} · ${money(matching.amount, currency)}` : undefined}
         onClose={() => setMatching(null)}
         maxWidthClassName="max-w-2xl"
@@ -356,7 +357,7 @@ const BankReconciliation: React.FC = () => {
           <form onSubmit={saveMatch} className="flex flex-col">
             <div className="max-h-[60dvh] overflow-y-auto px-4 py-4 sm:px-5">
               <p className="mb-2 text-xs text-slate-500">Tick the ledger lines this bank line clears; a deposit of several receipts can clear many.</p>
-              {candidates.length === 0 && <p className="py-4 text-center text-sm text-slate-400">No open lines in the books. Post it instead.</p>}
+              {candidates.length === 0 && <p className="py-4 text-center text-sm text-slate-400">{t("No open lines in the books. Post it instead.")}</p>}
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
                 {candidates.map((book: BookLine) => (
                   <li key={book.id}>
@@ -375,12 +376,12 @@ const BankReconciliation: React.FC = () => {
               </ul>
               {matching && (
                 <p className={`mt-3 text-sm ${near(chosenTotal - matching.amount) ? "text-emerald-700" : "text-slate-600"}`}>
-                  Chosen {money(chosenTotal, currency)} of {money(matching.amount, currency)}
+                  {t("Chosen")} {money(chosenTotal, currency)} of {money(matching.amount, currency)}
                   {!near(chosenTotal - matching.amount) && chosen.length > 0 && ` · ${money(matching.amount - chosenTotal, currency)} still to find`}
                 </p>
               )}
             </div>
-            <DialogFooter onCancel={() => setMatching(null)} submitLabel="Match" busy={busy}
+            <DialogFooter onCancel={() => setMatching(null)} submitLabel={t("Match")} busy={busy}
               disabled={!matching || chosen.length === 0 || !near(chosenTotal - matching.amount)} />
           </form>
         }
@@ -389,7 +390,7 @@ const BankReconciliation: React.FC = () => {
       {/* Post a line only the bank has */}
       <PaginatedPopup
         isOpen={!!posting}
-        title="Post to the books"
+        title={t("Post to the books")}
         subtitle={posting ? `${dateLabel(posting.date)} · ${money(posting.amount, currency)} — for what only the bank did: charges, interest, a direct debit` : undefined}
         onClose={() => setPosting(null)}
         maxWidthClassName="max-w-lg"
@@ -398,14 +399,14 @@ const BankReconciliation: React.FC = () => {
             <div className="space-y-3 px-4 py-4 sm:px-5">
               <FloatingSelect1 label={posting && posting.amount < 0 ? "Expense or account it paid" : "Income or account it came from"} name="accountId"
                 required value={postForm.accountId} options={postOptions} onChange={(e) => setPostForm((f) => ({ ...f, accountId: e.target.value }))} />
-              <FloatingInput label="Description" name="description" value={postForm.description}
+              <FloatingInput label={t("Description")} name="description" value={postForm.description}
                 onChange={(e) => setPostForm((f) => ({ ...f, description: e.target.value }))} />
               <p className="text-xs text-slate-500">
                 A journal entry is made on the statement date ({posting && posting.amount < 0 ? "Dr the account / Cr the bank" : "Dr the bank / Cr the account"})
                 and matched to this line. Unmatching reverses it.
               </p>
             </div>
-            <DialogFooter onCancel={() => setPosting(null)} submitLabel="Post and match" busy={busy} />
+            <DialogFooter onCancel={() => setPosting(null)} submitLabel={t("Post and match")} busy={busy} />
           </form>
         }
       />
@@ -500,8 +501,8 @@ const ImportStatementDialog: React.FC<{ bankAccountId: string; currency?: string
   return (
     <PaginatedPopup
       isOpen
-      title="Import bank statement"
-      subtitle="The CSV or Excel statement from your bank's online banking. Lines already imported are skipped, so overlapping statements are fine."
+      title={t("Import bank statement")}
+      subtitle={t("The CSV or Excel statement from your bank's online banking. Lines already imported are skipped, so overlapping statements are fine.")}
       onClose={onClose}
       maxWidthClassName="max-w-3xl"
       content={
@@ -512,14 +513,14 @@ const ImportStatementDialog: React.FC<{ bankAccountId: string; currency?: string
             {columns && (
               <>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <FloatingInput label="Header row" name="headerRow" type="number" value={String(headerRow + 1)}
+                  <FloatingInput label={t("Header row")} name="headerRow" type="number" value={String(headerRow + 1)}
                     onChange={(e) => {
                       const row = Math.max(0, Math.min(rows.length - 1, Number(e.target.value) - 1));
                       setHeaderRow(row);
                       setColumns(guessColumns(rows[row] ?? []));
                     }} />
                   {select("Date", "date")}
-                  <FloatingSelect1 label="Dates are written" name="order" value={order} options={DATE_ORDER_OPTIONS} includeEmptyOption={false}
+                  <FloatingSelect1 label={t("Dates are written")} name="order" value={order} options={DATE_ORDER_OPTIONS} includeEmptyOption={false}
                     onChange={(e) => setOrder(e.target.value as DateOrder)} />
                   {select("Description", "description")}
                   {select("Reference", "reference")}
@@ -531,7 +532,7 @@ const ImportStatementDialog: React.FC<{ bankAccountId: string; currency?: string
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full text-xs">
                     <thead className="bg-slate-50 text-left uppercase tracking-wide text-slate-500">
-                      <tr><th className="px-2 py-1.5">Date</th><th className="px-2 py-1.5">Description</th><th className="px-2 py-1.5">Ref</th><th className="px-2 py-1.5 text-right">Amount</th><th className="px-2 py-1.5 text-right">Balance</th></tr>
+                      <tr><th className="px-2 py-1.5">{t("Date")}</th><th className="px-2 py-1.5">{t("Description")}</th><th className="px-2 py-1.5">{t("Ref")}</th><th className="px-2 py-1.5 text-right">{t("Amount")}</th><th className="px-2 py-1.5 text-right">{t("Balance")}</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {usable.slice(0, 8).map((line, index) => (

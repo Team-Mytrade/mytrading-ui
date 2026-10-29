@@ -16,6 +16,7 @@ import { ApAging, DebitNote, DebitNotesList, PayablesAging } from "./PayablesAgi
 import { defaultBankAccountId, useBankAccounts } from "./bankShared";
 import BankAccountField from "./BankAccountField";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/accounts-payable`;
 const PAGE_SIZE = 10;
 
@@ -182,7 +183,7 @@ const AccountsPayable: React.FC = () => {
       render: (row) => (
         <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
           {Number(row.balance) > 0 && canCreate && (
-            <button type="button" onClick={() => openPay(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600" title="Pay">
+            <button type="button" onClick={() => openPay(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600" title={t("Pay")}>
               <BanknotesIcon className="h-4 w-4" />
             </button>
           )}
@@ -193,15 +194,15 @@ const AccountsPayable: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Accounts Payable" description="What is owed to vendors, by bill" />
+      <PageMeta title={t("Accounts Payable")} description="What is owed to vendors, by bill" />
       <PageBreadcrumb pageTitle="Accounts Payable" />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="To pay" value={money(stats.due)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Overdue" value={money(stats.overdue)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
-          <StatsCard label="Due in 7 days" value={stats.dueThisWeek} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
-          <StatsCard label="Open bills" value={stats.bills} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label={t("To pay")} value={money(stats.due)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Overdue")} value={money(stats.overdue)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Due in 7 days")} value={stats.dueThisWeek} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
+          <StatsCard label={t("Open bills")} value={stats.bills} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -225,10 +226,10 @@ const AccountsPayable: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-1 text-sm text-gray-500">Nothing to pay</p>
+              <p className="mb-1 text-sm text-gray-500">{t("Nothing to pay")}</p>
               <p className="text-xs text-gray-400">
-                Payables are created from{" "}
-                <button type="button" className="text-cyan-700 hover:underline" onClick={() => navigate("/purchaseInvoices")}>purchase invoices</button>.
+                {t("Payables are created from")}{" "}
+                <button type="button" className="text-cyan-700 hover:underline" onClick={() => navigate("/purchaseInvoices")}>{t("purchase invoices")}</button>.
               </p>
             </div>
           }
@@ -247,20 +248,20 @@ const AccountsPayable: React.FC = () => {
         content={
           <form onSubmit={pay} className="flex flex-col">
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingInput label="Amount paid" name="amountPaid" type="number" required value={form.amountPaid}
+              <FloatingInput label={t("Amount paid")} name="amountPaid" type="number" required value={form.amountPaid}
                 onChange={(event) => setForm((current) => ({ ...current, amountPaid: event.target.value }))} />
-              <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
+              <FloatingInput label={t("Payment date")} name="paymentDate" type="date" value={form.paymentDate}
                 onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
-              <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
+              <FloatingSelect1 label={t("Method")} name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
                 onChange={(event) => {
                   const paymentMethod = event.target.value;
                   setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
                 }} />
-              <BankAccountField accounts={bankAccounts} label="Paid from" value={form.bankAccountId} onChange={setBankAccount} />
-              <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
+              <BankAccountField accounts={bankAccounts} label={t("Paid from")} value={form.bankAccountId} onChange={setBankAccount} />
+              <FloatingInput label={t("Reference (UTR, cheque no.)")} name="paymentReference" value={form.paymentReference}
                 onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
             </div>
-            <DialogFooter onCancel={() => setPaying(null)} submitLabel="Record payment" busy={busy} />
+            <DialogFooter onCancel={() => setPaying(null)} submitLabel={t("Record payment")} busy={busy} />
           </form>
         }
       />

@@ -2,6 +2,7 @@ import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, useE
 import DatePicker from 'react-datepicker';
 import { format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
+import { t } from '../../i18n/i18n';
 
 interface BaseFloatingProps {
   label: string;
@@ -458,8 +459,11 @@ const floatingStyles = `
   }
 `;
 
+// In the screen language; a trailing "*" written into the label is kept outside the translation
 function getFloatingLabel(label: string, required: boolean) {
-  return `${label}${required && !label.includes("*") ? " *" : ""}`;
+  const bare = label.replace(/\s*\*\s*$/, "");
+  const starred = required || bare !== label;
+  return `${t(bare)}${starred ? " *" : ""}`;
 }
 
 /*
@@ -963,7 +967,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
         className="floating-select"
         style={selectBox(undefined, disabled)}
       >
-        {includeEmptyOption && <option value="">{emptyOptionLabel ?? "Select"}</option>}
+        {includeEmptyOption && <option value="">{t(emptyOptionLabel ?? "Select")}</option>}
         {options.map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.name}

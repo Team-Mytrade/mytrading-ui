@@ -1,6 +1,7 @@
 import { FloatingSelect1 } from "../../components/inputfeild/FloatingInput";
 import { BankAccount, bankAccountLabel } from "./bankShared";
 
+import { t } from "../../i18n/i18n";
 /**
  * Where the money went in or came out (accounts from useBankAccounts). Forms preset it with defaultBankAccountId
  * when they open and when the method changes; left empty, the service uses the company's default for the method.
@@ -27,7 +28,7 @@ const BankAccountField = ({
       name="bankAccountId"
       value={value}
       options={options}
-      emptyOptionLabel="Default for the method"
+      emptyOptionLabel={t("Default for the method")}
       onChange={(event) => onChange(event.target.value)}
     />
   );

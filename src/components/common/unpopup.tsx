@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { t } from "../../i18n/i18n";
 
 export type PaginatedPopupTab = {
   label: string;
@@ -112,10 +113,10 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
       >
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-            {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
+            <h3 className="text-base font-semibold text-gray-900">{t(title)}</h3>
+            {subtitle && <p className="mt-0.5 text-xs text-gray-500">{t(subtitle)}</p>}
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label={t("Close")}>
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
@@ -132,7 +133,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
                     index === page ? "bg-cyan-50 text-cyan-700" : "text-slate-400 hover:text-slate-600"
                   }`}
                 >
-                  {tab.label}
+                  {t(tab.label)}
                 </button>
               ))}
             </div>
@@ -153,7 +154,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
 
           <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="text-xs font-medium text-gray-500">
-              {pages.length > 1 && `${currentPage.label} • ${page + 1} of ${pages.length}`}
+              {pages.length > 1 && `${t(currentPage.label)} • ${page + 1} ${t("of")} ${pages.length}`}
             </div>
 
             <div className="flex flex-col justify-end gap-2 sm:flex-row">
@@ -162,7 +163,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
                 onClick={onClose}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                {cancelLabel}
+                {t(cancelLabel)}
               </button>
               {pages.length > 1 && <button
                 type="button"
@@ -170,7 +171,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
                 disabled={page === 0}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {previousLabel}
+                {t(previousLabel)}
               </button>}
               {isLastPage ? (
                 <button
@@ -179,7 +180,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
                   disabled={submitting}
                   className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {submitting ? "Saving..." : submitLabel}
+                  {t(submitting ? "Saving..." : submitLabel)}
                 </button>
               ) : (
                 <button
@@ -187,7 +188,7 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
                   onClick={() => setPage((current) => Math.min(pages.length - 1, current + 1))}
                   className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700"
                 >
-                  {nextLabel}
+                  {t(nextLabel)}
                 </button>
               )}
             </div>

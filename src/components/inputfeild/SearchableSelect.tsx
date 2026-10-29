@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { t } from "../../i18n/i18n";
 import { CheckIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 export type SearchableOption = {
@@ -168,7 +169,7 @@ export default function SearchableSelect({
     <div ref={wrapperRef} className="relative">
       {/* Label above a 32px field, like the Create Employee form (it used to float inside a taller box) */}
       <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">
-        {label}
+        {t(label)}
         {required && <span className="text-red-500"> *</span>}
       </label>
       <div className="relative">
@@ -181,7 +182,7 @@ export default function SearchableSelect({
         aria-required={required}
         autoComplete="off"
         value={query}
-        placeholder={open ? placeholder : emptyOptionLabel || " "}
+        placeholder={open ? t(placeholder) : emptyOptionLabel ? t(emptyOptionLabel) : " "}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
@@ -207,7 +208,7 @@ export default function SearchableSelect({
             onMouseDown={(event) => event.preventDefault()}
             onClick={clear}
             className="rounded p-0.5 text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300"
-            aria-label={`Clear ${label}`}
+            aria-label={`${t("Clear")} ${t(label)}`}
           >
             <XMarkIcon className="h-4 w-4" />
           </button>

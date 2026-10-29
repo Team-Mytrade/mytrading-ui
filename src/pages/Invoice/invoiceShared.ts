@@ -1,6 +1,7 @@
 // Shared by the Invoice (finance) pages. Values follow the invoice service's enums; labels are what users see.
 import { formatEnumLabel } from "./invoiceEnums";
 import { formatMoney, formatDate } from "../../company/format";
+import { t } from "../../i18n/i18n";
 
 export { apiError, apiFieldErrors } from "../../utils/apiError";
 
@@ -30,7 +31,8 @@ export const daysOverdue = (dueDate?: string | null): number => {
   return days > 0 ? days : 0;
 };
 
-export const labelOf = (code?: string | null): string => (code ? formatEnumLabel(code) : "—");
+// In the screen language when the label has a translation
+export const labelOf = (code?: string | null): string => (code ? t(formatEnumLabel(code)) : "—");
 
 // Report month keys: "2026-10" → "Oct 2026"
 export const monthLabel = (key: string): string => {

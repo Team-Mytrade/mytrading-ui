@@ -16,6 +16,8 @@ import { CUSTOMER_UTILS } from "../config/constants";
 import { filterNavItems, navItems } from "../layout/AppSidebar";
 import { AuthContext } from "../context/AuthContext";
 import { canAccessPath } from "../access/access";
+import LanguageToggle from "../i18n/LanguageToggle";
+import { t, useLanguage } from "../i18n/i18n";
 
 // Search result types
 type SearchResult = {
@@ -459,7 +461,7 @@ const SearchBar = forwardRef<
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search or type command..."
+          placeholder={t("Search or type command...")}
           value={query}
           onChange={(e) => {
             onQueryChange(e.target.value);
@@ -531,7 +533,7 @@ const SearchBar = forwardRef<
               {recents.length > 0 && (
                 <>
                   <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    Recent
+                    {t("Recent")}
                   </div>
                   {recents.map((r) => (
                     <button
@@ -544,7 +546,7 @@ const SearchBar = forwardRef<
                       onClick={() => onPick(r)}
                     >
                       <IconSlot>{r.icon}</IconSlot>
-                      <span className="truncate">{r.label}</span>
+                      <span className="truncate">{t(r.label)}</span>
                     </button>
                   ))}
                   <div className="my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
@@ -552,7 +554,7 @@ const SearchBar = forwardRef<
               )}
 
               <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Modules
+                {t("Modules")}
               </div>
 
               {mainModules.map((mod) => {
@@ -650,12 +652,12 @@ const SearchBar = forwardRef<
             <>
               {flatFiltered.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[13px] text-gray-500 dark:text-gray-400">
-                  No results for &ldquo;{query}&rdquo;
+                  {t("No results for “{query}”", { query })}
                 </div>
               ) : (
                 <>
                   <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    Results
+                    {t("Results")}
                   </div>
 
                   {flatFiltered.map((r) => {
@@ -744,6 +746,7 @@ const AppHeader: React.FC = () => {
   // Search results: only the modules and pages this user may open (same filter as the sidebar), so a
   // user with Attendance alone no longer sees every module
   const { access } = useContext(AuthContext);
+  const lang = useLanguage();
   // Recent picks may include pages from another login on this browser
   const visibleRecents = useMemo(() => recents.filter((r) => !r.path || canAccessPath(access, r.path.split("?")[0])), [recents, access]);
   const mainModules = useMemo<SearchResult[]>(() => {
@@ -759,10 +762,10 @@ const AppHeader: React.FC = () => {
                 id:
                   leaf.path.replace(/\//g, "_") ||
                   leaf.name.toLowerCase().replace(/\s+/g, "_"),
-                label: leaf.name,
+                label: t(leaf.name),
                 path: leaf.path,
                 category: "page",
-                parent: `${item.name} > ${sub.name}`,
+                parent: `${t(item.name)} > ${t(sub.name)}`,
               });
             }
           });
@@ -771,10 +774,10 @@ const AppHeader: React.FC = () => {
             id:
               sub.path.replace(/\//g, "_") ||
               sub.name.toLowerCase().replace(/\s+/g, "_"),
-            label: sub.name,
+            label: t(sub.name),
             path: sub.path,
             category: "page",
-            parent: item.name,
+            parent: t(item.name),
           });
         }
       });
@@ -783,13 +786,15 @@ const AppHeader: React.FC = () => {
         id:
           item.path?.replace(/\//g, "_") ||
           item.name.toLowerCase().replace(/\s+/g, "_"),
-        label: item.name,
+        label: t(item.name),
         path: item.path,
         category: "page" as const,
         children,
       };
     });
-  }, [access]);
+    // Labels are in the screen language
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access, lang]);
 
   // Actions — only shown while typing
   const actions = useMemo<SearchResult[]>(
@@ -806,8 +811,9 @@ const AppHeader: React.FC = () => {
     ] as const)
       // Only actions on pages this user may open
       .filter(([, , path]) => canAccessPath(access, path))
-      .map(([id, label, path, query]) => ({ id, label, category: "action" as const, action: () => navigate(`${path}${query}`) })),
-    [navigate, access]
+      .map(([id, label, path, query]) => ({ id, label: t(label), category: "action" as const, action: () => navigate(`${path}${query}`) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigate, access, lang]
   );
 
   // Centralized pick handler so desktop and mobile behave identically.
@@ -1025,7 +1031,7 @@ const AppHeader: React.FC = () => {
                 <button
                   onClick={toggleFullscreen}
                   className="flex items-center justify-center w-10 h-10 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                  aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                  aria-label={t(isFullscreen ? "Exit fullscreen" : "Enter fullscreen")}
                 >
                   {isFullscreen ? (
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
@@ -1038,6 +1044,7 @@ const AppHeader: React.FC = () => {
                   )}
                 </button>
 
+                <LanguageToggle />
                 <ThemeToggleButton />
                 <NotificationDropdown />
 

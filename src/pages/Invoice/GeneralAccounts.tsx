@@ -16,6 +16,7 @@ import { ACCOUNT_TYPE_OPTIONS, GeneralAccount, INVOICE_API, apiError, isDebitNor
 import { DialogFooter, StatusBadge } from "./invoiceUi";
 import { companyCurrency, currencyChoices } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/general-accounts`;
 const PAGE_SIZE = 15;
 
@@ -243,11 +244,11 @@ const GeneralAccounts: React.FC = () => {
       render: (row) => (
         <span className="text-sm">
           {row.isActive === false ? (
-            <span className="text-slate-400">Inactive</span>
+            <span className="text-slate-400">{t("Inactive")}</span>
           ) : row.allowTransactions === false ? (
             <span className="text-amber-700">Header (no postings)</span>
           ) : (
-            <span className="text-emerald-700">Active</span>
+            <span className="text-emerald-700">{t("Active")}</span>
           )}
         </span>
       ),
@@ -261,12 +262,12 @@ const GeneralAccounts: React.FC = () => {
       render: (row) => (
         <div className="flex justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
           {canUpdate && (
-            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit account">
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit account")}>
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
           {canDelete && (
-            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete account">
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("Delete account")}>
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -277,16 +278,16 @@ const GeneralAccounts: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="General Accounts" description="The chart of accounts" />
-      <PageBreadcrumb pageTitle="General Accounts" actions={canCreate ? <AddButton onClick={openCreate} label="Add account" /> : undefined} />
+      <PageMeta title={t("General Accounts")} description="The chart of accounts" />
+      <PageBreadcrumb pageTitle="General Accounts" actions={canCreate ? <AddButton onClick={openCreate} label={t("Add account")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Accounts" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Accept postings" value={stats.posting} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-          <StatsCard label="Inactive" value={stats.inactive} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label={t("Accounts")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Active")} value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Accept postings")} value={stats.posting} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
+          <StatsCard label={t("Inactive")} value={stats.inactive} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -313,7 +314,7 @@ const GeneralAccounts: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-sm text-gray-500">No accounts yet</p>
+              <p className="text-sm text-gray-500">{t("No accounts yet")}</p>
               {canCreate && accounts.length === 0 && (
                 <button
                   type="button"
@@ -332,21 +333,21 @@ const GeneralAccounts: React.FC = () => {
       <PaginatedPopup
         isOpen={formOpen}
         title={editing ? `Edit ${editing.accountCode}` : "Add account"}
-        subtitle="Codes are unique within your company"
+        subtitle={t("Codes are unique within your company")}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-2xl"
         content={
           <form onSubmit={save} className="flex flex-col">
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingInput label="Code" name="accountCode" required value={form.accountCode}
+              <FloatingInput label={t("Code")} name="accountCode" required value={form.accountCode}
                 onChange={(event) => setForm((current) => ({ ...current, accountCode: event.target.value }))} />
-              <FloatingInput label="Name" name="accountName" required value={form.accountName}
+              <FloatingInput label={t("Name")} name="accountName" required value={form.accountName}
                 onChange={(event) => setForm((current) => ({ ...current, accountName: event.target.value }))} />
-              <FloatingSelect1 label="Type" name="accountType" required value={form.accountType} options={ACCOUNT_TYPE_OPTIONS}
+              <FloatingSelect1 label={t("Type")} name="accountType" required value={form.accountType} options={ACCOUNT_TYPE_OPTIONS}
                 onChange={(event) => setForm((current) => ({ ...current, accountType: event.target.value }))} />
-              <FloatingSelect1 label="Currency" name="currency" value={form.currency} options={currencyOptions(form.currency)}
+              <FloatingSelect1 label={t("Currency")} name="currency" value={form.currency} options={currencyOptions(form.currency)}
                 onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} />
-              <FloatingInput label="Opening balance" name="openingBalance" type="number" value={form.openingBalance}
+              <FloatingInput label={t("Opening balance")} name="openingBalance" type="number" value={form.openingBalance}
                 onChange={(event) => setForm((current) => ({ ...current, openingBalance: event.target.value }))} />
               <p className="self-center text-xs text-slate-500">
                 {form.accountType
@@ -354,12 +355,12 @@ const GeneralAccounts: React.FC = () => {
                   : "Choose the type to see which side the balance sits on."}
               </p>
               <div className="sm:col-span-2">
-                <FloatingTextarea label="Description" name="description" rows={2} value={form.description}
+                <FloatingTextarea label={t("Description")} name="description" rows={2} value={form.description}
                   onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
               </div>
-              <Toggle label="Active" hint="Inactive accounts are hidden from pickers" checked={form.isActive}
+              <Toggle label={t("Active")} hint={t("Inactive accounts are hidden from pickers")} checked={form.isActive}
                 onChange={(isActive) => setForm((current) => ({ ...current, isActive }))} />
-              <Toggle label="Accepts postings" hint="Turn off for heading accounts that only group others" checked={form.allowTransactions}
+              <Toggle label={t("Accepts postings")} hint={t("Turn off for heading accounts that only group others")} checked={form.allowTransactions}
                 onChange={(allowTransactions) => setForm((current) => ({ ...current, allowTransactions }))} />
             </div>
             <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Add account"} busy={busy} />
@@ -369,9 +370,9 @@ const GeneralAccounts: React.FC = () => {
 
       <ConfirmDialog
         isOpen={Boolean(deleting)}
-        title="Delete account"
+        title={t("Delete account")}
         message={`Delete ${deleting?.accountCode ?? ""} ${deleting?.accountName ?? ""}? Accounts with postings can't be deleted; make them inactive instead.`}
-        confirmLabel="Delete"
+        confirmLabel={t("Delete")}
         variant="danger"
         onConfirm={remove}
         onCancel={() => setDeleting(null)}

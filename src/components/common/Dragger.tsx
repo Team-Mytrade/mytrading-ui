@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
+import { t } from "../../i18n/i18n";
 import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import "../../styles/Dragger.css";
@@ -91,9 +92,9 @@ export default function Dragger({
 
   return createPortal(
     <div className={`dragger dragger--${variant}`} role="presentation" onMouseDown={onClose}>
-      <section className={`dragger__panel dragger__panel--${variant}${compact ? " dragger__panel--compact" : ""}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`dragger__panel dragger__panel--${variant}${compact ? " dragger__panel--compact" : ""}`} role="dialog" aria-modal="true" aria-label={t(title)} onMouseDown={(event) => event.stopPropagation()}>
         <header className="dragger__header">
-          <div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+          <div><h2>{t(title)}</h2>{subtitle && <p>{t(subtitle)}</p>}</div>
           <div className="dragger__header-actions">
             {headerMeta && <div className="dragger__header-meta">{headerMeta}</div>}
             {headerAction}
@@ -124,8 +125,8 @@ export default function Dragger({
             {hasSteps && <span className="dragger__progress">{activeStepItem?.label} • {step + 1} of {steps.length}</span>}
             <div className="dragger__footer-actions">
               {hasSteps
-                ? <button type="button" className="dragger__cancel" onClick={() => goToStep(step - 1)} disabled={step === 0}>{previousLabel}</button>
-                : <button type="button" className="dragger__cancel" onClick={onClose}>Cancel</button>}
+                ? <button type="button" className="dragger__cancel" onClick={() => goToStep(step - 1)} disabled={step === 0}>{t(previousLabel)}</button>
+                : <button type="button" className="dragger__cancel" onClick={onClose}>{t("Cancel")}</button>}
 
               {/* Next and Submit are separate buttons with their own keys. Reusing one button and
                   switching its type made React turn the clicked Next into a submit button,
@@ -140,12 +141,12 @@ export default function Dragger({
                     goNext();
                   }}
                 >
-                  {nextLabel}
+                  {t(nextLabel)}
                 </button>
               )}
               {showSubmitButton && (
                 <button key="submit" type="submit" className="dragger__submit" disabled={submitting}>
-                  {submitting ? "Saving..." : submitLabel}
+                  {t(submitting ? "Saving..." : submitLabel)}
                 </button>
               )}
             </div>

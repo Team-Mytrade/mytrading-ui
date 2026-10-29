@@ -1,6 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import { PermissionAction, usePermissions } from "../../access/usePermissions";
+import { t } from "../../i18n/i18n";
 
 /**
  * The one colour for every "Add / New / Create" button in the app (#4DD0E1). Dark text, because white on
@@ -36,7 +37,7 @@ export const AddButton = forwardRef<HTMLButtonElement, AddButtonProps>(
         {...props}
       >
         <PlusIcon className="h-4 w-4" aria-hidden="true" />
-        <span>{label}</span>
+        <span>{t(label)}</span>
       </button>
     );
   }

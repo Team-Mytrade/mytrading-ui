@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { t } from "../../i18n/i18n";
 import CloseButton from "./CloseButton";
 
 interface DynamicPopupProps {
@@ -90,10 +91,10 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
             {/* Text */}
             <div className="min-w-0 flex-1 pr-6">
               <h3 id="dynamic-popup-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {innerText}
+                {typeof innerText === "string" ? t(innerText) : innerText}
               </h3>
               {subText && (
-                <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{subText}</p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{typeof subText === "string" ? t(subText) : subText}</p>
               )}
             </div>
           </div>
@@ -107,7 +108,7 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
               onClick={handleCancel}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:focus:ring-offset-gray-900"
             >
-              {cancelLabel}
+              {t(cancelLabel)}
             </button>
           )}
           <button
@@ -116,7 +117,7 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
             onClick={handleConfirm}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${confirmBtnClass}`}
           >
-            {confirmLabel}
+            {confirmLabel && t(confirmLabel)}
           </button>
         </div>
       </div>

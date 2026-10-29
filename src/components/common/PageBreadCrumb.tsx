@@ -5,6 +5,7 @@ import { filterNavItems, navItems } from "../../layout/AppSidebar";
 import { AuthContext } from "../../context/AuthContext";
 import { AddButton } from "./AddButton";
 import "../../styles/PageBreadCrumb.css";
+import { t } from "../../i18n/i18n";
 
 interface BreadcrumbProps {
   pageTitle: string;
@@ -88,29 +89,29 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
       <div className={`page-breadcrumb__content ${contentClassName}`.trim()}>
         <div className="page-breadcrumb__trail-wrap">
           {showBackButton && (
-            <button type="button" className="page-breadcrumb__back" onClick={handleBack} aria-label="Go back">
-              <ArrowLeft size={18} strokeWidth={1.8} />
+            <button type="button" className="page-breadcrumb__back" onClick={handleBack} aria-label={t("Go back")}>
+              <ArrowLeft className="rtl:rotate-180" size={18} strokeWidth={1.8} />
             </button>
           )}
-          <nav className={`page-breadcrumb__trail ${breadcrumbClassName}`.trim()} aria-label="Breadcrumb">
+          <nav className={`page-breadcrumb__trail ${breadcrumbClassName}`.trim()} aria-label={t("Breadcrumb")}>
             <ol>
               <li>
-                <Link to="/" className="page-breadcrumb__home" aria-label="Go to dashboard" title="Go to dashboard">
+                <Link to="/" className="page-breadcrumb__home" aria-label={t("Go to dashboard")} title={t("Go to dashboard")}>
                   <House size={17} />
                 </Link>
               </li>
               {trail.map((crumb) => (
                 <li key={`${crumb.label}-${crumb.current ? "current" : "parent"}`} className={crumb.current ? "is-current" : undefined}>
-                  <ChevronRight className="page-breadcrumb__separator" size={16} />
+                  <ChevronRight className="page-breadcrumb__separator rtl:rotate-180" size={16} />
                   {!crumb.current && crumb.to ? (
-                    <Link to={crumb.to} className="page-breadcrumb__link" title={`Go to ${crumb.label}`}>
+                    <Link to={crumb.to} className="page-breadcrumb__link" title={t("Go to {page}", { page: t(crumb.label) })}>
                       <FolderClosed size={17} />
-                      <span className="page-breadcrumb__label">{crumb.label}</span>
+                      <span className="page-breadcrumb__label">{t(crumb.label)}</span>
                     </Link>
                   ) : (
-                    <span className={crumb.current ? `page-breadcrumb__current ${titleClassName}`.trim() : "page-breadcrumb__link"} title={crumb.current ? undefined : crumb.label}>
+                    <span className={crumb.current ? `page-breadcrumb__current ${titleClassName}`.trim() : "page-breadcrumb__link"} title={crumb.current ? undefined : t(crumb.label)}>
                       {crumb.current ? <CircleDot size={16} /> : <FolderClosed size={17} />}
-                      <span className="page-breadcrumb__label">{crumb.current ? pageTitle : crumb.label}</span>
+                      <span className="page-breadcrumb__label">{t(crumb.current ? pageTitle : crumb.label)}</span>
                     </span>
                   )}
                 </li>
