@@ -79,7 +79,7 @@ export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) =>
             <div key={bucket.bucket} className="rounded-lg border border-slate-100 px-3 py-2">
               <div className="flex items-center gap-1.5 text-xs text-slate-500">
                 <span className={`h-2 w-2 rounded-full ${BUCKET_TONES[index]}`} />
-                {bucket.bucket === "Current" ? "Not yet due" : `${bucket.bucket} days`}
+                {bucket.bucket === "Current" ? t("Not yet due") : `${bucket.bucket} days`}
               </div>
               <div className="text-sm font-semibold text-slate-900">{money(bucket.outstandingAmount)}</div>
               <div className="text-xs text-slate-400">{bucket.invoiceCount} bill{bucket.invoiceCount === 1 ? "" : "s"}</div>
@@ -149,7 +149,7 @@ export const DebitNotesList: React.FC<{ notes: DebitNote[] }> = ({ notes }) => (
   <section className="rounded-2xl border border-slate-200 bg-white p-4">
     <h3 className="mb-1 text-sm font-semibold text-slate-800">{t("Debit notes")}</h3>
     <p className="mb-3 text-xs text-slate-400">
-      Goods returned to vendors (from Purchase Returns) and corrections raised on a bill. They reduce what is owed, like payments.
+      {t("Goods returned to vendors (from Purchase Returns) and corrections raised on a bill. They reduce what is owed, like payments.")}
     </p>
     {notes.length === 0 ? (
       <p className="text-sm text-slate-500">{t("No debit notes yet.")}</p>

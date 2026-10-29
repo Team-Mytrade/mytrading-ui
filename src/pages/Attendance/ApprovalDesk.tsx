@@ -1,3 +1,4 @@
+import { t } from "../../i18n/i18n";
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Check, Eye, X } from 'lucide-react';
@@ -241,20 +242,20 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
       label: 'Actions',
       render: (row) => (
         <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <button type="button" onClick={() => open(row, 'view')} title="View"
+          <button type="button" onClick={() => open(row, 'view')} title={t("View")}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-gray-200 dark:border-[#303030] rounded-lg text-gray-600 dark:text-gray-300 transition-colors cursor-pointer">
             <Eye className="w-3.5 h-3.5" />
           </button>
           {activeTab === 'pending' && canApprove && (
             isOwn(row) ? (
-              <span className="text-[10px] text-slate-400 dark:text-gray-500">Your own request</span>
+              <span className="text-[10px] text-slate-400 dark:text-gray-500">{t("Your own request")}</span>
             ) : (
               <>
-                <button type="button" onClick={() => open(row, 'approve')} title="Approve"
+                <button type="button" onClick={() => open(row, 'approve')} title={t("Approve")}
                   className="p-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 rounded-lg text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer">
                   <Check className="w-3.5 h-3.5" />
                 </button>
-                <button type="button" onClick={() => open(row, 'reject')} title="Reject"
+                <button type="button" onClick={() => open(row, 'reject')} title={t("Reject")}
                   className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg text-rose-600 dark:text-rose-300 transition-colors cursor-pointer">
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -295,7 +296,7 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
             defaultSortKey="id"
             defaultSortOrder={activeTab === 'pending' ? 'asc' : 'desc'}
             enableRowDetails={false}
-            emptyState={<p className="text-xs text-slate-400 dark:text-gray-500 py-6 text-center">No {activeTab} requests.</p>}
+            emptyState={<p className="text-xs text-slate-400 dark:text-gray-500 py-6 text-center">{t("No")} {activeTab} requests.</p>}
           />
         </div>
       </div>
@@ -314,17 +315,17 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
 
             <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/80 dark:border-[#303030] text-xs">
               <div>
-                <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">Employee</span>
+                <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">{t("Employee")}</span>
                 <span className="font-bold">{selected.employee}</span>
                 <span className="block text-[10px] font-mono text-slate-500">{selected.employeeCode}</span>
               </div>
               <div>
-                <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">Dates</span>
+                <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">{t("Dates")}</span>
                 <span className="font-bold font-mono">{selected.dates}</span>
                 {selected.days && <span className="block text-[10px] text-slate-500">{selected.days}</span>}
               </div>
               <div className="col-span-2">
-                <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">Reason</span>
+                <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">{t("Reason")}</span>
                 <span>{selected.reason || '—'}</span>
               </div>
               {selected.details.length > 0 && (
@@ -334,7 +335,7 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
               )}
               {(selected.decidedBy || selected.decidedOn || selected.remarks) && (
                 <div className="col-span-2 border-t border-slate-200/60 dark:border-[#303030] pt-2">
-                  <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">Decision</span>
+                  <span className="text-slate-400 dark:text-gray-400 font-semibold block text-[10px] uppercase tracking-wider">{t("Decision")}</span>
                   <span>{[selected.status, selected.decidedBy && `by ${selected.decidedBy}`, selected.decidedOn && `on ${selected.decidedOn}`].filter(Boolean).join(' ')}</span>
                   {selected.remarks && <span className="block text-slate-600 dark:text-gray-300">“{selected.remarks}”</span>}
                 </div>
@@ -345,7 +346,7 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
               <div className="flex justify-end">
                 <button type="button" onClick={close}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-slate-700 dark:text-gray-300 rounded-xl text-xs font-bold cursor-pointer">
-                  Close
+                  {t("Close")}
                 </button>
               </div>
             ) : (
@@ -362,7 +363,7 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
                 <div className="pt-3 border-t border-gray-100 dark:border-[#2a2a2a] flex items-center justify-end gap-2">
                   <button type="button" onClick={close}
                     className="px-4 py-2 border border-gray-200 dark:border-transparent bg-white dark:bg-[#222222] rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] cursor-pointer">
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button type="submit" disabled={isSubmitting}
                     className={`px-5 py-2 text-white rounded-lg text-xs font-bold disabled:opacity-70 cursor-pointer ${action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>

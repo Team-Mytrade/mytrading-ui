@@ -2,7 +2,7 @@
 // dates and times. Plain functions, so tables, exports and PDFs use them as well as pages.
 // The settings are set when the company profile loads (companyApi); until then today's defaults apply.
 import { DEFAULT_REGIONAL, RegionalSettings, currencyDigits } from "./regional";
-import { setCompanyLanguage } from "../i18n/i18n";
+import { language, setCompanyLanguage } from "../i18n/i18n";
 
 let regional: RegionalSettings = DEFAULT_REGIONAL;
 
@@ -148,6 +148,27 @@ interface Parts {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+// Gulf usage: Gregorian month names (Arabic has no separate short form); digits stay 0–9
+const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+/** Month names (January first) in the screen language. */
+export const monthNames = (style: "short" | "long" = "short"): string[] =>
+  language() === "ar" ? [...MONTHS_AR] : style === "long" ? [...MONTHS_LONG] : [...MONTHS];
+
+const monthName = (month: number) => monthNames("short")[month - 1];
+/**
+ * A month-name array that always reads in the current screen language (for module-level constants that
+ * pages index or map over; the language can change after they are created).
+ */
+export const liveMonthNames = (style: "short" | "long" = "short"): string[] =>
+  new Proxy([] as string[], { get: (_target, key) => Reflect.get(monthNames(style), key) });
+
+/**
+ * Locale for the browser's own date formatting (toLocaleDateString, Intl.DateTimeFormat) in the screen language:
+ * Arabic names with Western digits, else the given English locale (undefined = the browser's).
+ */
+export const dateLocale = (english?: string): string | undefined => (language() === "ar" ? "ar-AE-u-nu-latn" : english);
 
 // Parts of an instant in the company's time zone
 const zonedParts = (date: Date): Parts => {
@@ -189,14 +210,15 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const datePattern = (p: Parts, pattern: string) =>
   pattern
     .replace("yyyy", String(p.year))
-    .replace("MMM", MONTHS[p.month - 1])
+    .replace("MMM", monthName(p.month))
     .replace("MM", pad(p.month))
     .replace("dd", pad(p.day));
 
 const timeText = (p: Parts) => {
   if (regional.timeFormat === "24h") return `${pad(p.hour)}:${pad(p.minute)}`;
   const hour = p.hour % 12 || 12;
-  return `${pad(hour)}:${pad(p.minute)} ${p.hour < 12 ? "AM" : "PM"}`;
+  const amPm = language() === "ar" ? (p.hour < 12 ? "ص" : "م") : p.hour < 12 ? "AM" : "PM";
+  return `${pad(hour)}:${pad(p.minute)} ${amPm}`;
 };
 
 /** A date in the company's format (dd/MM/yyyy, ...); "—" (or `empty`) when there is none. */
@@ -224,10 +246,10 @@ export const formatDateTime = (value: unknown, empty = "—"): string => {
 export const formatMonth = (value: unknown, empty = "—"): string => {
   if (typeof value === "string" && /^\d{4}-\d{2}$/.test(value.trim())) {
     const [y, m] = value.trim().split("-").map(Number);
-    return `${MONTHS[m - 1]} ${y}`;
+    return `${monthName(m)} ${y}`;
   }
   const p = partsOf(value);
-  return p ? `${MONTHS[p.month - 1]} ${p.year}` : empty;
+  return p ? `${monthName(p.month)} ${p.year}` : empty;
 };
 
 /* ================= Week ================= */
@@ -243,9 +265,23 @@ const weekStartIndex = () => {
 /** Day names (SUNDAY…) in the company's week order: Sunday first in the Gulf, Monday first by default. */
 export const weekDays = (): string[] => DAYS.map((_, i) => DAYS[(weekStartIndex() + i) % 7]);
 
-/** Column headers in week order: "min" Su Mo…, "short" Sun Mon…. */
-export const weekdayLabels = (style: "min" | "short" = "short"): string[] =>
-  weekDays().map((d) => d.charAt(0) + d.slice(1, style === "min" ? 2 : 3).toLowerCase());
+const DAYS_AR = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const DAYS_AR_MIN = ["أحد", "إثن", "ثلا", "أرب", "خمي", "جمع", "سبت"];
+
+/** A day's name (SUNDAY… or a Date) in the screen language: "short" Sun / الأحد, "long" Sunday / الأحد. */
+export const weekdayName = (day: string | number | Date, style: "min" | "short" | "long" = "short"): string => {
+  const index = day instanceof Date ? day.getDay() : typeof day === "number" ? day : DAYS.indexOf(String(day).toUpperCase());
+  if (index < 0) return String(day);
+  if (language() === "ar") return (style === "min" ? DAYS_AR_MIN : DAYS_AR)[index];
+  const name = DAYS[index];
+  return name.charAt(0) + (style === "long" ? name.slice(1) : name.slice(1, style === "min" ? 2 : 3)).toLowerCase();
+};
+
+/** Sun…Sat names (Sunday first, as Date.getDay()) that always read in the current screen language. */
+export const liveWeekdayNames = (style: "min" | "short" | "long" = "short"): string[] =>
+  new Proxy([] as string[], { get: (_target, key) => Reflect.get([0, 1, 2, 3, 4, 5, 6].map((d) => weekdayName(d, style)), key) });
+/** Column headers in week order: "min" Su Mo…, "short" Sun Mon… (Arabic names when the screen is Arabic). */
+export const weekdayLabels = (style: "min" | "short" = "short"): string[] => weekDays().map((d) => weekdayName(d, style));
 
 /** Empty cells before the 1st in a month grid that starts on the company's first day of the week. */
 export const leadingDays = (year: number, month: number): number =>

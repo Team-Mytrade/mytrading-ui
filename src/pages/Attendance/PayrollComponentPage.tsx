@@ -18,6 +18,7 @@ import StatsCard from "../../components/common/Statscard";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatNumber } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Employee { id: number; firstName: string; lastName: string; }
@@ -135,8 +136,8 @@ const PayrollComponentPage: React.FC = () => {
     {
       key: "type", label: "Type",
       render: (_, v) => v === "EARNING"
-        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><PlusCircleIcon className="h-3 w-3" />Earning</span>
-        : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><MinusCircleIcon className="h-3 w-3" />Deduction</span>,
+        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><PlusCircleIcon className="h-3 w-3" />{t("Earning")}</span>
+        : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><MinusCircleIcon className="h-3 w-3" />{t("Deduction")}</span>,
     },
     {
       key: "amount", label: "Amount",
@@ -210,51 +211,51 @@ const PayrollComponentPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Payroll Components" description="Payroll processing page" />
+      <PageMeta title={t("Payroll Components")} description="Payroll processing page" />
       <PageBreadcrumb pageTitle="Payroll Components" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payroll Processing</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Generate and view employee payroll components</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("Payroll Processing")}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{t("Generate and view employee payroll components")}</p>
         </div>
 
         {/* Filter / Action Panel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <CogIcon className="h-4 w-4 text-gray-400" /> Payroll Actions
+            <CogIcon className="h-4 w-4 text-gray-400" /> {t("Payroll Actions")}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("Employee")}</label>
               <select value={selectedEmployee}
                 onChange={e => setSelectedEmployee(Number(e.target.value))}
                 className={inputCls}>
-                <option value={0}>Select Employee</option>
+                <option value={0}>{t("Select Employee")}</option>
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Month</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("Month")}</label>
               <input type="month" value={month} onChange={e => setMonth(e.target.value)} className={inputCls} />
             </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
             <button onClick={fetchPayroll} disabled={!selectedEmployee || !month}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors">
-              <EyeIcon className="h-4 w-4" /> View Payroll
+              <EyeIcon className="h-4 w-4" /> {t("View Payroll")}
             </button>
             {canCreate && (<button onClick={generatePayroll} disabled={!selectedEmployee || !month}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors">
-              <CogIcon className="h-4 w-4" /> Generate
+              <CogIcon className="h-4 w-4" /> {t("Generate")}
             </button>)}
             <button onClick={fetchMonthPayrolls} disabled={!month}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors">
-              <CalendarDaysIcon className="h-4 w-4" /> View Month Payrolls
+              <CalendarDaysIcon className="h-4 w-4" /> {t("View Month Payrolls")}
             </button>
           </div>
         </div>
@@ -262,7 +263,7 @@ const PayrollComponentPage: React.FC = () => {
         {/* Individual Payroll Detail */}
         {loading && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
-            Loading payroll data...
+            {t("Loading payroll data...")}
           </div>
         )}
 
@@ -271,28 +272,28 @@ const PayrollComponentPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Payroll — {payroll.payrollMonth}
+                  {t("Payroll —")} {payroll.payrollMonth}
                 </h2>
                 <p className="text-sm text-gray-500">
                   {[payroll.employee?.firstName, payroll.employee?.lastName].filter(Boolean).join(" ")}
                 </p>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${payroll.finalized ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-700"}`}>
-                {payroll.finalized ? "Finalized" : "Draft"}
+                {t(payroll.finalized ? "Finalized" : "Draft")}
               </span>
             </div>
 
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatsCard label="Base Salary"       value={payroll.baseSalary}      gradient="from-cyan-50 to-blue-50"     borderColor="border-cyan-100"   labelColor="text-cyan-600" />
-              <StatsCard label="Total Earnings"    value={payroll.totalEarnings}   gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
-              <StatsCard label="Total Deductions"  value={payroll.totalDeductions} gradient="from-red-50 to-rose-50"      borderColor="border-red-100"    labelColor="text-red-600" />
-              <StatsCard label="Net Pay"           value={payroll.netPay}          gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
+              <StatsCard label={t("Base Salary")}       value={payroll.baseSalary}      gradient="from-cyan-50 to-blue-50"     borderColor="border-cyan-100"   labelColor="text-cyan-600" />
+              <StatsCard label={t("Total Earnings")}    value={payroll.totalEarnings}   gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
+              <StatsCard label={t("Total Deductions")}  value={payroll.totalDeductions} gradient="from-red-50 to-rose-50"      borderColor="border-red-100"    labelColor="text-red-600" />
+              <StatsCard label={t("Net Pay")}           value={payroll.netPay}          gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
             </div>
 
             {/* Components table */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Payroll Components</p>
+              <p className="text-sm font-semibold text-gray-700 mb-3">{t("Payroll Components")}</p>
               <ReusableTable<PayrollComponent>
                 data={payroll.components}
                 columns={componentColumns}
@@ -302,7 +303,7 @@ const PayrollComponentPage: React.FC = () => {
                 defaultSortKey="type"
                 defaultSortOrder="asc"
                 emptyState={
-                  <p className="text-center text-sm text-gray-400 py-4">No components found</p>
+                  <p className="text-center text-sm text-gray-400 py-4">{t("No components found")}</p>
                 }
               />
             </div>
@@ -315,14 +316,14 @@ const PayrollComponentPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5 text-gray-400" />
               <h2 className="text-lg font-semibold text-gray-900">
-                Payrolls for {month}
+                {t("Payrolls for")} {month}
               </h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <StatsCard label="Total Net Pay"     value={Math.round(totalNet)}      gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
-              <StatsCard label="Total Earnings"    value={Math.round(totalEarnings)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
-              <StatsCard label="Total Deductions"  value={Math.round(totalDeduct)}   gradient="from-red-50 to-rose-50"      borderColor="border-red-100"    labelColor="text-red-600" />
+              <StatsCard label={t("Total Net Pay")}     value={Math.round(totalNet)}      gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
+              <StatsCard label={t("Total Earnings")}    value={Math.round(totalEarnings)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
+              <StatsCard label={t("Total Deductions")}  value={Math.round(totalDeduct)}   gradient="from-red-50 to-rose-50"      borderColor="border-red-100"    labelColor="text-red-600" />
             </div>
 
             <ReusableTable<PayrollRecord>
@@ -330,7 +331,7 @@ const PayrollComponentPage: React.FC = () => {
               columns={monthColumns}
               loading={loading}
               searchable
-              searchPlaceholder="Search by employee name..."
+              searchPlaceholder={t("Search by employee name...")}
               searchFields={[]}
               pageSize={10}
               defaultSortKey="netPay"
@@ -338,7 +339,7 @@ const PayrollComponentPage: React.FC = () => {
               emptyState={
                 <div className="flex flex-col items-center py-4">
                   <BanknotesIcon className="h-8 w-8 text-gray-300 mb-2" />
-                  <p className="text-gray-400 text-sm">No payroll records for this month</p>
+                  <p className="text-gray-400 text-sm">{t("No payroll records for this month")}</p>
                 </div>
               }
             />
@@ -350,7 +351,7 @@ const PayrollComponentPage: React.FC = () => {
           <div className="bg-white rounded-xl border border-dashed border-gray-300 p-12 flex flex-col items-center">
             <BanknotesIcon className="h-12 w-12 text-gray-300 mb-4" />
             <p className="text-gray-400 text-sm font-medium">
-              Select an employee and month, then click View or Generate
+              {t("Select an employee and month, then click View or Generate")}
             </p>
           </div>
         )}

@@ -1,3 +1,4 @@
+import { t } from "../../i18n/i18n";
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -296,7 +297,7 @@ const SectionHeader = ({ title, limit, utilized, isExpanded, onToggle }: any) =>
                     {utilized > limit ? 'Limit Exceeded' : `${Math.round((utilized / limit) * 100)}% Used`}
                 </span>
             ) : (
-                <span className="text-xs text-gray-400 font-medium bg-gray-100 dark:bg-[#222222] px-2 py-1 rounded">No Limit</span>
+                <span className="text-xs text-gray-400 font-medium bg-gray-100 dark:bg-[#222222] px-2 py-1 rounded">{t("No Limit")}</span>
             )}
         </div>
     </div>
@@ -909,17 +910,17 @@ const ItDeclarationPage: React.FC = () => {
         <div className="flex items-center gap-2">
             <button type="button" onClick={downloadProofs} disabled={isLoading} className={TOOL_BUTTON}>
                 <Download size={14} />
-                Download Proofs
+                {t("Download Proofs")}
             </button>
             {isLocked ? (
                 <button type="button" onClick={unlockDeclaration} disabled={isLoading} className={TOOL_BUTTON}>
                     <Unlock size={14} />
-                    Unlock
+                    {t("Unlock")}
                 </button>
             ) : isSubmitted && (
                 <button type="button" onClick={lockDeclaration} disabled={isLoading} className={TOOL_BUTTON}>
                     <Lock size={14} />
-                    Lock for Payroll
+                    {t("Lock for Payroll")}
                 </button>
             )}
         </div>
@@ -929,12 +930,12 @@ const ItDeclarationPage: React.FC = () => {
     if (isFetching) {
         return (
             <>
-                <PageMeta title="IT Declaration | Payroll" description="Manage your tax declarations" />
+                <PageMeta title={t("IT Declaration | Payroll")} description="Manage your tax declarations" />
                 <PageBreadcrumb pageTitle="IT Declaration" />
                 <div className={`${PAGE_BODY} flex items-center justify-center`}>
                     <div className="flex flex-col items-center gap-3 py-16">
                         <div className="w-10 h-10 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Loading declaration...</p>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("Loading declaration...")}</p>
                     </div>
                 </div>
             </>
@@ -944,7 +945,7 @@ const ItDeclarationPage: React.FC = () => {
     if (notLinked) {
         return (
             <>
-                <PageMeta title="IT Declaration | Payroll" description="Manage your tax declarations" />
+                <PageMeta title={t("IT Declaration | Payroll")} description="Manage your tax declarations" />
                 <PageBreadcrumb pageTitle="IT Declaration" />
                 <div className={`${PAGE_BODY} space-y-6`}>
                     {canApprove && <DeclarationReviewQueue />}
@@ -962,7 +963,7 @@ const ItDeclarationPage: React.FC = () => {
     // Render Logic
     return (
         <>
-            <PageMeta title="IT Declaration | Payroll" description="Manage your tax declarations" />
+            <PageMeta title={t("IT Declaration | Payroll")} description="Manage your tax declarations" />
             <PageBreadcrumb pageTitle="IT Declaration" actions={hrActions || undefined} />
         <div className="pb-20 lg:pb-0 text-gray-900 dark:text-white">
 
@@ -971,7 +972,7 @@ const ItDeclarationPage: React.FC = () => {
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
                     <div className="bg-white dark:bg-[#191919] rounded-xl p-6 shadow-2xl flex flex-col items-center gap-3 border border-transparent dark:!border-transparent">
                         <div className="w-8 h-8 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Processing...</p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("Processing...")}</p>
                     </div>
                 </div>
             )}
@@ -992,21 +993,21 @@ const ItDeclarationPage: React.FC = () => {
                 {/* Whose declaration, for which year, and where it stands */}
                 <div className={STATS_ROW}>
                     <StatsCard
-                        label={isHR ? "Employee (viewing as HR)" : "Employee"}
+                        label={t(isHR ? "Employee (viewing as HR)" : "Employee")}
                         value={`${declaration.employeeName || '-'}${declaration.employeeCode ? ` · ${declaration.employeeCode}` : ''}`}
                         gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600"
                         icon={<UserIcon className="h-5 w-5" />}
                     />
-                    <StatsCard label="Financial Year" value={`FY ${declaration.financialYear}`} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CalendarDaysIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Financial Year")} value={`FY ${declaration.financialYear}`} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CalendarDaysIcon className="h-5 w-5" />} />
                     <StatsCard
-                        label="Status"
+                        label={t("Status")}
                         value={declaration.status === 'LOCKED' ? 'Locked for payroll' : declaration.status === 'SUBMITTED' ? 'Submitted' : 'Draft'}
                         gradient={declaration.status === 'DRAFT' ? "from-amber-50 to-yellow-50" : "from-green-50 to-emerald-50"}
                         borderColor={declaration.status === 'DRAFT' ? "border-amber-100" : "border-green-100"}
                         labelColor={declaration.status === 'DRAFT' ? "text-amber-600" : "text-green-600"}
                         icon={<FlagIcon className="h-5 w-5" />}
                     />
-                    <StatsCard label="Approved / Declared" value={`₹${totalApproved.toLocaleString()} / ₹${totalDeclared.toLocaleString()}`} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={loadDeclaration} />
+                    <StatsCard label={t("Approved / Declared")} value={`₹${totalApproved.toLocaleString()} / ₹${totalDeclared.toLocaleString()}`} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={loadDeclaration} />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1016,14 +1017,14 @@ const ItDeclarationPage: React.FC = () => {
                         <section className="bg-white dark:bg-[#191919] rounded-xl p-6 border border-gray-200 dark:!border-transparent shadow-sm">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
-                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Tax Regime</h2>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Select the tax regime that benefits you most</p>
+                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("Tax Regime")}</h2>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{t("Select the tax regime that benefits you most")}</p>
                                 </div>
                                 <button
                                     onClick={() => setShowComparison(true)}
                                     className="text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 flex items-center gap-1 bg-cyan-50 dark:bg-[#222222] px-3 py-1.5 rounded-lg hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] transition-colors"
                                 >
-                                    Compare Regimes
+                                    {t("Compare Regimes")}
                                 </button>
                             </div>
 
@@ -1045,13 +1046,13 @@ const ItDeclarationPage: React.FC = () => {
                                                 }`}>
                                                 {isOldRegime && <Check size={12} className="text-white" />}
                                             </div>
-                                            <span className={`font-bold ${isOldRegime ? 'text-cyan-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>Old Regime</span>
+                                            <span className={`font-bold ${isOldRegime ? 'text-cyan-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>{t("Old Regime")}</span>
                                         </div>
                                     </div>
                                     <ul className="text-xs space-y-2 text-gray-600 dark:text-gray-400">
-                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> Claim HRA, LTA, 80C, 80D</li>
-                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> Multiple deduction options</li>
-                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> Higher tax savings potential</li>
+                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> {t("Claim HRA, LTA, 80C, 80D")}</li>
+                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> {t("Multiple deduction options")}</li>
+                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> {t("Higher tax savings potential")}</li>
                                     </ul>
                                 </button>
 
@@ -1072,13 +1073,13 @@ const ItDeclarationPage: React.FC = () => {
                                                 }`}>
                                                 {!isOldRegime && <Check size={12} className="text-white" />}
                                             </div>
-                                            <span className={`font-bold ${!isOldRegime ? 'text-cyan-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>New Regime</span>
+                                            <span className={`font-bold ${!isOldRegime ? 'text-cyan-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>{t("New Regime")}</span>
                                         </div>
                                     </div>
                                     <ul className="text-xs space-y-2 text-gray-600 dark:text-gray-400">
-                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> Lower Tax Rates</li>
-                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> Minimal documentation</li>
-                                        <li className="flex items-start gap-1.5"><Info size={12} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" /> Limited deductions available</li>
+                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> {t("Lower Tax Rates")}</li>
+                                        <li className="flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" /> {t("Minimal documentation")}</li>
+                                        <li className="flex items-start gap-1.5"><Info size={12} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" /> {t("Limited deductions available")}</li>
                                     </ul>
                                 </button>
                             </div>
@@ -1087,7 +1088,7 @@ const ItDeclarationPage: React.FC = () => {
                         {/* Declaration Form Sections */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-1">
-                                {isOldRegime ? 'Old Regime' : 'New Regime'} Declarations
+                                {t(isOldRegime ? 'Old Regime' : 'New Regime')} Declarations
                             </h3>
 
                             {currentSections.map((section) => {
@@ -1130,7 +1131,7 @@ const ItDeclarationPage: React.FC = () => {
                                                         ) : (
                                                             <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
                                                                 <Shield size={32} className="mb-2 opacity-50" />
-                                                                <p className="text-sm">No declarations added yet</p>
+                                                                <p className="text-sm">{t("No declarations added yet")}</p>
                                                                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{section.description}</p>
                                                             </div>
                                                         )}
@@ -1143,7 +1144,7 @@ const ItDeclarationPage: React.FC = () => {
                                                                 <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-[#222222] group-hover:bg-cyan-200 dark:group-hover:bg-[#2a2a2a] flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-cyan-600 dark:group-hover:text-gray-200 transition-colors">
                                                                     <Plus size={14} />
                                                                 </div>
-                                                                Add Item
+                                                                {t("Add Item")}
                               </button>
                                                         )}
 
@@ -1152,8 +1153,8 @@ const ItDeclarationPage: React.FC = () => {
                                                                 <div className="flex items-start gap-3">
                                                                     <Info size={16} className="text-cyan-600 dark:text-cyan-400 mt-0.5" />
                                                                     <div className="text-sm text-cyan-700 dark:text-gray-300">
-                                                                        <p className="font-medium">Auto-applied deduction</p>
-                                                                        <p className="text-xs mt-1">This ₹50,000 standard deduction is automatically applied to all salaried employees under the new regime. No proof required.</p>
+                                                                        <p className="font-medium">{t("Auto-applied deduction")}</p>
+                                                                        <p className="text-xs mt-1">{t("This ₹50,000 standard deduction is automatically applied to all salaried employees under the new regime. No proof required.")}</p>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1173,12 +1174,12 @@ const ItDeclarationPage: React.FC = () => {
                         <div className="sticky top-24 space-y-6">
                             {/* Summary Card */}
                             <div className={`bg-white dark:bg-[#191919] rounded-xl border ${isLocked ? 'border-purple-200 dark:!border-transparent bg-purple-50/50 dark:bg-[#191919]' : 'border-gray-200 dark:!border-transparent'} shadow-lg shadow-gray-100/50 dark:shadow-none p-6`}>
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Declaration Summary</h3>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">{t("Declaration Summary")}</h3>
 
                                 <div className="space-y-4 mb-6">
                                     <div className="flex justify-between items-center text-sm">
-                                        <span className="text-gray-500 dark:text-gray-400">Regime</span>
-                                        <span className="font-medium text-gray-900 dark:text-white">{isOldRegime ? 'Old Regime' : 'New Regime'}</span>
+                                        <span className="text-gray-500 dark:text-gray-400">{t("Regime")}</span>
+                                        <span className="font-medium text-gray-900 dark:text-white">{t(isOldRegime ? 'Old Regime' : 'New Regime')}</span>
                                     </div>
 
                                     {isOldRegime ? (
@@ -1197,12 +1198,12 @@ const ItDeclarationPage: React.FC = () => {
                                     ) : (
                                         <>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-gray-500 dark:text-gray-400">Standard Deduction</span>
+                                                <span className="text-gray-500 dark:text-gray-400">{t("Standard Deduction")}</span>
                                                 <span className="font-medium text-gray-900 dark:text-white">₹50,000</span>
                                             </div>
                                             {getSectionTotal('80CCD_2') > 0 && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-gray-500 dark:text-gray-400">Employer NPS</span>
+                                                    <span className="text-gray-500 dark:text-gray-400">{t("Employer NPS")}</span>
                                                     <span className="font-medium text-gray-900 dark:text-white">₹{getSectionTotal('80CCD_2').toLocaleString()}</span>
                                                 </div>
                                             )}
@@ -1212,7 +1213,7 @@ const ItDeclarationPage: React.FC = () => {
                                     <div className="h-px bg-gray-100 dark:bg-[#282828] my-2" />
 
                                     <div className="flex justify-between items-center">
-                                        <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Total Deductions</span>
+                                        <span className="text-base font-semibold text-gray-700 dark:text-gray-300">{t("Total Deductions")}</span>
                                         <span className="text-xl font-bold text-cyan-600 dark:text-cyan-400">
                                             ₹{(isOldRegime ? totalDeclared : totalDeclared + 50000).toLocaleString()}
                                         </span>
@@ -1220,7 +1221,7 @@ const ItDeclarationPage: React.FC = () => {
 
                                     {totalDeclared > 0 && (
                                         <div className="bg-green-50 dark:bg-[#222222] rounded-lg p-3 text-center border border-green-100 dark:!border-transparent">
-                                            <p className="text-xs text-green-700 dark:text-gray-400 uppercase font-semibold">Estimated Tax Saving</p>
+                                            <p className="text-xs text-green-700 dark:text-gray-400 uppercase font-semibold">{t("Estimated Tax Saving")}</p>
                                             <p className="text-lg font-bold text-green-700 dark:text-emerald-400">
                                                 ₹{getEstimatedTaxSaving().toLocaleString()}
                                             </p>
@@ -1232,7 +1233,7 @@ const ItDeclarationPage: React.FC = () => {
                                     <div className="space-y-3">
                                         {isSubmitted ? (
                                             <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                                Submitted to HR. A changed amount goes back to HR for approval.
+                                                {t("Submitted to HR. A changed amount goes back to HR for approval.")}
                                             </p>
                                         ) : (
                                             <button
@@ -1240,7 +1241,7 @@ const ItDeclarationPage: React.FC = () => {
                                                 disabled={isLoading}
                                                 className="w-full py-2.5 bg-gray-100 dark:bg-[#222222] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
-                                                <Save size={16} /> Save as Draft
+                                                <Save size={16} /> {t("Save as Draft")}
                                             </button>
                                         )}
                                         <button
@@ -1248,24 +1249,24 @@ const ItDeclarationPage: React.FC = () => {
                                             disabled={isLoading}
                                             className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 !text-white font-medium rounded-xl transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
-                                            {isSubmitted ? 'Save Changes' : 'Submit Declaration'} <ChevronRight size={18} />
+                                            {t(isSubmitted ? 'Save Changes' : 'Submit Declaration')} <ChevronRight size={18} />
                                         </button>
                                     </div>
                                 ) : isLocked ? (
                                     <div className="bg-purple-50 dark:bg-[#222222] border border-purple-100 dark:!border-transparent rounded-xl p-4 text-center">
                                         <Lock className="mx-auto text-purple-600 dark:text-purple-400 mb-2" size={24} />
-                                        <p className="text-sm font-medium text-purple-900 dark:text-gray-200">Locked for payroll</p>
-                                        <p className="text-xs text-purple-700 dark:text-gray-400 mt-1">Ask HR to unlock it to make changes.</p>
+                                        <p className="text-sm font-medium text-purple-900 dark:text-gray-200">{t("Locked for payroll")}</p>
+                                        <p className="text-xs text-purple-700 dark:text-gray-400 mt-1">{t("Ask HR to unlock it to make changes.")}</p>
                                     </div>
                                 ) : isHR && !isSubmitted && (
                                     <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                        The employee hasn't submitted this declaration yet.
+                                        {t("The employee hasn't submitted this declaration yet.")}
                                     </p>
                                 )}
 
                                 {declaration.lastSaved && (
                                     <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-4">
-                                        Last saved: {declaration.lastSaved}
+                                        {t("Last saved:")} {declaration.lastSaved}
                                     </p>
                                 )}
                             </div>
@@ -1301,7 +1302,7 @@ const ItDeclarationPage: React.FC = () => {
                         >
                             <div className="p-4 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-gray-50 dark:bg-[#222222]">
                                 <h3 className="font-bold text-gray-900 dark:text-white">
-                                    Add {currentSections.find(s => s.code === showAddModal)?.title}
+                                    {t("Add")} {currentSections.find(s => s.code === showAddModal)?.title}
                                 </h3>
                                 <button
                                     onClick={() => setShowAddModal(null)}
@@ -1312,13 +1313,13 @@ const ItDeclarationPage: React.FC = () => {
                             </div>
                             <div className="p-6 space-y-4 bg-white dark:bg-[#191919]">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("Type")}</label>
                                     <select
                                         className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none"
                                         value={newItem.subType}
                                         onChange={(e) => setNewItem({ ...newItem, subType: e.target.value })}
                                     >
-                                        <option value="">Select Type</option>
+                                        <option value="">{t("Select Type")}</option>
                                         {currentSections
                                             .find(s => s.code === showAddModal)
                                             ?.subTypes.map(type => (
@@ -1329,10 +1330,10 @@ const ItDeclarationPage: React.FC = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (Optional)</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("Description (Optional)")}</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. Policy Number, Account Details"
+                                        placeholder={t("e.g. Policy Number, Account Details")}
                                         className="w-full p-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none"
                                         value={newItem.description}
                                         onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
@@ -1359,7 +1360,7 @@ const ItDeclarationPage: React.FC = () => {
                                             const remaining = Math.max(0, limit - currentTotal);
                                             return (
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                                                    Maximum limit: ₹{limit.toLocaleString()} | Remaining allowed: <span className="text-cyan-600 dark:text-cyan-400 font-bold">₹{remaining.toLocaleString()}</span>
+                                                    {t("Maximum limit: ₹")}{limit.toLocaleString()} | Remaining allowed: <span className="text-cyan-600 dark:text-cyan-400 font-bold">₹{remaining.toLocaleString()}</span>
                                                 </p>
                                             );
                                         }
@@ -1372,14 +1373,14 @@ const ItDeclarationPage: React.FC = () => {
                                     onClick={() => setShowAddModal(null)}
                                     className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg text-sm font-medium"
                                 >
-                                    Cancel
+                                    {t("Cancel")}
                                 </button>
                                 <button
                                     onClick={handleAddItem}
                                     disabled={isLoading}
                                     className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 !text-white rounded-lg text-sm font-medium disabled:opacity-50"
                                 >
-                                    Add Item
+                                    {t("Add Item")}
                                 </button>
                             </div>
                         </motion.div>
@@ -1396,7 +1397,7 @@ const ItDeclarationPage: React.FC = () => {
                             className="bg-white dark:bg-[#191919] rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
                         >
                             <div className="p-6 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-white dark:bg-[#191919]">
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Tax Regime Comparison</h3>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t("Tax Regime Comparison")}</h3>
                                 <button
                                     onClick={() => setShowComparison(false)}
                                     className="p-2 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-full text-gray-500 dark:text-gray-400"
@@ -1409,30 +1410,30 @@ const ItDeclarationPage: React.FC = () => {
                                     <div className="flex items-start gap-3">
                                         <Info size={16} className="text-cyan-600 dark:text-cyan-400 mt-0.5" />
                                         <div className="text-sm text-cyan-700 dark:text-gray-300">
-                                            <p className="font-medium">Tax calculation is indicative</p>
-                                            <p className="text-xs mt-1">Please consult with a tax advisor for accurate calculations based on your complete financial situation.</p>
+                                            <p className="font-medium">{t("Tax calculation is indicative")}</p>
+                                            <p className="text-xs mt-1">{t("Please consult with a tax advisor for accurate calculations based on your complete financial situation.")}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-8">
                                     <div className="text-center p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-[#222222] dark:to-[#252525] rounded-xl border border-cyan-200 dark:!border-transparent">
-                                        <h4 className="font-bold text-cyan-900 dark:text-white mb-4">Old Regime</h4>
+                                        <h4 className="font-bold text-cyan-900 dark:text-white mb-4">{t("Old Regime")}</h4>
                                         <div className="space-y-2 text-sm text-cyan-800 dark:text-gray-300 mb-4">
-                                            <p>✓ Multiple deductions</p>
-                                            <p>✓ HRA, LTA benefits</p>
-                                            <p>✓ 80C up to ₹1.5L</p>
+                                            <p>{t("✓ Multiple deductions")}</p>
+                                            <p>{t("✓ HRA, LTA benefits")}</p>
+                                            <p>{t("✓ 80C up to ₹1.5L")}</p>
                                         </div>
-                                        <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2">Best for: Tax planning with investments</p>
+                                        <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2">{t("Best for: Tax planning with investments")}</p>
                                     </div>
                                     <div className="text-center p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#222222] dark:to-[#252525] rounded-xl border border-gray-200 dark:!border-transparent">
-                                        <h4 className="font-bold text-gray-900 dark:text-white mb-4">New Regime</h4>
+                                        <h4 className="font-bold text-gray-900 dark:text-white mb-4">{t("New Regime")}</h4>
                                         <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300 mb-4">
-                                            <p>✓ Lower tax rates</p>
-                                            <p>✓ Simpler process</p>
-                                            <p>✓ Minimal documentation</p>
+                                            <p>{t("✓ Lower tax rates")}</p>
+                                            <p>{t("✓ Simpler process")}</p>
+                                            <p>{t("✓ Minimal documentation")}</p>
                                         </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Best for: Fewer deductions</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t("Best for: Fewer deductions")}</p>
                                     </div>
                                 </div>
                             </div>
@@ -1441,7 +1442,7 @@ const ItDeclarationPage: React.FC = () => {
                                     onClick={() => setShowComparison(false)}
                                     className="px-5 py-2.5 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                                 >
-                                    Close
+                                    {t("Close")}
                                 </button>
                             </div>
                         </motion.div>
@@ -1461,24 +1462,24 @@ const ItDeclarationPage: React.FC = () => {
                                 <div className="w-12 h-12 bg-amber-100 dark:bg-[#222222] rounded-full flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4 mx-auto">
                                     <AlertTriangle size={24} />
                                 </div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">Confirm Submission</h3>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">{t("Confirm Submission")}</h3>
                                 <p className="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">
-                                    Submit your declaration to HR for approval?
+                                    {t("Submit your declaration to HR for approval?")}
                                     <br />
-                                    <span className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 block">HR approves each item; only approved amounts reduce your tax.</span>
+                                    <span className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 block">{t("HR approves each item; only approved amounts reduce your tax.")}</span>
                                 </p>
 
                                 <div className="space-y-3 bg-gray-50 dark:bg-[#222222] p-4 rounded-xl text-sm border border-gray-100 dark:!border-transparent">
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500 dark:text-gray-400">Regime Selected:</span>
-                                        <span className="font-semibold text-gray-900 dark:text-white">{isOldRegime ? 'Old Regime' : 'New Regime'}</span>
+                                        <span className="text-gray-500 dark:text-gray-400">{t("Regime Selected:")}</span>
+                                        <span className="font-semibold text-gray-900 dark:text-white">{t(isOldRegime ? 'Old Regime' : 'New Regime')}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500 dark:text-gray-400">Total Items:</span>
+                                        <span className="text-gray-500 dark:text-gray-400">{t("Total Items:")}</span>
                                         <span className="font-semibold text-gray-900 dark:text-white">{declaration.items?.length || 0}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500 dark:text-gray-400">Total Deductions:</span>
+                                        <span className="text-gray-500 dark:text-gray-400">{t("Total Deductions:")}</span>
                                         <span className="font-semibold text-gray-900 dark:text-white">
                                             ₹{(isOldRegime ? totalDeclared : totalDeclared + 50000).toLocaleString()}
                                         </span>
@@ -1490,14 +1491,14 @@ const ItDeclarationPage: React.FC = () => {
                                     onClick={() => setShowSubmitConfirm(false)}
                                     className="flex-1 px-4 py-2.5 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                                 >
-                                    Cancel
+                                    {t("Cancel")}
                                 </button>
                                 <button
                                     onClick={() => saveDeclaration('SUBMITTED')}
                                     disabled={isLoading}
                                     className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 !text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                                 >
-                                    Yes, Submit
+                                    {t("Yes, Submit")}
                                 </button>
                             </div>
                         </motion.div>
@@ -1509,7 +1510,7 @@ const ItDeclarationPage: React.FC = () => {
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#191919] border-t border-gray-200 dark:!border-transparent p-4 shadow-lg z-40">
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
                     <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Total Deductions</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("Total Deductions")}</p>
                         <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400">
                             ₹{(isOldRegime ? totalDeclared : totalDeclared + 50000).toLocaleString()}
                         </p>
@@ -1520,7 +1521,7 @@ const ItDeclarationPage: React.FC = () => {
                             disabled={isLoading}
                             className="px-6 py-2.5 bg-cyan-600 active:bg-cyan-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                         >
-                            {isSubmitted ? 'Save' : 'Submit'} <ChevronRight size={18} />
+                            {t(isSubmitted ? 'Save' : 'Submit')} <ChevronRight size={18} />
                         </button>
                     ) : (
                         <div className="px-4 py-2 bg-gray-100 dark:bg-[#222222] rounded-lg text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -1603,7 +1604,7 @@ const ItemRow = ({
                                     <button
                                         onClick={() => onVerifyProof?.(proof.id)}
                                         className="ml-1 text-green-600 dark:text-emerald-400 hover:text-green-700"
-                                        title="Verify proof"
+                                        title={t("Verify proof")}
                                     >
                                         <CheckCircle2 size={12} />
                                     </button>
@@ -1619,11 +1620,11 @@ const ItemRow = ({
                                 className="text-xs flex items-center gap-1 text-cyan-600 dark:text-cyan-400 font-medium hover:underline"
                                 title={saved ? 'PDF, JPG or PNG, up to 5 MB' : 'Save the declaration first'}
                             >
-                                <Upload size={12} /> {item.proofs.length > 0 ? 'Add Proof' : 'Upload Proof'}
+                                <Upload size={12} /> {t(item.proofs.length > 0 ? 'Add Proof' : 'Upload Proof')}
                             </button>
                         ) : item.proofs.length === 0 && (
                             <span className="text-xs text-orange-500 dark:text-amber-400/80 flex items-center gap-1 font-medium">
-                                <AlertTriangle size={12} /> No proof attached
+                                <AlertTriangle size={12} /> {t("No proof attached")}
                             </span>
                         )}
                     </div>
@@ -1633,7 +1634,7 @@ const ItemRow = ({
                     <p className="text-lg font-bold text-gray-900 dark:text-white">₹{item.declaredAmount.toLocaleString()}</p>
                     {item.status === 'APPROVED' && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Approved: <span className="font-medium text-green-600 dark:text-emerald-400">₹{item.approvedAmount.toLocaleString()}</span>
+                            {t("Approved:")} <span className="font-medium text-green-600 dark:text-emerald-400">₹{item.approvedAmount.toLocaleString()}</span>
                         </p>
                     )}
 
@@ -1642,7 +1643,7 @@ const ItemRow = ({
                             <button
                                 onClick={onDelete}
                                 className="p-1.5 hover:bg-red-50 dark:hover:bg-[#282828] rounded text-gray-400 hover:text-red-600 dark:hover:text-rose-400 transition-colors"
-                                title="Delete"
+                                title={t("Delete")}
                             >
                                 <Trash2 size={16} />
                             </button>
@@ -1656,11 +1657,11 @@ const ItemRow = ({
                                     className="text-xs p-1 w-32 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded text-right"
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
-                                    title="Amount to approve"
+                                    title={t("Amount to approve")}
                                 />
                                 <input
                                     type="text"
-                                    placeholder="Note for the employee"
+                                    placeholder={t("Note for the employee")}
                                     className="text-xs p-1 w-48 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded"
                                     value={remarks}
                                     onChange={(e) => setRemarks(e.target.value)}
@@ -1670,19 +1671,19 @@ const ItemRow = ({
                                         onClick={() => decide('approve')}
                                         className="px-2 py-1 bg-green-50 dark:bg-[#222222] text-green-700 dark:text-emerald-400 text-xs font-medium rounded hover:bg-green-100 dark:hover:bg-[#2a2a2a] transition-colors"
                                     >
-                                        Approve
+                                        {t("Approve")}
                                     </button>
                                     <button
                                         onClick={() => decide('reject')}
                                         className="px-2 py-1 bg-red-50 dark:bg-[#222222] text-red-700 dark:text-rose-400 text-xs font-medium rounded hover:bg-red-100 dark:hover:bg-[#2a2a2a] transition-colors"
                                     >
-                                        Reject
+                                        {t("Reject")}
                                     </button>
                                     <button
                                         onClick={() => setReviewing(false)}
                                         className="px-2 py-1 bg-gray-50 dark:bg-[#222222] text-gray-700 dark:text-gray-300 text-xs font-medium rounded hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                 </div>
                             </div>
@@ -1701,7 +1702,7 @@ const ItemRow = ({
             {item.hrRemarks && (
                 <div className="mt-3 pt-3 border-t border-gray-100 dark:!border-transparent text-xs">
                     <p className="text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-[#222222] inline-block px-2 py-1 rounded">
-                        <span className="font-medium">HR:</span> {item.hrRemarks}
+                        <span className="font-medium">{t("HR:")}</span> {item.hrRemarks}
                     </p>
                 </div>
             )}
@@ -1762,12 +1763,12 @@ const DeclarationReviewQueue = () => {
         <section className={`${CARD} p-4`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h2 className={CARD_TITLE}>Declarations to review</h2>
-                    <p className="text-xs text-slate-500 dark:text-gray-400">Open a declaration to approve or reject its items and verify proofs</p>
+                    <h2 className={CARD_TITLE}>{t("Declarations to review")}</h2>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">{t("Open a declaration to approve or reject its items and verify proofs")}</p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-gray-300">
                     <input type="checkbox" checked={onlyWaiting} onChange={e => setOnlyWaiting(e.target.checked)} />
-                    Only those waiting for HR
+                    {t("Only those waiting for HR")}
                 </label>
             </div>
             <ReusableTable
@@ -1778,7 +1779,7 @@ const DeclarationReviewQueue = () => {
                 // The page reads the name and code from the declaration itself
                 onRowClick={(d) => navigate(`/it-declaration?id=${d.employeeId}`)}
                 emptyState={
-                    <p className="py-6 text-sm text-slate-400">{onlyWaiting ? 'Nothing is waiting for review.' : 'No declarations yet.'}</p>
+                    <p className="py-6 text-sm text-slate-400">{t(onlyWaiting ? 'Nothing is waiting for review.' : 'No declarations yet.')}</p>
                 }
             />
         </section>

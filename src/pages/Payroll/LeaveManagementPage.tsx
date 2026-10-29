@@ -1,3 +1,4 @@
+import { t } from "../../i18n/i18n";
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -110,7 +111,7 @@ const LeaveManagementPage: React.FC = () => {
 
     return (
         <div className="leave-mgmt-page p-6 space-y-8 bg-[#F8FAFC] min-h-screen">
-            <PageMeta title="Time-Off Hub" description="Premium leave management and balance tracking" />
+            <PageMeta title={t("Time-Off Hub")} description="Premium leave management and balance tracking" />
 
             <div className="flex justify-between items-end">
                 <PageBreadcrumb pageTitle="Time-Off Hub" />
@@ -119,20 +120,20 @@ const LeaveManagementPage: React.FC = () => {
                     className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-3 transition-all shadow-xl uppercase tracking-widest text-[11px]"
                 >
                     <Plus size={18} />
-                    Submit Request
+                    {t("Submit Request")}
                 </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Sidebar: Balances & Stats */}
                 <div className="lg:col-span-4 space-y-6">
-                    <BalanceCard title="Annual Quotient" count={balances.annual} icon={<Calendar />} color="indigo" />
-                    <BalanceCard title="Health Reserve" count={balances.sick} icon={<ShieldAlert />} color="rose" />
-                    <BalanceCard title="Casual Buffer" count={balances.casual} icon={<History />} color="blue" />
+                    <BalanceCard title={t("Annual Quotient")} count={balances.annual} icon={<Calendar />} color="indigo" />
+                    <BalanceCard title={t("Health Reserve")} count={balances.sick} icon={<ShieldAlert />} color="rose" />
+                    <BalanceCard title={t("Casual Buffer")} count={balances.casual} icon={<History />} color="blue" />
 
                     <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Utilization Index</span>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">{t("Utilization Index")}</span>
                             <span className="text-indigo-600 font-extrabold text-sm">{stats.utilization}%</span>
                         </div>
                         <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden shadow-inner">
@@ -144,18 +145,18 @@ const LeaveManagementPage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Consumed</span>
-                                <h4 className="text-xl font-black text-gray-800 italic">{balances.used} <span className="text-[10px] opacity-40">Days</span></h4>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">{t("Consumed")}</span>
+                                <h4 className="text-xl font-black text-gray-800 italic">{balances.used} <span className="text-[10px] opacity-40">{t("Days")}</span></h4>
                             </div>
                             <div className="space-y-1 text-right">
-                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Available</span>
-                                <h4 className="text-xl font-black text-indigo-600 italic">{stats.available} <span className="text-[10px] opacity-40">Days</span></h4>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">{t("Available")}</span>
+                                <h4 className="text-xl font-black text-indigo-600 italic">{stats.available} <span className="text-[10px] opacity-40">{t("Days")}</span></h4>
                             </div>
                         </div>
                         <div className="p-5 bg-amber-50/50 rounded-2xl border border-amber-100/30 flex gap-4">
                             <Info size={20} className="text-amber-400 shrink-0" />
                             <p className="text-[10px] font-bold text-amber-900/60 italic leading-relaxed">
-                                Balances reset on Jan 1st. Unused annual leaves roll over up to 15 days.
+                                {t("Balances reset on Jan 1st. Unused annual leaves roll over up to 15 days.")}
                             </p>
                         </div>
                     </div>
@@ -165,8 +166,8 @@ const LeaveManagementPage: React.FC = () => {
                 <div className="lg:col-span-8 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
                     <div className="p-8 border-b border-gray-50 flex items-center justify-between">
                         <div>
-                            <h3 className="text-xl font-black text-gray-800 uppercase italic leading-none">Application History</h3>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Lifecycle tracking of your time-off requests</p>
+                            <h3 className="text-xl font-black text-gray-800 uppercase italic leading-none">{t("Application History")}</h3>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{t("Lifecycle tracking of your time-off requests")}</p>
                         </div>
                         <button className="h-14 w-14 bg-gray-50 text-gray-400 hover:text-gray-900 rounded-2xl flex items-center justify-center transition-all">
                             <Filter size={18} />
@@ -177,10 +178,10 @@ const LeaveManagementPage: React.FC = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                                    <th className="px-8 py-6">Leave Detail</th>
-                                    <th className="px-8 py-6">Period</th>
-                                    <th className="px-8 py-6">Timeline</th>
-                                    <th className="px-8 py-6 text-right">Verification</th>
+                                    <th className="px-8 py-6">{t("Leave Detail")}</th>
+                                    <th className="px-8 py-6">{t("Period")}</th>
+                                    <th className="px-8 py-6">{t("Timeline")}</th>
+                                    <th className="px-8 py-6 text-right">{t("Verification")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -211,14 +212,14 @@ const LeaveManagementPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                Applied {format(new Date(req.appliedDate), 'MMM dd, yyyy')}
+                                                {t("Applied")} {format(new Date(req.appliedDate), 'MMM dd, yyyy')}
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <StatusBadge status={req.status as any} />
                                             </td>
                                         </motion.tr>
                                     )) : (
-                                        <tr><td colSpan={4} className="py-32 text-center font-black text-gray-200 uppercase italic">No Archival Records</td></tr>
+                                        <tr><td colSpan={4} className="py-32 text-center font-black text-gray-200 uppercase italic">{t("No Archival Records")}</td></tr>
                                     )}
                                 </AnimatePresence>
                             </tbody>
@@ -245,37 +246,37 @@ const LeaveManagementPage: React.FC = () => {
                                 <X size={20} />
                             </button>
                             <div className="p-10 border-b">
-                                <h3 className="text-3xl font-black text-gray-800 italic uppercase leading-none">Leave Request</h3>
-                                <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-[9px]">Submit your absence for organizational approval</p>
+                                <h3 className="text-3xl font-black text-gray-800 italic uppercase leading-none">{t("Leave Request")}</h3>
+                                <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-[9px]">{t("Submit your absence for organizational approval")}</p>
                             </div>
                             <form onSubmit={handleApply} className="p-10 space-y-8">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Leave Framework</label>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{t("Leave Framework")}</label>
                                     <select
                                         className="w-full h-15 bg-gray-50 border border-gray-100 rounded-[1.5rem] px-6 outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-gray-700"
                                         value={formData.leaveType}
                                         onChange={e => setFormData({ ...formData, leaveType: e.target.value as LeaveType })}
                                     >
-                                        <option value="Annual">Annual Reserve</option>
-                                        <option value="Sick">Health Contingency</option>
-                                        <option value="Casual">Casual Absence</option>
+                                        <option value="Annual">{t("Annual Reserve")}</option>
+                                        <option value="Sick">{t("Health Contingency")}</option>
+                                        <option value="Casual">{t("Casual Absence")}</option>
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Start Fence</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{t("Start Fence")}</label>
                                         <input type="date" className="w-full h-15 bg-gray-50 border border-gray-100 rounded-2xl px-6 outline-none transition-all font-bold text-gray-700" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">End Fence</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{t("End Fence")}</label>
                                         <input type="date" className="w-full h-15 bg-gray-50 border border-gray-100 rounded-2xl px-6 outline-none transition-all font-bold text-gray-700" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Substantiation</label>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{t("Substantiation")}</label>
                                     <textarea
                                         className="w-full bg-gray-50 border border-gray-100 rounded-[2rem] p-6 outline-none transition-all font-bold text-gray-700 h-32"
-                                        placeholder="Reason for absence..."
+                                        placeholder={t("Reason for absence...")}
                                         value={formData.reason}
                                         onChange={e => setFormData({ ...formData, reason: e.target.value })}
                                         required
@@ -284,16 +285,16 @@ const LeaveManagementPage: React.FC = () => {
                                 <div className="p-6 bg-indigo-50/50 rounded-[2rem] border border-indigo-100/20 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <Clock size={18} className="text-indigo-500" />
-                                        <span className="text-[10px] font-black text-indigo-900/60 uppercase tracking-widest">Estimated Impact</span>
+                                        <span className="text-[10px] font-black text-indigo-900/60 uppercase tracking-widest">{t("Estimated Impact")}</span>
                                     </div>
                                     <span className="font-black text-indigo-600 text-lg">{differenceInDays(new Date(formData.endDate), new Date(formData.startDate)) + 1} Net Days</span>
                                 </div>
                             </form>
                             <div className="p-10 bg-gray-50/50 flex gap-4 border-t">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 h-14 rounded-2xl font-black text-gray-400 uppercase tracking-widest text-[10px]">Cancel</button>
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 h-14 rounded-2xl font-black text-gray-400 uppercase tracking-widest text-[10px]">{t("Cancel")}</button>
                                 <button onClick={handleApply} className="flex-[2] h-14 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl font-black transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-[10px]">
                                     <Send size={18} />
-                                    Transmit Request
+                                    {t("Transmit Request")}
                                 </button>
                             </div>
                         </motion.div>
@@ -321,13 +322,13 @@ const BalanceCard: React.FC<{ title: string, count: number, icon: React.ReactNod
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div>
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">{title}</h4>
-                    <h2 className="text-4xl font-black italic">{count} <span className="text-sm opacity-50 not-italic">Days</span></h2>
+                    <h2 className="text-4xl font-black italic">{count} <span className="text-sm opacity-50 not-italic">{t("Days")}</span></h2>
                 </div>
                 <div className="mt-8 flex items-center gap-2">
                     <div className="p-2 bg-white/20 rounded-xl">
                         {React.cloneElement(icon as React.ReactElement<any>, { size: 18 })}
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Active Quota</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">{t("Active Quota")}</span>
                 </div>
             </div>
         </motion.div>

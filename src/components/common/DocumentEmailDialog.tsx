@@ -4,6 +4,7 @@ import { EnvelopeIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
 import { formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface EmailHistory {
   id: number;
   sentTo: string;
@@ -111,37 +112,37 @@ export default function DocumentEmailDialog({
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-cyan-50 text-cyan-600"><EnvelopeIcon className="h-4 w-4" /></span>
             <div>
-              <h3 id="doc-email-title" className="text-sm font-semibold text-slate-900 dark:text-white">Email {documentLabel.toLowerCase()} {number}</h3>
+              <h3 id="doc-email-title" className="text-sm font-semibold text-slate-900 dark:text-white">{t("Email")} {documentLabel.toLowerCase()} {number}</h3>
               <p className="text-[11px] text-slate-500">
                 {hint ?? (markSent ? `Sending it marks the ${documentLabel.toLowerCase()} as Sent.` : "The PDF is attached, as in the download.")}
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Close"><XMarkIcon className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label={t("Close")}><XMarkIcon className="h-5 w-5" /></button>
         </div>
 
         <div className="space-y-3 overflow-y-auto px-5 py-4">
           <div>
-            <label className={LABEL} htmlFor="de-to">To *</label>
+            <label className={LABEL} htmlFor="de-to">{t("To *")}</label>
             <input id="de-to" className={INPUT} value={to} onChange={(e) => setTo(e.target.value)} placeholder={`${recipient}@example.com`} />
-            <p className="mt-0.5 text-[11px] text-slate-500">Separate several addresses with commas.</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{t("Separate several addresses with commas.")}</p>
           </div>
           <div>
-            <label className={LABEL} htmlFor="de-cc">Cc</label>
+            <label className={LABEL} htmlFor="de-cc">{t("Cc")}</label>
             <input id="de-cc" className={INPUT} value={cc} onChange={(e) => setCc(e.target.value)} />
           </div>
           <div>
-            <label className={LABEL} htmlFor="de-subject">Subject</label>
+            <label className={LABEL} htmlFor="de-subject">{t("Subject")}</label>
             <input id="de-subject" className={INPUT} value={subject} maxLength={300} onChange={(e) => setSubject(e.target.value)} />
           </div>
           <div>
-            <label className={LABEL} htmlFor="de-message">Message</label>
+            <label className={LABEL} htmlFor="de-message">{t("Message")}</label>
             <textarea id="de-message" className={`${INPUT} min-h-[140px]`} value={message} onChange={(e) => setMessage(e.target.value)} />
           </div>
 
           {history.length > 0 && (
             <div>
-              <p className={LABEL}>Sent before</p>
+              <p className={LABEL}>{t("Sent before")}</p>
               <ul className="space-y-1">
                 {history.slice(0, 5).map((h) => (
                   <li key={h.id} className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-1.5 text-[11px] dark:bg-[#222222]">
@@ -162,12 +163,12 @@ export default function DocumentEmailDialog({
           {markSent && onSendWithoutEmail && (
             <button type="button" onClick={onSendWithoutEmail} disabled={sending}
               className="mr-auto text-xs font-medium text-slate-500 hover:text-cyan-700 hover:underline disabled:opacity-50">
-              Mark as Sent without emailing
+              {t("Mark as Sent without emailing")}
             </button>
           )}
           <button type="button" onClick={onClose} disabled={sending}
             className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200">
-            Cancel
+            {t("Cancel")}
           </button>
           <button type="button" onClick={send} disabled={sending}
             className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">

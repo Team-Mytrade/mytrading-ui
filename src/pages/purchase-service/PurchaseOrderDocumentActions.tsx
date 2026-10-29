@@ -8,6 +8,7 @@ import { companyDisplayName } from "../../company/companyApi";
 import { formatDate } from "../../company/format";
 import { PurchaseOrderDoc, isPoApproved, loadPurchaseOrderDoc, printPurchaseOrder, purchaseOrderPdf } from "./purchaseOrderPdf";
 
+import { t } from "../../i18n/i18n";
 const PURCHASE = "/v1/api/purchase";
 // Approved and not finished; the server checks the same
 const SENDABLE = ["APPROVED", "SENT", "PARTIALLY_RECEIVED"];
@@ -65,12 +66,12 @@ export default function PurchaseOrderDocumentActions({
 
   return (
     <>
-      <button type="button" title="Print purchase order" aria-label="Print purchase order" className={ICON} disabled={busy}
+      <button type="button" title={t("Print purchase order")} aria-label={t("Print purchase order")} className={ICON} disabled={busy}
         onClick={(e) => { e.stopPropagation(); void withDoc(printPurchaseOrder); }}>
         <PrinterIcon className="h-4 w-4" aria-hidden="true" />
       </button>
       {sendable && canCreate && (
-        <button type="button" title="Email to vendor" aria-label="Email to vendor" className={ICON} disabled={busy}
+        <button type="button" title={t("Email to vendor")} aria-label={t("Email to vendor")} className={ICON} disabled={busy}
           onClick={(e) => { e.stopPropagation(); void withDoc((doc) => setEmailing(doc)); }}>
           <EnvelopeIcon className="h-4 w-4" aria-hidden="true" />
         </button>

@@ -12,8 +12,9 @@ import PageMeta from '../../components/common/PageMeta';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
-import { formatTime } from "../../company/format";
+import { formatTime, dateLocale } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const CHECK_IN_URL = '/v1/api/attendance/records/check-in';
 const CHECK_OUT_URL = '/v1/api/attendance/records/check-out';
 
@@ -234,7 +235,7 @@ const AttendancePunchPage: React.FC = () => {
         type: type,
         employeeId: currentUser.id,
         employeeName: empName,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+        timestamp: new Date().toLocaleTimeString(dateLocale("en-US"), { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
         attendanceSource: payload.attendanceSource,
         attendanceMode: payload.attendanceMode,
         deviceId: payload.deviceId,
@@ -369,7 +370,7 @@ const AttendancePunchPage: React.FC = () => {
       render: () => (
         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
           <CheckCircle className="w-3.5 h-3.5" />
-          Recorded
+          {t("Recorded")}
         </span>
       ),
     },
@@ -381,7 +382,7 @@ const AttendancePunchPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Punch Station" description="Record employee check-in and check-out attendance punches" />
+      <PageMeta title={t("Attendance Punch Station")} description="Record employee check-in and check-out attendance punches" />
       <PageBreadcrumb
         pageTitle="Attendance Punch Station"
         actions={
@@ -391,13 +392,13 @@ const AttendancePunchPage: React.FC = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              Online · <span className="font-mono max-w-[120px] truncate" title={`Device #${formData.deviceId} (${formData.deviceName})`}>Device #{formData.deviceId}</span>
+              {t("Online ·")} <span className="font-mono max-w-[120px] truncate" title={`Device #${formData.deviceId} (${formData.deviceName})`}>{t("Device #")}{formData.deviceId}</span>
             </span>
             <span className={TOOL_BUTTON}>
               <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              <span className="hidden sm:inline">{currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              <span className="hidden sm:inline">{currentTime.toLocaleDateString(dateLocale("en-US"), { weekday: 'short', month: 'short', day: 'numeric' })}</span>
               <span className="font-mono font-bold text-slate-900 dark:text-white">
-                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                {currentTime.toLocaleTimeString(dateLocale("en-US"), { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
               </span>
             </span>
           </div>
@@ -431,16 +432,16 @@ const AttendancePunchPage: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h3 className={`text-xs font-bold tracking-wide ${activeTab === 'CHECK_IN' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                      CHECK-IN
+                      {t("CHECK-IN")}
                     </h3>
                     {activeTab === 'CHECK_IN' && (
                       <span className="text-[10px] font-bold bg-white/20 text-white border border-white/30 px-1.5 py-0.2 rounded">
-                        ACTIVE
+                        {t("ACTIVE")}
                       </span>
                     )}
                   </div>
                   <p className={`text-[11px] mt-0.5 ${activeTab === 'CHECK_IN' ? 'text-cyan-50' : 'text-slate-500 dark:text-gray-400'}`}>
-                    Start work shift & record entry
+                    {t("Start work shift & record entry")}
                   </p>
                 </div>
               </div>
@@ -472,16 +473,16 @@ const AttendancePunchPage: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h3 className={`text-xs font-bold tracking-wide ${activeTab === 'CHECK_OUT' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                      CHECK-OUT
+                      {t("CHECK-OUT")}
                     </h3>
                     {activeTab === 'CHECK_OUT' && (
                       <span className="text-[10px] font-bold bg-white/20 text-white border border-white/30 px-1.5 py-0.2 rounded">
-                        ACTIVE
+                        {t("ACTIVE")}
                       </span>
                     )}
                   </div>
                   <p className={`text-[11px] mt-0.5 ${activeTab === 'CHECK_OUT' ? 'text-cyan-50' : 'text-slate-500 dark:text-gray-400'}`}>
-                    End work shift & record exit
+                    {t("End work shift & record exit")}
                   </p>
                 </div>
               </div>
@@ -512,7 +513,7 @@ const AttendancePunchPage: React.FC = () => {
               <span>
                 {isSubmitting
                   ? `Recording ${activeTab === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}...`
-                  : `Submit ${activeTab === 'CHECK_IN' ? 'Check-In' : 'Check-Out'}`}
+                  : t(activeTab === 'CHECK_IN' ? 'Submit Check-In' : 'Submit Check-Out')}
               </span>
             </button>
           </div>
@@ -531,13 +532,13 @@ const AttendancePunchPage: React.FC = () => {
                 <Layers className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white">Terminal & Geolocation Parameters</h3>
-                <p className="text-[11px] text-slate-400 dark:text-gray-500 leading-tight">Device ID, Geofence coordinates & network metadata</p>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">{t("Terminal & Geolocation Parameters")}</h3>
+                <p className="text-[11px] text-slate-400 dark:text-gray-500 leading-tight">{t("Device ID, Geofence coordinates & network metadata")}</p>
               </div>
             </div>
             
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#222222] text-slate-700 dark:text-gray-300 text-xs font-semibold group-hover:bg-slate-100 dark:group-hover:bg-[#2a2a2a] transition-all border border-slate-200/80 dark:border-[#303030]">
-              <span>{showAdvanced ? 'Hide Parameters' : 'View / Edit Parameters'}</span>
+              <span>{t(showAdvanced ? 'Hide Parameters' : 'View / Edit Parameters')}</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showAdvanced ? 'rotate-180' : 'rotate-0'}`} />
             </div>
           </div>
@@ -548,11 +549,11 @@ const AttendancePunchPage: React.FC = () => {
           }`}>
             <div className="overflow-hidden">
               <p className="pb-2 text-[11px] text-slate-500 dark:text-gray-400">
-                Your location is read from this device when you punch. IP address and device are recorded by the server.
+                {t("Your location is read from this device when you punch. IP address and device are recorded by the server.")}
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Attendance Source</label>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">{t("Attendance Source")}</label>
                   <input
                     type="text"
                     value={formData.attendanceSource}
@@ -562,21 +563,21 @@ const AttendancePunchPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Attendance Mode</label>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">{t("Attendance Mode")}</label>
                   <select
                     value={formData.attendanceMode}
                     onChange={(e) => handleInputChange('attendanceMode', e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] rounded-lg text-xs font-mono text-slate-800 dark:text-gray-200 focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
                   >
-                    <option value="OFFICE">Office</option>
-                    <option value="WORK_FROM_HOME">Work from home</option>
-                    <option value="HYBRID">Hybrid</option>
-                    <option value="ON_DUTY">On duty</option>
+                    <option value="OFFICE">{t("Office")}</option>
+                    <option value="WORK_FROM_HOME">{t("Work from home")}</option>
+                    <option value="HYBRID">{t("Hybrid")}</option>
+                    <option value="ON_DUTY">{t("On duty")}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">Location</label>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-1">{t("Location")}</label>
                   <input
                     type="text"
                     value={formData.location}
@@ -597,14 +598,14 @@ const AttendancePunchPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold uppercase text-slate-800 dark:text-white tracking-wider">
-                  Attendance History
+                  {t("Attendance History")}
                 </h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#222222] text-slate-600 dark:text-gray-300 font-semibold border border-slate-200 dark:border-[#303030]">
-                  {totalCount} Total
+                  {t("{count} total", { count: totalCount })}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">
-                Real-time log of recorded shift check-ins and check-outs
+                {t("Real-time log of recorded shift check-ins and check-outs")}
               </p>
             </div>
 
@@ -620,7 +621,7 @@ const AttendancePunchPage: React.FC = () => {
                       : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  All ({totalCount})
+                  {t("All")} ({totalCount})
                 </button>
                 <button
                   type="button"
@@ -631,7 +632,7 @@ const AttendancePunchPage: React.FC = () => {
                       : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  Check-Ins ({checkInCount})
+                  {t("Check-Ins")} ({checkInCount})
                 </button>
                 <button
                   type="button"
@@ -642,7 +643,7 @@ const AttendancePunchPage: React.FC = () => {
                       : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  Check-Outs ({checkOutCount})
+                  {t("Check-Outs")} ({checkOutCount})
                 </button>
               </div>
 
@@ -659,7 +660,7 @@ const AttendancePunchPage: React.FC = () => {
             pageSize={10}
             defaultSortKey="id"
             defaultSortOrder="desc"
-            emptyState={<p className="py-6 text-center text-xs text-slate-400 dark:text-gray-500">No punches recorded yet.</p>}
+            emptyState={<p className="py-6 text-center text-xs text-slate-400 dark:text-gray-500">{t("No punches recorded yet.")}</p>}
           />
 
         </div>

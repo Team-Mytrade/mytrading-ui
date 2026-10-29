@@ -20,6 +20,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RouteSchedule {
@@ -228,7 +229,7 @@ const RouteSchedulePage: React.FC = () => {
         >
           {canUpdate && (<button
             onClick={() => handleEdit(row)}
-            title="Edit"
+            title={t("Edit")}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -236,7 +237,7 @@ const RouteSchedulePage: React.FC = () => {
 
           {canDelete && (<button
             onClick={() => promptDelete(row)}
-            title="Delete"
+            title={t("Delete")}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
           >
             <TrashIcon className="h-4 w-4" />
@@ -250,41 +251,41 @@ const RouteSchedulePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Route Management" description="Manage delivery routes" />
+      <PageMeta title={t("Route Management")} description="Manage delivery routes" />
       <PageBreadcrumb pageTitle="Route Management" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
         {/* Header */}
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton label="Add Route" onClick={handleAddNew} />
+          <AddButton label={t("Add Route")} onClick={handleAddNew} />
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Routes"
+            label={t("Total Routes")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Total Distance"
+            label={t("Total Distance")}
             value={`${stats.totalDistance} km`}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Average Distance"
+            label={t("Average Distance")}
             value={`${stats.avgDistance} km`}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
           />
           <StatsCard
-            label="Longest Route"
+            label={t("Longest Route")}
             value={`${stats.longest} km`}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -299,7 +300,7 @@ const RouteSchedulePage: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by route name or location..."
+                placeholder={t("Search by route name or location...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -327,15 +328,15 @@ const RouteSchedulePage: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <MapPinIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No routes found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No routes found")}</p>
               {search ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search")}</p>
               ) : (
                 canCreate && <button
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Add your first route →
+                  {t("Add your first route →")}
                 </button>
               )}
             </div>
@@ -354,10 +355,10 @@ const RouteSchedulePage: React.FC = () => {
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {form.id ? "Edit Route" : "Create New Route"}
+                      {t(form.id ? "Edit Route" : "Create New Route")}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {form.id ? "Update this route's details" : "Add a new delivery route"}
+                      {t(form.id ? "Update this route's details" : "Add a new delivery route")}
                     </p>
                   </div>
                   <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -368,7 +369,7 @@ const RouteSchedulePage: React.FC = () => {
                 <form onSubmit={handleSubmit} className="p-5 max-h-[70vh] overflow-y-auto">
                   <div className="space-y-4 pt-2">
                     <FloatingInput
-                      label="Route Name"
+                      label={t("Route Name")}
                       name="name"
                       value={form.name}
                       onChange={(e) => handleChange("name", e.target.value)}
@@ -377,14 +378,14 @@ const RouteSchedulePage: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FloatingInput
-                        label="Start Location"
+                        label={t("Start Location")}
                         name="startLocation"
                         value={form.startLocation}
                         onChange={(e) => handleChange("startLocation", e.target.value)}
                         required
                       />
                       <FloatingInput
-                        label="End Location"
+                        label={t("End Location")}
                         name="endLocation"
                         value={form.endLocation}
                         onChange={(e) => handleChange("endLocation", e.target.value)}
@@ -393,7 +394,7 @@ const RouteSchedulePage: React.FC = () => {
                     </div>
 
                     <FloatingInput
-                      label="Distance (Km)"
+                      label={t("Distance (Km)")}
                       name="distanceKm"
                       type="number"
                       value={form.distanceKm}
@@ -408,7 +409,7 @@ const RouteSchedulePage: React.FC = () => {
                       onClick={resetForm}
                       className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="submit"
@@ -431,10 +432,10 @@ const RouteSchedulePage: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Route"
+        innerText={t("Delete Route")}
         subText={`Are you sure you want to delete "${deletingRoute?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeletingRoute(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

@@ -1,3 +1,4 @@
+import { dateLocale } from "../../company/format";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
@@ -26,6 +27,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type StatutoryIdentifier = {
   id: number;
   identifierType: string;
@@ -303,7 +305,7 @@ const StatutoryCompliancesPage: React.FC = () => {
     try {
       const [year, month] = monthString.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
-      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return date.toLocaleDateString(dateLocale("en-US"), { month: 'long', year: 'numeric' });
     } catch (error) {
       return monthString;
     }
@@ -311,7 +313,7 @@ const StatutoryCompliancesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PageMeta title="Statutory Compliances" description="Manage statutory compliance identifiers" />
+      <PageMeta title={t("Statutory Compliances")} description="Manage statutory compliance identifiers" />
 
       {/* Header */}
       <div className="sticky top-0 z-10 border-b bg-white">
@@ -320,7 +322,7 @@ const StatutoryCompliancesPage: React.FC = () => {
             <div>
               <PageBreadcrumb pageTitle="Statutory Compliances" />
               <h1 className="text-xl font-semibold text-gray-900 mt-1">
-                {isHR ? 'Statutory Management' : 'My Statutory Details'}
+                {t(isHR ? 'Statutory Management' : 'My Statutory Details')}
               </h1>
               {!isHR && (employeeName || employeeCode) && (
                 <p className="text-sm text-gray-600 mt-1">
@@ -336,7 +338,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <Download size={16} />
-                  ECR Report
+                  {t("ECR Report")}
                 </button>
               )}
               {canExport && (<button
@@ -344,14 +346,14 @@ const StatutoryCompliancesPage: React.FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <FileDown size={16} />
-                Export
+                {t("Export")}
               </button>)}
               {canCreate && (<button
                 onClick={() => setShowForm(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
               >
                 <Plus size={16} />
-                {isHR ? 'Add Record' : 'Add Identifier'}
+                {t(isHR ? 'Add Record' : 'Add Identifier')}
               </button>)}
             </div>
           </div>
@@ -403,9 +405,9 @@ const StatutoryCompliancesPage: React.FC = () => {
                           }}
                           className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                         >
-                          <option value="">All Employees</option>
-                          <option value="1">EMP001 - John Doe</option>
-                          <option value="2">EMP002 - Jane Smith</option>
+                          <option value="">{t("All Employees")}</option>
+                          <option value="1">{t("EMP001 - John Doe")}</option>
+                          <option value="2">{t("EMP002 - Jane Smith")}</option>
                         </select>
                       </div>
                     </div>
@@ -419,7 +421,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder={t("Search...")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -434,7 +436,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Employees</p>
+                      <p className="text-sm font-medium text-gray-600">{t("Employees")}</p>
                       <p className="text-2xl font-semibold text-gray-900">{monthlySummary.totalEmployees || 0}</p>
                     </div>
                     <User className="text-gray-400" size={20} />
@@ -443,7 +445,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total PF</p>
+                      <p className="text-sm font-medium text-gray-600">{t("Total PF")}</p>
                       <p className="text-2xl font-semibold text-gray-900">
                         ₹{((monthlySummary.totalPF || 0) / 1000).toFixed(0)}k
                       </p>
@@ -454,7 +456,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total ESI</p>
+                      <p className="text-sm font-medium text-gray-600">{t("Total ESI")}</p>
                       <p className="text-2xl font-semibold text-gray-900">
                         ₹{((monthlySummary.totalESI || 0) / 1000).toFixed(0)}k
                       </p>
@@ -465,7 +467,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total PT</p>
+                      <p className="text-sm font-medium text-gray-600">{t("Total PT")}</p>
                       <p className="text-2xl font-semibold text-gray-900">
                         ₹{((monthlySummary.totalPT || 0) / 1000).toFixed(0)}k
                       </p>
@@ -486,21 +488,21 @@ const StatutoryCompliancesPage: React.FC = () => {
                     {isHR && (
                       <>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Employee
+                          {t("Employee")}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Code
+                          {t("Code")}
                         </th>
                       </>
                     )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
+                      {t("Type")}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Label
+                      {t("Label")}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Value
+                      {t("Value")}
                     </th>
                   </tr>
                 </thead>
@@ -510,7 +512,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                       <td colSpan={isHR ? 5 : 3} className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-8 h-8 border-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-                          <p className="text-sm text-gray-500">Loading...</p>
+                          <p className="text-sm text-gray-500">{t("Loading...")}</p>
                         </div>
                       </td>
                     </tr>
@@ -557,7 +559,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                       <td colSpan={isHR ? 5 : 3} className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <AlertCircle className="text-gray-400" size={24} />
-                          <p className="text-sm text-gray-500">No records found</p>
+                          <p className="text-sm text-gray-500">{t("No records found")}</p>
                         </div>
                       </td>
                     </tr>
@@ -570,7 +572,7 @@ const StatutoryCompliancesPage: React.FC = () => {
             {totalPages > 1 && (
               <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length}
+                  {t("Showing")} {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -581,7 +583,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                     <ChevronLeft size={18} />
                   </button>
                   <span className="text-sm text-gray-600">
-                    Page {page} of {totalPages}
+                    {t("Page")} {page} of {totalPages}
                   </span>
                   <button
                     onClick={() => setPage(page + 1)}
@@ -608,7 +610,7 @@ const StatutoryCompliancesPage: React.FC = () => {
               className="bg-white rounded-lg w-full max-w-md overflow-hidden"
             >
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Download ECR Report</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{t("Download ECR Report")}</h3>
                 <button
                   onClick={() => setShowDownloadModal(false)}
                   className="p-1 hover:bg-gray-100 rounded"
@@ -620,7 +622,7 @@ const StatutoryCompliancesPage: React.FC = () => {
               <div className="p-6 space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Month
+                    {t("Select Month")}
                   </label>
                   <input
                     type="month"
@@ -635,7 +637,7 @@ const StatutoryCompliancesPage: React.FC = () => {
 
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600">
-                    The ECR report will include all statutory compliance data for the selected month.
+                    {t("The ECR report will include all statutory compliance data for the selected month.")}
                   </p>
                 </div>
 
@@ -644,14 +646,14 @@ const StatutoryCompliancesPage: React.FC = () => {
                     onClick={() => setShowDownloadModal(false)}
                     className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     onClick={handleDownloadECR}
                     className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center justify-center gap-2"
                   >
                     <Download size={16} />
-                    Download
+                    {t("Download")}
                   </button>
                 </div>
               </div>
@@ -673,10 +675,10 @@ const StatutoryCompliancesPage: React.FC = () => {
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {isEditMode ? 'Update' : 'Add'} Statutory Record
+                    {t(isEditMode ? 'Update' : 'Add')} Statutory Record
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    Configure statutory compliance settings
+                    {t("Configure statutory compliance settings")}
                   </p>
                 </div>
                 <button
@@ -693,7 +695,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                   {isHR && !employeeIdFromUrl && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Select Employee
+                        {t("Select Employee")}
                       </label>
                       <select
                         value={form.employeeId || ''}
@@ -701,9 +703,9 @@ const StatutoryCompliancesPage: React.FC = () => {
                         className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                         required
                       >
-                        <option value="">Select an employee</option>
-                        <option value="1">EMP001 - John Doe</option>
-                        <option value="2">EMP002 - Jane Smith</option>
+                        <option value="">{t("Select an employee")}</option>
+                        <option value="1">{t("EMP001 - John Doe")}</option>
+                        <option value="2">{t("EMP002 - Jane Smith")}</option>
                       </select>
                     </div>
                   )}
@@ -711,7 +713,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                   {/* Applicability Settings */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Applicability
+                      {t("Applicability")}
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       {[
@@ -743,7 +745,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <label className="block text-sm font-medium text-gray-700">
-                        Identifiers
+                        {t("Identifiers")}
                       </label>
                       <button
                         type="button"
@@ -751,7 +753,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors"
                       >
                         <Plus size={14} />
-                        Add Identifier
+                        {t("Add Identifier")}
                       </button>
                     </div>
 
@@ -761,7 +763,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                           <div className="flex-1 space-y-2">
                             <input
                               type="text"
-                              placeholder="Type (e.g., PAN)"
+                              placeholder={t("Type (e.g., PAN)")}
                               className="w-full px-3 py-2 bg-white border border-gray-200 rounded text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none uppercase"
                               value={identifier.identifierType}
                               onChange={(e) => updateIdentifier(index, 'identifierType', e.target.value.toUpperCase())}
@@ -769,7 +771,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                             />
                             <input
                               type="text"
-                              placeholder="Value"
+                              placeholder={t("Value")}
                               className="w-full px-3 py-2 bg-white border border-gray-200 rounded text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                               value={identifier.value}
                               onChange={(e) => updateIdentifier(index, 'value', e.target.value)}
@@ -789,7 +791,7 @@ const StatutoryCompliancesPage: React.FC = () => {
                       {form.identifiers.length === 0 && (
                         <div className="text-center py-8 bg-gray-50 rounded-lg">
                           <Hash className="mx-auto text-gray-400 mb-2" size={24} />
-                          <p className="text-sm text-gray-500">No identifiers added</p>
+                          <p className="text-sm text-gray-500">{t("No identifiers added")}</p>
                         </div>
                       )}
                     </div>
@@ -804,14 +806,14 @@ const StatutoryCompliancesPage: React.FC = () => {
                     onClick={closeForm}
                     className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     type="submit"
                     onClick={handleSubmit}
                     className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
                   >
-                    {isEditMode ? 'Update' : 'Save'}
+                    {t(isEditMode ? 'Update' : 'Save')}
                   </button>
                 </div>
               </div>

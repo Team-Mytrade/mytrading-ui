@@ -32,6 +32,7 @@ import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from "./hrmsUi";
 import { formatDate as companyFormatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const API_URL = "/v1/api/payroll/department";
 
 
@@ -277,7 +278,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
             type="button"
             onClick={() => openEditModal(row._raw || { id: row.numericId, name: row.name })}
             className={ROW_ICON_BUTTON}
-            title="Edit Department"
+            title={t("Edit Department")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -285,7 +286,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
             type="button"
             onClick={() => handleDelete(row.numericId, row.name)}
             className={ROW_ICON_BUTTON_DANGER}
-            title="Delete Department"
+            title={t("Delete Department")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -303,16 +304,16 @@ const EmployeeDepartmentsPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Departments" description="Manage employee departments" />
+      <PageMeta title={t("Departments")} description="Manage employee departments" />
       <PageBreadcrumb pageTitle="Departments" showAddButton={true} addButtonLabel="Add Department" onAddClick={openCreateModal} />
 
       <div className={PAGE_BODY}>
 
         <div className={STATS_ROW}>
-          <StatsCard label="Total Departments" value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-5 w-5" />} />
-          <StatsCard label="Total Employees" value={totalEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-5 w-5" />} />
-          <StatsCard label="Average per Dept" value={avgEmployeesPerDept} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BriefcaseIcon className="h-5 w-5" />} />
-          <StatsCard label="Largest" value={largest ? `${largest.name} (${largest.employees?.length || 0})` : "—"} gradient="from-emerald-50 to-green-50" borderColor="border-emerald-100" labelColor="text-emerald-600" icon={<CheckCircleIcon className="h-5 w-5" />} onRefresh={fetchDepartments} />
+          <StatsCard label={t("Total Departments")} value={departments.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-5 w-5" />} />
+          <StatsCard label={t("Total Employees")} value={totalEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-5 w-5" />} />
+          <StatsCard label={t("Average per Dept")} value={avgEmployeesPerDept} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BriefcaseIcon className="h-5 w-5" />} />
+          <StatsCard label={t("Largest")} value={largest ? `${largest.name} (${largest.employees?.length || 0})` : "—"} gradient="from-emerald-50 to-green-50" borderColor="border-emerald-100" labelColor="text-emerald-600" icon={<CheckCircleIcon className="h-5 w-5" />} onRefresh={fetchDepartments} />
         </div>
 
         {/* Table */}
@@ -322,16 +323,16 @@ const EmployeeDepartmentsPage: React.FC = () => {
           loading={loading}
           searchable={false}
           rowDetailsTitle={(row) => `${row.name} Department`}
-          rowDetailsSubtitle="Department profile, headcount, and operational status"
+          rowDetailsSubtitle={t("Department profile, headcount, and operational status")}
           emptyState={
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No departments found</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">{t("No departments found")}</p>
               {canCreate && (<button
                 onClick={openCreateModal}
                 className="mt-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 text-xs font-medium cursor-pointer"
               >
-                Create your first department
+                {t("Create your first department")}
               </button>)}
             </div>
           }
@@ -339,15 +340,15 @@ const EmployeeDepartmentsPage: React.FC = () => {
 
         <PaginatedPopup
           isOpen={showForm}
-          title={editingDept ? "Edit Department" : "Create Department"}
-          subtitle={editingDept ? "Update department information" : "Add a new department to the organization"}
+          title={t(editingDept ? "Edit Department" : "Create Department")}
+          subtitle={t(editingDept ? "Update department information" : "Add a new department to the organization")}
           onClose={closeModal}
           onSubmit={(e) => {
             e.preventDefault();
             if (editingDept) handleUpdate();
             else handleCreate();
           }}
-          submitLabel={editingDept ? "Update Department" : "Create Department"}
+          submitLabel={t(editingDept ? "Update Department" : "Create Department")}
           maxWidthClassName="max-w-lg"
           tabs={[
             {
@@ -355,7 +356,7 @@ const EmployeeDepartmentsPage: React.FC = () => {
               fields: [
                 <div key="name" className="md:col-span-2">
                   <FloatingInput
-                    label="Department Name"
+                    label={t("Department Name")}
                     name="name"
                     value={deptName}
                     onChange={(e) => setDeptName(e.target.value)}

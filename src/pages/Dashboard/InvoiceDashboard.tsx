@@ -12,6 +12,7 @@ import {
 } from "./dashboardKit";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Live billing, collections and payables from the invoice service.
 
 interface FinanceReport {
@@ -106,21 +107,21 @@ export default function InvoiceDashboard() {
       <ModuleTiles tiles={tiles} loading={loading} />
 
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Billed" value={finance ? formatMoney(num(finance.totalInvoiced), currency, true) : "—"}
+        <KpiCard label={t("Total Billed")} value={finance ? formatMoney(num(finance.totalInvoiced), currency, true) : "—"}
           hint={data.invoices ? `${formatNumber(invoices.length)} invoices` : undefined} icon={Receipt} tone="cyan" loading={loading} />
-        <KpiCard label="Collected" value={finance ? formatMoney(num(finance.totalPaid), currency, true) : "—"}
+        <KpiCard label={t("Collected")} value={finance ? formatMoney(num(finance.totalPaid), currency, true) : "—"}
           hint={finance && num(finance.totalInvoiced) > 0 ? `${Math.round((num(finance.totalPaid) / num(finance.totalInvoiced)) * 100)}% of billing` : undefined}
           icon={HandCoins} tone="emerald" loading={loading} />
-        <KpiCard label="Receivable Outstanding" value={finance ? formatMoney(num(finance.outstandingAmount), currency, true) : "—"}
+        <KpiCard label={t("Receivable Outstanding")} value={finance ? formatMoney(num(finance.outstandingAmount), currency, true) : "—"}
           hint={finance ? `${formatNumber(finance.overdueInvoices?.length ?? 0)} invoice(s) overdue` : undefined} icon={AlertTriangle} tone="red" loading={loading} />
-        <KpiCard label="Payable Outstanding" value={data.payables ? formatMoney(payableTotal, currency, true) : "—"}
+        <KpiCard label={t("Payable Outstanding")} value={data.payables ? formatMoney(payableTotal, currency, true) : "—"}
           hint={data.payables ? `${formatNumber(overduePayables.length)} past due date` : undefined} icon={Wallet} tone="purple" loading={loading} />
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Billed vs Collected" subtitle="Per month (last 6 months)" icon={TrendingUp} iconClass="text-cyan-500">
+        <Panel title={t("Billed vs Collected")} subtitle={t("Per month (last 6 months)")} icon={TrendingUp} iconClass="text-cyan-500">
           {!finance && !data.receipts ? (
-            <EmptyState loading={loading}>Billing figures are not available.</EmptyState>
+            <EmptyState loading={loading}>{t("Billing figures are not available.")}</EmptyState>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={billing}>
@@ -135,9 +136,9 @@ export default function InvoiceDashboard() {
           )}
         </Panel>
 
-        <Panel title="Receivables Aging" subtitle="Outstanding by days past due" icon={HandCoins} iconClass="text-red-500">
+        <Panel title={t("Receivables Aging")} subtitle={t("Outstanding by days past due")} icon={HandCoins} iconClass="text-red-500">
           {agingRows.every((b) => !b.outstandingAmount) ? (
-            <EmptyState loading={loading}>{statusMix.length ? "Nothing is outstanding." : "No invoices yet."}</EmptyState>
+            <EmptyState loading={loading}>{t(statusMix.length ? "Nothing is outstanding." : "No invoices yet.")}</EmptyState>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={agingRows}>
@@ -156,7 +157,7 @@ export default function InvoiceDashboard() {
 
       {statusMix.length > 0 && (
         <div className="mb-8">
-          <Panel title="Invoices by Status" subtitle="Count of sales invoices in each state">
+          <Panel title={t("Invoices by Status")} subtitle={t("Count of sales invoices in each state")}>
             <div className="flex flex-wrap gap-3">
               {statusMix.map((s) => (
                 <button key={s.code} type="button" onClick={() => navigate("/invoices")}
@@ -174,19 +175,19 @@ export default function InvoiceDashboard() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Overdue Invoices" subtitle="Largest balances first" bodyClass="overflow-x-auto">
+        <Panel title={t("Overdue Invoices")} subtitle={t("Largest balances first")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Invoice</th>
-                <th className={TABLE_HEAD}>Customer</th>
-                <th className={TABLE_HEAD}>Due</th>
-                <th className={TABLE_HEAD}>Balance</th>
+                <th className={TABLE_HEAD}>{t("Invoice")}</th>
+                <th className={TABLE_HEAD}>{t("Customer")}</th>
+                <th className={TABLE_HEAD}>{t("Due")}</th>
+                <th className={TABLE_HEAD}>{t("Balance")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {overdue.length === 0 && (
-                <tr><td colSpan={4} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No overdue invoices."}</td></tr>
+                <tr><td colSpan={4} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "No overdue invoices.")}</td></tr>
               )}
               {overdue.map((o, i) => (
                 <tr key={`${o.invoiceNumber}-${i}`} onClick={() => navigate("/accountsReceivable")} className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -200,19 +201,19 @@ export default function InvoiceDashboard() {
           </table>
         </Panel>
 
-        <Panel title="Payables Due" subtitle="Unpaid vendor bills, earliest due first" bodyClass="overflow-x-auto">
+        <Panel title={t("Payables Due")} subtitle={t("Unpaid vendor bills, earliest due first")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Bill</th>
-                <th className={TABLE_HEAD}>Vendor</th>
-                <th className={TABLE_HEAD}>Due</th>
-                <th className={TABLE_HEAD}>Balance</th>
+                <th className={TABLE_HEAD}>{t("Bill")}</th>
+                <th className={TABLE_HEAD}>{t("Vendor")}</th>
+                <th className={TABLE_HEAD}>{t("Due")}</th>
+                <th className={TABLE_HEAD}>{t("Balance")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {payablesDue.length === 0 && (
-                <tr><td colSpan={4} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No unpaid vendor bills."}</td></tr>
+                <tr><td colSpan={4} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "No unpaid vendor bills.")}</td></tr>
               )}
               {payablesDue.map((p) => {
                 const late = (parseDate(p.dueDate) ?? today) < today;

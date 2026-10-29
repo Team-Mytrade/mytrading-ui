@@ -31,8 +31,9 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { DASH_CARD, DASH_TITLE, toneCard, toneIcon, type Tone } from "../Dashboard/dashboardKit";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
-import { formatAmount, formatNumber } from "../../company/format";
+import { formatAmount, formatNumber, dateLocale } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type SalesReport = {
   totalSales: number;
   totalOrders: number;
@@ -92,12 +93,12 @@ function formatMonthLabel(raw: string): string {
     const monthIdx = Number(match[2]) - 1;
     const d = new Date(year, monthIdx, 1);
     if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+      return d.toLocaleDateString(dateLocale(), { month: "short", year: "numeric" });
     }
   }
   const parsed = new Date(raw);
   if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    return parsed.toLocaleDateString(dateLocale(), { month: "short", year: "numeric" });
   }
   return raw;
 }
@@ -230,7 +231,7 @@ const SalesDashboard: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Sales Dashboard" description="Sales overview and analytics" />
+      <PageMeta title={t("Sales Dashboard")} description="Sales overview and analytics" />
 
       {/* Fixed-height flex column: breadcrumb stays put at the top,
           only the content area below it scrolls. `min-h-0` on the
@@ -302,7 +303,7 @@ const SalesDashboard: React.FC = () => {
                             : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
                         }
                       >
-                        {loading ? "Loading" : "Live"}
+                        {t(loading ? "Loading" : "Live")}
                       </span>
                     </div>
                     <div>
@@ -321,8 +322,8 @@ const SalesDashboard: React.FC = () => {
               <div className={`p-5 ${DASH_CARD}`}>
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className={DASH_TITLE}>Monthly sales</h3>
-                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">From sales report API</p>
+                    <h3 className={DASH_TITLE}>{t("Monthly sales")}</h3>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t("From sales report API")}</p>
                   </div>
                   {salesDelta !== null ? (
                     <span
@@ -376,8 +377,8 @@ const SalesDashboard: React.FC = () => {
               <div className={`p-5 ${DASH_CARD}`}>
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className={DASH_TITLE}>Top products</h3>
-                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Ranked by sales volume</p>
+                    <h3 className={DASH_TITLE}>{t("Top products")}</h3>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t("Ranked by sales volume")}</p>
                   </div>
                   <Package className="h-4 w-4 text-orange-500 dark:text-orange-400" />
                 </div>
@@ -415,7 +416,7 @@ const SalesDashboard: React.FC = () => {
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex h-[200px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-                    No top products found
+                    {t("No top products found")}
                   </div>
                 )}
               </div>
@@ -424,7 +425,7 @@ const SalesDashboard: React.FC = () => {
             <div className={`overflow-hidden ${DASH_CARD}`}>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
                 <div>
-                  <h3 className={DASH_TITLE}>Monthly sales data</h3>
+                  <h3 className={DASH_TITLE}>{t("Monthly sales data")}</h3>
                   <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {monthlySales.length} month{monthlySales.length === 1 ? "" : "s"} · Total{" "}
                     {money(monthlyTotal)}
@@ -436,7 +437,7 @@ const SalesDashboard: React.FC = () => {
               {monthlySales.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
                   <Package className="mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
-                  No monthly sales found
+                  {t("No monthly sales found")}
                 </div>
               ) : (
                 <div className="max-h-[320px] overflow-y-auto">
@@ -444,10 +445,10 @@ const SalesDashboard: React.FC = () => {
                     <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800/60">
                       <tr>
                         <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Month
+                          {t("Month")}
                         </th>
                         <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Sales
+                          {t("Sales")}
                         </th>
                       </tr>
                     </thead>
@@ -466,7 +467,7 @@ const SalesDashboard: React.FC = () => {
                     <tfoot className="sticky bottom-0 bg-gray-50 dark:bg-gray-800/60">
                       <tr>
                         <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-                          Total
+                          {t("Total")}
                         </td>
                         <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900 dark:text-white">
                           {money(monthlyTotal)}

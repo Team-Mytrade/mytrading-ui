@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { t } from "../../i18n/i18n";
 import StatsCard from "./Statscard";
 
 /**
@@ -139,14 +140,14 @@ export default function StatsCardFilter<T>({
         return (
           <StatsCard
             key={card.key}
-            label={card.label}
+            label={t(card.label)}
             value={rows.filter(card.match).length}
             gradient={tone.gradient}
             borderColor={tone.border}
             labelColor={tone.label}
             onClick={() => onSelect(selected === card.key ? "ALL" : card.key)}
             selected={isSelected}
-            title={isSelected ? "Show all records" : `Show only: ${card.label}`}
+            title={isSelected ? t("Show all records") : t("Show only: {label}", { label: t(card.label) })}
           />
         );
       })}

@@ -4,6 +4,7 @@ import axios from "axios";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import CloseButton from "../../components/common/CloseButton";
 import { ToasterService } from "../../Services/ToasterService";
+import { t } from "../../i18n/i18n";
 import {usePermissions} from "../../access/usePermissions"
 
 const BASE = "/v1/api/purchase/purchase-requisitions";
@@ -155,8 +156,8 @@ export default function RequisitionWorkflowActions({
             else openMenu();
           }}
           className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-          title="More actions"
-          aria-label="More actions"
+          title={t("More actions")}
+          aria-label={t("More actions")}
           aria-haspopup="menu"
           aria-expanded={Boolean(menuAt)}
         >
@@ -214,7 +215,7 @@ export default function RequisitionWorkflowActions({
               </p>
 
               <label className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {isReject ? "Reason" : "Reason (optional)"}
+                {t(isReject ? "Reason" : "Reason (optional)")}
                 {isReject && <span className="text-red-500"> *</span>}
                 <textarea
                   value={reason}
@@ -222,7 +223,7 @@ export default function RequisitionWorkflowActions({
                   rows={3}
                   autoFocus
                   className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                  placeholder={isReject ? "e.g. Budget not available this month" : ""}
+                  placeholder={t(isReject ? "e.g. Budget not available this month" : "")}
                 />
               </label>
 
@@ -233,7 +234,7 @@ export default function RequisitionWorkflowActions({
                   disabled={busy}
                   className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  Keep it
+                  {t("Keep it")}
                 </button>
                 <button
                   type="button"

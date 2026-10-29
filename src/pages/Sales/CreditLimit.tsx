@@ -35,8 +35,9 @@ import {
 } from "recharts";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
-import { formatAmount, formatDate, formatDateTime } from "../../company/format";
+import { formatAmount, formatDate, formatDateTime, dateLocale } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type CreditCheckResponse = {
   sufficient: boolean;
   availableCredit: number;
@@ -703,7 +704,7 @@ const CreditLimit: React.FC = () => {
           { header: "Credit Limit", key: "creditLimit" },
           {
             header: "Sufficient",
-            accessor: (row) => (row.sufficient === undefined ? "--" : row.sufficient ? "Sufficient" : "Insufficient"),
+            accessor: (row) => (row.sufficient === undefined ? "--" : t(row.sufficient ? "Sufficient" : "Insufficient")),
           },
           { header: "Created At", key: "createdAt" },
         ],
@@ -809,7 +810,7 @@ const CreditLimit: React.FC = () => {
         .map((log, index) => ({
           name: (() => {
             const parsed = new Date(log.createdAt);
-            return Number.isNaN(parsed.getTime()) ? `Txn ${index + 1}` : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            return Number.isNaN(parsed.getTime()) ? `Txn ${index + 1}` : parsed.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
           })(),
           available: Number(log.availableCredit || 0),
           outstanding: Number(log.outstandingBalance || 0),
@@ -826,7 +827,7 @@ const CreditLimit: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Credit Limit" description="Manage sales credit limit checks" />
+      <PageMeta title={t("Credit Limit")} description="Manage sales credit limit checks" />
       <PageBreadcrumb pageTitle="Credit Limit" />
 
       <div className="max-h-[calc(100cqh-48px)] overflow-y-auto">
@@ -836,28 +837,28 @@ const CreditLimit: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-800 dark:bg-gray-800/80 dark:text-cyan-300">
                   <CreditCardIcon className="h-3 w-3" />
-                  Sales Credit Control
+                  {t("Sales Credit Control")}
                 </div>
                 <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg dark:text-white">
-                  Customer credit
+                  {t("Customer credit")}
                 </h2>
               </div>
             </div>
 
             <div className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
               <div className="rounded-lg border border-white/70 bg-white/90 p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Customer</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Customer")}</div>
                 <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-white">
                   <UserCircleIcon className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
                   <span className="truncate">{selectedCustomer ? customerOptionLabel(selectedCustomer) : "None"}</span>
                 </div>
               </div>
               <div className="rounded-lg border border-white/70 bg-white/90 p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Action</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Action")}</div>
                 <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">{activeMethod.title}</div>
               </div>
               <div className="rounded-lg border border-white/70 bg-white/90 p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">History</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("History")}</div>
                 <div className="mt-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
                   {historyFrom && historyTo
                     ? `${formatDate(historyFrom)} - ${formatDate(historyTo)}`
@@ -865,21 +866,21 @@ const CreditLimit: React.FC = () => {
                 </div>
               </div>
               <div className="rounded-lg border border-cyan-100 bg-white p-1.5 shadow-sm dark:border-cyan-800 dark:bg-gray-800">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Credit Limit</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Credit Limit")}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                   {money(lastCreditLimit ?? baseLogs[0]?.creditLimit)}
                 </div>
               </div>
               <div className="rounded-lg border border-emerald-100 bg-white p-1.5 shadow-sm dark:border-emerald-800 dark:bg-gray-800">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Available</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Available")}</div>
                 <div className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{money(stats.availableCredit)}</div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Actions</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Actions")}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{stats.actions}</div>
               </div>
               <div className="rounded-lg border border-amber-100 bg-white p-1.5 shadow-sm dark:border-amber-800 dark:bg-gray-800">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Outstanding</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Outstanding")}</div>
                 <div className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-400">
                   {latestOutstanding === undefined ? "--" : money(latestOutstanding)}
                 </div>
@@ -890,12 +891,12 @@ const CreditLimit: React.FC = () => {
           <form onSubmit={handleMethodSubmit} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div className="flex flex-col gap-2.5 border-b border-slate-100 px-3 py-2.5 sm:px-4 dark:border-gray-800">
               <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Credit actions</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t("Credit actions")}</h3>
                 <div className="flex items-center gap-1.5">
                   <div className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-400">
                     {activeMethod.title}
                   </div>
-                  <button title="Show or hide credit actions" aria-label="Show or hide credit actions"
+                  <button title={t("Show or hide credit actions")} aria-label={t("Show or hide credit actions")}
                     type="button"
                     onClick={() => setShowCreditActions((current) => !current)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700"
@@ -910,7 +911,7 @@ const CreditLimit: React.FC = () => {
               <div className="grid gap-2.5 xl:grid-cols-[260px_1fr]">
                 <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
                   <FloatingSelect
-                    label="Customer"
+                    label={t("Customer")}
                     name="customerId"
                     value={form.customerId}
                     onChange={handleChange}
@@ -936,14 +937,14 @@ const CreditLimit: React.FC = () => {
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-gray-600 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
                     >
                       <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                      Reset
+                      {t("Reset")}
                     </button>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                   <div className="mb-2 flex items-start justify-between gap-3">
-                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Choose action</div>
+                    <div className="text-xs font-semibold text-slate-900 dark:text-white">{t("Choose action")}</div>
                     <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-gray-800 dark:text-slate-400">
                       {allowedMethods.length} actions
                     </div>
@@ -981,7 +982,7 @@ const CreditLimit: React.FC = () => {
                                 <h4 className="text-[11px] font-semibold leading-tight text-slate-900 dark:text-white">{option.name}</h4>
                                 {isActive && (
                                   <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-semibold text-cyan-700 shadow-sm dark:bg-gray-800 dark:text-cyan-300">
-                                    Active
+                                    {t("Active")}
                                   </span>
                                 )}
                               </div>
@@ -997,7 +998,7 @@ const CreditLimit: React.FC = () => {
               <div className="mt-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                    Required Input
+                    {t("Required Input")}
                   </div>
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-white dark:bg-gray-800 ${activeMethod.toneClassName}`}>
                     <ActiveMethodIcon className="h-3.5 w-3.5" />
@@ -1007,7 +1008,7 @@ const CreditLimit: React.FC = () => {
                 <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                   {selectedMethod === "check" && (
                     <FloatingInput
-                      label="Order Amount"
+                      label={t("Order Amount")}
                       name="orderAmount"
                       type="number"
                       value={form.orderAmount}
@@ -1016,7 +1017,7 @@ const CreditLimit: React.FC = () => {
                   )}
                   {selectedMethod === "addOutstanding" && (
                     <FloatingInput
-                      label="Outstanding Amount"
+                      label={t("Outstanding Amount")}
                       name="outstandingAmount"
                       type="number"
                       value={form.outstandingAmount}
@@ -1025,20 +1026,20 @@ const CreditLimit: React.FC = () => {
                   )}
                   {selectedMethod === "available" && (
                     <div className="rounded-lg border border-teal-100 bg-teal-50/40 px-3 py-3 text-sm leading-6 text-slate-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-slate-300">
-                      No input required — just confirm the customer and submit.
+                      {t("No input required — just confirm the customer and submit.")}
                     </div>
                   )}
                   {isClearAction && (
                     <div className="space-y-2">
                       <FloatingInput
-                        label="Clearing Balance"
+                        label={t("Clearing Balance")}
                         name="clearingBalance"
                         type="number"
                         value={form.clearingBalance}
                         onChange={handleChange}
                       />
                       <div className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-rose-800 dark:bg-rose-900/20 dark:text-slate-300">
-                        Backend requires <span className="font-semibold">clearingBalance</span> on this endpoint.
+                        {t("Backend requires")} <span className="font-semibold">{t("clearingBalance")}</span> on this endpoint.
                         Enter the amount you want to clear, then submit.
                       </div>
                     </div>
@@ -1049,9 +1050,9 @@ const CreditLimit: React.FC = () => {
               <div className="mt-2.5">
                 <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <h4 className="text-xs font-semibold text-slate-900 dark:text-white">Credit trend</h4>
+                    <h4 className="text-xs font-semibold text-slate-900 dark:text-white">{t("Credit trend")}</h4>
                     <div className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-gray-800 dark:text-slate-400">
-                      Last {trendChartData.length || 0} records
+                      {t("Last")} {trendChartData.length || 0} records
                     </div>
                   </div>
 
@@ -1078,7 +1079,7 @@ const CreditLimit: React.FC = () => {
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex h-full items-center justify-center rounded-lg bg-slate-50 text-xs text-slate-500 dark:bg-gray-800 dark:text-slate-400">
-                        No chart data yet
+                        {t("No chart data yet")}
                       </div>
                     )}
                   </div>
@@ -1091,7 +1092,7 @@ const CreditLimit: React.FC = () => {
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
                     <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                      Selected Customer
+                      {t("Selected Customer")}
                     </div>
                     <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                       {selectedCustomer ? customerOptionLabel(selectedCustomer) : "Choose customer"}
@@ -1099,7 +1100,7 @@ const CreditLimit: React.FC = () => {
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
                     <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                      Selected Action
+                      {t("Selected Action")}
                     </div>
                     <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">{activeMethod.buttonLabel}</div>
                   </div>
@@ -1111,14 +1112,14 @@ const CreditLimit: React.FC = () => {
           <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 dark:border-gray-700 dark:bg-gray-900">
             <div className="mb-2.5 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Recent credit actions</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t("Recent credit actions")}</h3>
                 <div className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-gray-800 dark:text-slate-300">
                   {filteredLogs.length} items
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-1.5">
-                <button title="Refresh history" aria-label="Refresh history"
+                <button title={t("Refresh history")} aria-label={t("Refresh history")}
                   type="button"
                   onClick={() => void fetchRecentTransactions()}
                   disabled={historyLoading || !isPositiveNumber(form.customerId)}
@@ -1126,7 +1127,7 @@ const CreditLimit: React.FC = () => {
                 >
                   <ArrowPathIcon className="h-4 w-4" />
                 </button>
-                {canExport && (<button title="Export history" aria-label="Export history"
+                {canExport && (<button title={t("Export history")} aria-label={t("Export history")}
                   type="button"
                   onClick={openExportPopup}
                   disabled={exportLoading || !isPositiveNumber(form.customerId)}
@@ -1135,7 +1136,7 @@ const CreditLimit: React.FC = () => {
                   <ArrowDownTrayIcon className="h-4 w-4" />
                 </button>)}
                 {canDelete && (
-                  <button title="Delete history" aria-label="Delete history"
+                  <button title={t("Delete history")} aria-label={t("Delete history")}
                     type="button"
                     onClick={() => setShowPurgeConfirm(true)}
                     disabled={purging || !isPositiveNumber(form.customerId)}
@@ -1148,11 +1149,11 @@ const CreditLimit: React.FC = () => {
             </div>
 
             {historyLoading ? (
-              <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">Loading recent credit activity...</div>
+              <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">{t("Loading recent credit activity...")}</div>
             ) : filteredLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <CreditCardIcon className="mb-2 h-10 w-10 text-gray-400 dark:text-gray-500" />
-                <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">No credit actions yet</p>
+                <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">{t("No credit actions yet")}</p>
               </div>
             ) : (
               <div className="space-y-2 pr-1">
@@ -1178,31 +1179,31 @@ const CreditLimit: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Amount</div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{t("Amount")}</div>
                         <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                           {log.amount === undefined ? "--" : money(log.amount)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Available</div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{t("Available")}</div>
                         <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                           {log.availableCredit === undefined ? "--" : money(log.availableCredit)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Outstanding</div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{t("Outstanding")}</div>
                         <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                           {log.outstandingBalance === undefined ? "--" : money(log.outstandingBalance)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Credit Limit</div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{t("Credit Limit")}</div>
                         <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
                           {log.creditLimit === undefined ? "--" : money(log.creditLimit)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">Result</div>
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{t("Result")}</div>
                         <div className="mt-0.5">
                           {log.sufficient === undefined ? (
                             <span className="text-sm font-semibold text-slate-900 dark:text-white">--</span>
@@ -1214,7 +1215,7 @@ const CreditLimit: React.FC = () => {
                                   : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                               }`}
                             >
-                              {log.sufficient ? "Sufficient" : "Insufficient"}
+                              {t(log.sufficient ? "Sufficient" : "Insufficient")}
                             </span>
                           )}
                         </div>
@@ -1230,14 +1231,14 @@ const CreditLimit: React.FC = () => {
 
       <ConfirmDialog
         isOpen={showPurgeConfirm}
-        title="Purge Credit History"
+        title={t("Purge Credit History")}
         message={
           canPurgeDialogDescribeTarget
             ? `Delete credit history for ${customerDisplayName(selectedCustomer)} from ${formatDate(historyFrom)} to ${formatDate(historyTo)}?`
             : "Select a customer and valid date range before purging credit history."
         }
-        confirmLabel={purging ? "Purging..." : "Purge"}
-        cancelLabel="Cancel"
+        confirmLabel={t(purging ? "Purging..." : "Purge")}
+        cancelLabel={t("Cancel")}
         variant="danger"
         onConfirm={() => void purgeHistory()}
         onCancel={() => setShowPurgeConfirm(false)}
@@ -1245,19 +1246,19 @@ const CreditLimit: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showExportPopup}
-        title="Export Credit History"
-        subtitle="Select the date range and export format before downloading."
+        title={t("Export Credit History")}
+        subtitle={t("Select the date range and export format before downloading.")}
         onClose={closeExportPopup}
         onSubmit={handleExportSubmit}
         submitting={exportLoading}
-        submitLabel={exportLoading ? "Exporting..." : "Submit Export"}
+        submitLabel={t(exportLoading ? "Exporting..." : "Submit Export")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
             label: "Export Options",
             fields: [
               <FloatingDateRangePicker
-                label="Export Date Range"
+                label={t("Export Date Range")}
                 startDate={exportFrom}
                 endDate={exportTo}
                 onChange={([start, end]) => {
@@ -1267,7 +1268,7 @@ const CreditLimit: React.FC = () => {
                 placeholder=""
               />,
               <FloatingSelect
-                label="Export Format"
+                label={t("Export Format")}
                 value={exportFormat}
                 onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
                 includeEmptyOption={false}

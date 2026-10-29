@@ -12,6 +12,7 @@ import PurchaseResourcePage, {
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { formatMoney, companyCurrency, getRegional } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /* ------------------------------------------------------------------ */
 /* Endpoints & constants                                               */
 /* ------------------------------------------------------------------ */
@@ -291,7 +292,7 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
           onClick={() => fileInputRef.current?.click()}
           disabled={isBusy}
           className="h-12 w-12 overflow-hidden rounded-xl border border-cyan-200 bg-cyan-50 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-          title={isUploading ? "Uploading image" : "Upload image"}
+          title={t(isUploading ? "Uploading image" : "Upload image")}
         >
           {isBusy || !initialPreviewUrl ? (
             <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-cyan-700">
@@ -318,7 +319,7 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
             <button
               type="button"
               onClick={() => setIsPreviewOpen(false)}
-              aria-label="Close"
+              aria-label={t("Close")}
               className="absolute right-4 top-4 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             >
               <XMarkIcon className="h-5 w-5" aria-hidden="true" />
@@ -338,7 +339,7 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <PhotoIcon className="h-4 w-4" aria-hidden="true" />
-                {isUploading ? "Uploading..." : "Change"}
+                {t(isUploading ? "Uploading..." : "Change")}
               </button>
               <button
                 type="button"
@@ -346,7 +347,7 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
                 disabled={isUploading}
                 className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Use Initial
+                {t("Use Initial")}
               </button>
               <button
                 type="button"
@@ -354,7 +355,7 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />
-                Download
+                {t("Download")}
               </button>
             </div>
           </div>
@@ -501,7 +502,7 @@ const renderItemType = (row: PurchaseRecord) => {
     .join(", ");
   return (
     <span
-      title={text === "Stock" ? `Tracking: ${tracking || "none"}` : "Service item (no stock)"}
+      title={text === "Stock" ? `Tracking: ${tracking || "none"}` : t("Service item (no stock)")}
       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
         text === "Stock"
           ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
@@ -572,7 +573,7 @@ const baseProductConfig: PurchaseResourceConfig = {
             row.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
           }`}
         >
-          {row.active ? "Active" : "Inactive"}
+          {t(row.active ? "Active" : "Inactive")}
         </span>
       ),
     },
@@ -630,12 +631,12 @@ const baseProductConfig: PurchaseResourceConfig = {
     // Labels and decimals follow the company's currency (KWD prices have 3 decimals)
     {
       name: "standardCost", section: "Pricing & Tax", type: "number", defaultValue: 0, min: 0, max: 99999999,
-      get label() { return `Standard Cost (${companyCurrency()})`; },
+      get label() { return `${t("Standard Cost")} (${companyCurrency()})`; },
       get decimals() { return getRegional().currencyDecimals; },
     },
     {
       name: "sellingPrice", section: "Pricing & Tax", type: "number", defaultValue: 0, min: 0, max: 99999999,
-      get label() { return `Selling Price (${companyCurrency()})`; },
+      get label() { return `${t("Selling Price")} (${companyCurrency()})`; },
       get decimals() { return getRegional().currencyDecimals; },
     },
     {
@@ -788,7 +789,7 @@ export default function Products() {
         onClick={() => navigate("/common/categories")}
         className="inline-flex items-center rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
       >
-        + Category
+        {t("+ Category")}
       </button>
     ),
   };
@@ -812,16 +813,16 @@ export default function Products() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 id="upload-product-image-title" className="text-lg font-semibold text-slate-900">
-                  Upload Product Image
+                  {t("Upload Product Image")}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Product created successfully. Upload an image for {createdProduct.productName || "this product"}.
+                  {t("Product created successfully. Upload an image for")} {createdProduct.productName || "this product"}.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closePostCreatePopup}
-                aria-label="Close"
+                aria-label={t("Close")}
                 className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               >
                 <XMarkIcon className="h-5 w-5" aria-hidden="true" />
@@ -829,8 +830,8 @@ export default function Products() {
             </div>
 
             <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="text-sm font-medium text-slate-700">Allowed types: JPEG, PNG, WEBP</div>
-              <div className="mt-1 text-xs text-slate-500">Maximum size: 5 MB</div>
+              <div className="text-sm font-medium text-slate-700">{t("Allowed types: JPEG, PNG, WEBP")}</div>
+              <div className="mt-1 text-xs text-slate-500">{t("Maximum size: 5 MB")}</div>
 
               <input
                 type="file"
@@ -840,9 +841,9 @@ export default function Products() {
               />
 
               <div className="mt-3 grid gap-2 text-xs text-slate-500">
-                <div>Selected file: {postCreateImageFile?.name || "--"}</div>
-                <div>Selected size: {postCreateImageFile ? formatFileSize(postCreateImageFile.size) : "--"}</div>
-                <div>Selected type: {postCreateImageFile?.type || "--"}</div>
+                <div>{t("Selected file:")} {postCreateImageFile?.name || "--"}</div>
+                <div>{t("Selected size:")} {postCreateImageFile ? formatFileSize(postCreateImageFile.size) : "--"}</div>
+                <div>{t("Selected type:")} {postCreateImageFile?.type || "--"}</div>
               </div>
             </div>
 
@@ -852,7 +853,7 @@ export default function Products() {
                 onClick={closePostCreatePopup}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
-                Skip
+                {t("Skip")}
               </button>
               <button
                 type="button"
@@ -860,7 +861,7 @@ export default function Products() {
                 disabled={!postCreateImageFile || isPostCreateUploading}
                 className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPostCreateUploading ? "Uploading..." : "Upload Image"}
+                {t(isPostCreateUploading ? "Uploading..." : "Upload Image")}
               </button>
             </div>
           </div>

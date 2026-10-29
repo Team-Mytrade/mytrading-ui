@@ -33,6 +33,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Employee {
@@ -481,8 +482,8 @@ const AttendanceViolationPage: React.FC = () => {
     {
       key: "resolved", label: "Status", sortable: true,
       render: (_, v) => v
-        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />Resolved</span>
-        : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><XCircleIcon className="h-3 w-3" />Pending</span>,
+        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />{t("Resolved")}</span>
+        : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><XCircleIcon className="h-3 w-3" />{t("Pending")}</span>,
     },
     {
       key: "actions", label: "Actions",
@@ -491,21 +492,21 @@ const AttendanceViolationPage: React.FC = () => {
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
           {canUpdate && (<button
             onClick={() => toggleResolved(row)}
-            title={row.resolved ? "Mark as Pending" : "Mark as Resolved"}
+            title={t(row.resolved ? "Mark as Pending" : "Mark as Resolved")}
             className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
           >
             <CheckCircleIcon className="h-4 w-4" />
           </button>)}
           {canUpdate && (<button
             onClick={() => openEditForm(row)}
-            title="Edit"
+            title={t("Edit")}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
-            title="Delete"
+            title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
@@ -517,22 +518,22 @@ const AttendanceViolationPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Violations" description="Manage attendance violations" />
+      <PageMeta title={t("Attendance Violations")} description="Manage attendance violations" />
       <PageBreadcrumb pageTitle="Attendance Violations" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         {!showForm && (
           <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-            <AddButton label="Add Violation" onClick={openCreateForm} />
+            <AddButton label={t("Add Violation")} onClick={openCreateForm} />
           </div>
         )}
 
         {!showForm && (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatsCard label="Total Violations" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ExclamationTriangleIcon className="h-6 w-6" />} />
-            <StatsCard label="Late Arrivals" value={stats.late} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-6 w-6" />} />
-            <StatsCard label="Absent" value={stats.absent} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-6 w-6" />} />
-            <StatsCard label="Resolved" value={stats.resolved} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+            <StatsCard label={t("Total Violations")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ExclamationTriangleIcon className="h-6 w-6" />} />
+            <StatsCard label={t("Late Arrivals")} value={stats.late} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-6 w-6" />} />
+            <StatsCard label={t("Absent")} value={stats.absent} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-6 w-6" />} />
+            <StatsCard label={t("Resolved")} value={stats.resolved} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
           </div>
         )}
 
@@ -548,17 +549,17 @@ const AttendanceViolationPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {editingViolation ? "Edit Violation" : "Record Violation"}
+                      {t(editingViolation ? "Edit Violation" : "Record Violation")}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {editingViolation ? "Update violation details" : "Record a new attendance violation"}
+                      {t(editingViolation ? "Update violation details" : "Record a new attendance violation")}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={resetForm}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
+                  title={t("Back to list")}
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
@@ -569,7 +570,7 @@ const AttendanceViolationPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee <span className="text-red-500">*</span>
+                    {t("Employee")} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.employeeId || ""}
@@ -582,7 +583,7 @@ const AttendanceViolationPage: React.FC = () => {
                     }}
                     className={inputCls}
                   >
-                    <option value="">Select Employee</option>
+                    <option value="">{t("Select Employee")}</option>
                     {employees.map(emp => (
                       <option key={emp.id} value={emp.id}>
                         {emp.firstName} {emp.lastName}
@@ -593,7 +594,7 @@ const AttendanceViolationPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date <span className="text-red-500">*</span>
+                    {t("Date")} <span className="text-red-500">*</span>
                   </label>
                   <DatePicker
                     selected={form.date ? new Date(form.date) : null}
@@ -607,7 +608,7 @@ const AttendanceViolationPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Violation Type <span className="text-red-500">*</span>
+                    {t("Violation Type")} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.violationType}
@@ -622,7 +623,7 @@ const AttendanceViolationPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t("Duration")}</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -630,7 +631,7 @@ const AttendanceViolationPage: React.FC = () => {
                       step="1"
                       value={durationValue}
                       onChange={e => handleDurationChange(e.target.value, durationUnit)}
-                      placeholder="Enter duration"
+                      placeholder={t("Enter duration")}
                       className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${durationError ? 'border-red-500' : 'border-gray-300'
                         }`}
                     />
@@ -639,25 +640,25 @@ const AttendanceViolationPage: React.FC = () => {
                       onChange={e => handleDurationChange(durationValue, e.target.value as "M" | "H")}
                       className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     >
-                      <option value="M">Minutes</option>
-                      <option value="H">Hours</option>
+                      <option value="M">{t("Minutes")}</option>
+                      <option value="H">{t("Hours")}</option>
                     </select>
                   </div>
                   {durationError && (
                     <p className="mt-1 text-xs text-red-500">{durationError}</p>
                   )}
                   {!durationError && (
-                    <p className="mt-1 text-xs text-gray-500">Minutes cannot exceed 60. Use Hours for longer durations.</p>
+                    <p className="mt-1 text-xs text-gray-500">{t("Minutes cannot exceed 60. Use Hours for longer durations.")}</p>
                   )}
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t("Reason")}</label>
                   <textarea
                     value={form.reason}
                     onChange={e => handleChange("reason", e.target.value)}
                     rows={3}
-                    placeholder="Describe the reason for this violation..."
+                    placeholder={t("Describe the reason for this violation...")}
                     className={inputCls}
                   />
                 </div>
@@ -670,7 +671,7 @@ const AttendanceViolationPage: React.FC = () => {
                       onChange={e => handleChange("resolved", e.target.checked)}
                       className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Mark as Resolved</span>
+                    <span className="text-sm font-medium text-gray-700">{t("Mark as Resolved")}</span>
                   </label>
                 </div>
               </div>
@@ -698,14 +699,14 @@ const AttendanceViolationPage: React.FC = () => {
                   className="px-5 py-2.5 bg-green-600 hover:bg-green-700 !mb-0 !text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
                   <BeakerIcon className="h-4 w-4" />
-                  Auto-Evaluate
+                  {t("Auto-Evaluate")}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
                   className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </form>
@@ -719,14 +720,14 @@ const AttendanceViolationPage: React.FC = () => {
               columns={columns}
               loading={loading}
               searchable={true}
-              searchPlaceholder="Search by employee or reason..."
+              searchPlaceholder={t("Search by employee or reason...")}
               searchFields={["employeeName", "reason"]}
               pageSize={PAGE_SIZE}
               defaultSortKey="date"
               defaultSortOrder="desc"
               toolbar={
                 <FilterPopover
-                  title="Filter Violations"
+                  title={t("Filter Violations")}
                   buttonLabel="Filter"
                   onReset={() => {
                     setSelectedEmployeeFilter("");
@@ -738,41 +739,41 @@ const AttendanceViolationPage: React.FC = () => {
                 >
                   <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">{t("Employee")}</label>
                       <select
                         value={selectedEmployeeFilter}
                         onChange={e => setSelectedEmployeeFilter(e.target.value)}
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                       >
-                        <option value="">All Employees</option>
+                        <option value="">{t("All Employees")}</option>
                         {uniqueEmployees.map(emp => (
                           <option key={emp.id} value={emp.id.toString()}>{emp.name}</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Violation Type</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">{t("Violation Type")}</label>
                       <select
                         value={selectedTypeFilter}
                         onChange={e => setSelectedTypeFilter(e.target.value)}
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                       >
-                        <option value="">All Types</option>
+                        <option value="">{t("All Types")}</option>
                         {violationTypes.map(type => (
                           <option key={type} value={type}>{VIOLATION_LABELS[type]}</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">{t("Status")}</label>
                       <select
                         value={selectedStatusFilter}
                         onChange={e => setSelectedStatusFilter(e.target.value)}
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                       >
-                        <option value="">All Status</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="pending">Pending</option>
+                        <option value="">{t("All Status")}</option>
+                        <option value="resolved">{t("Resolved")}</option>
+                        <option value="pending">{t("Pending")}</option>
                       </select>
                     </div>
                   </div>
@@ -783,13 +784,13 @@ const AttendanceViolationPage: React.FC = () => {
                   <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                     <ExclamationTriangleIcon className="h-8 w-8 text-gray-400" />
                   </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No violations found</p>
+                  <p className="text-gray-500 text-sm font-medium mb-2">{t("No violations found")}</p>
                   {canCreate && (<button
                     onClick={openCreateForm}
                     className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
                   >
                     <PlusIcon className="h-4 w-4" />
-                    Record a violation
+                    {t("Record a violation")}
                   </button>)}
                 </div>
               }

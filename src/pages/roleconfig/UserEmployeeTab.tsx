@@ -21,6 +21,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 const EMPLOYEE_API_BASE = "/v1/api/user";
 const ADD_USER_EMPLOYEE_API = "/v1/api/user/add/userEmployee";
 const ROLE_API_BASE = "/v1/api/user/roles/getAll";
@@ -629,14 +630,14 @@ const UserEmployeeTab: React.FC = () => {
           {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.userId)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -691,7 +692,7 @@ const UserEmployeeTab: React.FC = () => {
       return (
         <div className="flex items-center gap-3">
           <Toggle value={!!form[field.key]} onChange={(v) => setForm({ ...form, [field.key]: v })} />
-          <span className="text-sm text-gray-500">{form[field.key] ? "Active" : "Inactive"}</span>
+          <span className="text-sm text-gray-500">{t(form[field.key] ? "Active" : "Inactive")}</span>
         </div>
       );
     }
@@ -704,7 +705,7 @@ const UserEmployeeTab: React.FC = () => {
           className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
           required={field.required}
         >
-          <option value="">Select {field.label}</option>
+          <option value="">{t("Select")} {field.label}</option>
           {field.options?.map((opt: any) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
@@ -781,14 +782,14 @@ const UserEmployeeTab: React.FC = () => {
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tenant <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("Tenant")} <span className="text-red-500">*</span></label>
             <select
               value={form.tenantId || ""}
               onChange={(e) => handleTenantChange(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
               disabled={loadingTenants}
             >
-              <option value="">{loadingTenants ? "Loading..." : "Select Tenant"}</option>
+              <option value="">{t(loadingTenants ? "Loading..." : "Select Tenant")}</option>
               {tenants.map((tenant) => (
                 <option key={tenant.tenantId} value={tenant.tenantId}>{tenant.tenantName}</option>
               ))}
@@ -796,7 +797,7 @@ const UserEmployeeTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Domain <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("Domain")} <span className="text-red-500">*</span></label>
             <select
               value={form.domainId || ""}
               onChange={(e) => handleDomainChange(Number(e.target.value))}
@@ -811,7 +812,7 @@ const UserEmployeeTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("Department")} <span className="text-red-500">*</span></label>
             <select
               value={form.departmentId || ""}
               onChange={(e) => handleDepartmentChange(Number(e.target.value))}
@@ -837,12 +838,12 @@ const UserEmployeeTab: React.FC = () => {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">Active</label>
+          <label className="text-sm font-medium text-gray-700">{t("Active")}</label>
           <Toggle value={form.active !== false} onChange={(v) => setForm({ ...form, active: v })} />
         </div>
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <label className="block text-sm font-medium text-gray-700">Roles</label>
+            <label className="block text-sm font-medium text-gray-700">{t("Roles")}</label>
             <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
               <input
                 type="checkbox"
@@ -850,7 +851,7 @@ const UserEmployeeTab: React.FC = () => {
                 onChange={() => setSelectedRoleNames(allRolesSelected ? [] : allRoleNames)}
                 className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
               />
-              Select all
+              {t("Select all")}
             </label>
           </div>
           <select
@@ -897,7 +898,7 @@ const UserEmployeeTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <FunnelIcon className="h-4 w-4 text-cyan-600" />
             <span>
-              Showing user: <strong>{filterUserName || `#${filterId}`}</strong>
+              {t("Showing user:")} <strong>{filterUserName || `#${filterId}`}</strong>
             </span>
           </div>
           <button
@@ -905,7 +906,7 @@ const UserEmployeeTab: React.FC = () => {
             onClick={() => navigate(USERS_PAGE_PATH)}
             className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline"
           >
-            View all users
+            {t("View all users")}
           </button>
         </div>
       )}
@@ -916,7 +917,7 @@ const UserEmployeeTab: React.FC = () => {
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder={t("Search users...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
@@ -939,7 +940,7 @@ const UserEmployeeTab: React.FC = () => {
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors"
         >
           <PlusIcon className="h-4 w-4" />
-          Add User
+          {t("Add User")}
         </button>)}
       </div>
 
@@ -963,7 +964,7 @@ const UserEmployeeTab: React.FC = () => {
                 onClick={() => navigate(USERS_PAGE_PATH)}
                 className="mt-3 text-sm text-cyan-600 hover:text-cyan-700"
               >
-                View all users →
+                {t("View all users →")}
               </button>
             ) : !search && (
               canCreate && <button
@@ -975,7 +976,7 @@ const UserEmployeeTab: React.FC = () => {
                 }}
                 className="mt-3 text-sm text-cyan-600 hover:text-cyan-700"
               >
-                Add your first user →
+                {t("Add your first user →")}
               </button>
             )}
           </div>
@@ -989,7 +990,7 @@ const UserEmployeeTab: React.FC = () => {
             <div className="flex items-center justify-between p-5 border-b">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{editingId ? "Edit" : "New"} User</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{editingId ? "Update user details" : "Create a new user"}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t(editingId ? "Update user details" : "Create a new user")}</p>
               </div>
               <button onClick={closeFormModal} className="text-gray-400 hover:text-gray-600">
                 <XMarkIcon className="h-5 w-5" />
@@ -1027,14 +1028,14 @@ const UserEmployeeTab: React.FC = () => {
                 disabled={currentStep === 1}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${currentStep === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
-                Previous
+                {t("Previous")}
               </button>
               <div className="flex gap-3">
-                <button type="button" onClick={closeFormModal} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+                <button type="button" onClick={closeFormModal} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">{t("Cancel")}</button>
                 {currentStep < totalSteps ? (
-                  <button type="button" onClick={handleNextStep} className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">Next</button>
+                  <button type="button" onClick={handleNextStep} className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">{t("Next")}</button>
                 ) : (
-                  <button type="button" onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">{editingId ? "Update" : "Create"}</button>
+                  <button type="button" onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700">{t(editingId ? "Update" : "Create")}</button>
                 )}
               </div>
             </div>
@@ -1049,11 +1050,11 @@ const UserEmployeeTab: React.FC = () => {
             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
               <TrashIcon className="h-6 w-6 text-red-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete User?</h3>
-            <p className="text-sm text-gray-500 mb-6">This action cannot be undone.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("Delete User?")}</h3>
+            <p className="text-sm text-gray-500 mb-6">{t("This action cannot be undone.")}</p>
             <div className="flex justify-center gap-3">
-              <button onClick={() => setShowDeleteConfirm(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-              <button onClick={() => handleDelete(showDeleteConfirm)} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Delete</button>
+              <button onClick={() => setShowDeleteConfirm(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">{t("Cancel")}</button>
+              <button onClick={() => handleDelete(showDeleteConfirm)} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">{t("Delete")}</button>
             </div>
           </div>
         </div>

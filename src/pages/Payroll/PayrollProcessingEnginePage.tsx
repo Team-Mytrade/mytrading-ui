@@ -24,6 +24,7 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { apiError } from "../../utils/apiError";
 import { formatMoney } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 export interface UploadedFile {
     fileName: string;
     type: string;
@@ -272,7 +273,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Payroll Processing Engine" description="Run the end-to-end payroll processing workflow" />
+            <PageMeta title={t("Payroll Processing Engine")} description="Run the end-to-end payroll processing workflow" />
             <PageBreadcrumb pageTitle="Payroll Engine" />
 
             <div className="w-full max-w-none px-0 py-8">
@@ -280,18 +281,18 @@ const PayrollProcessingEnginePage: React.FC = () => {
                     <div className="p-4 sm:p-6">
                         {/* Tabs */}
                         <div className="border-b border-gray-200 dark:border-transparent mb-4">
-                            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                            <nav className="-mb-px flex space-x-8" aria-label={t("Tabs")}>
                                 <button
                                     onClick={() => setActiveTab('process')}
                                     className={`${activeTab === 'process' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-transparent'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer`}
                                 >
-                                    Process Payroll
+                                    {t("Process Payroll")}
                                 </button>
                                 <button
                                     onClick={() => { setActiveTab('history'); fetchBatchInfo(); }}
                                     className={`${activeTab === 'history' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-transparent'} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer`}
                                 >
-                                    Batch History
+                                    {t("Batch History")}
                                 </button>
                             </nav>
                         </div>
@@ -302,7 +303,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                 <div className="mb-5 flex flex-col sm:flex-row sm:items-end gap-3">
                                     <div className="w-full sm:w-56">
                                         <label htmlFor="salaryMonth" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Payroll Month <span className="text-red-500">*</span>
+                                            {t("Payroll Month")} <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="month"
@@ -315,7 +316,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         />
                                     </div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 sm:pb-2">
-                                        Payroll can be run for {previousMonth} or {currentMonth}. Each run pays everyone due who isn't paid for the month yet.
+                                        {t("Payroll can be run for")} {previousMonth} or {currentMonth}. Each run pays everyone due who isn't paid for the month yet.
                                     </p>
                                 </div>
 
@@ -344,9 +345,9 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                 {workflowStep === 1 && (
                                     <div className="text-center py-4">
                                         <CloudArrowDownIcon className="mx-auto h-12 w-12 text-cyan-500 dark:text-gray-400 mb-3" />
-                                        <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Download Templates</h4>
+                                        <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{t("Download Templates")}</h4>
                                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 max-w-xl mx-auto">
-                                            Each template lists the employees still to be paid for {salaryMonth}. Fill in the Amount column for a
+                                            {t("Each template lists the employees still to be paid for")} {salaryMonth}. Fill in the Amount column for a
                                             one-off earning (e.g. Bonus) or deduction (e.g. Salary Advance), and the LOP days in the attendance template.
                                         </p>
                                         {canExport && (
@@ -356,20 +357,20 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                     className="inline-flex items-center justify-center px-5 py-2.5 shadow-sm text-sm font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 cursor-pointer"
                                                 >
                                                     <CloudArrowDownIcon className="-ml-1 mr-2 h-5 w-5" />
-                                                    Earnings / Deductions Template
+                                                    {t("Earnings / Deductions Template")}
                                                 </button>
                                                 <button
                                                     onClick={() => handleDownloadTemplate("attendance")}
                                                     className="inline-flex items-center justify-center px-5 py-2.5 shadow-sm text-sm font-medium rounded-lg text-cyan-700 dark:text-gray-200 bg-cyan-50 dark:bg-[#222222] hover:bg-cyan-100 dark:hover:bg-[#2a2a2a] cursor-pointer"
                                                 >
                                                     <CloudArrowDownIcon className="-ml-1 mr-2 h-5 w-5" />
-                                                    Attendance Template
+                                                    {t("Attendance Template")}
                                                 </button>
                                             </div>
                                         )}
                                         <div className="mt-5 flex justify-center">
                                             <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-cyan-600 dark:text-gray-400 dark:hover:text-cyan-400 text-sm font-medium flex items-center cursor-pointer">
-                                                Continue to Upload <ArrowRightIcon className="ml-1 w-4 h-4" />
+                                                {t("Continue to Upload")} <ArrowRightIcon className="ml-1 w-4 h-4" />
                                             </button>
                                         </div>
                                     </div>
@@ -382,22 +383,22 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             <div className="mb-6 rounded-xl border border-gray-200 dark:border-transparent bg-gray-50 dark:bg-[#222222] p-4">
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                                     <div>
-                                                        <label htmlFor="uploadKind" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">File</label>
+                                                        <label htmlFor="uploadKind" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t("File")}</label>
                                                         <select
                                                             id="uploadKind"
                                                             value={uploadKind}
                                                             onChange={(e) => setUploadKind(e.target.value as UploadKind)}
                                                             className="block w-full text-sm px-3 py-2 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200"
                                                         >
-                                                            <option value="earnings">One-off earning</option>
-                                                            <option value="deductions">One-off deduction</option>
-                                                            <option value="attendance">Attendance</option>
+                                                            <option value="earnings">{t("One-off earning")}</option>
+                                                            <option value="deductions">{t("One-off deduction")}</option>
+                                                            <option value="attendance">{t("Attendance")}</option>
                                                         </select>
                                                     </div>
                                                     {uploadKind !== "attendance" ? (
                                                         <div>
                                                             <label htmlFor="componentName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                                Name on payslips <span className="text-red-500">*</span>
+                                                                {t("Name on payslips")} <span className="text-red-500">*</span>
                                                             </label>
                                                             <input
                                                                 id="componentName"
@@ -443,14 +444,14 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         )}
 
                                         <div className="flex items-center justify-between mb-3">
-                                            <h4 className="text-base font-semibold text-gray-900 dark:text-white">Files for {salaryMonth}</h4>
+                                            <h4 className="text-base font-semibold text-gray-900 dark:text-white">{t("Files for")} {salaryMonth}</h4>
                                             <button
                                                 onClick={fetchFiles}
                                                 disabled={isFetching}
                                                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-transparent text-sm rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] cursor-pointer"
                                             >
                                                 <ArrowPathIcon className={`-ml-0.5 mr-1.5 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-                                                Refresh
+                                                {t("Refresh")}
                                             </button>
                                         </div>
 
@@ -464,11 +465,11 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 <table className="min-w-full text-sm" data-testid="uploaded-files">
                                                     <thead className="bg-gray-50 dark:bg-[#222222] text-xs uppercase text-gray-500 dark:text-gray-400">
                                                         <tr>
-                                                            <th className="px-4 py-2 text-left font-medium">File</th>
-                                                            <th className="px-4 py-2 text-left font-medium">Type</th>
-                                                            <th className="px-4 py-2 text-center font-medium">Employees</th>
-                                                            <th className="px-4 py-2 text-right font-medium">Total</th>
-                                                            <th className="px-2 py-2"><span className="sr-only">Remove</span></th>
+                                                            <th className="px-4 py-2 text-left font-medium">{t("File")}</th>
+                                                            <th className="px-4 py-2 text-left font-medium">{t("Type")}</th>
+                                                            <th className="px-4 py-2 text-center font-medium">{t("Employees")}</th>
+                                                            <th className="px-4 py-2 text-right font-medium">{t("Total")}</th>
+                                                            <th className="px-2 py-2"><span className="sr-only">{t("Remove")}</span></th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a2a]">
@@ -494,7 +495,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                                         <button
                                                                             onClick={() => handleRemoveFile(file.fileName)}
                                                                             className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-[#222222] cursor-pointer"
-                                                                            title={`Remove ${file.fileName}`}
+                                                                            title={`${t("Remove")} ${file.fileName}`}
                                                                         >
                                                                             <TrashIcon className="h-4 w-4" />
                                                                         </button>
@@ -507,7 +508,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             </div>
                                         ) : !isFetching && !fetchError && (
                                             <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-                                                Nothing uploaded for {salaryMonth}. One-off amounts are optional; attendance sets loss of pay.
+                                                {t("Nothing uploaded for")} {salaryMonth}. One-off amounts are optional; attendance sets loss of pay.
                                             </div>
                                         )}
 
@@ -516,14 +517,14 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 onClick={() => setWorkflowStep(1)}
                                                 className="inline-flex items-center px-6 py-2.5 border border-gray-300 dark:border-transparent shadow-sm text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] cursor-pointer"
                                             >
-                                                Back
+                                                {t("Back")}
                                             </button>
                                             <button
                                                 onClick={() => setWorkflowStep(3)}
                                                 disabled={!!fetchError}
                                                 className="inline-flex items-center px-6 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
-                                                Review
+                                                {t("Review")}
                                             </button>
                                         </div>
                                     </div>
@@ -533,7 +534,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                 {workflowStep === 3 && (
                                     <div className="py-2">
                                         {isFetching && !review ? (
-                                            <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Checking {salaryMonth}...</div>
+                                            <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">{t("Checking")} {salaryMonth}...</div>
                                         ) : review && (
                                             <>
                                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" data-testid="run-review">
@@ -553,7 +554,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 {problems.length > 0 && (
                                                     <div className="mb-4 rounded-md border-l-4 border-red-500 bg-red-50 dark:bg-[#222222] p-3">
                                                         <div className="flex items-center gap-2 text-sm font-semibold text-red-800 dark:text-red-400">
-                                                            <XCircleIcon className="h-5 w-5" /> Fix before running payroll
+                                                            <XCircleIcon className="h-5 w-5" /> {t("Fix before running payroll")}
                                                         </div>
                                                         <ul className="mt-2 list-disc pl-6 text-sm text-red-700 dark:text-gray-300 space-y-0.5">
                                                             {problems.map((p) => <li key={p}>{p}</li>)}
@@ -572,7 +573,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 {review.employeesToPay > 0 && (review.attendanceUploaded ? (
                                                     <div className="mb-5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                         <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-gray-400" />
-                                                        Attendance uploaded: {review.employeesWithLossOfPay} employee{review.employeesWithLossOfPay === 1 ? "" : "s"} with loss of pay.
+                                                        {t("Attendance uploaded:")} {review.employeesWithLossOfPay} employee{review.employeesWithLossOfPay === 1 ? "" : "s"} with loss of pay.
                                                     </div>
                                                 ) : (
                                                     <label className="mb-5 flex items-start gap-3 rounded-md border border-amber-200 dark:border-transparent bg-amber-50 dark:bg-[#222222] p-3 cursor-pointer">
@@ -583,7 +584,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                             className="mt-0.5 h-4 w-4 rounded border-gray-300 text-cyan-600"
                                                         />
                                                         <span className="text-sm text-amber-900 dark:text-gray-300">
-                                                            No attendance is uploaded for {salaryMonth}. Pay everyone for the full month (no loss of pay).
+                                                            {t("No attendance is uploaded for")} {salaryMonth}. Pay everyone for the full month (no loss of pay).
                                                         </span>
                                                     </label>
                                                 ))}
@@ -612,7 +613,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
 
                                         <div className="flex justify-center mt-8">
                                             <button onClick={() => setWorkflowStep(2)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-sm font-medium cursor-pointer">
-                                                ← Back to Upload
+                                                {t("← Back to Upload")}
                                             </button>
                                         </div>
                                     </div>
@@ -624,14 +625,14 @@ const PayrollProcessingEnginePage: React.FC = () => {
                         {activeTab === 'history' && (
                             <div>
                                 <div className="flex justify-between items-center mb-6">
-                                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Batch Processing Status</h4>
+                                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">{t("Batch Processing Status")}</h4>
                                     <div className="flex gap-3">
                                         <button
                                             onClick={fetchBatchInfo}
                                             className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-transparent shadow-sm text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors cursor-pointer"
                                         >
                                             <ArrowPathIcon className="-ml-1 mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" />
-                                            Refresh
+                                            {t("Refresh")}
                                         </button>
                                     </div>
                                 </div>
@@ -675,7 +676,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 canExport && <button
                                                     onClick={(e) => { e.stopPropagation(); handleDownloadReport(row.batchReference, row.salaryMonth); }}
                                                     className="text-cyan-600 hover:text-cyan-900 dark:text-gray-400 dark:hover:text-gray-200 bg-cyan-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer"
-                                                    title="Download Bank Report"
+                                                    title={t("Download Bank Report")}
                                                 >
                                                     <DocumentArrowDownIcon className="h-5 w-5" />
                                                 </button>
@@ -688,7 +689,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                     emptyState={
                                         <div className="flex flex-col items-center py-12 text-gray-500 dark:text-gray-400">
                                             <DocumentTextIcon className="h-8 w-8 text-gray-400 dark:text-gray-500 mb-3" />
-                                            <p className="text-sm">No payroll runs yet. Each run, with its bank transfer file, appears here.</p>
+                                            <p className="text-sm">{t("No payroll runs yet. Each run, with its bank transfer file, appears here.")}</p>
                                         </div>
                                     }
                                 />

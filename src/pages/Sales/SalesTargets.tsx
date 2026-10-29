@@ -1,3 +1,4 @@
+import { liveMonthNames } from "../../company/format";
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +29,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type TargetStatus =
   | "NOT_STARTED"
   | "ON_TRACK"
@@ -99,10 +101,7 @@ const statusOptions: TargetStatus[] = [
 
 const targetTypeOptions: TargetType[] = ["REVENUE", "QUANTITY", "ORDERS", "CUSTOMERS", "PROFIT"];
 
-const monthNames = [
-  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
-];
+const monthNames = liveMonthNames("long");
 
 const emptyForm: TargetForm = {
   salesPersonId: "",
@@ -574,7 +573,7 @@ const SalesTargets: React.FC = () => {
               <UserIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-400" />
             </div>
             <div>
-              <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${target.salesPersonId}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[190px] truncate text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300" title={`View ${name}`}>{name}</button>
+              <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/sales-persons?salesPersonId=${target.salesPersonId}&salesPersonName=${encodeURIComponent(name)}`); }} className="max-w-[190px] truncate text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300" title={`${t("View")} ${name}`}>{name}</button>
               <div className="text-xs text-slate-500 dark:text-slate-400">{code || `ID: ${target.salesPersonId}`}</div>
             </div>
           </div>
@@ -658,7 +657,7 @@ const SalesTargets: React.FC = () => {
             type="button"
             onClick={() => openEdit(target)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -668,7 +667,7 @@ const SalesTargets: React.FC = () => {
               onClick={() => void markTargetAsAchieved(target)}
               disabled={achievedUpdatingId === target.id}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
-              title="Mark achieved"
+              title={t("Mark achieved")}
             >
               <TrophyIcon className="h-4 w-4" />
             </button>
@@ -677,7 +676,7 @@ const SalesTargets: React.FC = () => {
             type="button"
             onClick={() => setDeleteTarget(target)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -701,17 +700,17 @@ const SalesTargets: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Sales Targets" description="Manage sales targets" />
+      <PageMeta title={t("Sales Targets")} description="Manage sales targets" />
       <PageBreadcrumb
         pageTitle="Sales Targets"
-        actions={<AddButton onClick={openCreate} label="Add Target" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Target")} />}
       />
 
       {/* Added 'sales-module' class to activate legacy CSS dark mode fallback */}
       <div className="sales-module w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatsCard
-            label="Total Target"
+            label={t("Total Target")}
             value={toCurrency(stats.targetAmount)}
             icon={<BanknotesIcon />}
             gradient="from-green-50 to-emerald-50"
@@ -719,7 +718,7 @@ const SalesTargets: React.FC = () => {
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Achieved"
+            label={t("Achieved")}
             value={toCurrency(stats.achievedAmount)}
             icon={<CheckCircleIcon />}
             gradient="from-purple-50 to-pink-50"
@@ -727,7 +726,7 @@ const SalesTargets: React.FC = () => {
             labelColor="text-purple-600"
           />
           <StatsCard
-            label="Achievement %"
+            label={t("Achievement %")}
             value={`${stats.achievementPct}%`}
             icon={<PresentationChartLineIcon />}
           />
@@ -744,14 +743,14 @@ const SalesTargets: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               {/* Added dark: classes */}
               <PresentationChartLineIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales targets found</p>
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No sales targets found")}</p>
               <button
                 type="button"
                 onClick={() => fetchAllTargets()}
                 className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload all targets
+                {t("Reload all targets")}
               </button>
             </div>
           }
@@ -760,12 +759,12 @@ const SalesTargets: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Sales Target" : "Create Sales Target"}
-        subtitle="Enter the sales target details"
+        title={t(editingId ? "Edit Sales Target" : "Create Sales Target")}
+        subtitle={t("Enter the sales target details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Target" : "Create Target"}
+        submitLabel={t(editingId ? "Update Target" : "Create Target")}
         maxWidthClassName="max-w-3xl"
         tabs={[
           {
@@ -773,7 +772,7 @@ const SalesTargets: React.FC = () => {
             fields: [
               <div key="salesPerson" className="md:col-span-2">
                 <FloatingSelect
-                  label="Sales Person"
+                  label={t("Sales Person")}
                   name="salesPersonId"
                   value={form.salesPersonId}
                   onChange={handleChange}
@@ -790,13 +789,13 @@ const SalesTargets: React.FC = () => {
                     className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                   >
                     <ArrowPathIcon className="h-3 w-3" />
-                    Retry loading sales persons
+                    {t("Retry loading sales persons")}
                   </button>
                 )}
               </div>,
               <FloatingSelect
                 key="targetType"
-                label="Target Type"
+                label={t("Target Type")}
                 name="targetType"
                 value={form.targetType}
                 onChange={handleChange}
@@ -806,7 +805,7 @@ const SalesTargets: React.FC = () => {
               />,
               <FloatingInput
                 key="targetAmount"
-                label="Target Amount"
+                label={t("Target Amount")}
                 name="targetAmount"
                 type="number"
                 min={0}
@@ -816,7 +815,7 @@ const SalesTargets: React.FC = () => {
               />,
               <FloatingInput
                 key="achievedAmount"
-                label="Achieved Amount"
+                label={t("Achieved Amount")}
                 name="achievedAmount"
                 type="number"
                 min={0}
@@ -825,7 +824,7 @@ const SalesTargets: React.FC = () => {
               />,
               <div key="period" className="md:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-4">
                 <FloatingInput
-                  label="Target Year"
+                  label={t("Target Year")}
                   name="targetYear"
                   type="number"
                   value={form.targetYear}
@@ -833,7 +832,7 @@ const SalesTargets: React.FC = () => {
                   required
                 />
                 <FloatingInput
-                  label="Target Month"
+                  label={t("Target Month")}
                   name="targetMonth"
                   type="number"
                   min={1}
@@ -844,7 +843,7 @@ const SalesTargets: React.FC = () => {
                 />
                 <div className="sm:col-span-2">
                   <FloatingDateRangePicker
-                    label="Target Date Range"
+                    label={t("Target Date Range")}
                     startDate={selectedStartDate}
                     endDate={selectedEndDate}
                     onChange={([start, end]) => {
@@ -866,7 +865,7 @@ const SalesTargets: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="status"
-                label="Status"
+                label={t("Status")}
                 name="status"
                 value={form.status}
                 onChange={handleChange}
@@ -876,7 +875,7 @@ const SalesTargets: React.FC = () => {
               />,
               <div key="remarks" className="md:col-span-2">
                 <FloatingTextarea
-                  label="Remarks"
+                  label={t("Remarks")}
                   name="remarks"
                   value={form.remarks}
                   onChange={handleChange}
@@ -896,14 +895,14 @@ const SalesTargets: React.FC = () => {
         // Added dark: classes
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Sales Target"
+        innerText={t("Delete Sales Target")}
         subText={
           deleteTarget
             ? `Are you sure you want to delete target #${deleteTarget.id}?`
             : "Are you sure you want to delete this target?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

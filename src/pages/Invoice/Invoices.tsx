@@ -639,11 +639,11 @@ const Invoices: React.FC = () => {
         )}
         {isOpenInvoice(selected.status) && Number(selected.balanceAmount || 0) > 0 && canCreate && (
           <ActionButton icon={EnvelopeIcon} label={t("Send payment reminder")} disabled={busy || !selected.customerEmail}
-            title={selected.customerEmail ? `Email ${selected.customerEmail}` : "The invoice has no customer email address"}
+            title={selected.customerEmail ? `${t("Email")} ${selected.customerEmail}` : t("The invoice has no customer email address")}
             onClick={() => setConfirm("remind")} />
         )}
         {selected.status !== "DRAFT" && canExport && (
-          <ActionButton icon={ArrowDownTrayIcon} label={busy ? "Preparing…" : "Download PDF"} onClick={downloadPdf} disabled={busy} />
+          <ActionButton icon={ArrowDownTrayIcon} label={t(busy ? "Preparing…" : "Download PDF")} onClick={downloadPdf} disabled={busy} />
         )}
         {isOpenInvoice(selected.status) && canCreate && (
           <ActionButton tone="primary" icon={BanknotesIcon} label={t("Record payment")} disabled={busy}
@@ -679,7 +679,7 @@ const Invoices: React.FC = () => {
               onClick={() => setStatusFilter(status)}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${statusFilter === status ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
             >
-              {status === "ALL" ? "All" : labelOf(status)}
+              {status === "ALL" ? t("All") : labelOf(status)}
             </button>
           ))}
         </div>
@@ -788,7 +788,7 @@ const Invoices: React.FC = () => {
       {/* Cancel an issued invoice without payments */}
       <PaginatedPopup
         isOpen={dialog === "cancel"}
-        title={`Cancel ${selected?.invoiceNumber ?? ""}`}
+        title={`${t("Cancel")} ${selected?.invoiceNumber ?? ""}`}
         subtitle={t("The receivable is closed and the invoice stays on record as cancelled.")}
         onClose={() => setDialog(null)}
         maxWidthClassName="max-w-lg"
@@ -874,9 +874,9 @@ const Invoices: React.FC = () => {
 
       <ConfirmDialog
         isOpen={confirm === "issue"}
-        title={`Issue ${selected?.invoiceNumber ?? "invoice"}?`}
+        title={`${t("Issue")} ${selected?.invoiceNumber ?? "invoice"}?`}
         message={`The invoice becomes final and ${money(selected?.grandTotal, selected?.currencyCode)} is due from ${selected?.customerName ?? "the customer"} by ${dateLabel(selected?.dueDate)}. Issued invoices can't be edited.`}
-        confirmLabel={busy ? "Issuing…" : "Issue"}
+        confirmLabel={t(busy ? "Issuing…" : "Issue")}
         variant="info"
         onConfirm={issue}
         onCancel={() => setConfirm(null)}
@@ -885,7 +885,7 @@ const Invoices: React.FC = () => {
         isOpen={confirm === "remind"}
         title={`Email a payment reminder for ${selected?.invoiceNumber ?? "this invoice"}?`}
         message={`${selected?.customerName ?? "The customer"} (${selected?.customerEmail ?? "no email"}) is reminded that ${money(selected?.balanceAmount, selected?.currencyCode)} ${selected?.dueDate && selected.dueDate < todayInput() ? "was" : "is"} due on ${dateLabel(selected?.dueDate)}. The wording comes from Notification Settings.`}
-        confirmLabel={busy ? "Sending…" : "Send reminder"}
+        confirmLabel={t(busy ? "Sending…" : "Send reminder")}
         variant="info"
         onConfirm={sendReminder}
         onCancel={() => setConfirm(null)}
@@ -894,7 +894,7 @@ const Invoices: React.FC = () => {
         isOpen={confirm === "delete"}
         title={`Delete draft ${selected?.invoiceNumber ?? ""}?`}
         message="The dispatch becomes available to invoice again."
-        confirmLabel={busy ? "Deleting…" : "Delete"}
+        confirmLabel={t(busy ? "Deleting…" : "Delete")}
         variant="danger"
         onConfirm={deleteDraft}
         onCancel={() => setConfirm(null)}

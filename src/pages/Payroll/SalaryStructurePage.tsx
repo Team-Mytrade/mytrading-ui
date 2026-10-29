@@ -31,6 +31,7 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Amounts are YEARLY, as payroll stores them; a month pays one twelfth
 type SalaryStructure = {
     id: number;
@@ -277,7 +278,7 @@ const SalaryStructurePage: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">{label(row)}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">ID: #{row.employeeId}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{t("ID: #")}{row.employeeId}</p>
                     </div>
                 </div>
             )
@@ -336,17 +337,17 @@ const SalaryStructurePage: React.FC = () => {
             render: (row) => (
                 <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     {canExport && (
-                        <button type="button" onClick={() => exportPDF(row)} className={ROW_ICON_BUTTON} title="Export PDF">
+                        <button type="button" onClick={() => exportPDF(row)} className={ROW_ICON_BUTTON} title={t("Export PDF")}>
                             <DocumentArrowDownIcon className="h-4 w-4" />
                         </button>
                     )}
                     {canUpdate && (
-                        <button type="button" onClick={() => openEdit(row)} className={ROW_ICON_BUTTON} title="Edit">
+                        <button type="button" onClick={() => openEdit(row)} className={ROW_ICON_BUTTON} title={t("Edit")}>
                             <PencilSquareIcon className="h-4 w-4" />
                         </button>
                     )}
                     {canDelete && (
-                        <button type="button" onClick={() => handleDelete(row.id)} className={ROW_ICON_BUTTON_DANGER} title="Delete">
+                        <button type="button" onClick={() => handleDelete(row.id)} className={ROW_ICON_BUTTON_DANGER} title={t("Delete")}>
                             <TrashIcon className="h-4 w-4" />
                         </button>
                     )}
@@ -362,7 +363,7 @@ const SalaryStructurePage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Salary Structures" description="Manage employee salary structures and compensation" />
+            <PageMeta title={t("Salary Structures")} description="Manage employee salary structures and compensation" />
             <PageBreadcrumb
                 pageTitle="Salary Structures"
                 actions={
@@ -376,7 +377,7 @@ const SalaryStructurePage: React.FC = () => {
                                     disabled={data.length === 0}
                                 >
                                     <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                    Export
+                                    {t("Export")}
                                 </button>
                                 {showExportMenu && (
                                     <div className="absolute right-0 top-9 z-50 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-transparent dark:bg-[#191919]">
@@ -386,7 +387,7 @@ const SalaryStructurePage: React.FC = () => {
                                             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-[#222222]"
                                         >
                                             <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                            All Records (PDF)
+                                            {t("All Records (PDF)")}
                                         </button>
                                         <button
                                             type="button"
@@ -394,23 +395,23 @@ const SalaryStructurePage: React.FC = () => {
                                             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-[#222222]"
                                         >
                                             <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                            Export to Excel
+                                            {t("Export to Excel")}
                                         </button>
                                     </div>
                                 )}
                             </div>
                         )}
-                        <AddButton label="Add Structure" onClick={openCreate} />
+                        <AddButton label={t("Add Structure")} onClick={openCreate} />
                     </div>
                 }
             />
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Total Structures" value={data.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
-                    <StatsCard label="Total CTC Value" value={lakhs(totalCTC)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ChartBarIcon className="h-5 w-5" />} />
-                    <StatsCard label="Avg Basic (yearly)" value={rupees(avgBasic)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-5 w-5" />} />
-                    <StatsCard label="Avg Gross / Month" value={rupees(avgGross / 12)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Total Structures")} value={data.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Total CTC Value")} value={lakhs(totalCTC)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ChartBarIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Avg Basic (yearly)")} value={rupees(avgBasic)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Avg Gross / Month")} value={rupees(avgGross / 12)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} />
                 </div>
 
                 <ReusableTable
@@ -423,7 +424,7 @@ const SalaryStructurePage: React.FC = () => {
                     emptyState={
                         <div className="flex flex-col items-center justify-center py-12">
                             <BuildingOfficeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-                            <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No salary structures found</p>
+                            <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No salary structures found")}</p>
                             <p className="text-xs text-gray-400 dark:text-slate-500">Click "Add Structure" to create one</p>
                         </div>
                     }
@@ -432,12 +433,12 @@ const SalaryStructurePage: React.FC = () => {
 
             <PaginatedPopup
                 isOpen={showForm}
-                title={editingId ? "Edit Salary Structure" : "Add Salary Structure"}
-                subtitle="Yearly amounts; payroll pays one twelfth each month"
+                title={t(editingId ? "Edit Salary Structure" : "Add Salary Structure")}
+                subtitle={t("Yearly amounts; payroll pays one twelfth each month")}
                 onClose={closeForm}
                 onSubmit={handleSubmit}
                 submitting={saving}
-                submitLabel={editingId ? "Update Structure" : "Save Structure"}
+                submitLabel={t(editingId ? "Update Structure" : "Save Structure")}
                 maxWidthClassName="max-w-2xl"
                 tabs={[
                     {
@@ -445,7 +446,7 @@ const SalaryStructurePage: React.FC = () => {
                         fields: [
                             <FloatingSelect
                                 key="employeeId"
-                                label="Employee"
+                                label={t("Employee")}
                                 name="employeeId"
                                 value={form.employeeId}
                                 onChange={handleChange}
@@ -453,18 +454,18 @@ const SalaryStructurePage: React.FC = () => {
                                 disabled={editingId !== null}
                                 required
                             />,
-                            <FloatingInput key="effectiveFrom" label="Effective From" name="effectiveFrom" type="date" value={form.effectiveFrom} onChange={handleChange} required />,
-                            <FloatingInput key="basic" label="Basic (yearly)" name="basic" type="number" min={0} value={form.basic === 0 ? "" : form.basic} onChange={handleChange} required />,
-                            <FloatingInput key="hra" label="HRA (yearly)" name="hra" type="number" min={0} value={form.hra === 0 ? "" : form.hra} onChange={handleChange} />,
-                            <FloatingInput key="allowances" label="Other Allowances (yearly)" name="allowances" type="number" min={0} value={form.allowances === 0 ? "" : form.allowances} onChange={handleChange} />,
-                            <FloatingInput key="ctc" label="Annual CTC" name="ctc" type="number" min={0} value={form.ctc === 0 ? "" : form.ctc} onChange={handleChange} required />,
+                            <FloatingInput key="effectiveFrom" label={t("Effective From")} name="effectiveFrom" type="date" value={form.effectiveFrom} onChange={handleChange} required />,
+                            <FloatingInput key="basic" label={t("Basic (yearly)")} name="basic" type="number" min={0} value={form.basic === 0 ? "" : form.basic} onChange={handleChange} required />,
+                            <FloatingInput key="hra" label={t("HRA (yearly)")} name="hra" type="number" min={0} value={form.hra === 0 ? "" : form.hra} onChange={handleChange} />,
+                            <FloatingInput key="allowances" label={t("Other Allowances (yearly)")} name="allowances" type="number" min={0} value={form.allowances === 0 ? "" : form.allowances} onChange={handleChange} />,
+                            <FloatingInput key="ctc" label={t("Annual CTC")} name="ctc" type="number" min={0} value={form.ctc === 0 ? "" : form.ctc} onChange={handleChange} required />,
                             <div key="preview" className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-gray-700 dark:bg-[#222222]">
                                 <div className="flex justify-between text-slate-600 dark:text-gray-400">
-                                    <span>Gross per year</span>
+                                    <span>{t("Gross per year")}</span>
                                     <span className="font-medium text-slate-900 dark:text-white">{rupees(gross)}</span>
                                 </div>
                                 <div className="mt-1 flex justify-between text-slate-600 dark:text-gray-400">
-                                    <span>Gross per month</span>
+                                    <span>{t("Gross per month")}</span>
                                     <span className="font-semibold text-cyan-600 dark:text-cyan-400">{rupees(gross / 12)}</span>
                                 </div>
                             </div>,

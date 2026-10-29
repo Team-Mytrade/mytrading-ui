@@ -24,6 +24,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /**
  * Inventory Stock: the real stock per product and warehouse (the same records sales reservations, purchase
  * receipts, stock movements and adjustments change). Stock is not typed in here: it is received on the Stock
@@ -307,7 +308,7 @@ const InventoryStockManager: React.FC = () => {
       render: (stock) => (
         <button
           className="text-sm font-semibold text-slate-800 transition-colors hover:text-cyan-600 hover:underline"
-          title="View stock movements"
+          title={t("View stock movements")}
           onClick={() =>
             navigate(`/stock-movement?productId=${stock.productId}&warehouseId=${stock.warehouse?.id ?? ""}`)
           }
@@ -361,7 +362,7 @@ const InventoryStockManager: React.FC = () => {
               type="button"
               onClick={() => openReorder(stock)}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-              title="Set reorder level"
+              title={t("Set reorder level")}
             >
               <AdjustmentsHorizontalIcon className="h-4 w-4" />
             </button>
@@ -373,16 +374,16 @@ const InventoryStockManager: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Inventory Stock" description="Stock on hand per product and warehouse" />
+      <PageMeta title={t("Inventory Stock")} description="Stock on hand per product and warehouse" />
       <PageBreadcrumb
         pageTitle="Inventory Stock"
-        actions={<AddButton onClick={() => navigate("/stock-movement")} label="Receive Stock" />}
+        actions={<AddButton onClick={() => navigate("/stock-movement")} label={t("Receive Stock")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Stock Records"
+            label={t("Stock Records")}
             value={stats.records}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -390,7 +391,7 @@ const InventoryStockManager: React.FC = () => {
             icon={<ArrowsRightLeftIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="On Hand"
+            label={t("On Hand")}
             value={formatNumber(stats.onHand)}
             gradient="from-emerald-50 to-green-50"
             borderColor="border-emerald-100"
@@ -398,7 +399,7 @@ const InventoryStockManager: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Reserved"
+            label={t("Reserved")}
             value={formatNumber(stats.reserved)}
             gradient="from-yellow-50 to-orange-50"
             borderColor="border-yellow-100"
@@ -406,7 +407,7 @@ const InventoryStockManager: React.FC = () => {
             icon={<ExclamationTriangleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Low / Out of Stock"
+            label={t("Low / Out of Stock")}
             value={stats.lowOrOut}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -417,20 +418,20 @@ const InventoryStockManager: React.FC = () => {
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Stock changes through receipts, stock movements, adjustments and sales.
+            {t("Stock changes through receipts, stock movements, adjustments and sales.")}
             {warehouseFilter && (
               <>
                 {" "}Showing {warehouseLabel(warehouses.find((w) => String(w.id) === warehouseFilter))} only —{" "}
                 <button className="font-medium text-cyan-600 hover:text-cyan-700" onClick={() => navigate("/inventory")}>
-                  show all warehouses
+                  {t("show all warehouses")}
                 </button>
               </>
             )}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <ListingPdfExportButton
-              title="Inventory Stock"
-              subtitle="Stock on hand per product and warehouse"
+              title={t("Inventory Stock")}
+              subtitle={t("Stock on hand per product and warehouse")}
               reportLabel="Inventory Stock Report"
               data={visibleStocks}
               fileName="Inventory_Stock"
@@ -455,19 +456,19 @@ const InventoryStockManager: React.FC = () => {
             <button
               onClick={() => setShowAvailabilityModal(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-cyan-600"
-              title="Check stock availability for a product in a warehouse"
+              title={t("Check stock availability for a product in a warehouse")}
             >
               <ClipboardDocumentCheckIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Check Availability</span>
+              <span className="hidden sm:inline">{t("Check Availability")}</span>
             </button>
 
             <button
               onClick={() => setShowProductStockModal(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-purple-600"
-              title="View stock for a product across all warehouses"
+              title={t("View stock for a product across all warehouses")}
             >
               <ChartBarIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Product Summary</span>
+              <span className="hidden sm:inline">{t("Product Summary")}</span>
             </button>
 
             <button
@@ -477,10 +478,10 @@ const InventoryStockManager: React.FC = () => {
                   ? "border-red-200 bg-red-50 text-red-700"
                   : "border-gray-200 bg-white text-gray-700 hover:bg-red-50 hover:text-red-600"
               }`}
-              title="Show stock that is low or out"
+              title={t("Show stock that is low or out")}
             >
               <ExclamationTriangleIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">{lowOnly ? "Show All" : "Low Stock"}</span>
+              <span className="hidden sm:inline">{t(lowOnly ? "Show All" : "Low Stock")}</span>
             </button>
           </div>
         </div>
@@ -498,7 +499,7 @@ const InventoryStockManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400" />
               <p className="mb-2 text-sm text-gray-500">
-                {lowOnly ? "Nothing is low or out of stock" : "No stock yet"}
+                {t(lowOnly ? "Nothing is low or out of stock" : "No stock yet")}
               </p>
               {!lowOnly && (
                 <button
@@ -506,7 +507,7 @@ const InventoryStockManager: React.FC = () => {
                   onClick={() => navigate("/stock-movement")}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
                 >
-                  Receive stock on the Stock Movement screen
+                  {t("Receive stock on the Stock Movement screen")}
                 </button>
               )}
             </div>
@@ -517,7 +518,7 @@ const InventoryStockManager: React.FC = () => {
       {/* Reorder level */}
       <PaginatedPopup
         isOpen={!!reorderStock}
-        title="Reorder Level"
+        title={t("Reorder Level")}
         subtitle={
           reorderStock
             ? `${productName(reorderStock.productId)} in ${warehouseLabel(reorderStock.warehouse)}: shows as low stock when available falls to this level.`
@@ -525,13 +526,13 @@ const InventoryStockManager: React.FC = () => {
         }
         onClose={() => setReorderStock(null)}
         onSubmit={saveReorder}
-        submitLabel="Save"
+        submitLabel={t("Save")}
         submitting={savingReorder}
         maxWidthClassName="max-w-md"
         fields={[
           <FloatingInput
             key="reorderLevel"
-            label="Reorder level (empty = no alert)"
+            label={t("Reorder level (empty = no alert)")}
             name="reorderLevel"
             type="number"
             min={0}
@@ -544,8 +545,8 @@ const InventoryStockManager: React.FC = () => {
       {/* Stock Availability Check */}
       <PaginatedPopup
         isOpen={showAvailabilityModal}
-        title="Check Stock Availability"
-        subtitle="Is enough free stock of a product available in a warehouse?"
+        title={t("Check Stock Availability")}
+        subtitle={t("Is enough free stock of a product available in a warehouse?")}
         onClose={() => {
           setShowAvailabilityModal(false);
           setAvailabilityCheck(null);
@@ -560,21 +561,21 @@ const InventoryStockManager: React.FC = () => {
               <div key="availability" className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <FloatingSelect
-                    label="Product"
+                    label={t("Product")}
                     name="productId"
                     value={availabilityForm.productId}
                     onChange={(e) => setAvailabilityForm({ ...availabilityForm, productId: e.target.value })}
                     options={productOptions}
                   />
                   <FloatingSelect
-                    label="Warehouse"
+                    label={t("Warehouse")}
                     name="warehouseId"
                     value={availabilityForm.warehouseId}
                     onChange={(e) => setAvailabilityForm({ ...availabilityForm, warehouseId: e.target.value })}
                     options={warehouseOptions}
                   />
                   <FloatingInput
-                    label="Required Quantity"
+                    label={t("Required Quantity")}
                     name="requiredQty"
                     type="number"
                     value={availabilityForm.requiredQty}
@@ -588,7 +589,7 @@ const InventoryStockManager: React.FC = () => {
                   className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={!availabilityForm.productId || !availabilityForm.warehouseId || !availabilityForm.requiredQty}
                 >
-                  Check Availability
+                  {t("Check Availability")}
                 </button>
 
                 {availabilityCheck && (
@@ -605,13 +606,13 @@ const InventoryStockManager: React.FC = () => {
                       )}
                       <div>
                         <p className={`font-semibold ${availabilityCheck.isAvailable ? "text-green-700" : "text-red-700"}`}>
-                          {availabilityCheck.isAvailable ? "Stock is available" : "Not enough stock"}
+                          {t(availabilityCheck.isAvailable ? "Stock is available" : "Not enough stock")}
                         </p>
                         <div className="mt-2 space-y-1 text-sm">
-                          <p>Required: <strong>{availabilityCheck.requiredQty}</strong></p>
-                          <p>Available: <strong>{availabilityCheck.availableQty}</strong></p>
-                          <p>On hand: <strong>{availabilityCheck.totalQty}</strong></p>
-                          <p>Reserved: <strong>{availabilityCheck.reservedQty}</strong></p>
+                          <p>{t("Required:")} <strong>{availabilityCheck.requiredQty}</strong></p>
+                          <p>{t("Available:")} <strong>{availabilityCheck.availableQty}</strong></p>
+                          <p>{t("On hand:")} <strong>{availabilityCheck.totalQty}</strong></p>
+                          <p>{t("Reserved:")} <strong>{availabilityCheck.reservedQty}</strong></p>
                         </div>
                       </div>
                     </div>
@@ -626,8 +627,8 @@ const InventoryStockManager: React.FC = () => {
       {/* Product Stock Summary */}
       <PaginatedPopup
         isOpen={showProductStockModal}
-        title="Product Stock Summary"
-        subtitle="Stock of one product across all warehouses"
+        title={t("Product Stock Summary")}
+        subtitle={t("Stock of one product across all warehouses")}
         onClose={() => {
           setShowProductStockModal(false);
           setSelectedProductForStock(null);
@@ -640,7 +641,7 @@ const InventoryStockManager: React.FC = () => {
             fields: [
               <div key="summary" className="space-y-4">
                 <FloatingSelect
-                  label="Select Product"
+                  label={t("Select Product")}
                   name="productId"
                   value={String(selectedProductForStock || "")}
                   onChange={(e) => setSelectedProductForStock(Number(e.target.value) || null)}
@@ -651,19 +652,19 @@ const InventoryStockManager: React.FC = () => {
                   <>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="rounded-lg bg-cyan-50 p-4 text-center dark:bg-cyan-900/20">
-                        <p className="text-xs text-gray-500">On Hand</p>
+                        <p className="text-xs text-gray-500">{t("On Hand")}</p>
                         <p className="text-2xl font-bold text-cyan-600">
                           {productStockData.reduce((sum, s) => sum + num(s.quantity), 0)}
                         </p>
                       </div>
                       <div className="rounded-lg bg-orange-50 p-4 text-center dark:bg-orange-900/20">
-                        <p className="text-xs text-gray-500">Reserved</p>
+                        <p className="text-xs text-gray-500">{t("Reserved")}</p>
                         <p className="text-2xl font-bold text-orange-600">
                           {productStockData.reduce((sum, s) => sum + num(s.reserved), 0)}
                         </p>
                       </div>
                       <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-900/20">
-                        <p className="text-xs text-gray-500">Available</p>
+                        <p className="text-xs text-gray-500">{t("Available")}</p>
                         <p className="text-2xl font-bold text-green-600">
                           {productStockData.reduce((sum, s) => sum + num(s.available), 0)}
                         </p>
@@ -671,7 +672,7 @@ const InventoryStockManager: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-700">Warehouse breakdown:</p>
+                      <p className="text-sm font-medium text-gray-700">{t("Warehouse breakdown:")}</p>
                       {productStockData.map((stock) => (
                         <div
                           key={stock.id}
@@ -685,9 +686,9 @@ const InventoryStockManager: React.FC = () => {
                             )}
                           </div>
                           <div className="flex gap-4 text-sm">
-                            <span>On hand: <strong>{num(stock.quantity)}</strong></span>
-                            <span className="text-orange-600">Reserved: <strong>{num(stock.reserved)}</strong></span>
-                            <span className="text-green-600">Available: <strong>{num(stock.available)}</strong></span>
+                            <span>{t("On hand:")} <strong>{num(stock.quantity)}</strong></span>
+                            <span className="text-orange-600">{t("Reserved:")} <strong>{num(stock.reserved)}</strong></span>
+                            <span className="text-green-600">{t("Available:")} <strong>{num(stock.available)}</strong></span>
                           </div>
                         </div>
                       ))}
@@ -698,7 +699,7 @@ const InventoryStockManager: React.FC = () => {
                 {selectedProductForStock && productStockData.length === 0 && (
                   <div className="py-8 text-center text-gray-500">
                     <CubeIcon className="mx-auto mb-2 h-12 w-12 text-gray-300" />
-                    <p>This product is not in stock in any warehouse</p>
+                    <p>{t("This product is not in stock in any warehouse")}</p>
                   </div>
                 )}
               </div>,

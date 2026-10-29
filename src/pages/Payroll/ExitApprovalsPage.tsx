@@ -1,3 +1,4 @@
+import { t } from "../../i18n/i18n";
 import React, { useState, useEffect } from 'react';
 import { ExitManagementService, ExitRequest, ExitStatus } from '../../Services/ExitManagementService';
 import PageMeta from '../../components/common/PageMeta';
@@ -136,9 +137,9 @@ const ExitApprovalsPage: React.FC = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">LWD: {showDate(row.lastWorkingDay)}</span>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("LWD:")} {showDate(row.lastWorkingDay)}</span>
                     <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                        Resigned: {showDate(row.resignationDate)}{row.noticeDays != null ? ` • ${row.noticeDays} days` : ''}
+                        {t("Resigned:")} {showDate(row.resignationDate)}{row.noticeDays != null ? ` • ${row.noticeDays} days` : ''}
                     </span>
                 </div>
             )
@@ -168,12 +169,12 @@ const ExitApprovalsPage: React.FC = () => {
                     </span>
                     {row.withdrawalRequested && (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-blue-50 text-blue-500 border border-blue-100 dark:bg-transparent dark:text-gray-300 dark:border-transparent">
-                            Withdrawal req.
+                            {t("Withdrawal req.")}
                         </span>
                     )}
                     {ACCEPTED.includes(row.status) && (
                         <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                            Clearance {row.clearanceCompleted ? '✓' : '—'} • Settlement {row.finalSettlementProcessed ? '✓' : '—'}
+                            {t("Clearance")} {row.clearanceCompleted ? '✓' : '—'} • Settlement {row.finalSettlementProcessed ? '✓' : '—'}
                         </span>
                     )}
                 </div>
@@ -191,25 +192,25 @@ const ExitApprovalsPage: React.FC = () => {
                 return (
                     <div className="flex flex-wrap justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                         <button disabled={busy} onClick={() => openDetails(row)}
-                            title={editable(row) ? "See the request and change the last working day before deciding" : "See the request"}
+                            title={t(editable(row) ? "See the request and change the last working day before deciding" : "See the request")}
                             className={`${actionButton} border-cyan-200 text-cyan-700 hover:bg-cyan-50 dark:border-transparent dark:text-cyan-300 dark:hover:bg-[#222222]`}>
-                            {editable(row) ? 'Details / Edit' : 'Details'}
+                            {t(editable(row) ? 'Details / Edit' : 'Details')}
                         </button>
                         {UNDECIDED.includes(row.status) && (rejectingId === id ? (
                             <div className="flex items-center gap-1.5">
                                 <input
                                     type="text"
-                                    placeholder="Reason..."
+                                    placeholder={t("Reason...")}
                                     className="text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded px-2 py-1 outline-none focus:border-red-400 w-32 h-7"
                                     value={rejectReason}
                                     onChange={(e) => setRejectReason(e.target.value)}
                                 />
                                 <button onClick={() => handleReject(row)} disabled={busy}
-                                    className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors" title="Confirm Reject">
+                                    className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors" title={t("Confirm Reject")}>
                                     <Check size={14} />
                                 </button>
                                 <button onClick={() => { setRejectingId(null); setRejectReason(""); }}
-                                    className="p-1 bg-gray-200 dark:bg-[#222222] text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-[#2a2a2a] transition-colors" title="Cancel">
+                                    className="p-1 bg-gray-200 dark:bg-[#222222] text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-[#2a2a2a] transition-colors" title={t("Cancel")}>
                                     <X size={14} />
                                 </button>
                             </div>
@@ -217,11 +218,11 @@ const ExitApprovalsPage: React.FC = () => {
                             <>
                                 <button disabled={busy} onClick={() => act(row, () => ExitManagementService.approveExitRequest(id), "Resignation approved")}
                                     className={`${actionButton} border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-transparent dark:text-emerald-400 dark:hover:bg-[#222222]`}>
-                                    Approve
+                                    {t("Approve")}
                                 </button>
                                 <button disabled={busy} onClick={() => setRejectingId(id)}
                                     className={`${actionButton} border-red-200 text-red-600 hover:bg-red-50 dark:border-transparent dark:text-rose-400 dark:hover:bg-[#222222]`}>
-                                    Reject
+                                    {t("Reject")}
                                 </button>
                             </>
                         ))}
@@ -231,12 +232,12 @@ const ExitApprovalsPage: React.FC = () => {
                                 <button disabled={busy} title={row.revertReason || undefined}
                                     onClick={() => act(row, () => ExitManagementService.revertResignation(row.employeeId, row.revertReason || "Withdrawal accepted"), "Resignation withdrawn")}
                                     className={`${actionButton} border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-transparent dark:text-blue-400 dark:hover:bg-[#222222]`}>
-                                    Accept withdrawal
+                                    {t("Accept withdrawal")}
                                 </button>
                                 <button disabled={busy}
                                     onClick={() => act(row, () => ExitManagementService.declineWithdrawal(id), "Withdrawal declined")}
                                     className={`${actionButton} border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-transparent dark:text-gray-300 dark:hover:bg-[#222222]`}>
-                                    Decline
+                                    {t("Decline")}
                                 </button>
                             </>
                         )}
@@ -244,7 +245,7 @@ const ExitApprovalsPage: React.FC = () => {
                         {row.status === 'APPROVED' && !row.withdrawalRequested && (
                             <button disabled={busy} onClick={() => act(row, () => ExitManagementService.startNoticePeriod(id), "Notice period started")}
                                 className={`${actionButton} border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-transparent dark:text-gray-300 dark:hover:bg-[#222222]`}>
-                                Start notice
+                                {t("Start notice")}
                             </button>
                         )}
 
@@ -254,21 +255,21 @@ const ExitApprovalsPage: React.FC = () => {
                                     onClick={() => act(row, () => ExitManagementService.updateClearance(id, !row.clearanceCompleted),
                                         row.clearanceCompleted ? "Clearance reopened" : "Clearance recorded")}
                                     className={`${actionButton} border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-transparent dark:text-gray-300 dark:hover:bg-[#222222]`}>
-                                    {row.clearanceCompleted ? 'Undo clearance' : 'Clearance done'}
+                                    {t(row.clearanceCompleted ? 'Undo clearance' : 'Clearance done')}
                                 </button>
                                 <button disabled={busy}
-                                    title="The settlement is the last month's pay: run that month's payroll first"
+                                    title={t("The settlement is the last month's pay: run that month's payroll first")}
                                     onClick={() => act(row, () => ExitManagementService.updateSettlement(id, !row.finalSettlementProcessed),
                                         row.finalSettlementProcessed ? "Settlement reopened" : "Settlement recorded")}
                                     className={`${actionButton} border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-transparent dark:text-gray-300 dark:hover:bg-[#222222]`}>
-                                    {row.finalSettlementProcessed ? 'Undo settlement' : 'Settlement done'}
+                                    {t(row.finalSettlementProcessed ? 'Undo settlement' : 'Settlement done')}
                                 </button>
                                 <button
                                     disabled={busy || !row.clearanceCompleted || !row.finalSettlementProcessed || !lastDayReached}
-                                    title={!lastDayReached ? `Can be completed from ${showDate(row.lastWorkingDay)}` : "Relieve the employee and switch their login off"}
+                                    title={!lastDayReached ? `Can be completed from ${showDate(row.lastWorkingDay)}` : t("Relieve the employee and switch their login off")}
                                     onClick={() => act(row, () => ExitManagementService.completeExit(id), "Exit completed")}
                                     className={`${actionButton} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`}>
-                                    Complete exit
+                                    {t("Complete exit")}
                                 </button>
                             </>
                         )}
@@ -280,15 +281,15 @@ const ExitApprovalsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Exit Approvals" description="Approve resignations, record clearance and the final settlement, then complete the exit" />
+            <PageMeta title={t("Exit Approvals")} description="Approve resignations, record clearance and the final settlement, then complete the exit" />
             <PageBreadcrumb pageTitle="Exit Approvals" />
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Exit Requests" value={requests.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserMinusIcon className="h-5 w-5" />} />
-                    <StatsCard label="Awaiting Decision" value={requests.filter(r => r.active && UNDECIDED.includes(r.status)).length} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
-                    <StatsCard label="Serving Notice" value={requests.filter(r => r.active && ACCEPTED.includes(r.status)).length} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
-                    <StatsCard label="Withdrawal Requests" value={requests.filter(r => r.withdrawalRequested).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowUturnLeftIcon className="h-5 w-5" />} onRefresh={fetchRequests} />
+                    <StatsCard label={t("Exit Requests")} value={requests.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserMinusIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Awaiting Decision")} value={requests.filter(r => r.active && UNDECIDED.includes(r.status)).length} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Serving Notice")} value={requests.filter(r => r.active && ACCEPTED.includes(r.status)).length} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Withdrawal Requests")} value={requests.filter(r => r.withdrawalRequested).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowUturnLeftIcon className="h-5 w-5" />} onRefresh={fetchRequests} />
                 </div>
 
                 <ReusableTable
@@ -301,7 +302,7 @@ const ExitApprovalsPage: React.FC = () => {
                     emptyState={
                         <div className="flex flex-col items-center justify-center py-12">
                             <AlertCircle className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-                            <p className="text-sm text-gray-500 dark:text-slate-400">No exit requests found</p>
+                            <p className="text-sm text-gray-500 dark:text-slate-400">{t("No exit requests found")}</p>
                         </div>
                     }
                 />
@@ -317,7 +318,7 @@ const ExitApprovalsPage: React.FC = () => {
                                     {viewing.employeeCode || '—'} · {viewing.designation || '—'} · {STATUS_LABEL[viewing.status] || viewing.status}
                                 </p>
                             </div>
-                            <button type="button" onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600" aria-label="Close"><X size={18} /></button>
+                            <button type="button" onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600" aria-label={t("Close")}><X size={18} /></button>
                         </div>
 
                         <div className="space-y-4 px-5 py-4 text-xs">
@@ -348,19 +349,19 @@ const ExitApprovalsPage: React.FC = () => {
 
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
-                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Last working day *</label>
+                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Last working day *")}</label>
                                     <input type="date" value={edit.lastWorkingDay} min={viewing.resignationDate} disabled={!editable(viewing)}
                                         onChange={(e) => setEdit((p) => ({ ...p, lastWorkingDay: e.target.value }))}
                                         className="h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
                                 </div>
                                 <div>
-                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Reason</label>
+                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Reason")}</label>
                                     <input type="text" value={edit.reason} maxLength={255} disabled={!editable(viewing)}
                                         onChange={(e) => setEdit((p) => ({ ...p, reason: e.target.value }))}
                                         className="h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
                                 </div>
                                 <div className="sm:col-span-2">
-                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Exit interview notes</label>
+                                    <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Exit interview notes")}</label>
                                     <textarea rows={3} value={edit.exitInterviewFeedback} maxLength={2000} disabled={!editable(viewing)}
                                         onChange={(e) => setEdit((p) => ({ ...p, exitInterviewFeedback: e.target.value }))}
                                         className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
@@ -371,12 +372,12 @@ const ExitApprovalsPage: React.FC = () => {
                         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
                             <button type="button" onClick={() => setViewing(null)}
                                 className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                {editable(viewing) ? 'Cancel' : 'Close'}
+                                {t(editable(viewing) ? 'Cancel' : 'Close')}
                             </button>
                             {editable(viewing) && (
                                 <button type="button" onClick={saveDetails} disabled={savingEdit}
                                     className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
-                                    {savingEdit ? 'Saving...' : 'Save changes'}
+                                    {t(savingEdit ? 'Saving...' : 'Save changes')}
                                 </button>
                             )}
                         </div>

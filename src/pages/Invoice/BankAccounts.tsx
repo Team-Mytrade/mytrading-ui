@@ -184,7 +184,7 @@ const BankAccounts: React.FC = () => {
       sortable: true,
       render: (a) => (
         <span className={`rounded-full border px-2 py-0.5 text-xs ${a.active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 bg-gray-100 text-gray-500"}`}>
-          {a.active ? "Active" : "Closed"}
+          {t(a.active ? "Active" : "Closed")}
         </span>
       ),
     },
@@ -248,7 +248,7 @@ const BankAccounts: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showForm}
-        title={editing ? `Edit ${editing.accountName}` : "Add bank account or cash box"}
+        title={editing ? `${t("Edit")} ${editing.accountName}` : t("Add bank account or cash box")}
         subtitle={t("Receipts and payments choose it; its money is kept in one asset account of the chart, and its statement is reconciled against that account.")}
         onClose={() => setShowForm(false)}
         maxWidthClassName="max-w-2xl"
@@ -275,8 +275,7 @@ const BankAccounts: React.FC = () => {
                   onChange={(e) => set("openingBalance", e.target.value)} />
               </div>
               <p className="text-xs text-slate-500">
-                The opening balance is posted against opening balance equity on the opening date (an overdraft as a negative amount).
-                Reconciliation starts on that date. Linking an account that already has postings? Leave the balance at 0.
+                {t("The opening balance is posted against opening balance equity on the opening date (an overdraft as a negative amount). Reconciliation starts on that date. Linking an account that already has postings? Leave the balance at 0.")}
               </p>
               <div className="flex flex-wrap gap-4 text-sm text-slate-700">
                 <label className="flex items-center gap-2">
@@ -285,12 +284,12 @@ const BankAccounts: React.FC = () => {
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} />
-                  Active (closed accounts can't take new receipts or payments)
+                  {t("Active (closed accounts can't take new receipts or payments)")}
                 </label>
               </div>
               {editing && <p className="text-xs text-slate-400">{t("Opened")} {dateLabel(editing.openingDate)} · ledger account {editing.generalAccountCode}</p>}
             </div>
-            <DialogFooter onCancel={() => setShowForm(false)} submitLabel={editing ? "Save" : "Add account"} busy={busy} />
+            <DialogFooter onCancel={() => setShowForm(false)} submitLabel={t(editing ? "Save" : "Add account")} busy={busy} />
           </form>
         }
       />

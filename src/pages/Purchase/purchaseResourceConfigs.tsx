@@ -17,6 +17,7 @@ import { todayIso } from "../../utils/localDate";
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { formatMoney, formatDate, companyCurrency, currencyChoices } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const PURCHASE = "/v1/api/purchase";
 // Products and categories live in the product catalogue (the purchase service has neither)
 const CATEGORIES = "/v1/api/common/product-categories";
@@ -567,8 +568,8 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
               })
             );
           }}
-          title="Create Purchase Order"
-          aria-label="Create Purchase Order"
+          title={t("Create Purchase Order")}
+          aria-label={t("Create Purchase Order")}
           // Icon only, same look as the edit/delete icons; the tooltip says what it does.
           className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:text-gray-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
         >

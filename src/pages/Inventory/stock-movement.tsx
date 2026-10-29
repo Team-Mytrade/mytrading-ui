@@ -24,6 +24,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber, formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ======================== ENUM TYPE ========================
 interface EnumOption {
   id: string;
@@ -669,12 +670,12 @@ const StockMovementsManager: React.FC = () => {
 
     return (
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Movement ID">#{movement.id}</Field>
-        <Field label="Date">
+        <Field label={t("Movement ID")}>#{movement.id}</Field>
+        <Field label={t("Date")}>
           {formatDate(movement.movementDate)}
         </Field>
 
-        <Field label="Type" full>
+        <Field label={t("Type")} full>
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(
               movement.movementType
@@ -685,7 +686,7 @@ const StockMovementsManager: React.FC = () => {
           </span>
         </Field>
 
-        <Field label="Product" full>
+        <Field label={t("Product")} full>
           {productId ? (
             <button
               type="button"
@@ -699,28 +700,28 @@ const StockMovementsManager: React.FC = () => {
           )}
         </Field>
 
-        <Field label="Quantity">{movement.quantity}</Field>
-        <Field label="Reference">{movement.reference || "N/A"}</Field>
+        <Field label={t("Quantity")}>{movement.quantity}</Field>
+        <Field label={t("Reference")}>{movement.reference || "N/A"}</Field>
 
-        <Field label="From Location">{movement.fromLocation || "N/A"}</Field>
-        <Field label="To Location">{movement.toLocation || "N/A"}</Field>
+        <Field label={t("From Location")}>{movement.fromLocation || "N/A"}</Field>
+        <Field label={t("To Location")}>{movement.toLocation || "N/A"}</Field>
 
-        <Field label="Warehouse">
+        <Field label={t("Warehouse")}>
           {getWarehouseValue(movement.warehouse, warehouses) || "N/A"}
         </Field>
-        <Field label="Batch">
+        <Field label={t("Batch")}>
           {getBatchValue(movement.batch, batches) || "N/A"}
         </Field>
 
-        <Field label="Serial Number" full>
+        <Field label={t("Serial Number")} full>
           {getSerialValue(movement.serialNumber, serialNumbers) || "N/A"}
         </Field>
 
         {movement.createdBy && (
-          <Field label="Created By">{movement.createdBy}</Field>
+          <Field label={t("Created By")}>{movement.createdBy}</Field>
         )}
         {movement.createdDate && (
-          <Field label="Created At">
+          <Field label={t("Created At")}>
             {formatDateTime(movement.createdDate)}
           </Field>
         )}
@@ -780,7 +781,7 @@ const StockMovementsManager: React.FC = () => {
                   goToProduct(productId);
                 }}
                 className="truncate text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-                title="View product"
+                title={t("View product")}
               >
                 {getProductDisplayName(movement)}
               </button>
@@ -840,7 +841,7 @@ const StockMovementsManager: React.FC = () => {
             type="button"
             onClick={() => openView(movement)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
-            title="View Details"
+            title={t("View Details")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -852,16 +853,16 @@ const StockMovementsManager: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
+      <PageMeta title={t("Stock Movements")} description="Track and manage inventory stock movements" />
       <PageBreadcrumb
         pageTitle="Stock Movements"
-        actions={<AddButton onClick={openCreate} label="Add Stock Movement" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Stock Movement")} />}
       />
 
       <div className="w-full max-w-none space-y-6 px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Movements"
+            label={t("Total Movements")}
             value={stats.total}
             gradient="from-slate-50 to-gray-50"
             borderColor="border-slate-100"
@@ -869,7 +870,7 @@ const StockMovementsManager: React.FC = () => {
             icon={<ArrowsRightLeftIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Total Quantity"
+            label={t("Total Quantity")}
             value={formatNumber(stats.totalQuantity)}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -877,7 +878,7 @@ const StockMovementsManager: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Transfers"
+            label={t("Transfers")}
             value={stats.transfers}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
@@ -885,7 +886,7 @@ const StockMovementsManager: React.FC = () => {
             icon={<ArrowRightIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Products Moved"
+            label={t("Products Moved")}
             value={stats.uniqueProducts}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -909,14 +910,14 @@ const StockMovementsManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No stock movements found
+                {t("No stock movements found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first stock movement
+                {t("Create your first stock movement")}
               </button>)}
             </div>
           }
@@ -926,12 +927,12 @@ const StockMovementsManager: React.FC = () => {
       {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Stock Movement" : "Add Stock Movement"}
-        subtitle="Enter stock movement details"
+        title={t(editingId ? "Edit Stock Movement" : "Add Stock Movement")}
+        subtitle={t("Enter stock movement details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Movement" : "Create Movement"}
+        submitLabel={t(editingId ? "Update Movement" : "Create Movement")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -939,7 +940,7 @@ const StockMovementsManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="movementDate"
-                label="Movement Date"
+                label={t("Movement Date")}
                 name="movementDate"
                 type="date"
                 value={form.movementDate}
@@ -948,7 +949,7 @@ const StockMovementsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="movementType"
-                label="Movement Type"
+                label={t("Movement Type")}
                 name="movementType"
                 value={form.movementType}
                 onChange={handleChange}
@@ -957,7 +958,7 @@ const StockMovementsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label={t("Product")}
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -969,13 +970,12 @@ const StockMovementsManager: React.FC = () => {
                   key="product-hint"
                   className="text-xs text-gray-500 dark:text-slate-400"
                 >
-                  Only products that are in stock are shown for issues and
-                  transfers. Receive a product first to move it.
+                  {t("Only products that are in stock are shown for issues and transfers. Receive a product first to move it.")}
                 </p>
               ),
               <FloatingInput
                 key="quantity"
-                label="Quantity"
+                label={t("Quantity")}
                 name="quantity"
                 type="number"
                 min={1}
@@ -986,7 +986,7 @@ const StockMovementsManager: React.FC = () => {
               needsFrom && (
                 <FloatingSelect
                   key="fromWarehouseId"
-                  label="From Warehouse"
+                  label={t("From Warehouse")}
                   name="fromWarehouseId"
                   value={form.fromWarehouseId}
                   onChange={handleChange}
@@ -997,7 +997,7 @@ const StockMovementsManager: React.FC = () => {
               needsTo && (
                 <FloatingSelect
                   key="toWarehouseId"
-                  label="To Warehouse"
+                  label={t("To Warehouse")}
                   name="toWarehouseId"
                   value={form.toWarehouseId}
                   onChange={handleChange}
@@ -1010,9 +1010,7 @@ const StockMovementsManager: React.FC = () => {
                   key="no-stock-warning"
                   className="text-xs text-amber-600 dark:text-amber-400"
                 >
-                  ⚠ This product has no stock level at any warehouse yet, so
-                  every warehouse is shown. Creating this movement may fail —
-                  set up a stock level for this product first.
+                  {t("⚠ This product has no stock level at any warehouse yet, so every warehouse is shown. Creating this movement may fail — set up a stock level for this product first.")}
                 </p>
               ),
             ].filter(Boolean),
@@ -1022,14 +1020,14 @@ const StockMovementsManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="reference"
-                label="Reference"
+                label={t("Reference")}
                 name="reference"
                 value={form.reference}
                 onChange={handleChange}
               />,
               <FloatingSelect
                 key="batchId"
-                label="Batch"
+                label={t("Batch")}
                 name="batchId"
                 value={form.batchId}
                 onChange={handleChange}
@@ -1038,7 +1036,7 @@ const StockMovementsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label="Serial Number"
+                label={t("Serial Number")}
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
@@ -1053,7 +1051,7 @@ const StockMovementsManager: React.FC = () => {
       {/* View Details Modal — kept for the eye button; reuses the same renderer */}
       <PaginatedPopup
         isOpen={showViewModal && !!viewingMovement}
-        title="Movement Details"
+        title={t("Movement Details")}
         subtitle={
           viewingMovement ? `Stock movement #${viewingMovement.id}` : "Stock movement"
         }

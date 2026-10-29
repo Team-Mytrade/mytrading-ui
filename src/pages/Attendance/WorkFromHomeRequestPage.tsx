@@ -9,6 +9,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 
+import { t } from "../../i18n/i18n";
 // Relative API Base Endpoint (routing via Vite dev proxy)
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
 
@@ -160,7 +161,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
         const detail = row.requestDetails?.[0];
         return (
           <span className="text-xs font-mono font-semibold text-slate-700">
-            {detail?.fromDate || 'N/A'} <span className="text-gray-400">to</span> {detail?.toDate || 'N/A'}
+            {detail?.fromDate || 'N/A'} <span className="text-gray-400">{t("to")}</span> {detail?.toDate || 'N/A'}
           </span>
         );
       }
@@ -201,7 +202,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
             type="button"
             onClick={() => setViewingRequest(row)}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-gray-600 transition-colors"
-            title="Inspect WFH Request"
+            title={t("Inspect WFH Request")}
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
@@ -210,7 +211,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
               type="button"
               onClick={() => handleCancelWfhRequest(row.id!)}
               className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-rose-600 transition-colors"
-              title="Cancel WFH Request"
+              title={t("Cancel WFH Request")}
             >
               <XCircle className="w-3.5 h-3.5" />
             </button>
@@ -222,7 +223,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Work From Home Request" description="Apply and view WFH requests" />
+      <PageMeta title={t("Work From Home Request")} description="Apply and view WFH requests" />
       <PageBreadcrumb pageTitle="Work From Home Request" />
 
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 mt-1 space-y-4">
@@ -234,8 +235,8 @@ const WorkFromHomeRequestPage: React.FC = () => {
               <Laptop className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Work From Home Requests</h2>
-              <p className="text-xs text-gray-500">Submit WFH dates for manager approval</p>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">{t("Work From Home Requests")}</h2>
+              <p className="text-xs text-gray-500">{t("Submit WFH dates for manager approval")}</p>
             </div>
           </div>
 
@@ -245,13 +246,13 @@ const WorkFromHomeRequestPage: React.FC = () => {
               onClick={() => setIsCreateModalOpen(true)}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
             >
-              <Plus className="w-4 h-4" /> Apply WFH
+              <Plus className="w-4 h-4" /> {t("Apply WFH")}
             </button>
             <button
               type="button"
               onClick={() => fetchMyWfhRequests(currentEmployeeId)}
               className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-all"
-              title="Refresh List"
+              title={t("Refresh List")}
             >
               <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
@@ -265,7 +266,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
             columns={columns}
             loading={loading}
             searchable={true}
-            searchPlaceholder="Search by dates or status..."
+            searchPlaceholder={t("Search by dates or status...")}
             pageSize={5}
             defaultSortKey="id"
             defaultSortOrder="desc"
@@ -281,7 +282,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <Laptop className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">Apply Work From Home</h3>
+                <h3 className="text-sm font-bold text-gray-900 uppercase">{t("Apply Work From Home")}</h3>
               </div>
               <button type="button" onClick={() => setIsCreateModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -291,7 +292,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
             <form onSubmit={handleCreateWfhRequest} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">From Date *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">{t("From Date *")}</label>
                   <input
                     type="date"
                     value={form.fromDate}
@@ -302,7 +303,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">To Date *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">{t("To Date *")}</label>
                   <input
                     type="date"
                     value={form.toDate}
@@ -314,24 +315,24 @@ const WorkFromHomeRequestPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Project Task Name</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">{t("Project Task Name")}</label>
                 <input
                   type="text"
                   value={form.projectTaskName}
                   onChange={(e) => setForm(p => ({ ...p, projectTaskName: e.target.value }))}
                   className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-semibold text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none"
-                  placeholder="Attendance Module Development"
+                  placeholder={t("Attendance Module Development")}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Remarks & Reason</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">{t("Remarks & Reason")}</label>
                 <textarea
                   rows={2}
                   value={form.remarks}
                   onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value, reason: e.target.value }))}
                   className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-800 focus:bg-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
-                  placeholder="Working from home due to internet installation..."
+                  placeholder={t("Working from home due to internet installation...")}
                 />
               </div>
 
@@ -341,14 +342,14 @@ const WorkFromHomeRequestPage: React.FC = () => {
                   onClick={() => setIsCreateModalOpen(false)}
                   className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
                 >
-                  {isSubmitting ? "Submitting..." : "Submit WFH Request"}
+                  {t(isSubmitting ? "Submitting..." : "Submit WFH Request")}
                 </button>
               </div>
             </form>
@@ -363,7 +364,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <Laptop className="w-5 h-5 text-cyan-600" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase">WFH Request #{viewingRequest.id}</h3>
+                <h3 className="text-sm font-bold text-gray-900 uppercase">{t("WFH Request #")}{viewingRequest.id}</h3>
               </div>
               <button type="button" onClick={() => setViewingRequest(null)} className="p-1 text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -372,7 +373,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
 
             <div className="space-y-2 text-xs">
               <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80">
-                <span className="text-slate-500 font-semibold block text-[11px]">WFH Remarks:</span>
+                <span className="text-slate-500 font-semibold block text-[11px]">{t("WFH Remarks:")}</span>
                 <span className="font-bold text-slate-800">{viewingRequest.requestDetails?.[0]?.remarks || 'Working remotely.'}</span>
               </div>
             </div>
@@ -383,7 +384,7 @@ const WorkFromHomeRequestPage: React.FC = () => {
                 onClick={() => setViewingRequest(null)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
           </div>

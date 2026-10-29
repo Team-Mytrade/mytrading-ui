@@ -11,6 +11,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
 import { formatMoney, formatNumber as companyFormatNumber } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const PayrollSummaryPage: React.FC = () => {
@@ -101,7 +102,7 @@ const PayrollSummaryPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Payroll Summary" description="Overview of company payroll metrics" />
+            <PageMeta title={t("Payroll Summary")} description="Overview of company payroll metrics" />
             <PageBreadcrumb
                 pageTitle="Payroll Summary"
                 actions={
@@ -111,12 +112,12 @@ const PayrollSummaryPage: React.FC = () => {
                             value={salaryMonth}
                             onChange={(e) => setSalaryMonth(e.target.value)}
                             className={TOOL_INPUT}
-                            aria-label="Payroll month"
+                            aria-label={t("Payroll month")}
                         />
                         {canExport && (
                             <button type="button" onClick={handleExportDetailedReport} className={TOOL_BUTTON}>
                                 <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                Export Excel
+                                {t("Export Excel")}
                             </button>
                         )}
                     </div>
@@ -125,7 +126,7 @@ const PayrollSummaryPage: React.FC = () => {
 
             <div className={PAGE_BODY}>
                 {loading ? (
-                    <div className={`${CARD} py-12 text-center text-sm text-gray-500 dark:text-gray-400`}>Loading summary...</div>
+                    <div className={`${CARD} py-12 text-center text-sm text-gray-500 dark:text-gray-400`}>{t("Loading summary...")}</div>
                 ) : error || !overallSalarySummary || Object.keys(overallSalarySummary).length === 0 ? (
                     <div className={`${CARD} flex flex-col items-center justify-center py-14 text-center`}>
                         <ChartBarIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
@@ -134,16 +135,16 @@ const PayrollSummaryPage: React.FC = () => {
                 ) : (
                     <div className="space-y-4">
                         <div className={STATS_ROW}>
-                            <StatsCard label="Total Gross" value={formatCurrency(overallSalarySummary.totalGrossSalary)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BanknotesIcon className="h-5 w-5" />} />
-                            <StatsCard label="Total Net" value={formatCurrency(overallSalarySummary.totalNetSalary)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<BanknotesIcon className="h-5 w-5" />} />
-                            <StatsCard label="Total Deductions" value={formatCurrency(overallSalarySummary.totalDeductions)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<ChartBarIcon className="h-5 w-5" />} />
-                            <StatsCard label="Employees" value={formatNumber(overallSalarySummary.totalEmployees)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<UsersIcon className="h-5 w-5" />} onRefresh={fetchSummary} />
+                            <StatsCard label={t("Total Gross")} value={formatCurrency(overallSalarySummary.totalGrossSalary)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BanknotesIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Total Net")} value={formatCurrency(overallSalarySummary.totalNetSalary)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<BanknotesIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Total Deductions")} value={formatCurrency(overallSalarySummary.totalDeductions)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<ChartBarIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Employees")} value={formatNumber(overallSalarySummary.totalEmployees)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<UsersIcon className="h-5 w-5" />} onRefresh={fetchSummary} />
                         </div>
                         {/* Charts Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Salary Overview Bar Chart */}
                             <div className={`${CARD} p-4`}>
-                                <h3 className={`${CARD_TITLE} mb-4`}>Earnings vs Deductions</h3>
+                                <h3 className={`${CARD_TITLE} mb-4`}>{t("Earnings vs Deductions")}</h3>
                                 <div className="h-80 w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
@@ -175,7 +176,7 @@ const PayrollSummaryPage: React.FC = () => {
 
                             {/* Deductions Breakdown Pie Chart */}
                             <div className={`${CARD} p-4`}>
-                                <h3 className={`${CARD_TITLE} mb-4`}>Deductions Breakdown</h3>
+                                <h3 className={`${CARD_TITLE} mb-4`}>{t("Deductions Breakdown")}</h3>
                                 <div className="h-80 w-full flex items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -210,42 +211,42 @@ const PayrollSummaryPage: React.FC = () => {
 
                         {/* Secondary Metrics Grid */}
                         <div className={`${CARD} p-4`}>
-                            <h3 className={`${CARD_TITLE} mb-4`}>Detailed Breakdown</h3>
+                            <h3 className={`${CARD_TITLE} mb-4`}>{t("Detailed Breakdown")}</h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
                                 <div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Earnings</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("Total Earnings")}</div>
                                     <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalEarnings)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Deductions</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("Total Deductions")}</div>
                                     <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalDeductions)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">PF (Employee)</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("PF (Employee)")}</div>
                                     <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalPfEmployee)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">PF (Employer)</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("PF (Employer)")}</div>
                                     <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalPfEmployer)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">TDS</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("TDS")}</div>
                                     <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalTds)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Professional Tax</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("Professional Tax")}</div>
                                     <div className="text-xl font-medium text-gray-900 dark:text-white">{formatCurrency(overallSalarySummary.totalProfessionalTax)}</div>
                                 </div>
                                 
                                 {overallSalarySummary.totalWorkingDays !== undefined && (
                                     <div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Working Days</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("Working Days")}</div>
                                         <div className="text-xl font-medium text-gray-900 dark:text-white">{formatNumber(overallSalarySummary.totalWorkingDays)}</div>
                                     </div>
                                 )}
                                 {overallSalarySummary.totalLossOfPayDays !== undefined && (
                                     <div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Loss of Pay Days</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{t("Loss of Pay Days")}</div>
                                         <div className="text-xl font-medium text-gray-900 dark:text-white">{formatNumber(overallSalarySummary.totalLossOfPayDays)}</div>
                                     </div>
                                 )}

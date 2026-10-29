@@ -16,8 +16,9 @@ import {
   apiError, CalendarDay, DAY_KIND_BADGE, dayKind, fetchLeaveBalances, fetchMonth, formatDays, freeDays,
   hoursOf, LeaveBalance, leaveTypeLabel, punch, timeOf,
 } from "./attendanceApi";
-import { formatTime, leadingDays, weekdayLabels } from "../../company/format";
+import { formatTime, leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type DayStatus = 'TODAY' | 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE' | 'HOLIDAY' | 'WEEK_OFF' | 'ON_DUTY' | 'WFH' | 'REGULAR';
 
 /** Short codes on the small calendar (the large one shows the full label). */
@@ -67,10 +68,7 @@ const EmployeeSelfServicePage: React.FC = () => {
   // The employee comes from the login token; never guessed from names
   const resolvedEmpId = currentUser.id;
 
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
+  const monthNames = liveMonthNames("long");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -162,9 +160,9 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return t('Good morning');
+    if (hour < 17) return t('Good afternoon');
+    return t('Good evening');
   }, []);
 
   const handleWebPunch = async (punchType: 'CHECK_IN' | 'CHECK_OUT') => {
@@ -357,7 +355,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Employee Self Service" description="Self Service portal for leave and attendance requests" />
+      <PageMeta title={t("Employee Self Service")} description="Self Service portal for leave and attendance requests" />
       <PageBreadcrumb pageTitle="Self Service" />
 
       <div className="max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200">
@@ -380,28 +378,28 @@ const EmployeeSelfServicePage: React.FC = () => {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    Clocked In {todayInFormatted ? `at ${todayInFormatted}` : ''}
+                    {t("Clocked In")} {todayInFormatted ? `at ${todayInFormatted}` : ''}
                   </span>
                 ) : onLeaveToday ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 border border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-300">
-                    On leave today{todayDay?.leaveType ? ` (${leaveTypeLabel(todayDay.leaveType)})` : ''}
+                    {t("On leave today")}{todayDay?.leaveType ? ` (${leaveTypeLabel(todayDay.leaveType)})` : ''}
                   </span>
                 ) : isCheckedOut ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-300">
                     <CheckCircle2 className="w-3.5 h-3.5 text-slate-500 dark:text-gray-400" />
-                    Clocked Out for Today
+                    {t("Clocked Out for Today")}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#222222] border border-slate-200 dark:border-[#303030] text-slate-600 dark:text-gray-400">
-                    Not Clocked In Yet
+                    {t("Not Clocked In Yet")}
                   </span>
                 )}
               </div>
               <p className="text-slate-500 dark:text-gray-400 text-xs mt-1 flex items-center gap-2.5 flex-wrap">
-                <span>{greeting}! Hope you have an awesome day.</span>
+                <span>{t("{greeting}! Hope you have an awesome day.", { greeting })}</span>
                 <span className="hidden sm:inline text-slate-300 dark:text-gray-600">•</span>
                 <span className="text-slate-600 dark:text-gray-300 text-[11px]">
-                  {balances.length === 0 ? 'No leave policy assigned yet' : (
+                  {balances.length === 0 ? t('No leave policy assigned yet') : (
                     <>Leave balance: {balances.map((b, i) => (
                       <React.Fragment key={b.id}>{i > 0 && ', '}<strong className="text-slate-800 dark:text-white">{formatDays(freeDays(b))}</strong> {leaveTypeLabel(b.leaveType)}</React.Fragment>
                     ))}</>
@@ -416,10 +414,10 @@ const EmployeeSelfServicePage: React.FC = () => {
             <button
               onClick={() => setIsApplyLeaveModalOpen(true)}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#222222] hover:bg-slate-50 dark:hover:bg-[#2a2a2a] active:scale-95 border border-slate-200 dark:border-[#303030] text-slate-700 dark:text-gray-200 transition shadow-2xs cursor-pointer"
-              title="Apply Leave"
+              title={t("Apply Leave")}
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Apply Leave</span>
+              <span>{t("Apply Leave")}</span>
             </button>
 
             {isCheckedIn ? (
@@ -427,13 +425,13 @@ const EmployeeSelfServicePage: React.FC = () => {
                 onClick={() => handleWebPunch('CHECK_OUT')}
                 disabled={isPunching}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-60 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 transition shadow-2xs cursor-pointer"
-                title="Clock Out"
+                title={t("Clock Out")}
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-900 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
                 </span>
-                <span>Clock Out</span>
+                <span>{t("Clock Out")}</span>
               </button>
             ) : (
               <button
@@ -443,7 +441,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 title={onLeaveToday ? 'You are on leave today' : 'Clock In'}
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Clock In</span>
+                <span>{t("Clock In")}</span>
               </button>
             )}
           </div>
@@ -458,14 +456,14 @@ const EmployeeSelfServicePage: React.FC = () => {
             {/* Highlights Card */}
             <div className="bg-white dark:bg-[#191919] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-[#303030] shadow-2xs space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#303030] pb-2.5">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Highlights</h3>
+                <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">{t("Highlights")}</h3>
               </div>
 
               <div className="p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/60 dark:border-[#303030] flex items-start gap-3">
                 <Gift className="w-4.5 h-4.5 text-slate-500 dark:text-gray-400 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-white">Today's Celebration</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Check team birthdays and work anniversaries</p>
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-white">{t("Today's Celebration")}</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{t("Check team birthdays and work anniversaries")}</p>
                 </div>
               </div>
             </div>
@@ -473,17 +471,17 @@ const EmployeeSelfServicePage: React.FC = () => {
             {/* Activity Feed Card */}
             <div className="bg-white dark:bg-[#191919] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-[#303030] shadow-2xs space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#303030] pb-2.5">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Feed</h3>
-                <span className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer transition">Refresh feed</span>
+                <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">{t("Feed")}</h3>
+                <span className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer transition">{t("Refresh feed")}</span>
               </div>
 
               <div className="space-y-3">
                 <div className="p-3.5 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-100 dark:border-[#303030] space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 dark:text-white">Operational Support Update</span>
-                    <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">1 year ago</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-white">{t("Operational Support Update")}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">{t("1 year ago")}</span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-gray-300">Moving forward, access all organizational updates via TEKInsider</p>
+                  <p className="text-xs text-slate-600 dark:text-gray-300">{t("Moving forward, access all organizational updates via TEKInsider")}</p>
                 </div>
               </div>
             </div>
@@ -524,7 +522,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     type="button"
                     onClick={() => setIsCalendarExpanded(true)}
                     className="p-1.5 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-xl text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                    title="Expand Calendar View"
+                    title={t("Expand Calendar View")}
                   >
                     <Maximize2 className="w-4 h-4" />
                   </button>
@@ -535,7 +533,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                       type="button"
                       onClick={() => setShowRequestDropdown(prev => !prev)}
                       className="p-1.5 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-xl text-sm font-semibold flex items-center justify-center transition cursor-pointer"
-                      title="Raise Request Options"
+                      title={t("Raise Request Options")}
                     >
                       <span className="leading-none text-base font-bold">⋮</span>
                     </button>
@@ -551,10 +549,10 @@ const EmployeeSelfServicePage: React.FC = () => {
                       <div className="absolute right-0 top-8 w-60 bg-white dark:bg-[#191919] rounded-xl shadow-2xl border border-slate-200 dark:border-[#303030] z-50 py-1.5 text-xs animate-in zoom-in-95 fade-in duration-150 ring-1 ring-black/5 divide-y divide-slate-100 dark:divide-[#303030]">
                         <div className="px-3.5 py-2 flex items-center justify-between bg-slate-50 dark:bg-[#222222]">
                           <span className="text-[10px] font-bold tracking-wider text-slate-400 dark:text-gray-400 uppercase">
-                            Raise Request For
+                            {t("Raise Request For")}
                           </span>
                           <span className="text-[9px] font-semibold bg-slate-200 dark:bg-[#303030] text-slate-700 dark:text-gray-200 px-1.5 py-0.5 rounded-full">
-                            Fast Action
+                            {t("Fast Action")}
                           </span>
                         </div>
 
@@ -568,8 +566,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                               <Clock className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">On duty</div>
-                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">Official client & site visits</div>
+                              <div className="font-semibold text-slate-900 dark:text-white">{t("On duty")}</div>
+                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">{t("Official client & site visits")}</div>
                             </div>
                           </button>
 
@@ -582,8 +580,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                               <FileText className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">Attendance regularization</div>
-                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">Correct missed check-ins/outs</div>
+                              <div className="font-semibold text-slate-900 dark:text-white">{t("Attendance regularization")}</div>
+                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">{t("Correct missed check-ins/outs")}</div>
                             </div>
                           </button>
 
@@ -596,8 +594,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                               <Briefcase className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">Apply leave</div>
-                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">Casual, sick & earned leave</div>
+                              <div className="font-semibold text-slate-900 dark:text-white">{t("Apply leave")}</div>
+                              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">{t("Casual, sick & earned leave")}</div>
                             </div>
                           </button>
                         </div>
@@ -611,9 +609,9 @@ const EmployeeSelfServicePage: React.FC = () => {
               {/* Minimal Live Leave Quotas Bar */}
               <div className="flex items-center justify-between gap-1 bg-slate-50/80 dark:bg-[#222222] px-2.5 py-1.5 rounded-xl border border-slate-200/60 dark:border-[#303030] text-xs">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mr-0.5">Quotas:</span>
+                  <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mr-0.5">{t("Quotas:")}</span>
                   {balances.length === 0 && (
-                    <span className="text-[9.5px] text-slate-400 dark:text-gray-500">No leave policy assigned</span>
+                    <span className="text-[9.5px] text-slate-400 dark:text-gray-500">{t("No leave policy assigned")}</span>
                   )}
                   {balances.map((b) => (
                     <div key={b.id} title={`${leaveTypeLabel(b.leaveType)}: ${formatDays(freeDays(b))} free of ${formatDays(b.allocatedLeaves)}${b.pendingApprovalLeaves ? `, ${formatDays(b.pendingApprovalLeaves)} waiting for approval` : ''}`}
@@ -629,7 +627,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                   onClick={() => navigate('/att_leaveRequest')}
                   className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[10px] font-semibold transition shadow-xs shrink-0 cursor-pointer"
                 >
-                  + Apply
+                  {t("+ Apply")}
                 </button>
               </div>
 
@@ -678,7 +676,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 {['PRESENT', 'LATE', 'HALF_DAY', 'LEAVE', 'ABSENT', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'].map((s) => (
                   <span key={s} className="inline-flex items-center gap-1">
                     <span className={`rounded px-1 py-px text-[8px] font-bold ${STATUS_LOOK[s].badge}`}>{SHORT_CODE[s]}</span>
-                    {STATUS_LOOK[s].label}
+                    {t(STATUS_LOOK[s].label)}
                   </span>
                 ))}
               </div>
@@ -705,8 +703,8 @@ const EmployeeSelfServicePage: React.FC = () => {
               {/* Minimalist Modal Header */}
               <div className="px-6 py-3 border-b border-slate-100 dark:border-[#303030] flex items-center justify-between bg-white dark:bg-[#191919] shrink-0">
                 <div>
-                  <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white tracking-tight leading-none">Attendance Calendar</h2>
-                  <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">Monthly breakdown, punch records, and leave history</p>
+                  <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white tracking-tight leading-none">{t("Attendance Calendar")}</h2>
+                  <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">{t("Monthly breakdown, punch records, and leave history")}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -733,7 +731,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                   <button
                     onClick={() => setIsCalendarExpanded(false)}
                     className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222222] rounded-lg transition-colors cursor-pointer"
-                    title="Close"
+                    title={t("Close")}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -744,7 +742,7 @@ const EmployeeSelfServicePage: React.FC = () => {
               <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#222222] border-b border-slate-100 dark:border-[#303030] flex items-center justify-end flex-wrap gap-3.5 text-[11px] text-slate-500 dark:text-gray-400 font-normal shrink-0">
                 {['PRESENT', 'LATE', 'HALF_DAY', 'LEAVE', 'ABSENT', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'].map((s) => (
                   <div key={s} className="flex items-center gap-1.5">
-                    <span className={`rounded px-1 py-px text-[8.5px] font-bold uppercase ${STATUS_LOOK[s].badge}`}>{STATUS_LOOK[s].label}</span>
+                    <span className={`rounded px-1 py-px text-[8.5px] font-bold uppercase ${STATUS_LOOK[s].badge}`}>{t(STATUS_LOOK[s].label)}</span>
                   </div>
                 ))}
               </div>
@@ -794,7 +792,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
                           {look.label && (
                             <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide ${look.badge}`}>
-                              {look.label}
+                              {t(look.label)}
                             </span>
                           )}
                         </div>
@@ -803,14 +801,14 @@ const EmployeeSelfServicePage: React.FC = () => {
                         <div className="flex flex-col gap-0.5 mt-auto pt-1 border-t border-slate-100 dark:border-[#303030] shrink-0">
                           {inFormatted && (
                             <div className="flex items-center justify-between text-[8px] sm:text-[8.5px] leading-tight">
-                              <span className="text-[7.5px] font-medium text-slate-400 dark:text-gray-500">In</span>
+                              <span className="text-[7.5px] font-medium text-slate-400 dark:text-gray-500">{t("In")}</span>
                               <span className="font-mono font-medium text-slate-700 dark:text-gray-200 truncate pl-1">{inFormatted}</span>
                             </div>
                           )}
 
                           {outFormatted && (
                             <div className="flex items-center justify-between text-[8px] sm:text-[8.5px] leading-tight">
-                              <span className="text-[7.5px] font-medium text-slate-400 dark:text-gray-500">Out</span>
+                              <span className="text-[7.5px] font-medium text-slate-400 dark:text-gray-500">{t("Out")}</span>
                               <span className="font-mono font-medium text-slate-700 dark:text-gray-200 truncate pl-1">{outFormatted}</span>
                             </div>
                           )}
@@ -855,8 +853,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                     <Plus className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">Apply Leave</h3>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Quick 1-click leave application</p>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">{t("Apply Leave")}</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("Quick 1-click leave application")}</p>
                   </div>
                 </div>
                 <button
@@ -872,7 +870,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 {/* Available Leave Balances */}
                 {balances.length === 0 ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-xl">
-                    No leave policy is assigned to you yet. Ask HR to assign one before applying.
+                    {t("No leave policy is assigned to you yet. Ask HR to assign one before applying.")}
                   </p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-[#222222] p-2.5 rounded-xl border border-slate-200/60 dark:border-[#303030] text-center">
@@ -887,7 +885,7 @@ const EmployeeSelfServicePage: React.FC = () => {
 
                 {/* Leave Type */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Leave Type</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Leave Type")}</label>
                   <select
                     value={leaveForm.leaveType}
                     onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveType: e.target.value }))}
@@ -904,7 +902,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 {/* Dates */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">From Date</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("From Date")}</label>
                     <input
                       type="date"
                       value={leaveForm.fromDate}
@@ -914,7 +912,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">To Date</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("To Date")}</label>
                     <input
                       type="date"
                       value={leaveForm.toDate}
@@ -927,12 +925,12 @@ const EmployeeSelfServicePage: React.FC = () => {
 
                 {/* Reason */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Reason / Note</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Reason / Note")}</label>
                   <textarea
                     rows={2}
                     value={leaveForm.reason}
                     onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Brief reason for your leave request..."
+                    placeholder={t("Brief reason for your leave request...")}
                     className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
                   />
                 </div>
@@ -944,7 +942,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     onClick={() => setIsApplyLeaveModalOpen(false)}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222222] rounded-lg transition cursor-pointer"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     type="submit"
@@ -952,7 +950,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-cyan-700 hover:bg-cyan-800 rounded-lg transition disabled:opacity-50 shadow-2xs cursor-pointer"
                   >
                     {isSubmittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Submit Request</span>
+                    <span>{t("Submit Request")}</span>
                   </button>
                 </div>
               </form>

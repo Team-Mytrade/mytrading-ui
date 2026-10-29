@@ -29,6 +29,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /**
  * =====================================================================================
  * CORRECTIONS MADE — checked against the confirmed batches-controller Swagger
@@ -612,11 +613,11 @@ const BatchManagement: React.FC = () => {
 
     return (
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Batch Number" full>
+        <Field label={t("Batch Number")} full>
           {batch.batchNumber || "--"}
         </Field>
 
-        <Field label="Product" full>
+        <Field label={t("Product")} full>
           {batch.productId ? (
             <button
               type="button"
@@ -630,12 +631,12 @@ const BatchManagement: React.FC = () => {
           )}
           {product?.categoryName && (
             <div className="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400">
-              Category: {product.categoryName}
+              {t("Category:")} {product.categoryName}
             </div>
           )}
         </Field>
 
-        <Field label="Warehouse">
+        <Field label={t("Warehouse")}>
           {warehouseId ? (
             <button
               type="button"
@@ -648,16 +649,16 @@ const BatchManagement: React.FC = () => {
             <span>{warehouseName || "--"}</span>
           )}
         </Field>
-        <Field label="Supplier">
+        <Field label={t("Supplier")}>
           {batch.supplierName || "--"}
         </Field>
 
-        <Field label="MFG Date">
+        <Field label={t("MFG Date")}>
           {batch.manufacturingDate
             ? formatDate(batch.manufacturingDate)
             : "--"}
         </Field>
-        <Field label="Expiry Date">
+        <Field label={t("Expiry Date")}>
           <span
             className={
               days < 0
@@ -678,12 +679,12 @@ const BatchManagement: React.FC = () => {
           )}
           {days < 0 && (
             <div className="mt-0.5 text-xs font-normal text-red-600 dark:text-red-400">
-              Expired {Math.abs(days)} days ago
+              {t("Expired")} {Math.abs(days)} days ago
             </div>
           )}
         </Field>
 
-        <Field label="Status" full>
+        <Field label={t("Status")} full>
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusInfo.className}`}
           >
@@ -692,24 +693,24 @@ const BatchManagement: React.FC = () => {
           </span>
         </Field>
 
-        <Field label="Quantity">{batch.quantity ?? 0}</Field>
-        <Field label="Reserved">
+        <Field label={t("Quantity")}>{batch.quantity ?? 0}</Field>
+        <Field label={t("Reserved")}>
           <span className="text-orange-600 dark:text-orange-400">
             {batch.reserved ?? 0}
           </span>
         </Field>
 
-        <Field label="Available">
+        <Field label={t("Available")}>
           <span className="text-emerald-600 dark:text-emerald-400">
             {batch.available ?? 0}
           </span>
         </Field>
-        <Field label="FIFO / FEFO Rank">
+        <Field label={t("FIFO / FEFO Rank")}>
           #{batch.fifoPriority || "-"} / #{batch.fefoPriority || "-"}
         </Field>
 
-        <Field label="Created At">{createdAt}</Field>
-        <Field label="Updated At">{updatedAt}</Field>
+        <Field label={t("Created At")}>{createdAt}</Field>
+        <Field label={t("Updated At")}>{updatedAt}</Field>
       </div>
     );
   };
@@ -753,7 +754,7 @@ const BatchManagement: React.FC = () => {
               goToProduct(batch.productId);
             }}
             className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${label}`}
+            title={`${t("View")} ${label}`}
           >
             {label}
           </button>
@@ -829,7 +830,7 @@ const BatchManagement: React.FC = () => {
               goToWarehouse(warehouseId, name);
             }}
             className="max-w-[210px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             {name}
           </button>
@@ -849,7 +850,7 @@ const BatchManagement: React.FC = () => {
           </span>
           {batch.reserved ? (
             <p className="text-xs text-orange-500 dark:text-orange-400">
-              Reserved: {batch.reserved}
+              {t("Reserved:")} {batch.reserved}
             </p>
           ) : null}
         </div>
@@ -885,14 +886,14 @@ const BatchManagement: React.FC = () => {
           {canUpdate && (<button
             onClick={() => openEdit(batch)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => setDeleteBatch(batch)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -903,10 +904,10 @@ const BatchManagement: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Batch Management" description="Manage product batches" />
+      <PageMeta title={t("Batch Management")} description="Manage product batches" />
       <PageBreadcrumb
         pageTitle="Batch Management"
-        actions={<AddButton onClick={openCreate} label="Add Batch" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Batch")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
@@ -915,7 +916,7 @@ const BatchManagement: React.FC = () => {
             <div className="flex items-center gap-2">
               <FunnelIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <span>
-                Showing batch:{" "}
+                {t("Showing batch:")}{" "}
                 <strong>{filterBatchName || `#${filterBatchId}`}</strong>
               </span>
             </div>
@@ -924,14 +925,14 @@ const BatchManagement: React.FC = () => {
               onClick={() => navigate(BATCH_ROUTE)}
               className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             >
-              View all batches
+              {t("View all batches")}
             </button>
           </div>
         )}
 
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <StatsCard
-            label="Total Batches"
+            label={t("Total Batches")}
             value={stats.total}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -939,7 +940,7 @@ const BatchManagement: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Total Qty"
+            label={t("Total Qty")}
             value={stats.totalQuantity}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -947,7 +948,7 @@ const BatchManagement: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Reserved"
+            label={t("Reserved")}
             value={stats.totalReserved}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -955,7 +956,7 @@ const BatchManagement: React.FC = () => {
             icon={<ClockIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Available"
+            label={t("Available")}
             value={stats.totalAvailable}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -963,7 +964,7 @@ const BatchManagement: React.FC = () => {
             icon={<CheckCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Expired"
+            label={t("Expired")}
             value={stats.expired}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -971,7 +972,7 @@ const BatchManagement: React.FC = () => {
             icon={<XCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Empty"
+            label={t("Empty")}
             value={stats.emptyBatches}
             gradient="from-gray-50 to-slate-50"
             borderColor="border-gray-100"
@@ -997,7 +998,7 @@ const BatchManagement: React.FC = () => {
               className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
             >
               <PencilSquareIcon className="h-4 w-4" />
-              Edit
+              {t("Edit")}
             </button>
           )}
           emptyState={
@@ -1014,7 +1015,7 @@ const BatchManagement: React.FC = () => {
                   onClick={() => navigate(BATCH_ROUTE)}
                   className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
-                  View all batches →
+                  {t("View all batches →")}
                 </button>
               ) : (
                 <button
@@ -1023,7 +1024,7 @@ const BatchManagement: React.FC = () => {
                   className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
                 >
                   <ArrowPathIcon className="h-3.5 w-3.5" />
-                  Reload all batches
+                  {t("Reload all batches")}
                 </button>
               )}
             </div>
@@ -1034,16 +1035,16 @@ const BatchManagement: React.FC = () => {
       {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Batch" : "Create Batch"}
-        subtitle={
+        title={t(editingId ? "Edit Batch" : "Create Batch")}
+        subtitle={t(
           editingId
             ? "Update batch details"
             : "Enter batch details — the batch number is generated automatically"
-        }
+        )}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Batch" : "Create Batch"}
+        submitLabel={t(editingId ? "Update Batch" : "Create Batch")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -1051,7 +1052,7 @@ const BatchManagement: React.FC = () => {
             fields: [
               <FloatingDatePicker
                 key="manufacturingDate"
-                label="Manufacturing Date"
+                label={t("Manufacturing Date")}
                 name="manufacturingDate"
                 value={form.manufacturingDate}
                 onChange={handleChange}
@@ -1059,7 +1060,7 @@ const BatchManagement: React.FC = () => {
               />,
               <FloatingDatePicker
                 key="expiryDate"
-                label="Expiry Date"
+                label={t("Expiry Date")}
                 name="expiryDate"
                 value={form.expiryDate}
                 onChange={handleChange}
@@ -1067,7 +1068,7 @@ const BatchManagement: React.FC = () => {
               />,
               <FloatingSelect
                 key="productId"
-                label="Select product"
+                label={t("Select product")}
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -1079,7 +1080,7 @@ const BatchManagement: React.FC = () => {
               />,
               <FloatingSelect
                 key="warehouse"
-                label="Select warehouse"
+                label={t("Select warehouse")}
                 name="warehouse"
                 value={form.warehouse}
                 onChange={handleChange}
@@ -1091,7 +1092,7 @@ const BatchManagement: React.FC = () => {
               />,
               <FloatingInput
                 key="supplierName"
-                label="Supplier Name"
+                label={t("Supplier Name")}
                 name="supplierName"
                 value={form.supplierName}
                 onChange={handleChange}
@@ -1107,14 +1108,14 @@ const BatchManagement: React.FC = () => {
         setIsPopupOpen={(open) => !open && setDeleteBatch(null)}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Batch"
+        innerText={t("Delete Batch")}
         subText={
           deleteBatch
             ? `Are you sure you want to delete batch "${deleteBatch.batchNumber}"?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteBatch(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

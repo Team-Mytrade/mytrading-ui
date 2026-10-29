@@ -40,6 +40,7 @@ import { AttendanceRecord, AttendanceStatus, AttendanceCreateInput } from '../..
 import { Employee, Department } from '../../shared/types/employee.types';
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 const ATTENDANCE_API_URL = "/v1/api/payroll/attendance";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
@@ -130,21 +131,21 @@ const AttendanceManagementPage: React.FC = () => {
 
     return (
         <div className="attendance-mgmt-page p-6 space-y-8 bg-[#F8FAFC] min-h-screen font-sans">
-            <PageMeta title="Attendance Control" description="Operational attendance and presence management" />
+            <PageMeta title={t("Attendance Control")} description="Operational attendance and presence management" />
 
             <div className="flex justify-between items-end">
                 <PageBreadcrumb pageTitle="Attendance Control" />
                 <div className="flex gap-3">
                     <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 shadow-sm text-sm transition-all">
                         <Upload size={16} />
-                        Sync Logs
+                        {t("Sync Logs")}
                     </button>
                     {canCreate && (<button
                         onClick={() => { setEditingRecord(null); setFormData({ ...formData, employee: { id: 0 } }); setShowModal(true); }}
                         className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-all text-sm"
                     >
                         <Plus size={16} />
-                        Manual Log
+                        {t("Manual Log")}
                     </button>)}
                 </div>
             </div>
@@ -172,7 +173,7 @@ const AttendanceManagementPage: React.FC = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input
                         type="text"
-                        placeholder="Search records..."
+                        placeholder={t("Search records...")}
                         className="w-full h-10 bg-white border border-gray-200 focus:border-indigo-500 rounded-xl pl-10 pr-4 outline-none transition-all text-sm font-medium text-gray-700 placeholder:text-gray-400"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -182,11 +183,11 @@ const AttendanceManagementPage: React.FC = () => {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <InsightCard label="Present" value={stats.present.toString()} icon={<CheckCircle2 size={18} />} color="emerald" />
-                <InsightCard label="Absent" value={stats.absent.toString()} icon={<XCircle size={18} />} color="rose" />
-                <InsightCard label="Late" value={stats.late.toString()} icon={<Clock size={18} />} color="amber" />
-                <InsightCard label="Half Day" value={stats.halfDay.toString()} icon={<AlertCircle size={18} />} color="indigo" />
-                <InsightCard label="On-Time" value={`${stats.onTimeRate}%`} icon={<Target size={18} />} color="blue" />
+                <InsightCard label={t("Present")} value={stats.present.toString()} icon={<CheckCircle2 size={18} />} color="emerald" />
+                <InsightCard label={t("Absent")} value={stats.absent.toString()} icon={<XCircle size={18} />} color="rose" />
+                <InsightCard label={t("Late")} value={stats.late.toString()} icon={<Clock size={18} />} color="amber" />
+                <InsightCard label={t("Half Day")} value={stats.halfDay.toString()} icon={<AlertCircle size={18} />} color="indigo" />
+                <InsightCard label={t("On-Time")} value={`${stats.onTimeRate}%`} icon={<Target size={18} />} color="blue" />
             </div>
 
             {/* Main Content Area */}
@@ -203,11 +204,11 @@ const AttendanceManagementPage: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        <th className="px-6 py-4">Timeline</th>
-                                        <th className="px-6 py-4">Employee</th>
-                                        <th className="px-6 py-4">Time Log</th>
-                                        <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
+                                        <th className="px-6 py-4">{t("Timeline")}</th>
+                                        <th className="px-6 py-4">{t("Employee")}</th>
+                                        <th className="px-6 py-4">{t("Time Log")}</th>
+                                        <th className="px-6 py-4">{t("Status")}</th>
+                                        <th className="px-6 py-4 text-right">{t("Actions")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -257,7 +258,7 @@ const AttendanceManagementPage: React.FC = () => {
                                             </td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan={5} className="py-20 text-center text-gray-400 text-sm italic">No records found</td></tr>
+                                        <tr><td colSpan={5} className="py-20 text-center text-gray-400 text-sm italic">{t("No records found")}</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -297,7 +298,7 @@ const AttendanceManagementPage: React.FC = () => {
                             className="p-8 space-y-8"
                         >
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <InsightChart title="Volume Frequency" subtitle="Daily presence traffic volume">
+                                <InsightChart title={t("Volume Frequency")} subtitle={t("Daily presence traffic volume")}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={chartData(records)}>
                                             <defs>
@@ -315,7 +316,7 @@ const AttendanceManagementPage: React.FC = () => {
                                     </ResponsiveContainer>
                                 </InsightChart>
 
-                                <InsightChart title="Impact Distribution" subtitle="Status share categorization">
+                                <InsightChart title={t("Impact Distribution")} subtitle={t("Status share categorization")}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={[
                                             { name: 'Present', val: stats.present, color: '#10b981' },
@@ -359,50 +360,50 @@ const AttendanceManagementPage: React.FC = () => {
                                 <X size={18} />
                             </button>
                             <div className="p-8 border-b border-gray-100">
-                                <h3 className="text-xl font-bold text-gray-900">Manual Adjustment</h3>
-                                <p className="text-sm text-gray-500 mt-1">Override or add attendance logs manually.</p>
+                                <h3 className="text-xl font-bold text-gray-900">{t("Manual Adjustment")}</h3>
+                                <p className="text-sm text-gray-500 mt-1">{t("Override or add attendance logs manually.")}</p>
                             </div>
                             <div className="p-8 space-y-6">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Employee</label>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("Employee")}</label>
                                     <select
                                         className="w-full h-10 bg-gray-50 border border-gray-200 rounded-lg px-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700"
                                         value={formData.employee.id}
                                         onChange={(e) => setFormData({ ...formData, employee: { id: +e.target.value } })}
                                     >
-                                        <option value={0}>Select Employee...</option>
+                                        <option value={0}>{t("Select Employee...")}</option>
                                         {employees.map(e => <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.employeeCode})</option>)}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</label>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("Date")}</label>
                                     <input type="date" className="w-full h-10 bg-gray-50 border border-gray-200 rounded-lg px-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700" value={formData.date ?? ''} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Punch In</label>
+                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("Punch In")}</label>
                                         <input type="time" className="w-full h-10 bg-gray-50 border border-gray-200 rounded-lg px-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700" value={formData.checkInTime ?? ''} onChange={(e) => setFormData({ ...formData, checkInTime: e.target.value })} />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Punch Out</label>
+                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("Punch Out")}</label>
                                         <input type="time" className="w-full h-10 bg-gray-50 border border-gray-200 rounded-lg px-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700" value={formData.checkOutTime ?? ''} onChange={(e) => setFormData({ ...formData, checkOutTime: e.target.value })} />
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
-                                    <FlagToggle label="Late" active={formData.late} onToggle={(v) => setFormData({ ...formData, late: v })} color="amber" />
-                                    <FlagToggle label="Half Day" active={formData.halfDay} onToggle={(v) => setFormData({ ...formData, halfDay: v })} color="indigo" />
-                                    <FlagToggle label="Absent" active={formData.absent} onToggle={(v) => setFormData({ ...formData, absent: v })} color="rose" />
+                                    <FlagToggle label={t("Late")} active={formData.late} onToggle={(v) => setFormData({ ...formData, late: v })} color="amber" />
+                                    <FlagToggle label={t("Half Day")} active={formData.halfDay} onToggle={(v) => setFormData({ ...formData, halfDay: v })} color="indigo" />
+                                    <FlagToggle label={t("Absent")} active={formData.absent} onToggle={(v) => setFormData({ ...formData, absent: v })} color="rose" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Adjustment Remarks</label>
-                                    <textarea className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700 h-24 resize-none" placeholder="Reason for change..." value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}></textarea>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("Adjustment Remarks")}</label>
+                                    <textarea className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700 h-24 resize-none" placeholder={t("Reason for change...")} value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}></textarea>
                                 </div>
                             </div>
                             <div className="p-6 bg-gray-50 flex gap-4 border-t border-gray-100">
-                                <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl font-semibold text-gray-500 hover:text-gray-700 text-sm">Cancel</button>
+                                <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl font-semibold text-gray-500 hover:text-gray-700 text-sm">{t("Cancel")}</button>
                                 <button onClick={handleAction} className="flex-[2] py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-semibold transition-all shadow-md flex items-center justify-center gap-2 text-sm">
                                     <Check size={16} />
-                                    Save Changes
+                                    {t("Save Changes")}
                                 </button>
                             </div>
                         </motion.div>
@@ -451,12 +452,12 @@ const InsightCard: React.FC<{ label: string, value: string, icon: React.ReactNod
 };
 
 const PresencePill: React.FC<{ status: AttendanceStatus, late: boolean, half: boolean }> = ({ status, late, half }) => {
-    if (status === 'Absent') return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-100">Absent</span>;
+    if (status === 'Absent') return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-100">{t("Absent")}</span>;
     return (
         <div className="flex gap-2 flex-wrap">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">Present</span>
-            {late && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">Late</span>}
-            {half && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">Half</span>}
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">{t("Present")}</span>
+            {late && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">{t("Late")}</span>}
+            {half && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">{t("Half")}</span>}
         </div>
     );
 };

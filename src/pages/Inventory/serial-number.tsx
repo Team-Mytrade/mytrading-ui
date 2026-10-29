@@ -26,6 +26,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ---------- Interfaces ----------
 interface Product {
   id: number;
@@ -550,7 +551,7 @@ const SerialNumberManager: React.FC = () => {
               {sn.serial || "N/A"}
             </button>
             <div className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-              ID: {sn.id}
+              {t("ID:")} {sn.id}
             </div>
           </div>
         </div>
@@ -570,7 +571,7 @@ const SerialNumberManager: React.FC = () => {
               goToProduct(sn.productId);
             }}
             className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title="View product"
+            title={t("View product")}
           >
             {name}
           </button>
@@ -592,7 +593,7 @@ const SerialNumberManager: React.FC = () => {
               goToWarehouse(sn.warehouse);
             }}
             className="font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title="View warehouse"
+            title={t("View warehouse")}
           >
             {getWarehouseName(sn)}
           </button>
@@ -629,7 +630,7 @@ const SerialNumberManager: React.FC = () => {
       render: (sn) => {
         const status = sn.currentStatus;
         if (!status) {
-          return <span className="text-xs text-slate-400 dark:text-slate-500">N/A</span>;
+          return <span className="text-xs text-slate-400 dark:text-slate-500">{t("N/A")}</span>;
         }
         return (
           <span
@@ -654,7 +655,7 @@ const SerialNumberManager: React.FC = () => {
             type="button"
             onClick={() => openView(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="View"
+            title={t("View")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -662,7 +663,7 @@ const SerialNumberManager: React.FC = () => {
             type="button"
             onClick={() => openEdit(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -670,7 +671,7 @@ const SerialNumberManager: React.FC = () => {
             type="button"
             onClick={() => setDeletingSerial(sn)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -681,17 +682,17 @@ const SerialNumberManager: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Serial Numbers" description="Manage inventory serial numbers" />
+      <PageMeta title={t("Serial Numbers")} description="Manage inventory serial numbers" />
       <PageBreadcrumb
         pageTitle="Serial Numbers"
-        actions={<AddButton onClick={openCreate} label="Add Serial Number" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Serial Number")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatsCard label="Serial Numbers" value={stats.total} icon={<QrCodeIcon />} />
+          <StatsCard label={t("Serial Numbers")} value={stats.total} icon={<QrCodeIcon />} />
           <StatsCard
-            label="In Warranty"
+            label={t("In Warranty")}
             value={stats.inWarranty}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -699,7 +700,7 @@ const SerialNumberManager: React.FC = () => {
             icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Expired"
+            label={t("Expired")}
             value={stats.expired}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -707,7 +708,7 @@ const SerialNumberManager: React.FC = () => {
             icon={<XCircleIcon />}
           />
           <StatsCard
-            label="Warehouses"
+            label={t("Warehouses")}
             value={stats.warehouses}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -727,14 +728,14 @@ const SerialNumberManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <QrCodeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No serial numbers found
+                {t("No serial numbers found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first serial number
+                {t("Create your first serial number")}
               </button>)}
             </div>
           }
@@ -743,12 +744,12 @@ const SerialNumberManager: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Serial Number" : "Create Serial Number"}
-        subtitle="Enter serial number details including current status"
+        title={t(editingId ? "Edit Serial Number" : "Create Serial Number")}
+        subtitle={t("Enter serial number details including current status")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Serial Number" : "Create Serial Number"}
+        submitLabel={t(editingId ? "Update Serial Number" : "Create Serial Number")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -756,7 +757,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="productId"
-                label="Product Name"
+                label={t("Product Name")}
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -768,7 +769,7 @@ const SerialNumberManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="warehouseId"
-                label="Warehouse"
+                label={t("Warehouse")}
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={handleChange}
@@ -780,7 +781,7 @@ const SerialNumberManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="batchId"
-                label="Batch"
+                label={t("Batch")}
                 name="batchId"
                 value={form.batchId}
                 onChange={handleChange}
@@ -797,7 +798,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="currentStatus"
-                label="Current Status"
+                label={t("Current Status")}
                 name="currentStatus"
                 value={form.currentStatus}
                 onChange={handleChange}
@@ -811,7 +812,7 @@ const SerialNumberManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="warrantyStart"
-                label="Warranty Start"
+                label={t("Warranty Start")}
                 name="warrantyStart"
                 type="date"
                 value={form.warrantyStart}
@@ -820,7 +821,7 @@ const SerialNumberManager: React.FC = () => {
               />,
               <FloatingInput
                 key="warrantyEnd"
-                label="Warranty End"
+                label={t("Warranty End")}
                 name="warrantyEnd"
                 type="date"
                 value={form.warrantyEnd}
@@ -835,8 +836,8 @@ const SerialNumberManager: React.FC = () => {
       {/* Detail View Modal — batch now clickable */}
       <PaginatedPopup
         isOpen={!!viewingSerial}
-        title="Serial Number Details"
-        subtitle={viewingSerial ? `Serial ${viewingSerial.serial || `#${viewingSerial.id}`}` : ""}
+        title={t("Serial Number Details")}
+        subtitle={viewingSerial ? `${t("Serial")} ${viewingSerial.serial || `#${viewingSerial.id}`}` : ""}
         onClose={closeView}
         submitting={false}
         maxWidthClassName="max-w-lg"
@@ -848,13 +849,13 @@ const SerialNumberManager: React.FC = () => {
                 <div key="view-content" className="space-y-3 text-sm">
                   {viewLoading && (
                     <div className="mb-3 text-xs text-slate-400 dark:text-slate-500">
-                      Refreshing latest details…
+                      {t("Refreshing latest details…")}
                     </div>
                   )}
 
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                      <CubeIcon className="h-4 w-4" /> Product
+                      <CubeIcon className="h-4 w-4" /> {t("Product")}
                     </span>
                     {viewingSerial.productId ? (
                       <button
@@ -876,7 +877,7 @@ const SerialNumberManager: React.FC = () => {
 
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                      <BuildingStorefrontIcon className="h-4 w-4" /> Warehouse
+                      <BuildingStorefrontIcon className="h-4 w-4" /> {t("Warehouse")}
                     </span>
                     {viewingSerial.warehouse?.id ? (
                       <button
@@ -898,7 +899,7 @@ const SerialNumberManager: React.FC = () => {
 
                   {/* NEW: Batch clickable in the view modal too */}
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Batch</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t("Batch")}</span>
                     {viewingSerial.batch?.id ? (
                       <button
                         type="button"
@@ -918,14 +919,14 @@ const SerialNumberManager: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Current Status</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t("Current Status")}</span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       {viewingSerial.currentStatus || "N/A"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Inspections</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t("Inspections")}</span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       {getInspections(viewingSerial, inspectionsBySerial)}
                     </span>
@@ -944,7 +945,7 @@ const SerialNumberManager: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Serial Number"
+        innerText={t("Delete Serial Number")}
         subText={
           deletingSerial
             ? `Are you sure you want to delete serial number "${
@@ -952,8 +953,8 @@ const SerialNumberManager: React.FC = () => {
               }"? This action cannot be undone.`
             : "Are you sure you want to delete this serial number?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeletingSerial(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

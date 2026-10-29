@@ -29,6 +29,7 @@ import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Employee {
@@ -339,14 +340,14 @@ const LeaveBalancePage: React.FC = () => {
           {canUpdate && (<button
             onClick={() => openEditForm(row)}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all duration-200"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -359,7 +360,7 @@ const LeaveBalancePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Leave Balances" description="Manage employee leave balances" />
+      <PageMeta title={t("Leave Balances")} description="Manage employee leave balances" />
       <PageBreadcrumb pageTitle="Leave Balances" />
 
       <div className="max-w-7xl mx-auto p-6">
@@ -372,8 +373,8 @@ const LeaveBalancePage: React.FC = () => {
                   <UserIcon className="h-5 w-5 text-cyan-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Select Employee</h2>
-                  <p className="text-sm text-gray-500">Choose an employee to view or manage leave balances</p>
+                  <h2 className="text-lg font-semibold text-gray-900">{t("Select Employee")}</h2>
+                  <p className="text-sm text-gray-500">{t("Choose an employee to view or manage leave balances")}</p>
                 </div>
               </div>
               <div className="flex-1 max-w-md">
@@ -382,7 +383,7 @@ const LeaveBalancePage: React.FC = () => {
                   onChange={e => setSelectedEmployeeId(Number(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
-                  <option value="">— Choose an employee —</option>
+                  <option value="">{t("— Choose an employee —")}</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
@@ -400,8 +401,8 @@ const LeaveBalancePage: React.FC = () => {
               <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <UserIcon className="h-10 w-10 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Employee Selected</h3>
-              <p className="text-sm text-gray-500">Please select an employee to view their leave balances</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t("No Employee Selected")}</h3>
+              <p className="text-sm text-gray-500">{t("Please select an employee to view their leave balances")}</p>
             </div>
           </div>
         ) : (
@@ -420,7 +421,7 @@ const LeaveBalancePage: React.FC = () => {
                     <p className="text-sm text-gray-500">{selectedEmployee?.employeeCode}</p>
                   </div>
                 </div>
-                  <AddButton label="Add Leave Balance" onClick={openCreateForm} />
+                  <AddButton label={t("Add Leave Balance")} onClick={openCreateForm} />
               </div>
             </div>
 
@@ -440,17 +441,17 @@ const LeaveBalancePage: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {editingBalance ? "Edit Leave Balance" : "Add Leave Balance"}
+                          {t(editingBalance ? "Edit Leave Balance" : "Add Leave Balance")}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {editingBalance ? "Update leave balance details" : "Assign leave balance to employee"}
+                          {t(editingBalance ? "Update leave balance details" : "Assign leave balance to employee")}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={resetForm}
                       className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Back to table"
+                      title={t("Back to table")}
                     >
                       <XMarkIcon className="h-5 w-5" />
                     </button>
@@ -461,7 +462,7 @@ const LeaveBalancePage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Leave Type <span className="text-red-500">*</span>
+                        {t("Leave Type")} <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={form.leaveTypeId || ""}
@@ -474,7 +475,7 @@ const LeaveBalancePage: React.FC = () => {
                         }}
                         className={inputCls}
                       >
-                        <option value="">Select Leave Type</option>
+                        <option value="">{t("Select Leave Type")}</option>
                         {leaveTypes.map(lt => (
                           <option key={lt.id} value={lt.id}>{lt.name} ({lt.code})</option>
                         ))}
@@ -483,7 +484,7 @@ const LeaveBalancePage: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Total Allocated <span className="text-red-500">*</span>
+                        {t("Total Allocated")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -497,7 +498,7 @@ const LeaveBalancePage: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Used <span className="text-red-500">*</span>
+                        {t("Used")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -517,13 +518,13 @@ const LeaveBalancePage: React.FC = () => {
                         <div className="p-1.5 bg-green-100 rounded-full">
                           <CheckCircleIcon className="h-4 w-4 text-green-600" />
                         </div>
-                        <span className="text-sm font-medium text-gray-700">Remaining Balance:</span>
+                        <span className="text-sm font-medium text-gray-700">{t("Remaining Balance:")}</span>
                       </div>
                       <div className="text-right">
                         <span className={`text-2xl font-bold ${form.totalAllocated - form.used < 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {Math.max(0, form.totalAllocated - form.used)}
                         </span>
-                        <span className="text-sm text-gray-500 ml-1">days</span>
+                        <span className="text-sm text-gray-500 ml-1">{t("days")}</span>
                       </div>
                     </div>
                     <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
@@ -557,7 +558,7 @@ const LeaveBalancePage: React.FC = () => {
                       className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                     >
                       <ArrowLeftIcon className="h-4 w-4" />
-                      Back to List
+                      {t("Back to List")}
                     </button>
                   </div>
                 </form>
@@ -568,7 +569,7 @@ const LeaveBalancePage: React.FC = () => {
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                   <StatsCard
-                    label="Total Allocated"
+                    label={t("Total Allocated")}
                     value={totalAllocated}
                     gradient="from-blue-50 to-indigo-50"
                     borderColor="border-blue-100"
@@ -576,7 +577,7 @@ const LeaveBalancePage: React.FC = () => {
                     icon={<PlusCircleIcon className="h-6 w-6" />}
                   />
                   <StatsCard
-                    label="Total Used"
+                    label={t("Total Used")}
                     value={totalUsed}
                     gradient="from-amber-50 to-yellow-50"
                     borderColor="border-amber-100"
@@ -584,7 +585,7 @@ const LeaveBalancePage: React.FC = () => {
                     icon={<MinusCircleIcon className="h-6 w-6" />}
                   />
                   <StatsCard
-                    label="Total Remaining"
+                    label={t("Total Remaining")}
                     value={totalRemaining}
                     gradient="from-green-50 to-emerald-50"
                     borderColor="border-green-100"
@@ -598,25 +599,25 @@ const LeaveBalancePage: React.FC = () => {
                   columns={columns}
                   loading={loading}
                   searchable={true}
-                  searchPlaceholder="Search by leave type..."
+                  searchPlaceholder={t("Search by leave type...")}
                   searchFields={["leaveTypeName"]}
                   pageSize={10}
                   toolbar={
                     <FilterPopover
-                      title="Filter Leave Balances"
+                      title={t("Filter Leave Balances")}
                       buttonLabel="Filter"
                       onReset={() => setSelectedLeaveTypeFilter("")}
                       showFooter={true}
                     >
                       <div className="space-y-3">
                         <div>
-                          <label className="mb-1 block text-sm font-medium text-gray-700">Leave Type</label>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">{t("Leave Type")}</label>
                           <select
                             value={selectedLeaveTypeFilter}
                             onChange={e => setSelectedLeaveTypeFilter(e.target.value)}
                             className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                           >
-                            <option value="">All Leave Types</option>
+                            <option value="">{t("All Leave Types")}</option>
                             {uniqueLeaveTypes.map(lt => (
                               <option key={lt.id} value={lt.id.toString()}>
                                 {lt.name}

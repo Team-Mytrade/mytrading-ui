@@ -39,6 +39,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type AttendanceLog = {
     id: number;
     employeeId: string;
@@ -306,7 +307,7 @@ const AttendanceLogsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Attendance Logs" description="Manage employee attendance records" />
+            <PageMeta title={t("Attendance Logs")} description="Manage employee attendance records" />
             <PageBreadcrumb pageTitle="Audit Trail" />
 
             <div className="max-w-7xl mx-auto p-6">
@@ -315,7 +316,7 @@ const AttendanceLogsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Total Records</p>
+                                <p className="text-sm text-gray-600">{t("Total Records")}</p>
                                 <p className="text-2xl font-semibold text-gray-900">{totalLogs}</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-full">
@@ -327,7 +328,7 @@ const AttendanceLogsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Present</p>
+                                <p className="text-sm text-gray-600">{t("Present")}</p>
                                 <p className="text-2xl font-semibold text-green-600">{presentCount}</p>
                             </div>
                             <div className="p-3 bg-green-100 rounded-full">
@@ -339,7 +340,7 @@ const AttendanceLogsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Absent / Late</p>
+                                <p className="text-sm text-gray-600">{t("Absent / Late")}</p>
                                 <p className="text-2xl font-semibold text-yellow-600">{absentCount + lateCount}</p>
                             </div>
                             <div className="p-3 bg-yellow-100 rounded-full">
@@ -351,7 +352,7 @@ const AttendanceLogsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">System Logs</p>
+                                <p className="text-sm text-gray-600">{t("System Logs")}</p>
                                 <p className="text-2xl font-semibold text-purple-600">{systemLogs}</p>
                             </div>
                             <div className="p-3 bg-purple-100 rounded-full">
@@ -368,7 +369,7 @@ const AttendanceLogsPage: React.FC = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by Employee ID or Name..."
+                                placeholder={t("Search by Employee ID or Name...")}
                                 value={search}
                                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -394,14 +395,14 @@ const AttendanceLogsPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
+                                        {t("Export PDF")}
                                     </button>
                                     <button
                                         onClick={exportExcel}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
+                                        {t("Export Excel")}
                                     </button>
                                 </div>
                             )}
@@ -441,7 +442,7 @@ const AttendanceLogsPage: React.FC = () => {
                             className={`px-4 !mb-0 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${ADD_BUTTON_COLORS}`}
                         >
                             <PlusIcon className="h-5 w-5" />
-                            <span className="hidden sm:inline">Add Log</span>
+                            <span className="hidden sm:inline">{t("Add Log")}</span>
                         </button>)}
                     </div>
                 </div>
@@ -451,33 +452,33 @@ const AttendanceLogsPage: React.FC = () => {
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
                                 <select
                                     value={statusFilter}
                                     onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="All">All Status</option>
-                                    <option value="Present">Present</option>
-                                    <option value="Absent">Absent</option>
-                                    <option value="Late">Late</option>
-                                    <option value="Leave">Leave</option>
+                                    <option value="All">{t("All Status")}</option>
+                                    <option value="Present">{t("Present")}</option>
+                                    <option value="Absent">{t("Absent")}</option>
+                                    <option value="Late">{t("Late")}</option>
+                                    <option value="Leave">{t("Leave")}</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Source")}</label>
                                 <select
                                     value={sourceFilter}
                                     onChange={e => { setSourceFilter(e.target.value as any); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="All">All Sources</option>
-                                    <option value="System">System</option>
-                                    <option value="Manual">Manual</option>
+                                    <option value="All">{t("All Sources")}</option>
+                                    <option value="System">{t("System")}</option>
+                                    <option value="Manual">{t("Manual")}</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("From Date")}</label>
                                 <input
                                     type="date"
                                     value={dateRangeFilter.from}
@@ -486,7 +487,7 @@ const AttendanceLogsPage: React.FC = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("To Date")}</label>
                                 <input
                                     type="date"
                                     value={dateRangeFilter.to}
@@ -505,7 +506,7 @@ const AttendanceLogsPage: React.FC = () => {
                                     }}
                                     className="text-sm text-red-600 hover:text-red-800"
                                 >
-                                    Clear All Filters
+                                    {t("Clear All Filters")}
                                 </button>
                             </div>
                         )}
@@ -547,7 +548,7 @@ const AttendanceLogsPage: React.FC = () => {
                                         <td colSpan={7} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading attendance records...</p>
+                                                <p className="text-gray-500 text-sm">{t("Loading attendance records...")}</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -623,7 +624,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
+                                                                {t("View Details")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>
@@ -634,7 +635,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
+                                                                {t("Edit")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -645,7 +646,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
                                                             >
                                                                 <TrashIcon className="h-4 w-4" />
-                                                                Delete
+                                                                {t("Delete")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -658,7 +659,7 @@ const AttendanceLogsPage: React.FC = () => {
                                         <td colSpan={7} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No attendance records found</p>
+                                                <p className="text-gray-500 text-sm mb-2">{t("No attendance records found")}</p>
                                                 <p className="text-gray-400 text-xs">Click "Add Log" to create one</p>
                                             </div>
                                         </td>
@@ -677,41 +678,41 @@ const AttendanceLogsPage: React.FC = () => {
                                     disabled={page === 1}
                                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Previous
+                                    {t("Previous")}
                                 </button>
                                 <button
                                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                                     disabled={page === totalPages}
                                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Next
+                                    {t("Next")}
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
+                                        {t("Showing")} <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> {t("to")}{' '}
                                         <span className="font-medium">
                                             {Math.min(page * PAGE_SIZE, filteredLogs.length)}
                                         </span>{' '}
-                                        of <span className="font-medium">{filteredLogs.length}</span> results
+                                        of <span className="font-medium">{filteredLogs.length}</span> {t("results")}
                                     </p>
                                 </div>
                                 <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label={t("Pagination")}>
                                         <button
                                             onClick={() => setPage(1)}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            First
+                                            {t("First")}
                                         </button>
                                         <button
                                             onClick={() => setPage(Math.max(1, page - 1))}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Previous
+                                            {t("Previous")}
                                         </button>
                                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                                             let pageNum: number;
@@ -742,14 +743,14 @@ const AttendanceLogsPage: React.FC = () => {
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Next
+                                            {t("Next")}
                                         </button>
                                         <button
                                             onClick={() => setPage(totalPages)}
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Last
+                                            {t("Last")}
                                         </button>
                                     </nav>
                                 </div>
@@ -769,7 +770,7 @@ const AttendanceLogsPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                    Attendance Details
+                                                    {t("Attendance Details")}
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
@@ -782,47 +783,47 @@ const AttendanceLogsPage: React.FC = () => {
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Employee ID</p>
+                                                        <p className="text-xs text-gray-500">{t("Employee ID")}</p>
                                                         <p className="text-sm font-medium text-gray-900">{selectedLog.employeeId}</p>
                                                     </div>
                                                     {selectedLog.employeeName && (
                                                         <div>
-                                                            <p className="text-xs text-gray-500">Employee Name</p>
+                                                            <p className="text-xs text-gray-500">{t("Employee Name")}</p>
                                                             <p className="text-sm text-gray-700">{selectedLog.employeeName}</p>
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Date</p>
+                                                        <p className="text-xs text-gray-500">{t("Date")}</p>
                                                         <p className="text-sm text-gray-700">{formatDate(selectedLog.date)}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Status</p>
+                                                        <p className="text-xs text-gray-500">{t("Status")}</p>
                                                         <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${getStatusBadge(selectedLog.status)}`}>
                                                             {getStatusIcon(selectedLog.status)}
                                                             {selectedLog.status}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Check In</p>
+                                                        <p className="text-xs text-gray-500">{t("Check In")}</p>
                                                         <p className="text-sm font-mono text-gray-900">{selectedLog.checkIn}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Check Out</p>
+                                                        <p className="text-xs text-gray-500">{t("Check Out")}</p>
                                                         <p className="text-sm font-mono text-gray-600">{selectedLog.checkOut || "—"}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Source</p>
+                                                        <p className="text-xs text-gray-500">{t("Source")}</p>
                                                         <p className="text-sm text-gray-700">{selectedLog.source || "Manual"}</p>
                                                     </div>
                                                     {selectedLog.remarks && (
                                                         <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500">Remarks</p>
+                                                            <p className="text-xs text-gray-500">{t("Remarks")}</p>
                                                             <p className="text-sm text-gray-700">{selectedLog.remarks}</p>
                                                         </div>
                                                     )}
                                                     {selectedLog.createdAt && (
                                                         <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500">Record Created</p>
+                                                            <p className="text-xs text-gray-500">{t("Record Created")}</p>
                                                             <p className="text-sm text-gray-600">{formatDateTime(selectedLog.createdAt)}</p>
                                                         </div>
                                                     )}
@@ -832,14 +833,14 @@ const AttendanceLogsPage: React.FC = () => {
                                             {selectedLog.status === "Late" && (
                                                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                                     <p className="text-sm text-yellow-800">
-                                                        <strong>Late Attendance:</strong> Employee arrived after scheduled start time.
+                                                        <strong>{t("Late Attendance:")}</strong> {t("Employee arrived after scheduled start time.")}
                                                     </p>
                                                 </div>
                                             )}
                                             {selectedLog.status === "Absent" && (
                                                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                                                     <p className="text-sm text-red-800">
-                                                        <strong>Absent:</strong> No attendance recorded for this day.
+                                                        <strong>{t("Absent:")}</strong> {t("No attendance recorded for this day.")}
                                                     </p>
                                                 </div>
                                             )}
@@ -856,14 +857,14 @@ const AttendanceLogsPage: React.FC = () => {
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <PencilSquareIcon className="h-4 w-4 mr-2" />
-                                        Edit
+                                        {t("Edit")}
                                     </button>)}
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>
@@ -881,11 +882,11 @@ const AttendanceLogsPage: React.FC = () => {
                                     <div className="sm:flex sm:items-start">
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {editingLog ? "Edit Attendance Log" : "Add Attendance Log"}
+                                                {t(editingLog ? "Edit Attendance Log" : "Add Attendance Log")}
                                             </h3>
                                             <form onSubmit={handleSubmit} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Employee ID</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Employee ID")}</label>
                                                     <input
                                                         type="text"
                                                         value={form.employeeId}
@@ -896,7 +897,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Date</label>
+                                                        <label className="block text-sm font-medium text-gray-700">{t("Date")}</label>
                                                         <input
                                                             type="date"
                                                             value={form.date}
@@ -906,22 +907,22 @@ const AttendanceLogsPage: React.FC = () => {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Status</label>
+                                                        <label className="block text-sm font-medium text-gray-700">{t("Status")}</label>
                                                         <select
                                                             value={form.status}
                                                             onChange={e => setForm({ ...form, status: e.target.value as any })}
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                         >
-                                                            <option value="Present">Present</option>
-                                                            <option value="Absent">Absent</option>
-                                                            <option value="Late">Late</option>
-                                                            <option value="Leave">Leave</option>
+                                                            <option value="Present">{t("Present")}</option>
+                                                            <option value="Absent">{t("Absent")}</option>
+                                                            <option value="Late">{t("Late")}</option>
+                                                            <option value="Leave">{t("Leave")}</option>
                                                         </select>
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Check In</label>
+                                                        <label className="block text-sm font-medium text-gray-700">{t("Check In")}</label>
                                                         <input
                                                             type="time"
                                                             value={form.checkIn}
@@ -930,7 +931,7 @@ const AttendanceLogsPage: React.FC = () => {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Check Out</label>
+                                                        <label className="block text-sm font-medium text-gray-700">{t("Check Out")}</label>
                                                         <input
                                                             type="time"
                                                             value={form.checkOut}
@@ -940,24 +941,24 @@ const AttendanceLogsPage: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Source</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Source")}</label>
                                                     <select
                                                         value={form.source}
                                                         onChange={e => setForm({ ...form, source: e.target.value as any })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                     >
-                                                        <option value="Manual">Manual Entry</option>
-                                                        <option value="System">System Generated</option>
+                                                        <option value="Manual">{t("Manual Entry")}</option>
+                                                        <option value="System">{t("System Generated")}</option>
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Remarks (Optional)</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Remarks (Optional)")}</label>
                                                     <textarea
                                                         value={form.remarks}
                                                         onChange={e => setForm({ ...form, remarks: e.target.value })}
                                                         rows={3}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="Additional notes..."
+                                                        placeholder={t("Additional notes...")}
                                                     />
                                                 </div>
                                             </form>
@@ -970,14 +971,14 @@ const AttendanceLogsPage: React.FC = () => {
                                         onClick={handleSubmit}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        {editingLog ? "Update" : "Create"}
+                                        {t(editingLog ? "Update" : "Create")}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={closeForm}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                 </div>
                             </div>

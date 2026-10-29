@@ -32,6 +32,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate, formatTime as companyFormatTime, formatDateTime as companyFormatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Employee {
@@ -459,8 +460,8 @@ const RemoteAttendancePage: React.FC = () => {
     {
       key: "syncedWithPayroll", label: "Payroll Sync", sortable: true,
       render: (_, v) => v
-        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />Synced</span>
-        : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700"><XCircleIcon className="h-3 w-3" />Not Synced</span>,
+        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />{t("Synced")}</span>
+        : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700"><XCircleIcon className="h-3 w-3" />{t("Not Synced")}</span>,
     },
     {
       key: "actions", label: "Actions",
@@ -469,14 +470,14 @@ const RemoteAttendancePage: React.FC = () => {
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
           {canUpdate && (<button
             onClick={() => openEditForm(row)}
-            title="Edit"
+            title={t("Edit")}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
-            title="Delete"
+            title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
@@ -512,23 +513,23 @@ const RemoteAttendancePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Remote Attendance" description="Work from home attendance logs" />
+      <PageMeta title={t("Remote Attendance")} description="Work from home attendance logs" />
       <PageBreadcrumb pageTitle="Remote Attendance" />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Remote Attendance</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Record and view work-from-home attendance logs</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("Remote Attendance")}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{t("Record and view work-from-home attendance logs")}</p>
           </div>
-          <AddButton label="Check In / Out" onClick={openCreateForm} />
+          <AddButton label={t("Check In / Out")} onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatsCard
-            label="Total Logs"
+            label={t("Total Logs")}
             value={totalLogs}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -536,7 +537,7 @@ const RemoteAttendancePage: React.FC = () => {
             icon={<ComputerDesktopIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Checked In"
+            label={t("Checked In")}
             value={checkedIn}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -544,7 +545,7 @@ const RemoteAttendancePage: React.FC = () => {
             icon={<ArrowRightOnRectangleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Checked Out"
+            label={t("Checked Out")}
             value={checkedOut}
             gradient="from-amber-50 to-yellow-50"
             borderColor="border-amber-100"
@@ -552,7 +553,7 @@ const RemoteAttendancePage: React.FC = () => {
             icon={<ArrowLeftOnRectangleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Payroll Synced"
+            label={t("Payroll Synced")}
             value={syncedLogs}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -573,17 +574,17 @@ const RemoteAttendancePage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {editingLog ? "Edit Attendance Record" : "Remote Attendance"}
+                      {t(editingLog ? "Edit Attendance Record" : "Remote Attendance")}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {editingLog ? "Update attendance details" : "Record check-in or check-out"}
+                      {t(editingLog ? "Update attendance details" : "Record check-in or check-out")}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={resetForm}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
+                  title={t("Back to list")}
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
@@ -594,12 +595,12 @@ const RemoteAttendancePage: React.FC = () => {
               {/* Employee Selection */}
               <div className="mb-6">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <UserIcon className="h-3 w-3" /> Employee Details
+                  <UserIcon className="h-3 w-3" /> {t("Employee Details")}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Employee <span className="text-red-500">*</span>
+                      {t("Employee")} <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={form.employeeId || ""}
@@ -612,7 +613,7 @@ const RemoteAttendancePage: React.FC = () => {
                       }}
                       className={inputCls}
                     >
-                      <option value="">Select Employee</option>
+                      <option value="">{t("Select Employee")}</option>
                       {employees.map(emp => (
                         <option key={emp.id} value={emp.id}>
                           {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
@@ -621,16 +622,16 @@ const RemoteAttendancePage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Device</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Device")}</label>
                     <select
                       value={form.device}
                       onChange={e => handleChange("device", e.target.value)}
                       className={inputCls}
                     >
-                      <option value="mobile">Mobile</option>
-                      <option value="laptop">Laptop</option>
-                      <option value="desktop">Desktop</option>
-                      <option value="tablet">Tablet</option>
+                      <option value="mobile">{t("Mobile")}</option>
+                      <option value="laptop">{t("Laptop")}</option>
+                      <option value="desktop">{t("Desktop")}</option>
+                      <option value="tablet">{t("Tablet")}</option>
                     </select>
                   </div>
                 </div>
@@ -639,11 +640,11 @@ const RemoteAttendancePage: React.FC = () => {
               {/* Date */}
               <div className="mb-6">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <CalendarDaysIcon className="h-3 w-3" /> Date
+                  <CalendarDaysIcon className="h-3 w-3" /> {t("Date")}
                 </p>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Attendance Date <span className="text-red-500">*</span>
+                    {t("Attendance Date")} <span className="text-red-500">*</span>
                   </label>
                   <DatePicker
                     selected={form.date ? new Date(form.date) : null}
@@ -659,11 +660,11 @@ const RemoteAttendancePage: React.FC = () => {
               {/* Time Tracking */}
               <div className="mb-6">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <ClockIcon className="h-3 w-3" /> Time Tracking
+                  <ClockIcon className="h-3 w-3" /> {t("Time Tracking")}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Check-In Time</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Check-In Time")}</label>
                     <DatePicker
                       selected={checkInTime}
                       onChange={handleCheckInTimeChange}
@@ -678,7 +679,7 @@ const RemoteAttendancePage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Check-Out Time</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Check-Out Time")}</label>
                     <DatePicker
                       selected={checkOutTime}
                       onChange={handleCheckOutTimeChange}
@@ -702,22 +703,22 @@ const RemoteAttendancePage: React.FC = () => {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">IP Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("IP Address")}</label>
                     <input
                       type="text"
                       value={form.ipAddress}
                       onChange={e => handleChange("ipAddress", e.target.value)}
-                      placeholder="Auto-detected IP"
+                      placeholder={t("Auto-detected IP")}
                       className={inputCls}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Location")}</label>
                     <input
                       type="text"
                       value={form.location}
                       onChange={e => handleChange("location", e.target.value)}
-                      placeholder="Auto-detected location"
+                      placeholder={t("Auto-detected location")}
                       className={inputCls}
                     />
                   </div>
@@ -728,18 +729,18 @@ const RemoteAttendancePage: React.FC = () => {
                   className="mt-3 text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
                 >
                   <MapPinIcon className="h-4 w-4" />
-                  Re-detect Location & IP
+                  {t("Re-detect Location & IP")}
                 </button>
               </div>
 
               {/* Remarks & Sync */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t("Remarks")}</label>
                 <textarea
                   value={form.remarks}
                   onChange={e => handleChange("remarks", e.target.value)}
                   rows={3}
-                  placeholder="Add any notes or comments..."
+                  placeholder={t("Add any notes or comments...")}
                   className={inputCls}
                 />
               </div>
@@ -752,7 +753,7 @@ const RemoteAttendancePage: React.FC = () => {
                     onChange={e => handleChange("syncedWithPayroll", e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                   />
-                  <span className="text-sm font-medium text-gray-700">Synced with Payroll</span>
+                  <span className="text-sm font-medium text-gray-700">{t("Synced with Payroll")}</span>
                 </label>
               </div>
 
@@ -764,7 +765,7 @@ const RemoteAttendancePage: React.FC = () => {
                   className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
                   <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                  Check In
+                  {t("Check In")}
                 </button>
                 <button
                   type="button"
@@ -773,14 +774,14 @@ const RemoteAttendancePage: React.FC = () => {
                   className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
                   <ArrowLeftOnRectangleIcon className="h-4 w-4" />
-                  Check Out
+                  {t("Check Out")}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
                   className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </form>
@@ -795,7 +796,7 @@ const RemoteAttendancePage: React.FC = () => {
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search by employee, location, or IP..."
+                    placeholder={t("Search by employee, location, or IP...")}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -809,7 +810,7 @@ const RemoteAttendancePage: React.FC = () => {
                   onChange={e => setSelectedEmployeeFilter(e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
                 >
-                  <option value="">All Employees</option>
+                  <option value="">{t("All Employees")}</option>
                   {uniqueEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name}</option>
                   ))}
@@ -840,7 +841,7 @@ const RemoteAttendancePage: React.FC = () => {
                     }}
                     className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
                   >
-                    Clear Filters
+                    {t("Clear Filters")}
                   </button>
                 )}
               </div>
@@ -860,13 +861,13 @@ const RemoteAttendancePage: React.FC = () => {
                   <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                     <ComputerDesktopIcon className="h-8 w-8 text-gray-400" />
                   </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No remote attendance logs found</p>
+                  <p className="text-gray-500 text-sm font-medium mb-2">{t("No remote attendance logs found")}</p>
                   {canCreate && (<button
                     onClick={openCreateForm}
                     className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
                   >
                     <PlusIcon className="h-4 w-4" />
-                    Record your first attendance
+                    {t("Record your first attendance")}
                   </button>)}
                 </div>
               }

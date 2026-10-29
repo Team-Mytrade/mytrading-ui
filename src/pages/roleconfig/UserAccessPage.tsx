@@ -4,6 +4,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { AuthContext } from "../../context/AuthContext";
 import { RoleAccess, accessApi } from "../../access/accessApi";
 
+import { t } from "../../i18n/i18n";
 interface UserRow {
   userId: string;
   username: string;
@@ -76,17 +77,17 @@ export default function UserAccessPage() {
 
   return (
     <div className="h-full overflow-y-auto p-3">
-      <PageMeta title="User Access" description="Assign roles to users" />
-      <h1 className="mb-1 text-xl font-semibold text-gray-900 dark:text-white">User Access</h1>
+      <PageMeta title={t("User Access")} description="Assign roles to users" />
+      <h1 className="mb-1 text-xl font-semibold text-gray-900 dark:text-white">{t("User Access")}</h1>
       <p className="mb-4 text-sm text-gray-500">
-        Choose a user, then the roles they should have. Roles you cannot grant are shown but locked.
+        {t("Choose a user, then the roles they should have. Roles you cannot grant are shown but locked.")}
       </p>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-gray-900">
           <input
             className="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            placeholder="Search users"
+            placeholder={t("Search users")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -107,13 +108,13 @@ export default function UserAccessPage() {
                 </button>
               </li>
             ))}
-            {filteredUsers.length === 0 && <li className="px-3 py-2 text-sm text-gray-500">No users</li>}
+            {filteredUsers.length === 0 && <li className="px-3 py-2 text-sm text-gray-500">{t("No users")}</li>}
           </ul>
         </div>
 
         <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-900">
           {!selectedUser ? (
-            <p className="text-sm text-gray-500">Select a user to manage their roles.</p>
+            <p className="text-sm text-gray-500">{t("Select a user to manage their roles.")}</p>
           ) : (
             <>
               <h2 className="mb-3 font-semibold text-gray-900 dark:text-white">{selectedUser.username}</h2>
@@ -134,9 +135,9 @@ export default function UserAccessPage() {
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {role.roleName}
                             {role.systemRole && (
-                              <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] uppercase text-gray-500">system</span>
+                              <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] uppercase text-gray-500">{t("system")}</span>
                             )}
-                            {locked && <span className="ml-2 text-xs text-gray-400">beyond your authority</span>}
+                            {locked && <span className="ml-2 text-xs text-gray-400">{t("beyond your authority")}</span>}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {role.permissions.map((p) => (
@@ -151,14 +152,14 @@ export default function UserAccessPage() {
               </ul>
               <div className="mt-4 flex justify-end gap-2">
                 <button className="rounded-lg px-4 py-2 text-sm" disabled={!changed} onClick={() => setAssigned(original)}>
-                  Reset
+                  {t("Reset")}
                 </button>
                 <button
                   className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   disabled={!changed || saving}
                   onClick={save}
                 >
-                  Save roles
+                  {t("Save roles")}
                 </button>
               </div>
             </>

@@ -13,6 +13,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
 import { companyWeekendDays } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Relative API Base URLs (routing via Vite dev proxy)
 const BASE_SHIFT_URL = '/v1/api/attendance/shifts';
 
@@ -491,7 +492,7 @@ const ShiftPage: React.FC = () => {
         <button
           type="button"
           onClick={() => openWeeklyOffDrawer(row)}
-          title="See or change this shift's weekly offs"
+          title={t("See or change this shift's weekly offs")}
           className={`text-xs font-semibold hover:underline cursor-pointer text-left ${
             row.weeklyOffDays === 'Not set' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-gray-300'
           }`}
@@ -512,7 +513,7 @@ const ShiftPage: React.FC = () => {
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' 
               : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
           }`}>
-            {isActive ? 'Active' : 'Inactive'}
+            {t(isActive ? 'Active' : 'Inactive')}
           </span>
         );
       }
@@ -526,7 +527,7 @@ const ShiftPage: React.FC = () => {
             type="button"
             onClick={() => handleInspectShift(row)}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-transparent dark:hover:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-            title="Inspect Shift Details"
+            title={t("Inspect Shift Details")}
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
@@ -534,7 +535,7 @@ const ShiftPage: React.FC = () => {
             type="button"
             onClick={() => openWeeklyOffDrawer(row)}
             className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-transparent dark:hover:bg-[#222222] border border-indigo-200 dark:!border-transparent rounded-lg text-indigo-700 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-            title="Manage Weekly Off Rules"
+            title={t("Manage Weekly Off Rules")}
           >
             <CalendarDays className="w-3.5 h-3.5" />
           </button>
@@ -542,7 +543,7 @@ const ShiftPage: React.FC = () => {
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:!border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors cursor-pointer"
-            title="Edit Shift Master"
+            title={t("Edit Shift Master")}
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>)}
@@ -553,10 +554,10 @@ const ShiftPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Shift Master" description="Configure work shift timings and weekly off rules" />
+      <PageMeta title={t("Shift Master")} description="Configure work shift timings and weekly off rules" />
       <PageBreadcrumb
         pageTitle="Shift Master"
-        actions={canCreate ? <AddButton onClick={openCreateModal} label="Create Shift" /> : undefined}
+        actions={canCreate ? <AddButton onClick={openCreateModal} label={t("Create Shift")} /> : undefined}
       />
 
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 space-y-4">
@@ -564,7 +565,7 @@ const ShiftPage: React.FC = () => {
         {/* Master Table */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">All Shifts</h3>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("All Shifts")}</h3>
             <TableToolbar onRefresh={fetchShifts} />
           </div>
           <ReusableTable
@@ -575,7 +576,7 @@ const ShiftPage: React.FC = () => {
             defaultSortKey="shiftName"
             defaultSortOrder="asc"
             rowDetailsTitle={(row) => `${row.shiftName} (${row.shiftCode})`}
-            rowDetailsSubtitle="Shift timings and configuration summary"
+            rowDetailsSubtitle={t("Shift timings and configuration summary")}
           />
         </div>
 
@@ -589,7 +590,7 @@ const ShiftPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                  {editingShift ? 'Edit Shift Master' : 'Create New Shift'}
+                  {t(editingShift ? 'Edit Shift Master' : 'Create New Shift')}
                 </h3>
               </div>
               <button type="button" onClick={() => setIsShiftModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer transition-colors">
@@ -600,25 +601,25 @@ const ShiftPage: React.FC = () => {
             <form onSubmit={handleShiftSubmit} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Shift Code *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Shift Code *")}</label>
                   <input
                     type="text"
                     value={form.shiftCode}
                     onChange={(e) => setForm(p => ({ ...p, shiftCode: e.target.value }))}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-xl text-xs font-bold font-mono text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                    placeholder="e.g. GEN, A, N"
+                    placeholder={t("e.g. GEN, A, N")}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Shift Name *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Shift Name *")}</label>
                   <input
                     type="text"
                     value={form.shiftName}
                     onChange={(e) => setForm(p => ({ ...p, shiftName: e.target.value }))}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-xl text-xs font-semibold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
-                    placeholder="e.g. General Shift"
+                    placeholder={t("e.g. General Shift")}
                     required
                   />
                 </div>
@@ -626,7 +627,7 @@ const ShiftPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Start Time *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Start Time *")}</label>
                   <input
                     type="time"
                     value={form.startTime}
@@ -637,7 +638,7 @@ const ShiftPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">End Time *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("End Time *")}</label>
                   <input
                     type="time"
                     value={form.endTime}
@@ -650,11 +651,11 @@ const ShiftPage: React.FC = () => {
 
               <div className="p-3 bg-slate-50 dark:bg-[#222222] border border-slate-200/80 dark:!border-transparent rounded-xl flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px]">Calculated Working Hours:</span>
+                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px]">{t("Calculated Working Hours:")}</span>
                   <span className="font-mono font-bold text-cyan-800 dark:text-cyan-300">{computedWorkingMinutes} mins ({(computedWorkingMinutes / 60).toFixed(1)}h)</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px]">Night Shift Status:</span>
+                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px]">{t("Night Shift Status:")}</span>
                   <span className={`font-bold ${computedNightShift ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-gray-300'}`}>
                     {computedNightShift ? 'YES (Night Shift)' : 'NO (Day Shift)'}
                   </span>
@@ -663,7 +664,7 @@ const ShiftPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Break Minutes</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Break Minutes")}</label>
                   <input
                     type="number"
                     value={form.breakMinutes}
@@ -673,7 +674,7 @@ const ShiftPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Grace Period Mins</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Grace Period Mins")}</label>
                   <input
                     type="number"
                     value={form.gracePeriodMinutes}
@@ -683,12 +684,12 @@ const ShiftPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Finalize Buffer Mins</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Finalize Buffer Mins")}</label>
                   <input
                     type="number"
                     min={0}
                     max={720}
-                    title="Minutes after the shift ends before a missed check-out is closed automatically (time for overtime)"
+                    title={t("Minutes after the shift ends before a missed check-out is closed automatically (time for overtime)")}
                     value={form.attendanceFinalizeBufferMinutes}
                     onChange={(e) => setForm(p => ({ ...p, attendanceFinalizeBufferMinutes: Number(e.target.value) }))}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-xl text-xs font-mono font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 outline-none"
@@ -698,8 +699,8 @@ const ShiftPage: React.FC = () => {
 
               {!editingShift ? (
                 <div>
-                  <span className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Weekly Offs</span>
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Weekly offs">
+                  <span className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Weekly Offs")}</span>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Weekly offs")}>
                     {WEEK_ORDER.map((day) => {
                       const on = newWeeklyOffDays.includes(day);
                       return (
@@ -721,13 +722,13 @@ const ShiftPage: React.FC = () => {
                     })}
                   </div>
                   <p className="mt-1 text-[10.5px] text-gray-500 dark:text-gray-400">
-                    Off every week. For rules like the 2nd and 4th Saturday, use the shift's Weekly Offs column after saving.
+                    {t("Off every week. For rules like the 2nd and 4th Saturday, use the shift's Weekly Offs column after saving.")}
                   </p>
                 </div>
               ) : (
                 <div className="p-2.5 bg-slate-50 dark:bg-[#222222] border border-slate-200/80 dark:!border-transparent rounded-xl flex items-center justify-between gap-2 text-xs">
                   <span>
-                    <span className="text-slate-500 dark:text-gray-400 font-semibold">Weekly offs: </span>
+                    <span className="text-slate-500 dark:text-gray-400 font-semibold">{t("Weekly offs:")} </span>
                     <span className="font-bold text-slate-800 dark:text-white">{weeklyOffSummary(editingShift.weeklyOffs) || 'Not set'}</span>
                   </span>
                   <button
@@ -735,7 +736,7 @@ const ShiftPage: React.FC = () => {
                     onClick={() => { setIsShiftModalOpen(false); openWeeklyOffDrawer(editingShift); }}
                     className="font-semibold text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer"
                   >
-                    Change
+                    {t("Change")}
                   </button>
                 </div>
               )}
@@ -748,7 +749,7 @@ const ShiftPage: React.FC = () => {
                     onChange={(e) => setForm(p => ({ ...p, overtimeAllowed: e.target.checked }))}
                     className="rounded text-cyan-600 focus:ring-cyan-500"
                   />
-                  <span>Overtime Permitted</span>
+                  <span>{t("Overtime Permitted")}</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700 dark:text-gray-300">
@@ -758,7 +759,7 @@ const ShiftPage: React.FC = () => {
                     onChange={(e) => setForm(p => ({ ...p, active: e.target.checked }))}
                     className="rounded text-cyan-600 focus:ring-cyan-500"
                   />
-                  <span>Active Shift Status</span>
+                  <span>{t("Active Shift Status")}</span>
                 </label>
               </div>
 
@@ -768,7 +769,7 @@ const ShiftPage: React.FC = () => {
                   onClick={() => setIsShiftModalOpen(false)}
                   className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
@@ -790,9 +791,9 @@ const ShiftPage: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                  Weekly Off Rules: {activeShiftForWeeklyOff.shiftName}
+                  {t("Weekly Off Rules:")} {activeShiftForWeeklyOff.shiftName}
                 </h3>
-                <span className="text-[11px] font-mono text-cyan-700 dark:text-cyan-400">Shift Code: {activeShiftForWeeklyOff.shiftCode} (ID: {activeShiftForWeeklyOff.id})</span>
+                <span className="text-[11px] font-mono text-cyan-700 dark:text-cyan-400">{t("Shift Code:")} {activeShiftForWeeklyOff.shiftCode} (ID: {activeShiftForWeeklyOff.id})</span>
               </div>
               <button type="button" onClick={() => setIsWeeklyOffDrawerOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer transition-colors">
                 <X className="w-5 h-5" />
@@ -802,12 +803,12 @@ const ShiftPage: React.FC = () => {
             {/* Weekly Off Create/Edit Form */}
             <form onSubmit={handleSaveWeeklyOffRule} className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent space-y-3">
               <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">
-                {editingWeeklyOffId ? 'Edit Weekly Off Rule' : 'Add Weekly Off Rule'}
+                {t(editingWeeklyOffId ? 'Edit Weekly Off Rule' : 'Add Weekly Off Rule')}
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-300 mb-1">Day of Week</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-300 mb-1">{t("Day of Week")}</label>
                   <select
                     value={weeklyOffForm.dayOfWeek}
                     onChange={(e) => setWeeklyOffForm(p => ({ ...p, dayOfWeek: e.target.value as DayOfWeekType }))}
@@ -820,7 +821,7 @@ const ShiftPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-300 mb-1">Week Occurrence</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-300 mb-1">{t("Week Occurrence")}</label>
                   <select
                     value={weeklyOffForm.weekOccurrence}
                     onChange={(e) => setWeeklyOffForm(p => ({ ...p, weekOccurrence: e.target.value as WeekOccurrenceType }))}
@@ -837,7 +838,7 @@ const ShiftPage: React.FC = () => {
                     type="submit"
                     className="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
-                    {editingWeeklyOffId ? 'Update Rule' : 'Add Rule'}
+                    {t(editingWeeklyOffId ? 'Update Rule' : 'Add Rule')}
                   </button>
                 </div>
               </div>
@@ -847,7 +848,7 @@ const ShiftPage: React.FC = () => {
             <div className="space-y-2 max-h-56 overflow-y-auto pr-1 no-scrollbar">
               {weeklyOffsList.length === 0 ? (
                 <div className="text-center py-6 text-xs text-gray-400 dark:text-gray-500">
-                  No weekly off rules configured for this shift.
+                  {t("No weekly off rules configured for this shift.")}
                 </div>
               ) : (
                 weeklyOffsList.map((wo, idx) => (
@@ -857,7 +858,7 @@ const ShiftPage: React.FC = () => {
                         {wo.dayOfWeek}
                       </span>
                       <span className="text-xs font-semibold text-slate-700 dark:text-gray-300">
-                        Occurrence: <strong className="text-slate-900 dark:text-white">{wo.weekOccurrence}</strong>
+                        {t("Occurrence:")} <strong className="text-slate-900 dark:text-white">{wo.weekOccurrence}</strong>
                       </span>
                     </div>
 
@@ -870,7 +871,7 @@ const ShiftPage: React.FC = () => {
                             setWeeklyOffForm({ dayOfWeek: wo.dayOfWeek, weekOccurrence: wo.weekOccurrence, active: wo.active !== false });
                           }}
                           className="p-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 cursor-pointer"
-                          title="Edit Rule"
+                          title={t("Edit Rule")}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -880,7 +881,7 @@ const ShiftPage: React.FC = () => {
                           type="button"
                           onClick={() => handleDeleteWeeklyOff(wo.id!)}
                           className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-800 cursor-pointer"
-                          title="Delete Rule"
+                          title={t("Delete Rule")}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -897,7 +898,7 @@ const ShiftPage: React.FC = () => {
                 onClick={() => setIsWeeklyOffDrawerOpen(false)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold cursor-pointer transition-colors"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
           </div>
@@ -913,7 +914,7 @@ const ShiftPage: React.FC = () => {
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">{viewingShiftDetails.shiftName}</h3>
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">Code: {viewingShiftDetails.shiftCode} (ID: {viewingShiftDetails.id})</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{t("Code:")} {viewingShiftDetails.shiftCode} (ID: {viewingShiftDetails.id})</span>
                 </div>
               </div>
               <button type="button" onClick={() => setViewingShiftDetails(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer transition-colors">
@@ -923,7 +924,7 @@ const ShiftPage: React.FC = () => {
 
             <div className="space-y-2 text-xs">
               <div className="p-2.5 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
-                <span className="text-slate-500 dark:text-gray-400 font-semibold">Timings:</span>
+                <span className="text-slate-500 dark:text-gray-400 font-semibold">{t("Timings:")}</span>
                 <span className="font-mono font-bold text-slate-800 dark:text-white">{viewingShiftDetails.startTime} - {viewingShiftDetails.endTime}</span>
               </div>
               <div className="p-2.5 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
@@ -931,8 +932,8 @@ const ShiftPage: React.FC = () => {
                 <span className="font-mono font-bold text-slate-800 dark:text-white">{viewingShiftDetails.breakMinutes}m break / {viewingShiftDetails.gracePeriodMinutes}m grace</span>
               </div>
               <div className="p-2.5 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
-                <span className="text-slate-500 dark:text-gray-400 font-semibold">Overtime Permitted:</span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">{viewingShiftDetails.overtimeAllowed ? 'Yes' : 'No'}</span>
+                <span className="text-slate-500 dark:text-gray-400 font-semibold">{t("Overtime Permitted:")}</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">{t(viewingShiftDetails.overtimeAllowed ? 'Yes' : 'No')}</span>
               </div>
             </div>
 
@@ -942,7 +943,7 @@ const ShiftPage: React.FC = () => {
                 onClick={() => setViewingShiftDetails(null)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold cursor-pointer transition-colors"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
           </div>

@@ -9,6 +9,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /**
  * Inventory reports built from the live inventory records (stock levels, movements, adjustments, batches,
  * serial numbers, quality inspections) and the Product Catalogue (names, codes, standard cost).
@@ -789,7 +790,7 @@ const InventoryReports: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Inventory Reports" description="Inventory reports from the live stock records" />
+      <PageMeta title={t("Inventory Reports")} description="Inventory reports from the live stock records" />
       <PageBreadcrumb pageTitle="Inventory Reports" />
 
       <div className="w-full max-w-none px-0 py-8">
@@ -800,7 +801,7 @@ const InventoryReports: React.FC = () => {
                 value={reportType}
                 onChange={(event) => setReportType(event.target.value as ReportType)}
                 className={`${selectClass} min-w-[220px]`}
-                aria-label="Report"
+                aria-label={t("Report")}
               >
                 {["Stock", "Activity", "Tracking"].map((group) => (
                   <optgroup key={group} label={group}>
@@ -813,8 +814,8 @@ const InventoryReports: React.FC = () => {
                 ))}
               </select>
               {reportType !== "quality" && (
-                <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className={selectClass} aria-label="Warehouse">
-                  <option value="">All warehouses</option>
+                <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className={selectClass} aria-label={t("Warehouse")}>
+                  <option value="">{t("All warehouses")}</option>
                   {warehouses.map((warehouse) => (
                     <option key={warehouse.id} value={String(warehouse.id)}>
                       {warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`}
@@ -823,7 +824,7 @@ const InventoryReports: React.FC = () => {
                 </select>
               )}
               {PERIOD_REPORTS.includes(reportType) && (
-                <select value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))} className={selectClass} aria-label="Period">
+                <select value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))} className={selectClass} aria-label={t("Period")}>
                   {PERIODS.map((period) => (
                     <option key={period.days} value={period.days}>
                       {period.label}
@@ -838,7 +839,7 @@ const InventoryReports: React.FC = () => {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
               >
                 <ArrowPathIcon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                Refresh
+                {t("Refresh")}
               </button>
             </div>
             <p className="max-w-xl text-sm text-gray-500 dark:text-gray-400">
@@ -862,7 +863,7 @@ const InventoryReports: React.FC = () => {
             rowDetailsTitle={report.label}
             emptyState={
               <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                Nothing to show for {report.label.toLowerCase()}
+                {t("Nothing to show for")} {report.label.toLowerCase()}
                 {warehouseId ? " in this warehouse" : ""}
                 {PERIOD_REPORTS.includes(reportType) ? " in this period" : ""}.
               </div>

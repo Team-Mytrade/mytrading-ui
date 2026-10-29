@@ -32,6 +32,7 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Status = "PENDING" | "APPROVED" | "REJECTED";
@@ -526,14 +527,14 @@ const OverTimeEntryPage: React.FC = () => {
             <>
               <button
                 onClick={() => openActionDialog(row, "APPROVE")}
-                title="Approve"
+                title={t("Approve")}
                 className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
               >
                 <CheckCircleIcon className="h-4 w-4" />
               </button>
               <button
                 onClick={() => openActionDialog(row, "REJECT")}
-                title="Reject"
+                title={t("Reject")}
                 className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
               >
                 <XCircleIcon className="h-4 w-4" />
@@ -543,7 +544,7 @@ const OverTimeEntryPage: React.FC = () => {
           {row.status === "PENDING" && (
             canUpdate && <button
               onClick={() => openEditForm(row)}
-              title="Edit"
+              title={t("Edit")}
               className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -553,7 +554,7 @@ const OverTimeEntryPage: React.FC = () => {
           )}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
-            title="Delete"
+            title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
@@ -565,23 +566,23 @@ const OverTimeEntryPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Overtime Entries" description="Manage overtime entries" />
+      <PageMeta title={t("Overtime Entries")} description="Manage overtime entries" />
       <PageBreadcrumb pageTitle="Overtime Entries" />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Overtime Entries</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Log and manage employee overtime records</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("Overtime Entries")}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{t("Log and manage employee overtime records")}</p>
           </div>
-          <AddButton label="Log Overtime" onClick={openCreateForm} />
+          <AddButton label={t("Log Overtime")} onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatsCard
-            label="Total Entries"
+            label={t("Total Entries")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -589,7 +590,7 @@ const OverTimeEntryPage: React.FC = () => {
             icon={<BoltIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Pending"
+            label={t("Pending")}
             value={stats.pending}
             gradient="from-amber-50 to-yellow-50"
             borderColor="border-amber-100"
@@ -597,7 +598,7 @@ const OverTimeEntryPage: React.FC = () => {
             icon={<ClockIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Approved"
+            label={t("Approved")}
             value={stats.approved}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -605,7 +606,7 @@ const OverTimeEntryPage: React.FC = () => {
             icon={<CheckCircleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Total Hours"
+            label={t("Total Hours")}
             value={`${stats.totalHrs}h`}
             gradient="from-indigo-50 to-blue-50"
             borderColor="border-indigo-100"
@@ -620,14 +621,14 @@ const OverTimeEntryPage: React.FC = () => {
           columns={columns}
           loading={loading}
           searchable={true}
-          searchPlaceholder="Search by employee, rule, or status..."
+          searchPlaceholder={t("Search by employee, rule, or status...")}
           searchFields={["employeeName", "ruleName", "status"]}
           pageSize={PAGE_SIZE}
           defaultSortKey="date"
           defaultSortOrder="desc"
           toolbar={
             <FilterPopover
-              title="Filter Overtime Entries"
+              title={t("Filter Overtime Entries")}
               buttonLabel="Filter"
               onReset={() => {
                 setSelectedEmployeeFilter("");
@@ -639,29 +640,29 @@ const OverTimeEntryPage: React.FC = () => {
             >
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Employee")}</label>
                   <select
                     value={selectedEmployeeFilter}
                     onChange={e => setSelectedEmployeeFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Employees</option>
+                    <option value="">{t("All Employees")}</option>
                     {uniqueEmployees.map(emp => (
                       <option key={emp.id} value={emp.id.toString()}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Status")}</label>
                   <select
                     value={selectedStatusFilter}
                     onChange={e => setSelectedStatusFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Status</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
+                    <option value="">{t("All Status")}</option>
+                    <option value="PENDING">{t("Pending")}</option>
+                    <option value="APPROVED">{t("Approved")}</option>
+                    <option value="REJECTED">{t("Rejected")}</option>
                   </select>
                 </div>
               </div>
@@ -672,13 +673,13 @@ const OverTimeEntryPage: React.FC = () => {
               <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <BoltIcon className="h-8 w-8 text-gray-400" />
               </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No overtime entries found</p>
+              <p className="text-gray-500 text-sm font-medium mb-2">{t("No overtime entries found")}</p>
               {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
-                Log your first overtime
+                {t("Log your first overtime")}
               </button>)}
             </div>
           }
@@ -687,15 +688,15 @@ const OverTimeEntryPage: React.FC = () => {
         {/* Overtime Entry Form Modal */}
         <PaginatedPopup
           isOpen={showForm}
-          title={editingEntry ? "Edit Overtime Entry" : "Log Overtime"}
-          subtitle={editingEntry ? "Update overtime entry details" : "Record a new overtime entry"}
+          title={t(editingEntry ? "Edit Overtime Entry" : "Log Overtime")}
+          subtitle={t(editingEntry ? "Update overtime entry details" : "Record a new overtime entry")}
           onClose={resetForm}
           onSubmit={submitForm}
-          submitLabel={editingEntry ? "Update Entry" : "Log Overtime"}
+          submitLabel={t(editingEntry ? "Update Entry" : "Log Overtime")}
           fields={[
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Employee <span className="text-red-500">*</span>
+                {t("Employee")} <span className="text-red-500">*</span>
               </label>
               <select
                 value={form.employeeId || ""}
@@ -709,7 +710,7 @@ const OverTimeEntryPage: React.FC = () => {
                 className={inputCls}
                 disabled={!!editingEntry}
               >
-                <option value="">Select Employee</option>
+                <option value="">{t("Select Employee")}</option>
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>
                     {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
@@ -719,7 +720,7 @@ const OverTimeEntryPage: React.FC = () => {
             </div>,
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date <span className="text-red-500">*</span>
+                {t("Date")} <span className="text-red-500">*</span>
               </label>
               <DatePicker
                 selected={form.date ? new Date(form.date) : null}
@@ -732,7 +733,7 @@ const OverTimeEntryPage: React.FC = () => {
             </div>,
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Time <span className="text-red-500">*</span>
+                {t("Start Time")} <span className="text-red-500">*</span>
               </label>
               <DatePicker
                 selected={startTimeDate}
@@ -749,7 +750,7 @@ const OverTimeEntryPage: React.FC = () => {
             </div>,
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Time <span className="text-red-500">*</span>
+                {t("End Time")} <span className="text-red-500">*</span>
               </label>
               <DatePicker
                 selected={endTimeDate}
@@ -765,7 +766,7 @@ const OverTimeEntryPage: React.FC = () => {
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Overtime Rule</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Overtime Rule")}</label>
               <select
                 value={form.ruleId || ""}
                 onChange={e => {
@@ -776,14 +777,14 @@ const OverTimeEntryPage: React.FC = () => {
                 }}
                 className={inputCls}
               >
-                <option value="">Select Rule (optional)</option>
+                <option value="">{t("Select Rule (optional)")}</option>
                 {rules.map(rule => (
                   <option key={rule.id} value={rule.id}>{rule.ruleName}</option>
                 ))}
               </select>
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Total Hours</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Total Hours")}</label>
               <input
                 type="text"
                 value={form.totalHours ? `${form.totalHours} hours` : "0 hours"}
@@ -793,27 +794,27 @@ const OverTimeEntryPage: React.FC = () => {
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Status")}</label>
               <select
                 value={form.status}
                 onChange={e => handleChange("status", e.target.value as Status)}
                 className={inputCls}
                 disabled={!!editingEntry && editingEntry.status !== "PENDING"}
               >
-                <option value="PENDING">Pending</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
+                <option value="PENDING">{t("Pending")}</option>
+                <option value="APPROVED">{t("Approved")}</option>
+                <option value="REJECTED">{t("Rejected")}</option>
               </select>
             </div>,
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Remarks <span className="text-gray-400">(optional)</span>
+                {t("Remarks")} <span className="text-gray-400">(optional)</span>
               </label>
               <textarea
                 value={form.remarks || ""}
                 onChange={e => handleChange("remarks", e.target.value)}
                 rows={3}
-                placeholder="Add any notes about this overtime..."
+                placeholder={t("Add any notes about this overtime...")}
                 className={inputCls}
               />
             </div>
@@ -845,13 +846,13 @@ const OverTimeEntryPage: React.FC = () => {
                       </p>
                       <div className="mt-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Remarks <span className="text-gray-400">(optional)</span>
+                          {t("Remarks")} <span className="text-gray-400">(optional)</span>
                         </label>
                         <textarea
                           value={actionRemarks}
                           onChange={e => setActionRemarks(e.target.value)}
                           rows={3}
-                          placeholder="Add any remarks..."
+                          placeholder={t("Add any remarks...")}
                           className={inputCls}
                         />
                       </div>
@@ -874,7 +875,7 @@ const OverTimeEntryPage: React.FC = () => {
                     onClick={() => setShowActionDialog(false)}
                     className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                 </div>
               </div>

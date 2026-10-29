@@ -1,5 +1,6 @@
 import React from "react";
 
+import { t } from "../../i18n/i18n";
 type InteractionType = "Email" | "Call" | "Meeting" | "Note";
 
 interface Interaction {
@@ -27,7 +28,7 @@ const RecentInteractions: React.FC = () => {
 
   return (
     <div className="bg-white dark:bg-gray-900 shadow rounded p-6">
-  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">🕒 Recent Interactions</h2>
+  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{t("🕒 Recent Interactions")}</h2>
   <div className="divide-y divide-gray-200 dark:divide-gray-700">
     {interactions.map(({ id, type, contact, subject, date }) => (
       <div key={id} className="flex items-start justify-between py-3">

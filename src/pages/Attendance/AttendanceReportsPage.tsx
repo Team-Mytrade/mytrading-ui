@@ -1,3 +1,5 @@
+import { liveMonthNames } from "../../company/format";
+import { t } from "../../i18n/i18n";
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { AlertTriangle, Calendar, Clock, LayoutDashboard, RefreshCw } from 'lucide-react';
@@ -93,7 +95,7 @@ interface MissingRow {
 
 type Tab = 'dashboard' | 'daily' | 'monthly' | 'late' | 'missing';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = liveMonthNames("short");
 const pageContent = (data: any) => (Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : []);
 const label = (s?: string | null) => (s ? s.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) : '—');
 const employeeCell = (row: { employeeName?: string; employeeCode?: string; employeeId: number }) => (
@@ -210,8 +212,8 @@ const AttendanceReportsPage: React.FC = () => {
     { key: 'employeeName', label: 'Employee', sortable: true, render: employeeCell },
     { key: 'attendanceDate', label: 'Date', sortable: true },
     { key: 'shiftName', label: 'Shift', render: (r) => r.shiftName || '—' },
-    { key: 'checkInTime', label: 'Check in', render: (r) => timeOf(r.checkInTime) || <span className="text-rose-600 font-bold">missing</span> },
-    { key: 'checkOutTime', label: 'Check out', render: (r) => timeOf(r.checkOutTime) || <span className="text-rose-600 font-bold">missing</span> },
+    { key: 'checkInTime', label: 'Check in', render: (r) => timeOf(r.checkInTime) || <span className="text-rose-600 font-bold">{t("missing")}</span> },
+    { key: 'checkOutTime', label: 'Check out', render: (r) => timeOf(r.checkOutTime) || <span className="text-rose-600 font-bold">{t("missing")}</span> },
     { key: 'attendanceStatus', label: 'Status', render: (r) => label(r.attendanceStatus) },
   ];
 
@@ -239,7 +241,7 @@ const AttendanceReportsPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Reports" description="Daily and monthly attendance, late arrivals and missing punches" />
+      <PageMeta title={t("Attendance Reports")} description="Daily and monthly attendance, late arrivals and missing punches" />
       <PageBreadcrumb
         pageTitle="Attendance Reports"
         actions={
@@ -259,9 +261,9 @@ const AttendanceReportsPage: React.FC = () => {
                 </select>
               </>
             )}
-            <button type="button" onClick={load} disabled={loading} className={TOOL_BUTTON} title="Refresh">
+            <button type="button" onClick={load} disabled={loading} className={TOOL_BUTTON} title={t("Refresh")}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
-              Refresh
+              {t("Refresh")}
             </button>
           </div>
         }
@@ -293,7 +295,7 @@ const AttendanceReportsPage: React.FC = () => {
               {kpi('Holiday / week off', `${d.holiday ?? 0} / ${d.weekOff ?? 0}`, 'records', 'border-gray-200/80')}
             </div>
             <p className="text-[11px] text-gray-400 dark:text-gray-500 px-1">
-              Counts come from attendance records of {d.attendanceDate || dateFilter}. Employees who never punched that day are not
+              {t("Counts come from attendance records of")} {d.attendanceDate || dateFilter}. Employees who never punched that day are not
               counted as absent here; the monthly report and the employee calendar show those days.
             </p>
           </div>
@@ -301,7 +303,7 @@ const AttendanceReportsPage: React.FC = () => {
 
         {activeTab !== 'dashboard' && (
           <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-3">
-            <input type="text" placeholder="Search employee, status..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            <input type="text" placeholder={t("Search employee, status...")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               className={`${inputClass} w-full max-w-md`} />
 
             {activeTab === 'daily' && <ReusableTable data={filterBySearch(dailyData)} columns={dailyColumns} loading={loading} pageSize={10} />}

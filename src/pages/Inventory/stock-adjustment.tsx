@@ -24,6 +24,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber, formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ========================== ENUM OPTION TYPE ==========================
 interface EnumOption {
   id: string;
@@ -686,12 +687,12 @@ const StockAdjustmentManager: React.FC = () => {
 
     return (
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Adjustment ID">#{adjustment.id}</Field>
-        <Field label="Date">
+        <Field label={t("Adjustment ID")}>#{adjustment.id}</Field>
+        <Field label={t("Date")}>
           {formatDate(adjustment.adjustmentDate)}
         </Field>
 
-        <Field label="Type" full>
+        <Field label={t("Type")} full>
           <span
             className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getTypeBadge(
               adjustment.adjustmentType
@@ -702,7 +703,7 @@ const StockAdjustmentManager: React.FC = () => {
           </span>
         </Field>
 
-        <Field label="Product" full>
+        <Field label={t("Product")} full>
           {productId ? (
             <button
               type="button"
@@ -716,7 +717,7 @@ const StockAdjustmentManager: React.FC = () => {
           )}
         </Field>
 
-        <Field label="Quantity">
+        <Field label={t("Quantity")}>
           <span
             className={
               adjustment.adjustmentType === "POSITIVE"
@@ -728,9 +729,9 @@ const StockAdjustmentManager: React.FC = () => {
             {adjustment.quantity}
           </span>
         </Field>
-        <Field label="Reason">{getReasonLabel(adjustment.reason)}</Field>
+        <Field label={t("Reason")}>{getReasonLabel(adjustment.reason)}</Field>
 
-        <Field label="Warehouse">
+        <Field label={t("Warehouse")}>
           {adjustment.warehouse?.id ? (
             <button
               type="button"
@@ -740,10 +741,10 @@ const StockAdjustmentManager: React.FC = () => {
               {adjustment.warehouse.name || "N/A"}
             </button>
           ) : (
-            <span>N/A</span>
+            <span>{t("N/A")}</span>
           )}
         </Field>
-        <Field label="Batch">
+        <Field label={t("Batch")}>
           {adjustment.batch?.id ? (
             <button
               type="button"
@@ -753,11 +754,11 @@ const StockAdjustmentManager: React.FC = () => {
               {adjustment.batch.batchNumber || "N/A"}
             </button>
           ) : (
-            <span>N/A</span>
+            <span>{t("N/A")}</span>
           )}
         </Field>
 
-        <Field label="Serial Number" full>
+        <Field label={t("Serial Number")} full>
           {adjustment.serialNumber?.serial
             ? `${adjustment.serialNumber.serial}${
                 adjustment.serialNumber.status
@@ -768,9 +769,9 @@ const StockAdjustmentManager: React.FC = () => {
         </Field>
 
         {adjustment.createdBy && (
-          <Field label="Created By">{adjustment.createdBy}</Field>
+          <Field label={t("Created By")}>{adjustment.createdBy}</Field>
         )}
-        <Field label="Created At">{createdAt}</Field>
+        <Field label={t("Created At")}>{createdAt}</Field>
       </div>
     );
   };
@@ -803,7 +804,7 @@ const StockAdjustmentManager: React.FC = () => {
               goToProduct(productId);
             }}
             className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title="View product"
+            title={t("View product")}
           >
             {getProductDisplayName(adjustment)}
           </button>
@@ -825,7 +826,7 @@ const StockAdjustmentManager: React.FC = () => {
                 goToWarehouse(adjustment.warehouse);
               }}
               className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-              title="View warehouse"
+              title={t("View warehouse")}
             >
               {adjustment.warehouse.name}
             </button>
@@ -836,7 +837,7 @@ const StockAdjustmentManager: React.FC = () => {
             )}
           </div>
         ) : (
-          <p className="text-sm text-gray-900 dark:text-slate-200">N/A</p>
+          <p className="text-sm text-gray-900 dark:text-slate-200">{t("N/A")}</p>
         ),
     },
     {
@@ -853,12 +854,12 @@ const StockAdjustmentManager: React.FC = () => {
               goToBatch(adjustment.batch);
             }}
             className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title="View batch"
+            title={t("View batch")}
           >
             {adjustment.batch.batchNumber}
           </button>
         ) : (
-          <span className="text-sm text-gray-900 dark:text-slate-200">N/A</span>
+          <span className="text-sm text-gray-900 dark:text-slate-200">{t("N/A")}</span>
         ),
     },
     {
@@ -917,7 +918,7 @@ const StockAdjustmentManager: React.FC = () => {
             type="button"
             onClick={() => openView(adjustment)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
-            title="View Details"
+            title={t("View Details")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -930,21 +931,21 @@ const StockAdjustmentManager: React.FC = () => {
   // ========================== RENDER ==========================
   return (
     <>
-      <PageMeta title="Stock Adjustment" description="Manage inventory stock adjustments" />
+      <PageMeta title={t("Stock Adjustment")} description="Manage inventory stock adjustments" />
       <PageBreadcrumb
         pageTitle="Stock Adjustment"
-        actions={<AddButton onClick={openCreate} label="Add Adjustment" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Adjustment")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Adjustments"
+            label={t("Total Adjustments")}
             value={stats.total}
             icon={<ClipboardDocumentCheckIcon />}
           />
           <StatsCard
-            label="Stock In"
+            label={t("Stock In")}
             value={stats.positive}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -952,7 +953,7 @@ const StockAdjustmentManager: React.FC = () => {
             icon={<ArrowUpIcon />}
           />
           <StatsCard
-            label="Stock Out"
+            label={t("Stock Out")}
             value={stats.negative}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -960,7 +961,7 @@ const StockAdjustmentManager: React.FC = () => {
             icon={<ArrowDownIcon />}
           />
           <StatsCard
-            label="Net Change"
+            label={t("Net Change")}
             value={`${netChange >= 0 ? "+" : ""}${formatNumber(netChange)}`}
             gradient="from-amber-50 to-orange-50"
             borderColor="border-amber-100"
@@ -983,14 +984,14 @@ const StockAdjustmentManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ClipboardDocumentCheckIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No stock adjustments found
+                {t("No stock adjustments found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first adjustment
+                {t("Create your first adjustment")}
               </button>)}
             </div>
           }
@@ -1000,12 +1001,12 @@ const StockAdjustmentManager: React.FC = () => {
       {/* ---------- Form Modal ---------- */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Stock Adjustment" : "Add Stock Adjustment"}
-        subtitle="Enter stock adjustment details"
+        title={t(editingId ? "Edit Stock Adjustment" : "Add Stock Adjustment")}
+        subtitle={t("Enter stock adjustment details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Adjustment" : "Create Adjustment"}
+        submitLabel={t(editingId ? "Update Adjustment" : "Create Adjustment")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -1013,7 +1014,7 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="adjustmentDate"
-                label="Adjustment Date"
+                label={t("Adjustment Date")}
                 name="adjustmentDate"
                 type="date"
                 value={form.adjustmentDate}
@@ -1022,7 +1023,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="adjustmentType"
-                label="Adjustment Type"
+                label={t("Adjustment Type")}
                 name="adjustmentType"
                 value={form.adjustmentType}
                 onChange={handleChange}
@@ -1031,7 +1032,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label={t("Product")}
                 name="productId"
                 value={form.productId}
                 onChange={(e) => handleProductChange(e.target.value)}
@@ -1040,7 +1041,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="warehouseId"
-                label="Warehouse"
+                label={t("Warehouse")}
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={(e) => handleWarehouseChange(e.target.value)}
@@ -1049,7 +1050,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingInput
                 key="quantity"
-                label="Quantity"
+                label={t("Quantity")}
                 name="quantity"
                 type="number"
                 min={1}
@@ -1064,7 +1065,7 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="batchId"
-                label="Batch (optional)"
+                label={t("Batch (optional)")}
                 name="batchId"
                 value={form.batchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
@@ -1073,7 +1074,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label="Serial Number (optional, quantity 1)"
+                label={t("Serial Number (optional, quantity 1)")}
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
@@ -1082,7 +1083,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="reason"
-                label="Reason"
+                label={t("Reason")}
                 name="reason"
                 value={form.reason}
                 onChange={handleChange}
@@ -1097,7 +1098,7 @@ const StockAdjustmentManager: React.FC = () => {
       {/* ---------- View Modal — kept for the eye button; reuses the same renderer ---------- */}
       <PaginatedPopup
         isOpen={showViewModal && !!viewingAdjustment}
-        title="Adjustment Details"
+        title={t("Adjustment Details")}
         subtitle={
           viewingAdjustment
             ? `Adjustment #${viewingAdjustment.id}`

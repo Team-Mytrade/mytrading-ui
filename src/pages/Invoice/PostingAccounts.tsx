@@ -133,7 +133,7 @@ export default function PostingAccounts() {
         pageTitle="Posting Accounts"
         actions={editable ? (
           <button type="button" className={TOOL_BUTTON} onClick={backfill} disabled={backfilling}>
-            <ArrowPathIcon className="h-3.5 w-3.5" /> {backfilling ? "Posting..." : "Post earlier documents"}
+            <ArrowPathIcon className="h-3.5 w-3.5" /> {t(backfilling ? "Posting..." : "Post earlier documents")}
           </button>
         ) : undefined}
       />

@@ -39,6 +39,7 @@ import {
 } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // A delivery note records what was handed over to the customer. Goods issues are raised against it.
 
 const API = {
@@ -446,26 +447,26 @@ const DeliveryNote: React.FC = () => {
       className: "w-[18%] text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={() => openView(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="View">
+          <button type="button" onClick={() => openView(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title={t("View")}>
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => printChallan(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700" title="Print delivery challan">
+          <button type="button" onClick={() => printChallan(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700" title={t("Print delivery challan")}>
             <PrinterIcon className="h-4 w-4" />
           </button>
           {canUpdate && !row.confirmedAt && row.status !== "CANCELLED" && (
-            <button type="button" onClick={() => confirmDelivery(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600" title="Confirm delivery (stock out)">
+            <button type="button" onClick={() => confirmDelivery(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600" title={t("Confirm delivery (stock out)")}>
               <BadgeCheckIcon className="h-4 w-4" />
             </button>
           )}
-          {canUpdate && !row.confirmedAt && (<button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+          {canUpdate && !row.confirmedAt && (<button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit")}>
             <PencilIcon className="h-4 w-4" />
           </button>)}
           {row.status !== "CANCELLED" && canCreate && (
-            <button type="button" onClick={() => issueGoods(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600" title="Issue goods">
+            <button type="button" onClick={() => issueGoods(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600" title={t("Issue goods")}>
               <PackageMinusIcon className="h-4 w-4" />
             </button>
           )}
-          {canDelete && !row.confirmedAt && (<button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+          {canDelete && !row.confirmedAt && (<button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title={t("Delete")}>
             <TrashIcon className="h-4 w-4" />
           </button>)}
         </div>
@@ -480,20 +481,20 @@ const DeliveryNote: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Delivery Notes" description="Record what was handed over to customers" />
+      <PageMeta title={t("Delivery Notes")} description="Record what was handed over to customers" />
       <PageBreadcrumb pageTitle="Delivery Notes" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={openCreate} label="Add Delivery Note" />
+          <AddButton onClick={openCreate} label={t("Add Delivery Note")} />
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatsCard label="Total" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Open" value={stats.pending} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
-          <StatsCard label="Partial" value={stats.partial} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label="Delivered" value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Cancelled" value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Total")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Open")} value={stats.pending} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
+          <StatsCard label={t("Partial")} value={stats.partial} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label={t("Delivered")} value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -501,7 +502,7 @@ const DeliveryNote: React.FC = () => {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search by note no, customer, delivery or sales order..."
+                placeholder={t("Search by note no, customer, delivery or sales order...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
@@ -509,12 +510,12 @@ const DeliveryNote: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchNotes} className="p-2 border rounded-lg hover:bg-gray-50" title="Refresh">
+            <button onClick={fetchNotes} className="p-2 border rounded-lg hover:bg-gray-50" title={t("Refresh")}>
               <RefreshCwIcon className={`h-5 w-5 text-gray-600 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button onClick={() => setShowFilters(!showFilters)} className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
               <FunnelIcon className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-600">Filters</span>
+              <span className="text-sm text-gray-600">{t("Filters")}</span>
             </button>
           </div>
         </div>
@@ -522,20 +523,20 @@ const DeliveryNote: React.FC = () => {
         {showFilters && (
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as DeliveryStatus | "ALL")}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="ALL">All Statuses</option>
+                <option value="ALL">{t("All Statuses")}</option>
                 {NOTE_STATUSES.map((status) => (
                   <option key={status} value={status}>{statusConfig(status).label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("Date")}</label>
               <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500" />
             </div>
             <div className="flex items-end">
@@ -547,7 +548,7 @@ const DeliveryNote: React.FC = () => {
                   }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium"
                 >
-                  ✕ Clear All Filters
+                  {t("✕ Clear All Filters")}
                 </button>
               )}
             </div>
@@ -565,12 +566,12 @@ const DeliveryNote: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center -mt-10">
               <NotebookTextIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No Delivery Notes Found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No Delivery Notes Found")}</p>
               {search || statusFilter !== "ALL" || dateFilter ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button type="button" onClick={openCreate} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
-                  Create your first delivery note
+                  {t("Create your first delivery note")}
                 </button>
               )}
             </div>
@@ -585,7 +586,7 @@ const DeliveryNote: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <NotebookTextIcon className="h-6 w-6 text-cyan-600" />
-                    {editingId ? "Edit Delivery Note" : "New Delivery Note"}
+                    {t(editingId ? "Edit Delivery Note" : "New Delivery Note")}
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
                     {editingId
@@ -601,18 +602,18 @@ const DeliveryNote: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                 <div className="sm:col-span-2">
                   <FloatingSelect
-                    label="Delivery Order"
+                    label={t("Delivery Order")}
                     name="deliveryOrderId"
                     value={form.deliveryOrderId}
                     onChange={(e) => chooseOrder(e.target.value)}
                     options={orderOptions}
-                    emptyOptionLabel="None"
+                    emptyOptionLabel={t("None")}
                   />
                 </div>
 
                 {lookups.customers.length > 0 ? (
                   <FloatingSelect
-                    label="Customer *"
+                    label={t("Customer *")}
                     name="customerId"
                     value={form.customerId}
                     onChange={(e) => setField("customerId", e.target.value)}
@@ -620,28 +621,28 @@ const DeliveryNote: React.FC = () => {
                     required
                   />
                 ) : (
-                  <FloatingInput label="Customer ID *" name="customerId" type="number" min={1} value={form.customerId} onChange={(e) => setField("customerId", e.target.value)} required />
+                  <FloatingInput label={t("Customer ID *")} name="customerId" type="number" min={1} value={form.customerId} onChange={(e) => setField("customerId", e.target.value)} required />
                 )}
 
                 {lookups.salesOrders.length > 0 ? (
                   <FloatingSelect
-                    label="Sales Order"
+                    label={t("Sales Order")}
                     name="salesOrderId"
                     value={form.salesOrderId}
                     onChange={(e) => setField("salesOrderId", e.target.value)}
                     options={lookups.salesOrders
                       .filter((s) => !form.customerId || !s.customerId || String(s.customerId) === form.customerId)
                       .map((s) => ({ id: s.id, name: s.orderNumber ?? `SO #${s.id}` }))}
-                    emptyOptionLabel="None"
+                    emptyOptionLabel={t("None")}
                   />
                 ) : (
-                  <FloatingInput label="Sales Order ID" name="salesOrderId" type="number" min={1} value={form.salesOrderId} onChange={(e) => setField("salesOrderId", e.target.value)} />
+                  <FloatingInput label={t("Sales Order ID")} name="salesOrderId" type="number" min={1} value={form.salesOrderId} onChange={(e) => setField("salesOrderId", e.target.value)} />
                 )}
 
-                <FloatingInput label="Delivery Date *" name="deliveryDate" type="date" value={form.deliveryDate} onChange={(e) => setField("deliveryDate", e.target.value)} required />
+                <FloatingInput label={t("Delivery Date *")} name="deliveryDate" type="date" value={form.deliveryDate} onChange={(e) => setField("deliveryDate", e.target.value)} required />
 
                 <FloatingSelect
-                  label="Status *"
+                  label={t("Status *")}
                   name="status"
                   value={form.status}
                   onChange={(e) => setField("status", e.target.value as DeliveryStatus)}
@@ -655,15 +656,15 @@ const DeliveryNote: React.FC = () => {
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-md font-semibold text-gray-700 flex items-center gap-2">
                     <PackageIcon className="h-5 w-5 text-cyan-600" />
-                    Products ({form.items.filter((i) => i.productId).length})
+                    {t("Products")} ({form.items.filter((i) => i.productId).length})
                   </h3>
                   <button type="button" onClick={addItem} className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium">
                     <PlusIcon className="h-4 w-4" />
-                    Add Product
+                    {t("Add Product")}
                   </button>
                 </div>
                 <div className="hidden sm:grid grid-cols-[1fr_7rem_7rem_2rem] gap-2 px-2 mb-1 text-xs font-medium text-slate-500">
-                  <span>Product</span><span>Ordered</span><span>Delivered</span><span />
+                  <span>{t("Product")}</span><span>{t("Ordered")}</span><span>{t("Delivered")}</span><span />
                 </div>
                 <div className="space-y-2">
                   {form.items.map((item, index) => (
@@ -673,9 +674,9 @@ const DeliveryNote: React.FC = () => {
                           value={item.productId}
                           onChange={(e) => setItem(index, { productId: e.target.value })}
                           className="min-w-0 p-2 border border-gray-300 rounded-lg text-sm bg-white"
-                          aria-label="Product"
+                          aria-label={t("Product")}
                         >
-                          <option value="">Choose a product</option>
+                          <option value="">{t("Choose a product")}</option>
                           {item.productId && !lookups.products.some((p) => String(p.id) === item.productId) && (
                             <option value={item.productId}>{lookups.productName(Number(item.productId))}</option>
                           )}
@@ -684,11 +685,11 @@ const DeliveryNote: React.FC = () => {
                           ))}
                         </select>
                       ) : (
-                        <input type="number" min={1} placeholder="Product ID" value={item.productId} onChange={(e) => setItem(index, { productId: e.target.value })} className="min-w-0 p-2 border border-gray-300 rounded-lg text-sm" aria-label="Product ID" />
+                        <input type="number" min={1} placeholder={t("Product ID")} value={item.productId} onChange={(e) => setItem(index, { productId: e.target.value })} className="min-w-0 p-2 border border-gray-300 rounded-lg text-sm" aria-label={t("Product ID")} />
                       )}
-                      <input type="number" min={0} step="any" value={item.orderedQty} onChange={(e) => setItem(index, { orderedQty: e.target.value })} className="p-2 border border-gray-300 rounded-lg text-sm" aria-label="Ordered quantity" />
-                      <input type="number" min={0} step="any" value={item.deliveredQty} onChange={(e) => setItem(index, { deliveredQty: e.target.value })} className="p-2 border border-gray-300 rounded-lg text-sm" aria-label="Delivered quantity" />
-                      <button type="button" onClick={() => removeItem(index)} disabled={form.items.length === 1} className="p-1.5 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-30" title="Remove">
+                      <input type="number" min={0} step="any" value={item.orderedQty} onChange={(e) => setItem(index, { orderedQty: e.target.value })} className="p-2 border border-gray-300 rounded-lg text-sm" aria-label={t("Ordered quantity")} />
+                      <input type="number" min={0} step="any" value={item.deliveredQty} onChange={(e) => setItem(index, { deliveredQty: e.target.value })} className="p-2 border border-gray-300 rounded-lg text-sm" aria-label={t("Delivered quantity")} />
+                      <button type="button" onClick={() => removeItem(index)} disabled={form.items.length === 1} className="p-1.5 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-30" title={t("Remove")}>
                         <XMarkIcon className="h-4 w-4" />
                       </button>
                     </div>
@@ -698,7 +699,7 @@ const DeliveryNote: React.FC = () => {
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button type="button" onClick={closeForm} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium" disabled={submitting}>
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button type="submit" disabled={submitting} className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                   {submitting ? "Saving..." : editingId ? "Save Changes" : "Create Note"}
@@ -726,12 +727,12 @@ const DeliveryNote: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><label className="text-xs text-gray-500">Customer</label><p className="font-medium text-slate-700">{lookups.customerName(selected.customerId)}</p></div>
-                <div><label className="text-xs text-gray-500">Date</label><p className="font-medium text-slate-700">{formatDate(selected.deliveryDate)}</p></div>
-                <div><label className="text-xs text-gray-500">Delivery Order</label><p className="font-medium text-slate-700">{selected.deliveryOrderId ? orderNumber(selected.deliveryOrderId) : "-"}</p></div>
-                <div><label className="text-xs text-gray-500">Sales Order</label><p className="font-medium text-slate-700">{selected.salesOrderId ? lookups.salesOrderLabel(selected.salesOrderId) : "-"}</p></div>
+                <div><label className="text-xs text-gray-500">{t("Customer")}</label><p className="font-medium text-slate-700">{lookups.customerName(selected.customerId)}</p></div>
+                <div><label className="text-xs text-gray-500">{t("Date")}</label><p className="font-medium text-slate-700">{formatDate(selected.deliveryDate)}</p></div>
+                <div><label className="text-xs text-gray-500">{t("Delivery Order")}</label><p className="font-medium text-slate-700">{selected.deliveryOrderId ? orderNumber(selected.deliveryOrderId) : "-"}</p></div>
+                <div><label className="text-xs text-gray-500">{t("Sales Order")}</label><p className="font-medium text-slate-700">{selected.salesOrderId ? lookups.salesOrderLabel(selected.salesOrderId) : "-"}</p></div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs text-gray-500">Delivery</label>
+                  <label className="text-xs text-gray-500">{t("Delivery")}</label>
                   <p className="font-medium text-slate-700">
                     {selected.confirmedAt
                       ? `Confirmed ${formatDateTime(selected.confirmedAt)}${selected.salesDispatchNumber ? ` · dispatch ${selected.salesDispatchNumber} (stock out, ready to invoice)` : ""}`
@@ -743,15 +744,15 @@ const DeliveryNote: React.FC = () => {
               <div className="mt-4 border-t pt-4">
                 <h3 className="text-md font-semibold text-gray-700 mb-2 flex items-center gap-2">
                   <PackageIcon className="h-5 w-5 text-cyan-600" />
-                  Products ({selected.items?.length || 0})
+                  {t("Products")} ({selected.items?.length || 0})
                 </h3>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {selected.items?.map((item, index) => (
                     <div key={item.id ?? index} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm gap-3">
                       <span className="font-medium text-slate-700 truncate">{item.productName || lookups.productName(item.productId)}</span>
                       <span className="whitespace-nowrap space-x-3">
-                        <span className="text-gray-500">Ordered {item.orderedQty}</span>
-                        <span className="text-green-600">Delivered {item.deliveredQty ?? 0}</span>
+                        <span className="text-gray-500">{t("Ordered")} {item.orderedQty}</span>
+                        <span className="text-green-600">{t("Delivered")} {item.deliveredQty ?? 0}</span>
                       </span>
                     </div>
                   ))}
@@ -761,23 +762,23 @@ const DeliveryNote: React.FC = () => {
               <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
                 <button onClick={() => printChallan(selected)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-medium">
                   <PrinterIcon className="h-4 w-4 inline mr-1" />
-                  Print Challan
+                  {t("Print Challan")}
                 </button>
                 {canUpdate && !selected.confirmedAt && selected.status !== "CANCELLED" && (
                   <button onClick={() => confirmDelivery(selected)} className="px-4 py-2 bg-[#4DD0E1] text-white rounded-lg hover:bg-[#26C6DA] text-sm font-medium">
                     <BadgeCheckIcon className="h-4 w-4 inline mr-1" />
-                    Confirm Delivery
+                    {t("Confirm Delivery")}
                   </button>
                 )}
                 {selected.status !== "CANCELLED" && canCreate && (
                   <button onClick={() => issueGoods(selected)} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-sm font-medium">
                     <PackageMinusIcon className="h-4 w-4 inline mr-1" />
-                    Issue Goods
+                    {t("Issue Goods")}
                   </button>
                 )}
                 {canUpdate && !selected.confirmedAt && (<button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
                   <PencilIcon className="h-4 w-4 inline mr-1" />
-                  Edit
+                  {t("Edit")}
                 </button>)}
                 {canDelete && !selected.confirmedAt && (<button
                   onClick={() => {
@@ -787,10 +788,10 @@ const DeliveryNote: React.FC = () => {
                   className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
                 >
                   <TrashIcon className="h-4 w-4 inline mr-1" />
-                  Delete
+                  {t("Delete")}
                 </button>)}
               </div>
-              {selected.createdDate && <p className="mt-4 border-t pt-3 text-xs text-gray-400">Created {formatDateTime(selected.createdDate)}</p>}
+              {selected.createdDate && <p className="mt-4 border-t pt-3 text-xs text-gray-400">{t("Created")} {formatDateTime(selected.createdDate)}</p>}
             </div>
           </div>
         )}
@@ -804,9 +805,9 @@ const DeliveryNote: React.FC = () => {
                   <TrashIcon className="h-6 w-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Delivery Note</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">{t("Delete Delivery Note")}</h3>
                   <p className="text-sm text-gray-500">
-                    Delete <span className="font-semibold text-gray-700">{selected.deliveryNo}</span>? Notes with goods issued against them cannot be deleted.
+                    {t("Delete")} <span className="font-semibold text-gray-700">{selected.deliveryNo}</span>{t("? Notes with goods issued against them cannot be deleted.")}
                   </p>
                 </div>
               </div>
@@ -820,10 +821,10 @@ const DeliveryNote: React.FC = () => {
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
                   disabled={submitting}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button type="button" onClick={handleDelete} disabled={submitting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50">
-                  {submitting ? "Deleting..." : "Delete"}
+                  {t(submitting ? "Deleting..." : "Delete")}
                 </button>
               </div>
             </div>

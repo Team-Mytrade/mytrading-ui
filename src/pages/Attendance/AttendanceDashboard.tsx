@@ -1,3 +1,4 @@
+import { dateLocale } from "../../company/format";
 import React, { useContext, useMemo } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +29,7 @@ import {
   formatDate, formatNumber, getList, isoDate, titleCase, useDashboardSources, type DashboardTile,
 } from "../Dashboard/dashboardKit";
 
+import { t } from "../../i18n/i18n";
 // Live attendance overview built from the attendance service. Day figures are tenant-wide.
 
 interface DayStats {
@@ -94,7 +96,7 @@ const LABELS: Record<keyof typeof SOURCES, string> = {
 
 const dayLabel = (iso?: string) => {
   const [y, m, d] = String(iso ?? "").split("-").map(Number);
-  return y ? new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", day: "2-digit" }) : "—";
+  return y ? new Date(y, m - 1, d).toLocaleDateString(dateLocale(), { weekday: "short", day: "2-digit" }) : "—";
 };
 
 const AttendanceDashboard: React.FC = () => {
@@ -154,7 +156,7 @@ const AttendanceDashboard: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Dashboard" description="Attendance and leave overview" />
+      <PageMeta title={t("Attendance Dashboard")} description="Attendance and leave overview" />
       <PageBreadcrumb pageTitle="Attendance Dashboard" />
 
       <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
@@ -162,16 +164,16 @@ const AttendanceDashboard: React.FC = () => {
         <ModuleTiles tiles={tiles} loading={loading} />
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Total Employees" value={today ? formatNumber(Number(today.totalEmployees) || 0) : "—"} icon={Users} tone="blue" loading={loading} />
-          <KpiCard label="Present Today" value={today ? formatNumber(Number(today.present) || 0) : "—"} hint={today ? `${(Number(today.attendancePercentage) || 0).toFixed(1)}% attendance` : undefined} icon={CheckCircle} tone="emerald" loading={loading} />
-          <KpiCard label="Absent Today" value={today ? formatNumber(Number(today.absent) || 0) : "—"} hint={today ? `${formatNumber(Number(today.lateCheckIn) || 0)} late check-ins` : undefined} icon={AlertTriangle} tone="orange" loading={loading} />
-          <KpiCard label="On Leave Today" value={today ? formatNumber(Number(today.leave ?? summary?.onLeaveToday) || 0) : summary ? formatNumber(Number(summary.onLeaveToday) || 0) : "—"} hint={summary ? `${formatNumber(Number(summary.pending) || 0)} leave requests pending` : undefined} icon={Calendar} tone="purple" loading={loading} />
+          <KpiCard label={t("Total Employees")} value={today ? formatNumber(Number(today.totalEmployees) || 0) : "—"} icon={Users} tone="blue" loading={loading} />
+          <KpiCard label={t("Present Today")} value={today ? formatNumber(Number(today.present) || 0) : "—"} hint={today ? `${(Number(today.attendancePercentage) || 0).toFixed(1)}% attendance` : undefined} icon={CheckCircle} tone="emerald" loading={loading} />
+          <KpiCard label={t("Absent Today")} value={today ? formatNumber(Number(today.absent) || 0) : "—"} hint={today ? `${formatNumber(Number(today.lateCheckIn) || 0)} late check-ins` : undefined} icon={AlertTriangle} tone="orange" loading={loading} />
+          <KpiCard label={t("On Leave Today")} value={today ? formatNumber(Number(today.leave ?? summary?.onLeaveToday) || 0) : summary ? formatNumber(Number(summary.onLeaveToday) || 0) : "—"} hint={summary ? `${formatNumber(Number(summary.pending) || 0)} leave requests pending` : undefined} icon={Calendar} tone="purple" loading={loading} />
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Attendance Trend" subtitle="Last 7 days, all employees" icon={TrendingUp} iconClass="text-emerald-500">
+          <Panel title={t("Attendance Trend")} subtitle={t("Last 7 days, all employees")} icon={TrendingUp} iconClass="text-emerald-500">
             {!hasTrendData ? (
-              <EmptyState loading={loading}>No attendance recorded in the last 7 days.</EmptyState>
+              <EmptyState loading={loading}>{t("No attendance recorded in the last 7 days.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={trend}>
@@ -188,9 +190,9 @@ const AttendanceDashboard: React.FC = () => {
             )}
           </Panel>
 
-          <Panel title="Leave Requests" subtitle="All leave requests by status" icon={Calendar} iconClass="text-purple-500">
+          <Panel title={t("Leave Requests")} subtitle={t("All leave requests by status")} icon={Calendar} iconClass="text-purple-500">
             {leaveChart.every((l) => l.count === 0) ? (
-              <EmptyState loading={loading}>{summary ? "No leave requests yet." : "Leave summary unavailable."}</EmptyState>
+              <EmptyState loading={loading}>{t(summary ? "No leave requests yet." : "Leave summary unavailable.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={leaveChart} layout="vertical" margin={{ left: 40 }}>
@@ -209,15 +211,15 @@ const AttendanceDashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <Panel title="Pending Leave Requests" subtitle="Waiting for a decision, earliest first" bodyClass="overflow-x-auto">
+            <Panel title={t("Pending Leave Requests")} subtitle={t("Waiting for a decision, earliest first")} bodyClass="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
                 <thead className="bg-gray-50 dark:bg-gray-800/60">
                   <tr>
-                    <th className={TABLE_HEAD}>Employee</th>
-                    <th className={TABLE_HEAD}>Type</th>
-                    <th className={TABLE_HEAD}>Days</th>
-                    <th className={TABLE_HEAD}>From</th>
-                    <th className={TABLE_HEAD}>Submitted</th>
+                    <th className={TABLE_HEAD}>{t("Employee")}</th>
+                    <th className={TABLE_HEAD}>{t("Type")}</th>
+                    <th className={TABLE_HEAD}>{t("Days")}</th>
+                    <th className={TABLE_HEAD}>{t("From")}</th>
+                    <th className={TABLE_HEAD}>{t("Submitted")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -238,7 +240,7 @@ const AttendanceDashboard: React.FC = () => {
             </Panel>
           </div>
 
-          <Panel title="Pending Approvals" subtitle="Requests waiting for a manager" icon={Clock} iconClass="text-amber-500">
+          <Panel title={t("Pending Approvals")} subtitle={t("Requests waiting for a manager")} icon={Clock} iconClass="text-amber-500">
             <div className="space-y-3">
               {approvals.map((a) => {
                 const Icon = a.icon;

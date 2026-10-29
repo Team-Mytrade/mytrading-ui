@@ -368,7 +368,7 @@ const PaymentReceipts: React.FC = () => {
                     loadOutstanding(event.target.value);
                   }}
                 />
-                <FloatingInput label={`Amount received (${form.currency || companyCurrency()})`} name="amount" type="number" required value={form.amount}
+                <FloatingInput label={`${t("Amount received")} (${form.currency || companyCurrency()})`} name="amount" type="number" required value={form.amount}
                   onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
                 <FloatingInput label={t("Currency")} name="currency" value={form.currency}
                   onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value.toUpperCase().slice(0, 3) }))} />
@@ -447,7 +447,7 @@ const PaymentReceipts: React.FC = () => {
       {/* Receipt detail */}
       <PaginatedPopup
         isOpen={Boolean(selected) && !showReverse}
-        title={`Receipt ${selected?.receiptNumber ?? ""}`}
+        title={`${t("Receipt")} ${selected?.receiptNumber ?? ""}`}
         subtitle={selected ? `${customerName(selected.customerId)} · ${dateLabel(selected.paymentDate)}` : ""}
         onClose={() => setSelected(null)}
         maxWidthClassName="max-w-2xl"
@@ -508,7 +508,7 @@ const PaymentReceipts: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showReverse}
-        title={`Reverse ${selected?.receiptNumber ?? ""}`}
+        title={`${t("Reverse")} ${selected?.receiptNumber ?? ""}`}
         subtitle={t("For a bounced cheque or a payment recorded by mistake. The invoices it paid become due again and any advance it created is cancelled.")}
         onClose={() => setShowReverse(false)}
         maxWidthClassName="max-w-lg"

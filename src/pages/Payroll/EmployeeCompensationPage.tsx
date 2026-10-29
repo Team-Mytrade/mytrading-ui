@@ -29,6 +29,7 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // API endpoints
 const COMPENSATION_API_URL = "/v1/api/payroll/employee";
 
@@ -364,7 +365,7 @@ const EmployeeCompensationPage: React.FC = () => {
                         <span className="font-semibold text-gray-900 dark:text-white">{row.employeeRole}</span>
                         {row.isDefaultComponent && (
                             <span className="ml-2 text-xs bg-cyan-100 dark:bg-[#222222] text-cyan-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-medium">
-                                Default
+                                {t("Default")}
                             </span>
                         )}
                     </div>
@@ -376,7 +377,7 @@ const EmployeeCompensationPage: React.FC = () => {
             label: "Components Breakdown",
             render: (row) => {
                 const entries = Object.entries(row.componentDetails || {});
-                if (entries.length === 0) return <span className="text-gray-400 text-xs">No components</span>;
+                if (entries.length === 0) return <span className="text-gray-400 text-xs">{t("No components")}</span>;
                 return (
                     <div className="flex flex-wrap gap-1.5 py-1">
                         {entries.map(([name, pct]) => (
@@ -398,14 +399,14 @@ const EmployeeCompensationPage: React.FC = () => {
                     {canUpdate && (<button
                         onClick={() => handleEdit(row.rawItem)}
                         className={ROW_ICON_BUTTON}
-                        title="Edit"
+                        title={t("Edit")}
                     >
                         <PencilSquareIcon className="h-4 w-4" />
                     </button>)}
                     {canDelete && (<button
                         onClick={() => handleDelete(row.employeeRole)}
                         className={ROW_ICON_BUTTON_DANGER}
-                        title="Delete"
+                        title={t("Delete")}
                     >
                         <TrashIcon className="h-4 w-4" />
                     </button>)}
@@ -416,7 +417,7 @@ const EmployeeCompensationPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Employee Compensations" description="Configure compensation components by role" />
+            <PageMeta title={t("Employee Compensations")} description="Configure compensation components by role" />
             <PageBreadcrumb
                 pageTitle="Compensation"
                 actions={!showForm && (
@@ -430,7 +431,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                     disabled={compensations.length === 0}
                                 >
                                     <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                    Export
+                                    {t("Export")}
                                 </button>
                                 {showExportMenu && (
                                     <div className="absolute right-0 top-9 w-40 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:border-transparent z-50 py-1">
@@ -440,7 +441,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                             className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                         >
                                             <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
-                                            PDF
+                                            {t("PDF")}
                                         </button>
                                         <button
                                             type="button"
@@ -448,14 +449,14 @@ const EmployeeCompensationPage: React.FC = () => {
                                             className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                         >
                                             <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
-                                            Excel
+                                            {t("Excel")}
                                         </button>
                                     </div>
                                 )}
                             </div>
                         )}
                         <AddButton
-                            label="Add Role Compensation"
+                            label={t("Add Role Compensation")}
                             onClick={() => {
                                 resetForm();
                                 setShowForm(true);
@@ -467,10 +468,10 @@ const EmployeeCompensationPage: React.FC = () => {
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Roles Configured" value={totalRoles} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
-                    <StatsCard label="Components Mapped" value={totalComponents} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckIcon className="h-6 w-6" />} />
-                    <StatsCard label="Default Configs" value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Avg Components / Role" value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Roles Configured")} value={totalRoles} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Components Mapped")} value={totalComponents} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Default Configs")} value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Avg Components / Role")} value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Add/Edit Form */}
@@ -485,7 +486,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                     <ArrowLeftIcon className="h-5 w-5" />
                                 </button>
                                 <h3 className="text-md font-medium text-gray-900 dark:text-white">
-                                    {editingRole ? `Edit Compensation: ${editingRole}` : "Configure New Role Compensation"}
+                                    {editingRole ? `Edit Compensation: ${editingRole}` : t("Configure New Role Compensation")}
                                 </h3>
                             </div>
                             <button
@@ -500,24 +501,24 @@ const EmployeeCompensationPage: React.FC = () => {
                             {/* Role Input */}
                             <div className="mb-6 max-w-md">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Designation <span className="text-red-500">*</span>
+                                    {t("Designation")} <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.employeeRole}
                                     onChange={handleRoleChange}
-                                    placeholder="e.g., Senior Software Engineer, Technical Lead, Lead Architect"
+                                    placeholder={t("e.g., Senior Software Engineer, Technical Lead, Lead Architect")}
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-transparent rounded-lg bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                                     disabled={!!editingRole}
                                 />
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Employees with this designation get this split; it appears in the Add Employee form</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t("Employees with this designation get this split; it appears in the Add Employee form")}</p>
                             </div>
 
                             {/* Components Table */}
                             <div className="mb-6">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Compensation Components
+                                        {t("Compensation Components")}
                                     </label>
                                     <button
                                         type="button"
@@ -525,7 +526,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                         className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 flex items-center gap-1 cursor-pointer"
                                     >
                                         <PlusIcon className="h-4 w-4" />
-                                        Add Component
+                                        {t("Add Component")}
                                     </button>
                                 </div>
 
@@ -534,13 +535,13 @@ const EmployeeCompensationPage: React.FC = () => {
                                         <thead className="bg-gray-50 dark:bg-[#222222]">
                                             <tr>
                                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Component Name
+                                                    {t("Component Name")}
                                                 </th>
                                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Percentage (%)
+                                                    {t("Percentage (%)")}
                                                 </th>
                                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">
-                                                    Action
+                                                    {t("Action")}
                                                 </th>
                                             </tr>
                                         </thead>
@@ -552,7 +553,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                                             type="text"
                                                             value={comp.name}
                                                             onChange={(e) => handleComponentChange(idx, "name", e.target.value)}
-                                                            placeholder="e.g., Basic, HRA, Special Allowances"
+                                                            placeholder={t("e.g., Basic, HRA, Special Allowances")}
                                                             className="w-full px-3 py-1 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500"
                                                         />
                                                     </td>
@@ -582,7 +583,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                         <tfoot className="bg-gray-50 dark:bg-[#222222]">
                                             <tr>
                                                 <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
-                                                    Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.
+                                                    {t("Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.")}
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -593,7 +594,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                     {formData.components.map((comp, idx) => (
                                         <div key={idx} className="bg-gray-50 dark:bg-[#222222] rounded-lg p-4 border border-gray-200 dark:border-transparent">
                                             <div className="flex justify-between items-start mb-3">
-                                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Component #{idx + 1}</span>
+                                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("Component #")}{idx + 1}</span>
                                                 <button
                                                     onClick={() => removeComponent(idx)}
                                                     className="text-red-500 hover:text-red-700 dark:text-rose-400 dark:hover:text-rose-300 cursor-pointer"
@@ -604,19 +605,19 @@ const EmployeeCompensationPage: React.FC = () => {
                                             <div className="space-y-3">
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                        Component Name
+                                                        {t("Component Name")}
                                                     </label>
                                                     <input
                                                         type="text"
                                                         value={comp.name}
                                                         onChange={(e) => handleComponentChange(idx, "name", e.target.value)}
-                                                        placeholder="e.g., Basic, HRA, Special Allowances"
+                                                        placeholder={t("e.g., Basic, HRA, Special Allowances")}
                                                         className="w-full px-3 py-2 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#1e1e1e] text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 text-sm"
                                                     />
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                        Percentage (%)
+                                                        {t("Percentage (%)")}
                                                     </label>
                                                     <input
                                                         type="number"
@@ -633,7 +634,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                         </div>
                                     ))}
                                     <p className="pt-2 text-xs text-gray-600 dark:text-gray-400">
-                                        Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.
+                                        {t("Basic is a % of the yearly CTC and HRA a % of basic. Other components are kept for reference only.")}
                                     </p>
                                 </div>
                             </div>
@@ -645,7 +646,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                     onClick={resetForm}
                                     className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent transition-all duration-200 focus:outline-none cursor-pointer"
                                 >
-                                    Cancel
+                                    {t("Cancel")}
                                 </button>
                                 <button
                                     type="button"
@@ -669,7 +670,7 @@ const EmployeeCompensationPage: React.FC = () => {
                         searchable={false}
                         pageSize={10}
                         rowDetailsTitle={(row) => `${row.employeeRole} Compensation`}
-                        rowDetailsSubtitle="Role-based salary component percentage allocation"
+                        rowDetailsSubtitle={t("Role-based salary component percentage allocation")}
                     />
                 )}
 
@@ -689,7 +690,7 @@ const EmployeeCompensationPage: React.FC = () => {
                             <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-transparent">
                                 <div className="flex items-center gap-2">
                                     <InformationCircleIcon className="h-6 w-6 text-amber-600 dark:text-gray-400" />
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Important Disclaimer</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t("Important Disclaimer")}</h3>
                                 </div>
                                 <button
                                     onClick={() => {
@@ -709,24 +710,24 @@ const EmployeeCompensationPage: React.FC = () => {
                                             You have enabled the "Apply as Default Component" option:
                                         </p>
                                         <p className="text-sm text-amber-700 dark:text-gray-400">
-                                            <strong>This component/s will be applied to All New employees irrespective of Roles.</strong>
+                                            <strong>{t("This component/s will be applied to All New employees irrespective of Roles.")}</strong>
                                         </p>
                                     </div>
 
                                     <div className="bg-yellow-50 dark:bg-[#222222] p-4 rounded-lg border border-yellow-200 dark:border-transparent">
                                         <p className="text-sm text-yellow-800 dark:text-gray-300">
-                                            ⚠️ <strong>Warning:</strong> Enabling this option will set this compensation structure as the default template.
+                                            ⚠️ <strong>{t("Warning:")}</strong> Enabling this option will set this compensation structure as the default template.
                                             All new employees created after this change will automatically have these component percentages applied.
                                         </p>
                                     </div>
 
                                     <div className="bg-blue-50 dark:bg-[#222222] p-4 rounded-lg border border-blue-200 dark:border-transparent">
                                         <p className="text-sm text-blue-800 dark:text-gray-300">
-                                            ℹ️ <strong>Note:</strong>
-                                            <br />- This change will affect all future employee creations
-                                            <br />- Existing employees will not be affected
-                                            <br />- You can change this setting at any time
-                                            <br />- Multiple roles can have default components
+                                            ℹ️ <strong>{t("Note:")}</strong>
+                                            <br />{t("- This change will affect all future employee creations")}
+                                            <br />{t("- Existing employees will not be affected")}
+                                            <br />{t("- You can change this setting at any time")}
+                                            <br />{t("- Multiple roles can have default components")}
                                         </p>
                                     </div>
                                 </div>
@@ -740,7 +741,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                         }}
                                         className="inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2a2a2a] border border-transparent transition-all duration-200 focus:outline-none cursor-pointer"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                     <button
                                         type="button"
@@ -754,7 +755,7 @@ const EmployeeCompensationPage: React.FC = () => {
                                         className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold !text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg border border-transparent shadow-sm transition-all duration-200 focus:outline-none gap-2 cursor-pointer"
                                     >
                                         <CheckIcon className="w-4 h-4 !text-white shrink-0" />
-                                        <span className="!text-white whitespace-nowrap">I Understand, Proceed</span>
+                                        <span className="!text-white whitespace-nowrap">{t("I Understand, Proceed")}</span>
                                     </button>
                                 </div>
                             </div>

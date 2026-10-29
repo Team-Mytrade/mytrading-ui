@@ -40,6 +40,7 @@ import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { ToasterService } from "../../Services/ToasterService";
 import { formatNumber, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 export type PurchaseRecord = Record<string, any> & { id?: number | string };
 
 export type SelectOption = {
@@ -378,7 +379,7 @@ function deleteErrorMessage(error: any, config: PurchaseResourceConfig): string 
   }
   // Short, readable backend messages are fine to show; long SQL/stack text is not.
   if (raw && raw.length <= 160 && !/sql|exception|jdbc|hibernate/i.test(raw)) return raw;
-  return `Failed to delete ${config.title}`;
+  return t("Failed to delete {item}", { item: t(config.title) });
 }
 
 function searchableText(value: unknown) {
@@ -421,7 +422,7 @@ const StatusPill = ({ active }: { active: boolean }) => (
       active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600",
     ].join(" ")}
   >
-    {active ? "Active" : "Inactive"}
+    {t(active ? "Active" : "Inactive")}
   </span>
 );
 
@@ -583,7 +584,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       setRows(asArray(res.data));
     } catch (error: any) {
       console.error(`Failed to load ${config.title}`, error);
-      ToasterService.error(`Failed to load ${config.title}`);
+      ToasterService.error(t("Failed to load {item}", { item: t(config.title) }));
       setRows([]);
       setApiFailed(true);
     } finally {
@@ -687,7 +688,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         selectedRow = (await config.loadRecord(row)) || row;
       } catch (error) {
         console.error(`Failed to load ${config.title} details`, error);
-        ToasterService.error(`Failed to load ${config.title} details`);
+        ToasterService.error(t("Failed to load {item} details", { item: t(config.title) }));
         setApiFailed(true);
       }
     } else if (config.getByIdEndpoint) {
@@ -698,7 +699,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         selectedRow = res.data || row;
       } catch (error) {
         console.error(`Failed to load ${config.title} details`, error);
-        ToasterService.error(`Failed to load ${config.title} details`);
+        ToasterService.error(t("Failed to load {item} details", { item: t(config.title) }));
         setApiFailed(true);
       }
     }
@@ -750,7 +751,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       const value = form[field.name];
       const isEmpty = value === "" || value == null;
       if (field.required && field.type !== "checkbox" && field.type !== "toggle" && isEmpty) {
-        errors[field.name] = `${field.label.replace(/\s*\(.*\)\s*$/, "")} is required`;
+        errors[field.name] = t("{field} is required", { field: t(field.label.replace(/\s*\(.*\)\s*$/, "")) });
         return;
       }
       const builtIn =
@@ -803,13 +804,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           : `${config.endpoint}/${editingRow.id}`;
         const response = await axios.put(url, payload, { params: config.getRequestParams?.() });
         savedRow = response.data || editingRow;
-        ToasterService.success(`${config.title} updated`);
+        ToasterService.success(t("{item} updated", { item: t(config.title) }));
       } else {
         const response = await axios.post(config.createEndpoint || config.endpoint, payload, {
           params: config.getRequestParams?.(),
         });
         savedRow = response.data || null;
-        ToasterService.success(`${config.title} created`);
+        ToasterService.success(t("{item} created", { item: t(config.title) }));
       }
       if (savedRow && config.afterSubmit) {
         await config.afterSubmit({
@@ -825,7 +826,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     } catch (error: any) {
       console.error(`Failed to save ${config.title}`, error);
       ToasterService.error(
-        error.response?.data?.message || error.response?.data?.error || `Failed to save ${config.title}`
+        error.response?.data?.message || error.response?.data?.error || t("Failed to save {item}", { item: t(config.title) })
       );
     } finally {
       setIsSubmitting(false);
@@ -839,7 +840,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         ? config.deleteEndpoint(deleteRow)
         : `${config.endpoint}/${deleteRow.id}`;
       await axios.delete(url, { params: config.getRequestParams?.() });
-      ToasterService.success(config.deleteWording?.done ?? `${config.title} deleted`);
+      ToasterService.success(config.deleteWording?.done ?? t("{item} deleted", { item: t(config.title) }));
       setDeleteRow(null);
       loadRows();
     } catch (error: any) {
@@ -887,11 +888,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         : `${config.endpoint}/${row.id}`;
       await axios.put(url, payload, { params: config.getRequestParams?.() });
       updateRowLocally(row.id, (currentRow) => ({ ...currentRow, active: nextActive }));
-      ToasterService.success(`${config.title} status updated`);
+      ToasterService.success(t("{item} status updated", { item: t(config.title) }));
     } catch (error: any) {
       console.error(`Failed to update ${config.title} status`, error);
       ToasterService.error(
-        error.response?.data?.message || `Failed to update ${config.title} status`
+        error.response?.data?.message || t("Failed to update {item} status", { item: t(config.title) })
       );
     } finally {
       setInlineUpdatingId(null);
@@ -913,7 +914,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       if (inlineSelectConfig?.onChange) {
         await inlineSelectConfig.onChange(row, nextValue);
         updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
-        ToasterService.success(`${config.title} updated`);
+        ToasterService.success(t("{item} updated", { item: t(config.title) }));
         // Its own endpoint may change more than this field (approving moves a PO out of draft)
         await loadRows();
         return;
@@ -929,11 +930,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         : `${config.endpoint}/${row.id}`;
       await axios.put(url, payload, { params: config.getRequestParams?.() });
       updateRowLocally(row.id, (currentRow) => ({ ...currentRow, [fieldName]: nextValue }));
-      ToasterService.success(`${config.title} updated`);
+      ToasterService.success(t("{item} updated", { item: t(config.title) }));
     } catch (error: any) {
       console.error(`Failed to update ${config.title}`, error);
       ToasterService.error(
-        error.response?.data?.message || error.response?.data?.error || `Failed to update ${config.title}`
+        error.response?.data?.message || error.response?.data?.error || t("Failed to update {item}", { item: t(config.title) })
       );
     } finally {
       setInlineUpdatingId(null);
@@ -1030,8 +1031,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 getInlineSelectTone(isActive ? "active" : "inactive"),
               ].join(" ")}
             >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="ACTIVE">{t("Active")}</option>
+              <option value="INACTIVE">{t("Inactive")}</option>
             </select>
           );
         }
@@ -1064,7 +1065,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
             >
               {inlineSelectConfig.options.map((option) => (
                 <option key={String(option.value)} value={String(option.value)}>
-                  {option.label}
+                  {t(String(option.label))}
                 </option>
               ))}
             </select>
@@ -1097,7 +1098,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                 type="button"
                 onClick={() => openEdit(row)}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-                title="Edit"
+                title={t("Edit")}
               >
                 <PencilSquareIcon className="h-4 w-4" />
               </button>
@@ -1170,11 +1171,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         (field.type === "select"
           ? floatingOptions.find((option) => String(option.id) === String(value))?.name || formatCellValue(value)
           : formatCellValue(value));
-      control = <ReadOnlyField label={field.label} value={displayValue} />;
+      control = <ReadOnlyField label={t(field.label)} value={displayValue} />;
     } else if (field.type === "textarea") {
       control = (
         <AutoGrowTextarea
-          label={field.label}
+          label={t(field.label)}
           value={value}
           onChange={(event) => setField(field, event.target.value)}
           required={field.required}
@@ -1184,12 +1185,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     } else if (field.type === "select" && field.searchable) {
       control = (
         <SearchableSelect
-          label={field.label}
+          label={t(field.label)}
           value={value}
           options={fieldOptions}
           onChange={(nextValue) => setField(field, nextValue)}
           required={field.required}
-          placeholder={field.placeholder}
+          placeholder={field.placeholder && t(field.placeholder)}
           // Optional fields get a "None" row (text from placeholderOption) to clear the value.
           emptyOptionLabel={field.required ? undefined : field.placeholderOption}
         />
@@ -1197,7 +1198,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     } else if (field.type === "select") {
       control = (
         <FloatingSelect1
-          label={field.label}
+          label={t(field.label)}
           value={value}
           onChange={(event) => setField(field, event.target.value)}
           options={floatingOptions}
@@ -1215,7 +1216,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
             {field.toggleOptions.map((option) => {
               const selected = String(value) === String(option.value);
               const tone = option.value === "APPROVED" ? "bg-emerald-600" : option.value === "REJECTED" ? "bg-rose-600" : "bg-amber-500";
-              return <button key={String(option.value)} type="button" onClick={() => setField(field, option.value)} className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${selected ? `${tone} text-white shadow-sm` : "text-slate-600 hover:bg-white"}`}>{option.label}</button>;
+              return <button key={String(option.value)} type="button" onClick={() => setField(field, option.value)} className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${selected ? `${tone} text-white shadow-sm` : "text-slate-600 hover:bg-white"}`}>{t(String(option.label))}</button>;
             })}
           </div>
         </div>
@@ -1228,7 +1229,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           className="flex h-[58px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 text-left transition hover:border-cyan-300"
         >
           <span>
-            <span className="block text-sm font-medium text-slate-700">{field.label}</span>
+            <span className="block text-sm font-medium text-slate-700">{t(field.label)}</span>
             <span className={`mt-0.5 block text-xs font-semibold ${isEnabled ? "text-emerald-600" : "text-amber-600"}`}>{isEnabled ? onValue : offValue}</span>
           </span>
           <span className={`relative h-6 w-11 rounded-full transition ${isEnabled ? "bg-emerald-500" : "bg-slate-300"}`}>
@@ -1241,9 +1242,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/60">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium text-slate-700 dark:text-gray-200">{field.label}</div>
+              <div className="text-sm font-medium text-slate-700 dark:text-gray-200">{t(field.label)}</div>
               <div className="text-xs text-slate-400 dark:text-gray-500">
-                {value ? "Turned on" : "Turned off"}
+                {t(value ? "Turned on" : "Turned off")}
               </div>
             </div>
             <input
@@ -1259,7 +1260,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       control = (
         
         <FloatingDatePicker
-          label={field.label}
+          label={t(field.label)}
           value={value}
           onChange={(event) => setField(field, event.target.value)}
           required={field.required}
@@ -1268,7 +1269,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     } else {
       control = (
         <FloatingInput
-          label={field.label}
+          label={t(field.label)}
           type={field.type || "text"}
           value={field.type === "datetime-local" ? formatDateTimeForInput(value) : value}
           onChange={(event) => {
@@ -1466,7 +1467,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const drawerFields = usesSections
     ? groups.flatMap((group) => [
         <h3 key={`section-${group.label}`} className="col-span-full mt-2 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-800 dark:text-gray-400">
-          {group.label}
+          {t(group.label)}
         </h3>,
         ...group.nodes,
       ])
@@ -1475,12 +1476,12 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   return (
     <>
       <PageMeta title={config.title} description={config.description} />
-      <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton className="-mr-5" label={`Add ${config.title}`} onClick={() => openCreate()} />}</>} />
+      <PageBreadcrumb className="mr-4" pageTitle={config.title} actions={<>{config.renderHeaderActions?.()}{config.allowCreate !== false && <AddButton className="-mr-5" label={`${t("Add")} ${t(config.title)}`} onClick={() => openCreate()} />}</>} />
 
       {isInlineForm ? (
         <div className="w-full px-3 py-6">{inlineEdit}</div>
       ) : <div className="w-full max-w-none px-0 py-8">
-        {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100"><span>Showing {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-300 dark:hover:text-cyan-200">View all {config.scope.label.toLowerCase()}s</button></div>}
+        {isScoped && config.scope && <div className="mx-3 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100"><span>{t("Showing")} {config.scope.label.toLowerCase()}: <strong>{scopeName}</strong></span><button type="button" onClick={() => navigate(location.pathname)} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-300 dark:hover:text-cyan-200">{t("View all")} {config.scope.label.toLowerCase()}s</button></div>}
 
         <div className="py-5 px-3">
           {/* Click a card to show only its rows; click it again to show all. */}
@@ -1492,7 +1493,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               loading={loading}
               pageSize={config.pageSize || 10}
               defaultSortKey={config.columns[0]?.key}
-              rowDetailsTitle={`${config.title} Details`}
+              rowDetailsTitle={`${t(config.title)} — ${t("Details")}`}
               searchFields={config.searchFields as any}
               hiddenDetailKeys={config.hiddenDetailKeys}
               // Edit straight from the details drawer: the drawer hides while the form is open
@@ -1504,8 +1505,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                     onClick={() => openEdit(row)}
                     // Same classes as the ✕ next to it, so both hover the same in light and dark mode.
                     className={ICON_BUTTON_CLASS}
-                    title="Edit"
-                    aria-label="Edit this record"
+                    title={t("Edit")}
+                    aria-label={t("Edit this record")}
                   >
                     <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
                   </button>
@@ -1521,11 +1522,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       {!isInlineForm && (config.formPresentation !== "modal" ? (
         <Dragger
           isOpen={showForm}
-          title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
+          title={editingRow ? `${t("Edit")} ${t(config.title)}` : `${t("Add")} ${t(config.title)}`}
           subtitle={config.formSubtitle}
           onClose={closeForm}
           onSubmit={handleSubmit}
-          submitLabel={editingRow ? "Update" : "Create"}
+          submitLabel={t(editingRow ? "Update" : "Create")}
           submitting={isSubmitting}
           headerMeta={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
             <>
@@ -1534,21 +1535,21 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
                   type="text"
                   value={String(form[config.drawerHeaderTextField] || "")}
                   onChange={(event) => setForm((current) => ({ ...current, [config.drawerHeaderTextField!]: event.target.value }))}
-                  aria-label="Approved by"
+                  aria-label={t("Approved by")}
                 />
-              ) : <span className="dragger__approved-by">Approved by: {String(form[config.drawerHeaderTextField] || "--")}</span>)}
+              ) : <span className="dragger__approved-by">{t("Approved by:")} {String(form[config.drawerHeaderTextField] || "--")}</span>)}
               {config.drawerHeaderDateField && (isDrawerEditing ? (
                 <input
                   type="datetime-local"
                   value={String(headerDateValue || "")}
                   onChange={(event) => setForm((current) => ({ ...current, [config.drawerHeaderDateField!]: event.target.value }))}
-                  aria-label="Approval date"
+                  aria-label={t("Approval date")}
                 />
               ) : headerDate)}
             </>
           ) : undefined}
           headerAction={config.drawerHeaderDateField || config.drawerHeaderTextField ? (
-            <button type="button" onClick={() => setIsDrawerEditing((current) => !current)} aria-label={isDrawerEditing ? "Lock approval date" : "Edit approval date"} title={isDrawerEditing ? "Lock approval date" : "Edit approval date"}>
+            <button type="button" onClick={() => setIsDrawerEditing((current) => !current)} aria-label={isDrawerEditing ? "Lock approval date" : "Edit approval date"} title={t(isDrawerEditing ? "Lock approval date" : "Edit approval date")}>
               <PencilSquareIcon className="h-5 w-5" />
             </button>
           ) : undefined}
@@ -1566,11 +1567,11 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
       ) : <Dragger
         isOpen={showForm}
         variant="modal"
-        title={editingRow ? `Edit ${config.title}` : `Add ${config.title}`}
+        title={editingRow ? `${t("Edit")} ${t(config.title)}` : `${t("Add")} ${t(config.title)}`}
         subtitle={config.formSubtitle}
         onClose={closeForm}
         onSubmit={handleSubmit}
-        submitLabel={editingRow ? "Update" : "Create"}
+        submitLabel={t(editingRow ? "Update" : "Create")}
         submitting={isSubmitting}
         steps={customFormContent ? undefined : modalSteps}
         activeStep={activeStep}
@@ -1587,13 +1588,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         setIsPopupOpen={(open) => !open && setDeleteRow(null)}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100 dark:bg-red-950/50"
-        innerText={config.deleteWording ? `${config.deleteWording.action}?` : `Delete ${config.title}`}
+        innerText={config.deleteWording ? `${t(config.deleteWording.action)}?` : `${t("Delete")} ${t(config.title)}`}
         subText={
           config.deleteWording?.question ??
           "Are you sure you want to delete this record? This action cannot be undone."
         }
         confirmLabel={config.deleteWording?.action ?? "Delete"}
-        cancelLabel={config.deleteWording ? "Keep it" : "Cancel"}
+        cancelLabel={t(config.deleteWording ? "Keep it" : "Cancel")}
         onConfirm={confirmDelete}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />

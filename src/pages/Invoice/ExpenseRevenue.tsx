@@ -303,7 +303,7 @@ const ExpenseRevenue: React.FC = () => {
 
       <PaginatedPopup
         isOpen={formOpen}
-        title={editing ? `Edit ${editing.referenceNumber ?? "item"}` : "Record expense or income"}
+        title={editing ? `${t("Edit")} ${editing.referenceNumber ?? "item"}` : t("Record expense or income")}
         subtitle={editing ? undefined : "A reference number is assigned when it is saved"}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-2xl"
@@ -327,7 +327,7 @@ const ExpenseRevenue: React.FC = () => {
               <FloatingSelect1 label={t("Ledger account (optional)")} name="generalAccountId" value={form.generalAccountId} options={accountOptions}
                 onChange={(event) => setForm((current) => ({ ...current, generalAccountId: event.target.value }))} />
             </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record"} busy={busy} />
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Record")} busy={busy} />
           </form>
         }
       />
