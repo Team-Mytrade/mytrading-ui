@@ -80,6 +80,36 @@ interface CustomerCredit {
   creditDate?: string;
 }
 
+/** An issued invoice or credit note as ZATCA e-invoice XML (Saudi VAT sellers). */
+interface ZatcaDocument {
+  id: number;
+  documentType: string;
+  documentNumber: string;
+  subType?: string | null;
+  status: string;
+  signedWith?: string | null;
+  pending: boolean;
+  cleared: boolean;
+  attempts?: number | null;
+  submittedAt?: string | null;
+  zatcaResponse?: string | null;
+}
+
+const ZATCA_STATUS_LABELS: Record<string, string> = {
+  GENERATED: "Not signed (no certificate)",
+  SIGNED: "Signed",
+  CLEARED: "Cleared by ZATCA",
+  REPORTED: "Reported to ZATCA",
+  REJECTED: "Rejected by ZATCA",
+};
+
+const ZATCA_STATUS_TONE: Record<string, string> = {
+  PENDING: "text-amber-700",
+  CLEARED: "text-emerald-700",
+  REPORTED: "text-emerald-700",
+  REJECTED: "text-rose-700",
+};
+
 type Dialog = "generate" | "edit" | "cancel" | "creditNote" | "applyCredit" | null;
 
 const Invoices: React.FC = () => {
@@ -107,6 +137,7 @@ const Invoices: React.FC = () => {
   // Detail extras
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [documents, setDocuments] = useState<InvoiceDocument[]>([]);
+  const [zatcaDocs, setZatcaDocs] = useState<ZatcaDocument[]>([]);
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -141,13 +172,41 @@ const Invoices: React.FC = () => {
   const loadDetailExtras = async (invoice: Invoice) => {
     setCreditNotes([]);
     setDocuments([]);
+    setZatcaDocs([]);
     if (invoice.status === "DRAFT") return;
-    const [notes, docs] = await Promise.allSettled([
+    const [notes, docs, zatca] = await Promise.allSettled([
       axios.get<CreditNote[]>(`${INVOICE_API}/credit-notes`, { params: { invoiceId: invoice.id } }),
       canExport ? axios.get<InvoiceDocument[]>(`${API_URL}/${invoice.id}/documents`) : Promise.resolve({ data: [] as InvoiceDocument[] }),
+      axios.get<ZatcaDocument[]>(`${INVOICE_API}/zatca/documents`, { params: { invoiceId: invoice.id } }),
     ]);
     if (notes.status === "fulfilled") setCreditNotes(Array.isArray(notes.value.data) ? notes.value.data : []);
     if (docs.status === "fulfilled") setDocuments(Array.isArray(docs.value.data) ? docs.value.data : []);
+    if (zatca.status === "fulfilled") setZatcaDocs(Array.isArray(zatca.value.data) ? zatca.value.data : []);
+  };
+
+  /** Sends a document ZATCA hasn't accepted yet now, instead of waiting for the automatic retry. */
+  const resendToZatca = async (doc: ZatcaDocument) => {
+    setBusy(true);
+    try {
+      const res = await axios.post<ZatcaDocument>(`${INVOICE_API}/zatca/documents/${doc.id}/submit`);
+      setZatcaDocs((list) => list.map((item) => (item.id === doc.id ? res.data : item)));
+      if (res.data.pending) ToasterService.error(t("ZATCA could not be reached"), res.data.zatcaResponse ?? undefined);
+      else ToasterService.success(t(ZATCA_STATUS_LABELS[res.data.status] ?? res.data.status));
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not send to ZATCA"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** The e-invoice XML: ZATCA's cleared copy once it has one. */
+  const downloadZatcaXml = async (doc: ZatcaDocument) => {
+    try {
+      const file = await axios.get(`${INVOICE_API}/zatca/documents/${doc.id}/xml`, { responseType: "blob" });
+      saveBlob(file.data, `${doc.documentNumber}.xml`);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not download the XML"));
+    }
   };
 
   const openDetail = (invoice: Invoice) => {
@@ -365,6 +424,16 @@ const Invoices: React.FC = () => {
     }
   };
 
+  /** The printed credit note (English and Arabic for VAT-registered sellers); issued notes only. */
+  const downloadCreditNotePdf = async (note: CreditNote) => {
+    try {
+      const file = await axios.get(`${INVOICE_API}/credit-notes/${note.id}/pdf`, { responseType: "blob" });
+      saveBlob(file.data, `${note.creditNoteNumber}.pdf`);
+    } catch (err: any) {
+      ToasterService.error(apiError(err, "Could not create the credit note PDF"));
+    }
+  };
+
   const downloadPdf = async () => {
     if (!selected) return;
     setBusy(true);
@@ -565,7 +634,12 @@ const Invoices: React.FC = () => {
                   {creditNotes.map((note) => (
                     <li key={note.id} className="flex justify-between gap-2 text-slate-700">
                       <span>{note.creditNoteNumber} · {labelOf(note.creditNoteType)} · {labelOf(note.status)}</span>
-                      <span className="font-medium">{money(note.amount, selected.currencyCode)}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-medium">{money(note.amount, selected.currencyCode)}</span>
+                        {note.status === "ISSUED" && (
+                          <button type="button" onClick={() => downloadCreditNotePdf(note)} className="text-xs font-medium text-cyan-700 hover:underline" title={t("Download PDF")}>{t("PDF")}</button>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -577,6 +651,48 @@ const Invoices: React.FC = () => {
                 <ul className="mt-1 space-y-1 text-slate-600">
                   {documents.map((doc) => (
                     <li key={doc.id}>{doc.fileName} · {labelOf(doc.status)} · {dateLabel(doc.generatedAt)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {zatcaDocs.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("ZATCA e-invoice")}</div>
+                <ul className="mt-1 space-y-2">
+                  {zatcaDocs.map((doc) => (
+                    <li key={doc.id} className="text-slate-700">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {doc.documentNumber} · {t(doc.subType?.startsWith("01") ? "Standard" : "Simplified")} ·{" "}
+                          <span className={`font-medium ${ZATCA_STATUS_TONE[doc.pending ? "PENDING" : doc.status] ?? ""}`}>
+                            {t(doc.pending ? "Waiting for ZATCA" : ZATCA_STATUS_LABELS[doc.status] ?? doc.status)}
+                          </span>
+                          {doc.submittedAt ? ` · ${dateLabel(doc.submittedAt)}` : ""}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {doc.pending && (
+                            <button type="button" onClick={() => resendToZatca(doc)} disabled={busy}
+                              className="text-xs font-medium text-cyan-700 hover:underline disabled:opacity-50">{t("Send now")}</button>
+                          )}
+                          {canExport && (
+                            <button type="button" onClick={() => downloadZatcaXml(doc)} className="text-xs font-medium text-cyan-700 hover:underline">{t("XML")}</button>
+                          )}
+                        </span>
+                      </div>
+                      {doc.pending && (
+                        <p className="text-xs text-amber-700">
+                          {t(doc.subType?.startsWith("01")
+                            ? "Not cleared yet: don't give this invoice to the buyer until ZATCA clears it. It is sent again automatically."
+                            : "Not reported yet; it is sent again automatically (ZATCA expects it within 24 hours).")}
+                        </p>
+                      )}
+                      {doc.zatcaResponse && (
+                        <p className={`whitespace-pre-line text-xs ${doc.status === "REJECTED" ? "text-rose-700" : "text-slate-500"}`}>{doc.zatcaResponse}</p>
+                      )}
+                      {doc.status === "SIGNED" && doc.signedWith === "LOCAL_TEST" && (
+                        <p className="text-xs text-slate-500">{t("Signed with a local test certificate, so it isn't sent to ZATCA.")}</p>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </div>
