@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { navItems } from "../../layout/AppSidebar";
 import type { DashboardEntry } from "./dashboardRegistry";
 
+import { t } from "../../i18n/i18n";
 type LeafPage = { name: string; path: string };
 
 const flattenPages = (items: typeof navItems): LeafPage[] =>
@@ -23,14 +24,14 @@ export default function ModuleSnapshot({ module }: { module: DashboardEntry }) {
     <section className="cc-snap">
       <header className="cc-snap__head">
         <span className={`cc-snap__icon cc-snap__icon--${module.tone}`}><Icon size={18} /></span>
-        <div><p>Module overview</p><h2>{moduleLabel(module.key)}</h2><small>{module.description}</small></div>
+        <div><p>{t("Module overview")}</p><h2>{moduleLabel(module.key)}</h2><small>{module.description}</small></div>
         <span className="cc-snap__badge">{pages.length} sections</span>
       </header>
       <div className="cc-snap__grid">
         {pages.map((page, index) => (
           <Link key={page.path} to={page.path} className={`cc-snap__card cc-snap__card--t${index % 6}`}>
             <span className="cc-snap__card-name">{page.name}</span>
-            <span className="cc-snap__card-open">Open</span>
+            <span className="cc-snap__card-open">{t("Open")}</span>
             <ArrowUpRight size={14} className="cc-snap__card-arrow" />
           </Link>
         ))}

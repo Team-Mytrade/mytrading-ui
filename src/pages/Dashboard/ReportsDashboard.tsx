@@ -14,6 +14,7 @@ import {
 } from "./dashboardKit";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // One page across the modules: headline figures and a way into every detailed report.
 
 interface SalesReport { totalSales?: number; totalOrders?: number; totalCustomers?: number; monthlySales?: Record<string, number> }
@@ -97,15 +98,15 @@ export default function ReportsDashboard() {
   const money = (v?: number) => formatMoney(num(v), currency, true);
   const cards: ReportCard[] = ([
     { name: "Sales Dashboard", description: "Orders, revenue and top products", route: "/sales-dashboard", icon: ShoppingCart, module: "SALES", tone: "emerald",
-      figure: sales ? `${money(sales.totalSales)} · ${formatNumber(num(sales.totalOrders))} orders` : undefined },
+      figure: sales ? t("{amount} · {count} orders", { amount: money(sales.totalSales), count: formatNumber(num(sales.totalOrders)) }) : undefined },
     { name: "Purchase Reports", description: "Spend by month, vendor and turnaround", route: "/purchase-reports", icon: ClipboardList, module: "PURCHASE", tone: "indigo",
-      figure: data.orders ? `${money(purchaseTotal)} · ${formatNumber(orders.length)} orders` : undefined },
+      figure: data.orders ? t("{amount} · {count} orders", { amount: money(purchaseTotal), count: formatNumber(orders.length) }) : undefined },
     { name: "Inventory Report", description: "Stock, valuation, movements and expiry", route: "/inventory-report", icon: Boxes, module: "INVENTORY", tone: "amber",
-      figure: data.stock ? `${money(stockValue)} · ${formatNumber(lowStock)} low` : undefined },
+      figure: data.stock ? t("{amount} · {count} low", { amount: money(stockValue), count: formatNumber(lowStock) }) : undefined },
     { name: "Finance Report", description: "Billed, collected and overdue", route: "/financeReport", icon: Landmark, module: "INVOICE", tone: "cyan",
-      figure: finance ? `${money(finance.outstandingAmount)} outstanding` : undefined },
+      figure: finance ? t("{amount} outstanding", { amount: money(finance.outstandingAmount) }) : undefined },
     { name: "Tax Report", description: "GST charged on sales invoices by month", route: "/taxReport", icon: Percent, module: "INVOICE", tone: "teal",
-      figure: tax ? `${money(tax.totalTaxAmount)} tax` : undefined },
+      figure: tax ? t("{amount} tax", { amount: money(tax.totalTaxAmount) }) : undefined },
     { name: "CRM Reports", description: "Leads, deals and activity", route: "/crm-reports", icon: Users, module: "CRM", tone: "purple" },
   ] as ReportCard[]).filter((c) => hasModule(access, c.module));
 
@@ -120,34 +121,34 @@ export default function ReportsDashboard() {
             className={`group flex flex-col justify-between space-y-2 p-3.5 text-left ${toneCard(c.tone)}`}>
             <span className="flex items-center gap-2">
               <span className={`rounded-lg p-1.5 ${toneIcon(c.tone)}`}><c.icon className="h-4 w-4" /></span>
-              <span className="text-xs font-bold text-gray-900 dark:text-white">{c.name}</span>
+              <span className="text-xs font-bold text-gray-900 dark:text-white">{t(c.name)}</span>
             </span>
             <span className="block text-[11px] text-gray-600 dark:text-gray-400">
-              {c.description}
+              {t(c.description)}
               {(loading || c.figure) && <span className="block truncate font-semibold text-gray-800 dark:text-gray-200">{loading ? "…" : c.figure}</span>}
             </span>
             <span className={`flex items-center gap-1 pt-1 text-xs font-bold transition-all group-hover:translate-x-0.5 ${toneLink(c.tone)}`}>
-              Open report <ArrowRight className="h-3.5 w-3.5" />
+              {t("Open report")} <ArrowRight className="h-3.5 w-3.5" />
             </span>
           </button>
         ))}
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Sales" value={sales ? money(sales.totalSales) : "—"}
-          hint={sales ? `${formatNumber(num(sales.totalOrders))} orders · ${formatNumber(num(sales.totalCustomers))} customers` : undefined} icon={ShoppingCart} tone="emerald" loading={loading} />
-        <KpiCard label="Purchases" value={data.orders ? money(purchaseTotal) : "—"}
-          hint={data.orders ? `${formatNumber(orders.length)} purchase orders` : undefined} icon={ShoppingBag} tone="indigo" loading={loading} />
-        <KpiCard label="Stock Value" value={data.stock && data.products ? money(stockValue) : "—"}
-          hint={data.stock ? `${formatNumber(lowStock)} record(s) at or below reorder level` : undefined} icon={IndianRupee} tone="amber" loading={loading} />
-        <KpiCard label="Receivables" value={finance ? money(finance.outstandingAmount) : "—"}
-          hint={finance ? `${formatNumber(finance.overdueInvoices?.length ?? 0)} overdue invoice(s)` : undefined} icon={HandCoins} tone="red" loading={loading} />
+        <KpiCard label={t("Sales")} value={sales ? money(sales.totalSales) : "—"}
+          hint={sales ? t("{orders} orders · {customers} customers", { orders: formatNumber(num(sales.totalOrders)), customers: formatNumber(num(sales.totalCustomers)) }) : undefined} icon={ShoppingCart} tone="emerald" loading={loading} />
+        <KpiCard label={t("Purchases")} value={data.orders ? money(purchaseTotal) : "—"}
+          hint={data.orders ? t("{count} purchase orders", { count: formatNumber(orders.length) }) : undefined} icon={ShoppingBag} tone="indigo" loading={loading} />
+        <KpiCard label={t("Stock Value")} value={data.stock && data.products ? money(stockValue) : "—"}
+          hint={data.stock ? t("{count} record(s) at or below reorder level", { count: formatNumber(lowStock) }) : undefined} icon={IndianRupee} tone="amber" loading={loading} />
+        <KpiCard label={t("Receivables")} value={finance ? money(finance.outstandingAmount) : "—"}
+          hint={finance ? t("{count} overdue invoice(s)", { count: formatNumber(finance.overdueInvoices?.length ?? 0) }) : undefined} icon={HandCoins} tone="red" loading={loading} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Sales, Billing and Purchases" subtitle="Per month (last 6 months)" icon={TrendingUp} iconClass="text-emerald-500">
+        <Panel title={t("Sales, Billing and Purchases")} subtitle={t("Per month (last 6 months)")} icon={TrendingUp} iconClass="text-emerald-500">
           {!hasTrend ? (
-            <EmptyState loading={loading}>No sales, invoices or purchases in the last 6 months.</EmptyState>
+            <EmptyState loading={loading}>{t("No sales, invoices or purchases in the last 6 months.")}</EmptyState>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={trend}>
@@ -164,9 +165,9 @@ export default function ReportsDashboard() {
           )}
         </Panel>
 
-        <Panel title="Tax Collected" subtitle="GST on sales invoices per month" icon={BarChart3} iconClass="text-teal-500">
+        <Panel title={t("Tax Collected")} subtitle={t("GST on sales invoices per month")} icon={BarChart3} iconClass="text-teal-500">
           {!tax || taxTrend.every((t) => !t.tax) ? (
-            <EmptyState loading={loading}>{tax ? "No tax charged in the last 6 months." : "Tax figures are not available."}</EmptyState>
+            <EmptyState loading={loading}>{t(tax ? "No tax charged in the last 6 months." : "Tax figures are not available.")}</EmptyState>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={taxTrend}>

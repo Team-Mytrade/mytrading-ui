@@ -10,6 +10,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { INVOICE_API, INVOICE_STATUS_TONES, apiError, dateLabel, daysOverdue, money, monthLabel } from "../Invoice/invoiceShared";
 import { StatusBadge } from "../Invoice/invoiceUi";
 
+import { t } from "../../i18n/i18n";
 interface OverdueInvoice {
   invoiceNumber?: string;
   customerName?: string;
@@ -92,23 +93,23 @@ const FinanceReport: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Finance Report" description="Invoiced, collected and outstanding" />
+      <PageMeta title={t("Finance Report")} description="Invoiced, collected and outstanding" />
       <PageBreadcrumb pageTitle="Finance Report" />
 
       <div className="w-full max-w-none space-y-4 py-4">
-        <p className="text-xs text-slate-500">Issued sales invoices only; drafts and cancelled invoices are left out.</p>
+        <p className="text-xs text-slate-500">{t("Issued sales invoices only; drafts and cancelled invoices are left out.")}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Invoiced" value={money(report.totalInvoiced)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Collected" value={money(report.totalPaid)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Outstanding" value={money(report.outstandingAmount)} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label={`Overdue (${overdue.length})`} value={money(overdueTotal)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Invoiced")} value={money(report.totalInvoiced)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Collected")} value={money(report.totalPaid)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Outstanding")} value={money(report.outstandingAmount)} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label={`${t("Overdue")} (${overdue.length})`} value={money(overdueTotal)} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-800">Invoiced by month</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">{t("Invoiced by month")}</h2>
             {months.length === 0 ? (
-              <p className="text-sm text-slate-400">{loading ? "Loading…" : "No issued invoices yet"}</p>
+              <p className="text-sm text-slate-400">{t(loading ? "Loading…" : "No issued invoices yet")}</p>
             ) : (
               <ul className="space-y-2">
                 {months.map(([key, value]) => (
@@ -125,9 +126,9 @@ const FinanceReport: React.FC = () => {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-800">Invoices by status</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">{t("Invoices by status")}</h2>
             {statuses.length === 0 ? (
-              <p className="text-sm text-slate-400">{loading ? "Loading…" : "No invoices yet"}</p>
+              <p className="text-sm text-slate-400">{t(loading ? "Loading…" : "No invoices yet")}</p>
             ) : (
               <ul className="divide-y divide-slate-100">
                 {statuses.map(([status, count]) => (
@@ -143,7 +144,7 @@ const FinanceReport: React.FC = () => {
           </section>
         </div>
 
-        <h2 className="pt-2 text-sm font-semibold text-slate-800">Overdue invoices</h2>
+        <h2 className="pt-2 text-sm font-semibold text-slate-800">{t("Overdue invoices")}</h2>
         <ReusableTable
           data={overdue}
           columns={columns}
@@ -154,7 +155,7 @@ const FinanceReport: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <ClockIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-sm text-gray-500">Nothing overdue</p>
+              <p className="text-sm text-gray-500">{t("Nothing overdue")}</p>
             </div>
           }
         />

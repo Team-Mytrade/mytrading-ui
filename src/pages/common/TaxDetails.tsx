@@ -22,6 +22,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { formatNumber } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface TaxDetail {
   id: number;
   taxCode?: string;
@@ -190,7 +191,7 @@ const TaxDetails: React.FC = () => {
       className: "w-[25%]",
       render: (taxDetail) => (
         <span className="text-sm text-slate-600 truncate" title={taxDetail.taxDescription}>
-          {taxDetail.taxDescription || <span className="text-slate-400 italic">No description</span>}
+          {taxDetail.taxDescription || <span className="text-slate-400 italic">{t("No description")}</span>}
         </span>
       ),
     },
@@ -242,7 +243,7 @@ const TaxDetails: React.FC = () => {
             type="button"
             onClick={() => handleEdit(taxDetail)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Tax Detail"
+            title={t("Edit Tax Detail")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -250,7 +251,7 @@ const TaxDetails: React.FC = () => {
             type="button"
             onClick={() => handleDelete(taxDetail)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Tax Detail"
+            title={t("Delete Tax Detail")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -261,37 +262,37 @@ const TaxDetails: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Tax Details" description="Manage tax details" />
+      <PageMeta title={t("Tax Details")} description="Manage tax details" />
       <PageBreadcrumb pageTitle="Tax Details" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Tax Detail" />}
+          {canCreate && <AddButton onClick={openCreate} label={t("Add Tax Detail")} />}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 my-5">
           <StatsCard
-            label="Total Tax Details"
+            label={t("Total Tax Details")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Input Tax"
+            label={t("Input Tax")}
             value={stats.input}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Output Tax"
+            label={t("Output Tax")}
             value={stats.output}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
             labelColor="text-orange-600"
           />
           <StatsCard
-            label="Total Tax Amount"
+            label={t("Total Tax Amount")}
             value={formatNumber(stats.totalTax)}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -309,16 +310,16 @@ const TaxDetails: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No tax details found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No tax details found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   type="button"
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first tax detail
+                  {t("Create your first tax detail")}
                 </button>
               )}
             </div>
@@ -327,12 +328,12 @@ const TaxDetails: React.FC = () => {
 
         <PaginatedPopup
           isOpen={showFormModal}
-          title={editingId !== null ? "Edit Tax Detail" : "Create New Tax Detail"}
-          subtitle={editingId !== null ? "Update your tax detail" : "Add a new tax detail"}
+          title={t(editingId !== null ? "Edit Tax Detail" : "Create New Tax Detail")}
+          subtitle={t(editingId !== null ? "Update your tax detail" : "Add a new tax detail")}
           onClose={closeModal}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId !== null ? "Update Tax Detail" : "Create Tax Detail"}
+          submitLabel={t(editingId !== null ? "Update Tax Detail" : "Create Tax Detail")}
           maxWidthClassName="max-w-2xl"
           tabs={[
             {
@@ -340,7 +341,7 @@ const TaxDetails: React.FC = () => {
               fields: [
                 <FloatingInput
                   key="taxCode"
-                  label="Tax Code"
+                  label={t("Tax Code")}
                   name="taxCode"
                   value={form.taxCode || ""}
                   onChange={handleChange}
@@ -348,14 +349,14 @@ const TaxDetails: React.FC = () => {
                 />,
                 <FloatingInput
                   key="taxDescription"
-                  label="Tax Description"
+                  label={t("Tax Description")}
                   name="taxDescription"
                   value={form.taxDescription || ""}
                   onChange={handleChange}
                 />,
                 <FloatingInput
                   key="taxRate"
-                  label="Tax Rate (%)"
+                  label={t("Tax Rate (%)")}
                   name="taxRate"
                   type="number"
                   value={form.taxRate ?? ""}
@@ -363,7 +364,7 @@ const TaxDetails: React.FC = () => {
                 />,
                 <FloatingInput
                   key="taxAmount"
-                  label="Tax Amount"
+                  label={t("Tax Amount")}
                   name="taxAmount"
                   type="number"
                   value={form.taxAmount ?? ""}
@@ -379,14 +380,14 @@ const TaxDetails: React.FC = () => {
           setIsPopupOpen={setShowDeletePopup}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Tax Detail"
+          innerText={t("Delete Tax Detail")}
           subText={
             taxDetailToDelete
               ? `Are you sure you want to delete "${taxDetailToDelete.taxCode}"? This action cannot be undone.`
               : "Are you sure you want to delete this tax detail?"
           }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete")}
+          cancelLabel={t("Cancel")}
           onConfirm={confirmDelete}
           onCancel={() => setTaxDetailToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

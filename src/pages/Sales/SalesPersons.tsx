@@ -19,6 +19,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { useStatsCardFilter } from "../../components/common/StatsCardFilter";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type SalesPerson = {
   id: number;
   name: string;
@@ -443,7 +444,7 @@ const SalesPersons: React.FC = () => {
             ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400"
             : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
         }`}>
-          {person.active ? "Active" : "Inactive"}
+          {t(person.active ? "Active" : "Inactive")}
         </span>
       ) : (
         <div onClick={(e) => e.stopPropagation()}>
@@ -457,8 +458,8 @@ const SalesPersons: React.FC = () => {
                 : "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
             } ${statusUpdatingId === person.id ? "cursor-not-allowed opacity-70" : ""}`}
           >
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="true">{t("Active")}</option>
+            <option value="false">{t("Inactive")}</option>
           </select>
         </div>
       ),
@@ -475,7 +476,7 @@ const SalesPersons: React.FC = () => {
             type="button"
             onClick={() => openEdit(person)}
             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -486,29 +487,29 @@ const SalesPersons: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Sales Persons" description="Manage sales persons" />
+      <PageMeta title={t("Sales Persons")} description="Manage sales persons" />
       <PageBreadcrumb
         pageTitle="Sales Persons"
-        actions={<AddButton onClick={openCreate} label="Add Sales Person" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Sales Person")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         {isSalesPersonScoped && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
-            <span>Showing sales person: <strong>{scopedSalesPersonName}</strong></span>
+            <span>{t("Showing sales person:")} <strong>{scopedSalesPersonName}</strong></span>
             <button
               type="button"
               onClick={() => navigate("/sales-persons")}
               className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             >
-              View all sales persons
+              {t("View all sales persons")}
             </button>
           </div>
         )}
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatsCard label="Sales Persons" value={stats.total} icon={<UserGroupIcon />} />
+          <StatsCard label={t("Sales Persons")} value={stats.total} icon={<UserGroupIcon />} />
           <StatsCard
-            label="Active"
+            label={t("Active")}
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -516,7 +517,7 @@ const SalesPersons: React.FC = () => {
             icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Inactive"
+            label={t("Inactive")}
             value={stats.inactive}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -545,19 +546,19 @@ const SalesPersons: React.FC = () => {
               className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
             >
               <PencilSquareIcon className="h-4 w-4" />
-              Edit
+              {t("Edit")}
             </button>
           )}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales persons found</p>
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No sales persons found")}</p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first sales person
+                {t("Create your first sales person")}
               </button>)}
             </div>
           }
@@ -570,12 +571,12 @@ const SalesPersons: React.FC = () => {
       <div style={{ position: "relative", zIndex: 9999 }}>
         <PaginatedPopup
           isOpen={showFormModal}
-          title={editingId ? "Edit Sales Person" : "Create Sales Person"}
-          subtitle="Select the user and region for this sales person"
+          title={t(editingId ? "Edit Sales Person" : "Create Sales Person")}
+          subtitle={t("Select the user and region for this sales person")}
           onClose={closeForm}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId ? "Update Sales Person" : "Create Sales Person"}
+          submitLabel={t(editingId ? "Update Sales Person" : "Create Sales Person")}
           maxWidthClassName="max-w-2xl"
           tabs={[
             {
@@ -583,7 +584,7 @@ const SalesPersons: React.FC = () => {
               fields: [
                 <FloatingSelect
                   key="userId"
-                  label="User"
+                  label={t("User")}
                   name="userId"
                   value={form.userId}
                   onChange={handleChange}
@@ -595,7 +596,7 @@ const SalesPersons: React.FC = () => {
                 />,
                 <FloatingSelect
                   key="region"
-                  label="Region"
+                  label={t("Region")}
                   name="region"
                   value={form.region}
                   onChange={handleChange}

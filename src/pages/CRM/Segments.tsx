@@ -33,6 +33,7 @@ import "../../styles/Deals.css";
 import { apiError } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
@@ -430,7 +431,7 @@ const Segments: React.FC = () => {
           <DocumentTextIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
           <span className="truncate font-medium text-slate-600" title={segment.description}>
             {segment.description || (
-              <span className="text-slate-400 italic">No description provided</span>
+              <span className="text-slate-400 italic">{t("No description provided")}</span>
             )}
           </span>
         </div>
@@ -481,7 +482,7 @@ const Segments: React.FC = () => {
                 navigate(`/crm-view/segments/${segment.id}`, { state: { from: "segments" } })
               }
               className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-              title="View Segment"
+              title={t("View Segment")}
             >
               <EyeIcon className="h-4 w-4" />
             </button>
@@ -491,7 +492,7 @@ const Segments: React.FC = () => {
                 type="button"
                 onClick={() => handleEdit(segment)}
                 className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-                title="Edit Segment"
+                title={t("Edit Segment")}
               >
                 <PencilSquareIcon className="h-4 w-4" />
               </button>
@@ -503,7 +504,7 @@ const Segments: React.FC = () => {
                 type="button"
                 onClick={() => openCustomerDrawer(segment.id)}
                 className="rounded-lg p-2 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-                title={count > 0 ? "Manage Customers" : "Add Customers"}
+                title={t(count > 0 ? "Manage Customers" : "Add Customers")}
               >
                 {count > 0 ? <UsersIcon className="h-4 w-4" /> : <UserPlusIcon className="h-4 w-4" />}
               </button>
@@ -514,7 +515,7 @@ const Segments: React.FC = () => {
                 type="button"
                 onClick={(e) => handleDelete(segment.id, e)}
                 className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-                title="Delete Segment"
+                title={t("Delete Segment")}
               >
                 <TrashIcon className="h-4 w-4" />
               </button>
@@ -529,28 +530,28 @@ const Segments: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Customer Segments" description="Manage your segments" />
+      <PageMeta title={t("Customer Segments")} description="Manage your segments" />
       <PageBreadcrumb
         pageTitle="Segments"
         className="crm-report-breadcrumb"
-        actions={<AddButton onClick={openCreateSegment} label="Add Segment" />}
+        actions={<AddButton onClick={openCreateSegment} label={t("Add Segment")} />}
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         {scopedCustomerId && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
-            <span>Segments of <strong>{scopedCustomerName || `customer #${scopedCustomerId}`}</strong></span>
+            <span>{t("Segments of")} <strong>{scopedCustomerName || `customer #${scopedCustomerId}`}</strong></span>
             <button type="button" onClick={() => navigate("/customer-segment")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
-              View all segments
+              {t("View all segments")}
             </button>
           </div>
         )}
         <div className="mb-[17px] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" aria-busy={isLoading}>
-          <StatsCard label="Total Segments" value={stats.totalSegments} loading={isLoading} />
-          <StatsCard label="Active Segments" value={stats.activeSegments} loading={isLoading} />
-          <StatsCard label="Total Customers" value={stats.totalCustomers} loading={isLoading} />
+          <StatsCard label={t("Total Segments")} value={stats.totalSegments} loading={isLoading} />
+          <StatsCard label={t("Active Segments")} value={stats.activeSegments} loading={isLoading} />
+          <StatsCard label={t("Total Customers")} value={stats.totalCustomers} loading={isLoading} />
           <StatsCard
-            label="Empty Segments"
+            label={t("Empty Segments")}
             value={stats.emptySegments}
             loading={isLoading}
             onShare={() => setShowExportModal(true)}
@@ -565,19 +566,19 @@ const Segments: React.FC = () => {
           defaultSortKey="name"
           defaultSortOrder="asc"
           rowDetailsTitle={(segment) => segment.name || "Segment details"}
-          rowDetailsSubtitle="Customer segment details"
+          rowDetailsSubtitle={t("Customer segment details")}
           loading={isLoading}
           emptyState={
             <div className="flex flex-col items-center justify-center">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No segments found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No segments found")}</p>
               {activeFilter !== "ALL" ? (
                 <button
                   type="button"
                   onClick={() => setActiveFilter("ALL")}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Clear filters
+                  {t("Clear filters")}
                 </button>
               ) : canCreate && (
                 <button
@@ -585,7 +586,7 @@ const Segments: React.FC = () => {
                   onClick={() => openCreateSegment()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first segment
+                  {t("Create your first segment")}
                 </button>
               )}
             </div>
@@ -597,26 +598,26 @@ const Segments: React.FC = () => {
           onClose={() => setShowExportModal(false)}
           data={filteredSegments}
           columns={tableColumns}
-          title="Customer Segments"
+          title={t("Customer Segments")}
         />
 
         {/* -------- Segment form modal -------- */}
 <PaginatedPopup
   isOpen={showFormModal}
-  title={editingId !== null ? "Edit Segment" : "Create Segment"}
-  subtitle={
+  title={t(editingId !== null ? "Edit Segment" : "Create Segment")}
+  subtitle={t(
     editingId !== null
       ? "Update segment details"
       : "Add a new customer segment"
-  }
+  )}
   onClose={closeSegmentModal}
   onSubmit={handleSubmitSegment}
-  submitLabel={editingId !== null ? "Update Segment" : "Create Segment"}
+  submitLabel={t(editingId !== null ? "Update Segment" : "Create Segment")}
   submitting={isSaving}
   fields={[
     <FloatingInput
       key="name"
-      label="Segment Name"
+      label={t("Segment Name")}
       name="name"
       value={form.name || ""}
       onChange={handleChange}
@@ -624,7 +625,7 @@ const Segments: React.FC = () => {
     />,
     <div key="description" className="md:col-span-2">
       <FloatingTextarea
-        label="Description"
+        label={t("Description")}
         name="description"
         value={form.description || ""}
         onChange={handleChange}
@@ -659,14 +660,14 @@ const Segments: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Segment"
+        innerText={t("Delete Segment")}
         subText={
           segmentToDelete
-            ? `Are you sure you want to delete "${segmentToDelete.name}"? This action cannot be undone.`
+            ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String(segmentToDelete.name ?? "") })
             : "Are you sure you want to delete this segment?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setSegmentToDelete(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

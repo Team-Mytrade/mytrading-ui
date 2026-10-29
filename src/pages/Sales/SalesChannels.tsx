@@ -24,6 +24,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type SalesChannel = {
   id: number;
   createdDate?: string;
@@ -247,7 +248,7 @@ const SalesChannels: React.FC = () => {
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-900 dark:text-white">{channel.name || "Unnamed"}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">ID: {channel.id}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{t("ID:")} {channel.id}</div>
           </div>
         </div>
       ),
@@ -279,7 +280,7 @@ const SalesChannels: React.FC = () => {
             type="button"
             onClick={() => openEdit(channel)}
             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -287,7 +288,7 @@ const SalesChannels: React.FC = () => {
             type="button"
             onClick={() => setDeleteChannel(channel)}
             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -298,10 +299,10 @@ const SalesChannels: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Sales Channels" description="Manage sales channels" />
+      <PageMeta title={t("Sales Channels")} description="Manage sales channels" />
       <PageBreadcrumb
         pageTitle="Sales Channels"
-        actions={<AddButton onClick={openCreate} label="Add Sales Channel" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Sales Channel")} />}
       />
 
       {/* Added 'sales-module' class just in case you want the CSS fallback, 
@@ -309,17 +310,17 @@ const SalesChannels: React.FC = () => {
       <div className="sales-module w-full max-w-none px-0 py-8">
         {isChannelScoped && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
-            <span>Showing channel: <strong>{scopedChannelName}</strong></span>
+            <span>{t("Showing channel:")} <strong>{scopedChannelName}</strong></span>
             <button type="button" onClick={() => navigate("/sales-channels")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300">
-              View all channels
+              {t("View all channels")}
             </button>
           </div>
         )}
         
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Channels" value={stats.total} icon={<BuildingStorefrontIcon />} />
+          <StatsCard label={t("Channels")} value={stats.total} icon={<BuildingStorefrontIcon />} />
           <StatsCard
-            label="Direct"
+            label={t("Direct")}
             value={stats.direct}
             gradient="from-blue-50 to-cyan-50"
             borderColor="border-blue-100"
@@ -327,7 +328,7 @@ const SalesChannels: React.FC = () => {
             icon={<RadioIcon />}
           />
           <StatsCard
-            label="Online"
+            label={t("Online")}
             value={stats.online}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -335,7 +336,7 @@ const SalesChannels: React.FC = () => {
             icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Active Types"
+            label={t("Active Types")}
             value={stats.activeTypes}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -352,19 +353,19 @@ const SalesChannels: React.FC = () => {
           defaultSortKey="name"
           defaultSortOrder="asc"
           rowDetailsTitle={(channel) => channel.name || `Channel #${channel.id}`}
-          rowDetailsSubtitle="Sales channel details"
+          rowDetailsSubtitle={t("Sales channel details")}
           hiddenDetailKeys={["id", "tenantId"]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <BuildingStorefrontIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No sales channels found</p>
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No sales channels found")}</p>
               <button
                 type="button"
                 onClick={() => fetchChannels()}
                 className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload all channels
+                {t("Reload all channels")}
               </button>
             </div>
           }
@@ -373,12 +374,12 @@ const SalesChannels: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Sales Channel" : "Create Sales Channel"}
-        subtitle="Enter the sales channel details"
+        title={t(editingId ? "Edit Sales Channel" : "Create Sales Channel")}
+        subtitle={t("Enter the sales channel details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Sales Channel" : "Create Sales Channel"}
+        submitLabel={t(editingId ? "Update Sales Channel" : "Create Sales Channel")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -386,7 +387,7 @@ const SalesChannels: React.FC = () => {
             fields: [
               <FloatingInput
                 key="channelName"
-                label="Channel Name"
+                label={t("Channel Name")}
                 name="channelName"
                 value={form.channelName}
                 onChange={handleChange}
@@ -394,7 +395,7 @@ const SalesChannels: React.FC = () => {
               />,
               <FloatingSelect
                 key="channelType"
-                label="Channel Type"
+                label={t("Channel Type")}
                 name="channelType"
                 value={form.channelType}
                 onChange={handleChange}
@@ -404,7 +405,7 @@ const SalesChannels: React.FC = () => {
               />,
               <div key="contactInfo" className="md:col-span-2">
                 <FloatingTextarea
-                  label="Contact Info"
+                  label={t("Contact Info")}
                   name="contactInfo"
                   value={form.contactInfo}
                   onChange={handleChange}
@@ -423,14 +424,14 @@ const SalesChannels: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Sales Channel"
+        innerText={t("Delete Sales Channel")}
         subText={
           deleteChannel
             ? `Are you sure you want to delete channel #${deleteChannel.id}?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteChannel(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

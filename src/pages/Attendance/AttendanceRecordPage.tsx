@@ -38,6 +38,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate, formatTime as companyFormatTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Employee {
@@ -489,16 +490,16 @@ const AttendanceRecordPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Attendance Records" description="Manage attendance logs" />
+      <PageMeta title={t("Attendance Records")} description="Manage attendance logs" />
       <PageBreadcrumb pageTitle="Attendance Records" />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header Banner */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Attendance Records</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t("Attendance Records")}</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Daily check-in and check-out records for the last 30 days. Corrections are made through regularization.
+              {t("Daily check-in and check-out records for the last 30 days. Corrections are made through regularization.")}
             </p>
           </div>
         </div>
@@ -506,7 +507,7 @@ const AttendanceRecordPage: React.FC = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatsCard
-            label="Total Records"
+            label={t("Total Records")}
             value={totalRecords}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -514,7 +515,7 @@ const AttendanceRecordPage: React.FC = () => {
             icon={<CalendarDaysIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Present"
+            label={t("Present")}
             value={present}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -522,7 +523,7 @@ const AttendanceRecordPage: React.FC = () => {
             icon={<CheckCircleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Absent"
+            label={t("Absent")}
             value={absent}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -530,7 +531,7 @@ const AttendanceRecordPage: React.FC = () => {
             icon={<XCircleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="On Leave"
+            label={t("On Leave")}
             value={onLeave}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
@@ -555,17 +556,17 @@ const AttendanceRecordPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {editingRecord ? "Edit Attendance Record" : "Add Attendance Record"}
+                      {t(editingRecord ? "Edit Attendance Record" : "Add Attendance Record")}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {editingRecord ? "Update attendance details" : "Record new attendance entry"}
+                      {t(editingRecord ? "Update attendance details" : "Record new attendance entry")}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={resetForm}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Back to list"
+                  title={t("Back to list")}
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
@@ -581,7 +582,7 @@ const AttendanceRecordPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Employee <span className="text-red-500">*</span>
+                      {t("Employee")} <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={form.employeeId || ""}
@@ -594,7 +595,7 @@ const AttendanceRecordPage: React.FC = () => {
                       }}
                       className={inputCls}
                     >
-                      <option value="">Select Employee</option>
+                      <option value="">{t("Select Employee")}</option>
                       {employees.map(emp => (
                         <option key={emp.id} value={emp.id}>
                           {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
@@ -603,7 +604,7 @@ const AttendanceRecordPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Shift</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Shift")}</label>
                     <select
                       value={form.shiftId || ""}
                       onChange={e => {
@@ -614,7 +615,7 @@ const AttendanceRecordPage: React.FC = () => {
                       }}
                       className={inputCls}
                     >
-                      <option value="">Select Shift</option>
+                      <option value="">{t("Select Shift")}</option>
                       {shifts.map(s => (
                         <option key={s.shiftId} value={s.shiftId}>
                           {s.shiftName} {s.startTime && s.endTime ? `(${s.startTime.substring(0, 5)} - ${s.endTime.substring(0, 5)})` : ""}
@@ -629,12 +630,12 @@ const AttendanceRecordPage: React.FC = () => {
               {/* Date Selection */}
               <div className="mb-6">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <CalendarDaysIcon className="h-3 w-3" /> Date
+                  <CalendarDaysIcon className="h-3 w-3" /> {t("Date")}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Attendance Date <span className="text-red-500">*</span>
+                      {t("Attendance Date")} <span className="text-red-500">*</span>
                     </label>
                     <DatePicker
                       selected={form.date ? new Date(form.date) : null}
@@ -651,11 +652,11 @@ const AttendanceRecordPage: React.FC = () => {
               {/* Time Tracking */}
               <div className="mb-6">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <ClockIcon className="h-3 w-3" /> Time Tracking
+                  <ClockIcon className="h-3 w-3" /> {t("Time Tracking")}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Check-In Time</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Check-In Time")}</label>
                     <DatePicker
                       selected={checkInDate}
                       onChange={handleCheckInTimeChange}
@@ -670,7 +671,7 @@ const AttendanceRecordPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Check-Out Time</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Check-Out Time")}</label>
                     <DatePicker
                       selected={checkOutDate}
                       onChange={handleCheckOutTimeChange}
@@ -685,7 +686,7 @@ const AttendanceRecordPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Work Hours</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Work Hours")}</label>
                     <input
                       type="text"
                       value={form.workHours != null ? `${form.workHours} hours` : "0 hours"}
@@ -693,7 +694,7 @@ const AttendanceRecordPage: React.FC = () => {
                       readOnly
                       disabled
                     />
-                    <p className="mt-1 text-xs text-gray-500">Auto-calculated from check-in/out times</p>
+                    <p className="mt-1 text-xs text-gray-500">{t("Auto-calculated from check-in/out times")}</p>
                   </div>
                 </div>
               </div>
@@ -701,31 +702,31 @@ const AttendanceRecordPage: React.FC = () => {
               {/* Status */}
               <div className="mb-6">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <CheckCircleIcon className="h-3 w-3" /> Status
+                  <CheckCircleIcon className="h-3 w-3" /> {t("Status")}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Attendance Status")}</label>
                     <select
                       value={form.attendanceStatus}
                       onChange={e => handleChange("attendanceStatus", e.target.value as AttendanceStatus)}
                       className={inputCls}
                     >
-                      <option value="PRESENT">Present</option>
-                      <option value="ABSENT">Absent</option>
-                      <option value="ON_LEAVE">On Leave</option>
+                      <option value="PRESENT">{t("Present")}</option>
+                      <option value="ABSENT">{t("Absent")}</option>
+                      <option value="ON_LEAVE">{t("On Leave")}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Method</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Method")}</label>
                     <select
                       value={form.method}
                       onChange={e => handleChange("method", e.target.value)}
                       className={inputCls}
                     >
-                      <option value="mobile">Mobile App</option>
-                      <option value="biometric">Biometric Device</option>
-                      <option value="manual">Manual Entry</option>
+                      <option value="mobile">{t("Mobile App")}</option>
+                      <option value="biometric">{t("Biometric Device")}</option>
+                      <option value="manual">{t("Manual Entry")}</option>
                     </select>
                   </div>
                 </div>
@@ -738,12 +739,12 @@ const AttendanceRecordPage: React.FC = () => {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t("Location")}</label>
                     <input
                       type="text"
                       value={form.location}
                       onChange={e => handleChange("location", e.target.value)}
-                      placeholder="e.g., Office, Remote, Client Site"
+                      placeholder={t("e.g., Office, Remote, Client Site")}
                       className={inputCls}
                     />
                   </div>
@@ -755,7 +756,7 @@ const AttendanceRecordPage: React.FC = () => {
                         onChange={e => handleChange("verified", e.target.checked)}
                         className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                       />
-                      <span className="text-sm font-medium text-gray-700">Mark as Verified</span>
+                      <span className="text-sm font-medium text-gray-700">{t("Mark as Verified")}</span>
                     </label>
                   </div>
                 </div>
@@ -763,12 +764,12 @@ const AttendanceRecordPage: React.FC = () => {
 
               {/* Remarks */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t("Remarks")}</label>
                 <textarea
                   value={form.remarks}
                   onChange={e => handleChange("remarks", e.target.value)}
                   rows={3}
-                  placeholder="Add any notes or comments..."
+                  placeholder={t("Add any notes or comments...")}
                   className={inputCls}
                 />
               </div>
@@ -796,7 +797,7 @@ const AttendanceRecordPage: React.FC = () => {
                   className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
                   <ArrowLeftIcon className="h-4 w-4" />
-                  Back to List
+                  {t("Back to List")}
                 </button>
               </div>
             </form>
@@ -811,7 +812,7 @@ const AttendanceRecordPage: React.FC = () => {
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search by employee, date, or location..."
+                    placeholder={t("Search by employee, date, or location...")}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -826,7 +827,7 @@ const AttendanceRecordPage: React.FC = () => {
                   onChange={e => setSelectedEmployeeFilter(e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
                 >
-                  <option value="">All Employees</option>
+                  <option value="">{t("All Employees")}</option>
                   {uniqueEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name}</option>
                   ))}
@@ -838,10 +839,10 @@ const AttendanceRecordPage: React.FC = () => {
                   onChange={e => setSelectedStatus(e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
                 >
-                  <option value="">All Status</option>
-                  <option value="PRESENT">Present</option>
-                  <option value="ABSENT">Absent</option>
-                  <option value="ON_LEAVE">On Leave</option>
+                  <option value="">{t("All Status")}</option>
+                  <option value="PRESENT">{t("Present")}</option>
+                  <option value="ABSENT">{t("Absent")}</option>
+                  <option value="ON_LEAVE">{t("On Leave")}</option>
                 </select>
 
                 {/* Clear Filters Button */}
@@ -854,7 +855,7 @@ const AttendanceRecordPage: React.FC = () => {
                     }}
                     className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
                   >
-                    Clear Filters
+                    {t("Clear Filters")}
                   </button>
                 )}
               </div>
@@ -874,13 +875,13 @@ const AttendanceRecordPage: React.FC = () => {
                   <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                     <CalendarDaysIcon className="h-8 w-8 text-gray-400" />
                   </div>
-                  <p className="text-gray-500 text-sm font-medium mb-2">No attendance records found</p>
+                  <p className="text-gray-500 text-sm font-medium mb-2">{t("No attendance records found")}</p>
                   {canCreate && (<button
                     onClick={openCreateForm}
                     className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
                   >
                     <PlusIcon className="h-4 w-4" />
-                    Add your first record
+                    {t("Add your first record")}
                   </button>)}
                 </div>
               }

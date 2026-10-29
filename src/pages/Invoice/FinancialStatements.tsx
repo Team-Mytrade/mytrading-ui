@@ -288,7 +288,7 @@ const FinancialStatements: React.FC = () => {
               <StatsCard label={t("Revenue")} value={money(pnl.totalRevenue)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
               <StatsCard label={t("Gross profit")} value={money(pnl.grossProfit)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
               <StatsCard
-                label={pnl.netProfit < 0 ? "Net loss" : "Net profit"}
+                label={t(pnl.netProfit < 0 ? "Net loss" : "Net profit")}
                 value={money(Math.abs(pnl.netProfit))}
                 gradient={pnl.netProfit < 0 ? "from-orange-50 to-yellow-50" : "from-green-50 to-emerald-50"}
                 borderColor={pnl.netProfit < 0 ? "border-orange-100" : "border-green-100"}
@@ -300,7 +300,7 @@ const FinancialStatements: React.FC = () => {
               <Section title={t("Cost of sales")} lines={pnl.costOfSales} totalLabel="Total cost of sales" total={pnl.totalCostOfSales} onOpen={openLedger} money={money} />
               <ResultRow label={t("Gross profit")} amount={money(pnl.grossProfit)} />
               <Section title={t("Expenses")} lines={pnl.expenses} totalLabel="Total expenses" total={pnl.totalExpenses} onOpen={openLedger} money={money} />
-              <ResultRow label={pnl.netProfit < 0 ? "Net loss" : "Net profit"} amount={money(Math.abs(pnl.netProfit))} strong />
+              <ResultRow label={t(pnl.netProfit < 0 ? "Net loss" : "Net profit")} amount={money(Math.abs(pnl.netProfit))} strong />
             </StatementTable>
           </>
         )}

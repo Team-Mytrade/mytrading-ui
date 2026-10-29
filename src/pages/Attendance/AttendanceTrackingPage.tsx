@@ -18,8 +18,9 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { ATTENDANCE_API, CalendarDay, DayKind, dayKind, DAY_KIND_BADGE, DAY_KIND_LABEL, hoursOf, leaveTypeLabel, timeOf } from './attendanceApi';
-import { leadingDays, weekdayLabels, isCompanyWeekend, weekDays } from "../../company/format";
+import { leadingDays, weekdayLabels, isCompanyWeekend, weekDays, dateLocale, liveMonthNames } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // GET /v1/api/attendance/records/my-calendar/{employeeId}: one entry per day of the month, already resolved
 // by the server into holidays, weekly offs, approved leave and absence
 interface MyCalendarResponseModel {
@@ -29,10 +30,7 @@ interface MyCalendarResponseModel {
   days: CalendarDay[];
 }
 
-const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+const monthNames = liveMonthNames("long");
 
 const PRESENT_KINDS: DayKind[] = ['PRESENT', 'LATE', 'ON_DUTY', 'WFH', 'CHECKED_IN'];
 
@@ -80,7 +78,7 @@ const shortHours = (m: number) => (m > 0 && m < 60 ? `${m}m` : hoursOf(m));
 const isoOf =(d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dayLabel = (d: CalendarDay) => {
   const kind = dayKind(d);
-  if (kind === 'LEAVE' || d.halfDayLeave) return `${d.leaveType ? `${leaveTypeLabel(d.leaveType)} leave` : 'Leave'}${d.halfDayLeave ? ' (½ day)' : ''}`;
+  if (kind === 'LEAVE' || d.halfDayLeave) return `${d.leaveType ? `${leaveTypeLabel(d.leaveType)} leave` : t('Leave')}${d.halfDayLeave ? ' (½ day)' : ''}`;
   if (kind === 'HOLIDAY') return d.holidayName || 'Holiday';
   return DAY_KIND_LABEL[kind];
 };
@@ -215,7 +213,7 @@ const AttendanceTrackingPage: React.FC = () => {
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    doc.text(`Attendance - ${employeeName} - ${monthNames[selectedMonth - 1]} ${selectedYear}`, 14, 16);
+    doc.text(`Attendance - ${employeeName} - ${new Date(selectedYear, selectedMonth - 1, 1).toLocaleString("en-US", { month: "long" })} ${selectedYear}`, 14, 16);
     doc.setFontSize(9);
     doc.text(`Present ${summary.present} of ${summary.working} working days (${summary.rate}%) · Absent ${summary.absent} · Late ${summary.late} · Leave ${summary.leave} · Worked ${hoursOf(summary.worked)}`, 14, 22);
     autoTable(doc, {
@@ -310,7 +308,7 @@ const AttendanceTrackingPage: React.FC = () => {
             {d?.workedMinutes ? <span className="text-[10px] font-bold text-slate-800 dark:text-gray-100">{hoursOf(d.workedMinutes)}</span> : null}
             {d?.lateMinutes ? <span className="rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">{d.lateMinutes}m late</span> : null}
             {d?.overtimeMinutes ? <span className="rounded bg-emerald-100 px-1 py-px text-[9px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">+{d.overtimeMinutes}m OT</span> : null}
-            {d?.regularized ? <span title="Regularized" className="rounded bg-indigo-100 px-1 py-px text-[9px] font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">REG</span> : null}
+            {d?.regularized ? <span title={t("Regularized")} className="rounded bg-indigo-100 px-1 py-px text-[9px] font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{t("REG")}</span> : null}
           </div>
         ) : null}
       </button>
@@ -330,7 +328,7 @@ const AttendanceTrackingPage: React.FC = () => {
     });
     return (
       <div key={`week-${index}`} className="hidden min-h-0 flex-col justify-center gap-0.5 rounded-md border border-[#cdeef3] bg-[#e0f7fa]/70 px-2 py-1 md:flex dark:border-[#2a2a2a] dark:bg-[#1c2526]">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">Week {index + 1}</span>
+        <span className="text-[9px] font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">{t("Week")} {index + 1}</span>
         <span className="text-xs font-bold text-slate-900 dark:text-white">{worked || working ? hoursOf(worked) : '—'}</span>
         {working > 0 && <span className="text-[10px] font-medium text-slate-600 dark:text-gray-300">{present}/{working} days</span>}
         {overtime > 0 && <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">+{shortHours(overtime)} OT</span>}
@@ -344,7 +342,7 @@ const AttendanceTrackingPage: React.FC = () => {
     <>
       <div className="h-full flex flex-col min-h-0 w-full animate-in fade-in duration-200">
       <div className="shrink-0 mb-1">
-        <PageMeta title="Attendance Tracking & Calendar Records" description="Monthly attendance calendar with punches, hours, late arrivals and leave" />
+        <PageMeta title={t("Attendance Tracking & Calendar Records")} description="Monthly attendance calendar with punches, hours, late arrivals and leave" />
         <PageBreadcrumb
           pageTitle="Attendance Tracking & Calendar Records"
           actions={
@@ -354,7 +352,7 @@ const AttendanceTrackingPage: React.FC = () => {
                   value={selectedEmpId}
                   onChange={(e) => setSelectedEmpId(Number(e.target.value))}
                   className="h-7 py-0 pl-2 pr-7 bg-white dark:bg-[#191919] border border-slate-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-white focus:ring-1 focus:ring-cyan-400 outline-none cursor-pointer max-w-[240px] truncate"
-                  title="Employee"
+                  title={t("Employee")}
                 >
                   {employeeList.map(emp => (
                     <option key={emp.id} value={emp.id} className="dark:bg-[#222222]">
@@ -364,33 +362,33 @@ const AttendanceTrackingPage: React.FC = () => {
                 </select>
               )}
               <div className="flex h-7 items-center gap-0.5 bg-white dark:bg-[#191919] px-1 rounded-lg border border-slate-200 dark:border-gray-700">
-                <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title="Previous Month">
+                <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title={t("Previous Month")}>
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <span className="px-1 text-xs font-bold text-slate-800 dark:text-white min-w-[104px] text-center">
                   {monthNames[selectedMonth - 1]} {selectedYear}
                 </span>
-                <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title="Next Month">
+                <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title={t("Next Month")}>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
-                <button type="button" onClick={fetchMyCalendarAttendance} className="p-1 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md transition cursor-pointer" title="Refresh">
+                <button type="button" onClick={fetchMyCalendarAttendance} className="p-1 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md transition cursor-pointer" title={t("Refresh")}>
                   <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-              <button type="button" onClick={handleThisMonth} className={TOOL_BUTTON} title="Go to the current month">
+              <button type="button" onClick={handleThisMonth} className={TOOL_BUTTON} title={t("Go to the current month")}>
                 <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                Today
+                {t("Today")}
               </button>
               {canExport && (
-                <button type="button" onClick={handleExportCSV} className={TOOL_BUTTON} title="Export Excel">
+                <button type="button" onClick={handleExportCSV} className={TOOL_BUTTON} title={t("Export Excel")}>
                   <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  Excel
+                  {t("Excel")}
                 </button>
               )}
               {canExport && (
-                <button type="button" onClick={handleExportPDF} className={TOOL_BUTTON} title="Export PDF">
+                <button type="button" onClick={handleExportPDF} className={TOOL_BUTTON} title={t("Export PDF")}>
                   <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  PDF
+                  {t("PDF")}
                 </button>
               )}
             </div>
@@ -403,19 +401,19 @@ const AttendanceTrackingPage: React.FC = () => {
         {/* ── Month summary (cards filter the calendar) ─────────────────── */}
         {/* No list toolbar here: the calendar has its own controls in the breadcrumb */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 shrink-0 !pr-0 [&_.stats-card-actions]:!hidden">
-          <StatsCard label="Attendance" value={`${summary.rate}%`} gradient="from-cyan-50" icon={<Percent />} loading={loading} />
-          <StatsCard label="Present days" value={`${summary.present}/${summary.working}`} gradient="from-emerald-50" icon={<UserCheck />} loading={loading}
-            onClick={() => toggleFilter('PRESENT')} selected={filter === 'PRESENT'} title="Show present days" />
-          <StatsCard label="Absent" value={summary.absent} gradient="from-rose-50" icon={<UserX />} loading={loading}
-            onClick={() => toggleFilter('ABSENT')} selected={filter === 'ABSENT'} title="Show absent days" />
-          <StatsCard label="Late arrivals" value={summary.late} gradient="from-amber-50" icon={<AlertTriangle />} loading={loading}
-            onClick={() => toggleFilter('LATE')} selected={filter === 'LATE'} title="Show late days" />
-          <StatsCard label="Leave" value={summary.leave} gradient="from-purple-50" icon={<Briefcase />} loading={loading}
-            onClick={() => toggleFilter('LEAVE')} selected={filter === 'LEAVE'} title="Show leave days" />
-          <StatsCard label="Holidays & offs" value={summary.offs} gradient="from-gray-50" icon={<Gift />} loading={loading}
-            onClick={() => toggleFilter('OFF')} selected={filter === 'OFF'} title="Show holidays and week offs" />
-          <StatsCard label="Hours worked" value={hoursOf(summary.worked)} gradient="from-cyan-50" icon={<Clock />} loading={loading} />
-          <StatsCard label="Overtime" value={shortHours(summary.overtime)} gradient="from-emerald-50" icon={<TrendingUp />} loading={loading} />
+          <StatsCard label={t("Attendance")} value={`${summary.rate}%`} gradient="from-cyan-50" icon={<Percent />} loading={loading} />
+          <StatsCard label={t("Present days")} value={`${summary.present}/${summary.working}`} gradient="from-emerald-50" icon={<UserCheck />} loading={loading}
+            onClick={() => toggleFilter('PRESENT')} selected={filter === 'PRESENT'} title={t("Show present days")} />
+          <StatsCard label={t("Absent")} value={summary.absent} gradient="from-rose-50" icon={<UserX />} loading={loading}
+            onClick={() => toggleFilter('ABSENT')} selected={filter === 'ABSENT'} title={t("Show absent days")} />
+          <StatsCard label={t("Late arrivals")} value={summary.late} gradient="from-amber-50" icon={<AlertTriangle />} loading={loading}
+            onClick={() => toggleFilter('LATE')} selected={filter === 'LATE'} title={t("Show late days")} />
+          <StatsCard label={t("Leave")} value={summary.leave} gradient="from-purple-50" icon={<Briefcase />} loading={loading}
+            onClick={() => toggleFilter('LEAVE')} selected={filter === 'LEAVE'} title={t("Show leave days")} />
+          <StatsCard label={t("Holidays & offs")} value={summary.offs} gradient="from-gray-50" icon={<Gift />} loading={loading}
+            onClick={() => toggleFilter('OFF')} selected={filter === 'OFF'} title={t("Show holidays and week offs")} />
+          <StatsCard label={t("Hours worked")} value={hoursOf(summary.worked)} gradient="from-cyan-50" icon={<Clock />} loading={loading} />
+          <StatsCard label={t("Overtime")} value={shortHours(summary.overtime)} gradient="from-emerald-50" icon={<TrendingUp />} loading={loading} />
         </div>
 
         {/* ── Month calendar ─────────────────────────────────────────────── */}
@@ -424,7 +422,7 @@ const AttendanceTrackingPage: React.FC = () => {
             {weekdayLabels().map((w, i) => (
               <span key={w} className={`rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider ${isCompanyWeekend(weekDays()[i]) ? 'bg-slate-200/60 text-slate-500 dark:bg-[#222] dark:text-gray-500' : 'bg-[#e0f7fa] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300'}`}>{w}</span>
             ))}
-            <span className="hidden md:block rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider bg-[#b2ebf2] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300">Week total</span>
+            <span className="hidden md:block rounded-md py-1 text-center text-[10.5px] font-bold uppercase tracking-wider bg-[#b2ebf2] text-[#006f7a] dark:bg-[#1c2526] dark:text-cyan-300">{t("Week total")}</span>
           </div>
 
           <div className={`flex-1 min-h-0 ${GRID_COLS}`} style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(64px, 1fr))` }}>
@@ -441,7 +439,7 @@ const AttendanceTrackingPage: React.FC = () => {
             ))}
             {filter !== 'ALL' && (
               <button type="button" onClick={() => setFilter('ALL')} className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-[#006f7a] hover:bg-[#e0f7fa] cursor-pointer">
-                <X className="h-3 w-3" /> Clear filter
+                <X className="h-3 w-3" /> {t("Clear filter")}
               </button>
             )}
           </div>
@@ -460,9 +458,9 @@ const AttendanceTrackingPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-white dark:text-gray-300" />
                 <div>
-                  <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase">Attendance Details</h3>
+                  <h3 className="text-xs font-bold text-white dark:text-gray-200 uppercase">{t("Attendance Details")}</h3>
                   <span className="text-[11px] text-cyan-100 dark:text-gray-400 block">
-                    {new Date(`${selectedDayRecord.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {employeeName}
+                    {new Date(`${selectedDayRecord.date}T00:00:00`).toLocaleDateString(dateLocale("en-IN"), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {employeeName}
                   </span>
                 </div>
               </div>
@@ -473,10 +471,10 @@ const AttendanceTrackingPage: React.FC = () => {
 
             <div className="p-5 space-y-4 text-xs">
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200 dark:border-transparent">
-                <span className="text-slate-600 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">Status</span>
+                <span className="text-slate-600 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">{t("Status")}</span>
                 <span className="flex items-center gap-1.5">
                   {selectedDayRecord.regularized && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200"><PenLine className="h-3 w-3" /> Regularized</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200"><PenLine className="h-3 w-3" /> {t("Regularized")}</span>
                   )}
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${KIND_STYLE[kind].pill}`}>
                     {dayLabel(selectedDayRecord)}
@@ -511,7 +509,7 @@ const AttendanceTrackingPage: React.FC = () => {
                 <div className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-xl border border-orange-200 dark:border-transparent flex items-center gap-2">
                   <Gift className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-orange-700 dark:text-orange-400 font-bold uppercase block">Company holiday</span>
+                    <span className="text-[10px] text-orange-700 dark:text-orange-400 font-bold uppercase block">{t("Company holiday")}</span>
                     <span className="text-xs font-bold text-orange-900 dark:text-orange-200">{selectedDayRecord.holidayName}</span>
                   </div>
                 </div>
@@ -521,7 +519,7 @@ const AttendanceTrackingPage: React.FC = () => {
                 <div className="p-3 bg-violet-50 dark:bg-violet-950/20 rounded-xl border border-violet-200 dark:border-transparent flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-violet-700 dark:text-violet-400 font-bold uppercase block">Approved leave</span>
+                    <span className="text-[10px] text-violet-700 dark:text-violet-400 font-bold uppercase block">{t("Approved leave")}</span>
                     <span className="text-xs font-bold text-violet-900 dark:text-violet-200">
                       {leaveTypeLabel(selectedDayRecord.leaveType)} leave{selectedDayRecord.halfDayLeave ? ' (half day)' : ''}
                     </span>
@@ -535,7 +533,7 @@ const AttendanceTrackingPage: React.FC = () => {
                   onClick={() => setSelectedDayRecord(null)}
                   className={TOOL_BUTTON}
                 >
-                  Close
+                  {t("Close")}
                 </button>
               </div>
             </div>

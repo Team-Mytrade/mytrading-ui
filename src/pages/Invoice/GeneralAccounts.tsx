@@ -232,7 +232,7 @@ const GeneralAccounts: React.FC = () => {
       render: (row) => (
         <span className="text-sm text-slate-600">
           {money(row.openingBalance, row.currency)}
-          {Number(row.openingBalance) ? <span className="ml-1 text-xs text-slate-400">{isDebitNormal(row.accountType) ? "Dr" : "Cr"}</span> : null}
+          {Number(row.openingBalance) ? <span className="ml-1 text-xs text-slate-400">{t(isDebitNormal(row.accountType) ? "Dr" : "Cr")}</span> : null}
         </span>
       ),
     },
@@ -246,7 +246,7 @@ const GeneralAccounts: React.FC = () => {
           {row.isActive === false ? (
             <span className="text-slate-400">{t("Inactive")}</span>
           ) : row.allowTransactions === false ? (
-            <span className="text-amber-700">Header (no postings)</span>
+            <span className="text-amber-700">{t("Header (no postings)")}</span>
           ) : (
             <span className="text-emerald-700">{t("Active")}</span>
           )}
@@ -322,7 +322,7 @@ const GeneralAccounts: React.FC = () => {
                   onClick={seedStarterChart}
                   className="mt-2 rounded-lg border border-cyan-200 px-3 py-1.5 text-xs font-medium text-cyan-700 hover:bg-cyan-50 disabled:opacity-50"
                 >
-                  {seeding ? "Adding accounts…" : `Start with a standard chart (${STARTER_ACCOUNTS.length} accounts)`}
+                  {seeding ? t("Adding accounts…") : `Start with a standard chart (${STARTER_ACCOUNTS.length} accounts)`}
                 </button>
               )}
             </div>
@@ -332,7 +332,7 @@ const GeneralAccounts: React.FC = () => {
 
       <PaginatedPopup
         isOpen={formOpen}
-        title={editing ? `Edit ${editing.accountCode}` : "Add account"}
+        title={editing ? `${t("Edit")} ${editing.accountCode}` : t("Add account")}
         subtitle={t("Codes are unique within your company")}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-2xl"
@@ -363,7 +363,7 @@ const GeneralAccounts: React.FC = () => {
               <Toggle label={t("Accepts postings")} hint={t("Turn off for heading accounts that only group others")} checked={form.allowTransactions}
                 onChange={(allowTransactions) => setForm((current) => ({ ...current, allowTransactions }))} />
             </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Add account"} busy={busy} />
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Add account")} busy={busy} />
           </form>
         }
       />

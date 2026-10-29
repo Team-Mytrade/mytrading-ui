@@ -49,6 +49,7 @@ import { AddButton } from "../../components/common/AddButton";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface EmployeeDocument {
     id: number;
     employeeId?: number;
@@ -360,18 +361,18 @@ const EmployeeDocumentsPage: React.FC = () => {
             render: (row) => row.status === "APPROVED" ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 border border-transparent">
                     <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
-                    Verified
+                    {t("Verified")}
                 </span>
             ) : row.status === "REJECTED" ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-transparent dark:text-rose-400 border border-transparent"
                     title={row.remarks}>
                     <XCircleIcon className="h-3 w-3 mr-1 shrink-0" />
-                    Rejected
+                    {t("Rejected")}
                 </span>
             ) : (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-400 border border-transparent">
                     <ClockIcon className="h-3 w-3 mr-1 shrink-0" />
-                    Pending
+                    {t("Pending")}
                 </span>
             )
         },
@@ -389,26 +390,26 @@ const EmployeeDocumentsPage: React.FC = () => {
             render: (row) => (
                 <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     {canApprove && row.status !== "APPROVED" && (
-                        <button type="button" onClick={() => decide(row, "approve")} className={ROW_ICON_BUTTON} title="Verify">
+                        <button type="button" onClick={() => decide(row, "approve")} className={ROW_ICON_BUTTON} title={t("Verify")}>
                             <CheckCircleIcon className="h-4 w-4" />
                         </button>
                     )}
                     {canApprove && row.status === "PENDING" && (
-                        <button type="button" onClick={() => decide(row, "reject")} className={ROW_ICON_BUTTON_DANGER} title="Reject">
+                        <button type="button" onClick={() => decide(row, "reject")} className={ROW_ICON_BUTTON_DANGER} title={t("Reject")}>
                             <XCircleIcon className="h-4 w-4" />
                         </button>
                     )}
-                    <button type="button" onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }} className={ROW_ICON_BUTTON} title="Details">
+                    <button type="button" onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }} className={ROW_ICON_BUTTON} title={t("Details")}>
                         <InformationCircleIcon className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => handlePreview(row)} className={ROW_ICON_BUTTON} title="Preview">
+                    <button type="button" onClick={() => handlePreview(row)} className={ROW_ICON_BUTTON} title={t("Preview")}>
                         <EyeIcon className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => handleDownload(row)} className={ROW_ICON_BUTTON} title="Download">
+                    <button type="button" onClick={() => handleDownload(row)} className={ROW_ICON_BUTTON} title={t("Download")}>
                         <ArrowDownTrayIcon className="h-4 w-4" />
                     </button>
                     {canDelete && (
-                        <button type="button" onClick={() => handleDelete(row.id, row.fileName)} className={ROW_ICON_BUTTON_DANGER} title="Delete">
+                        <button type="button" onClick={() => handleDelete(row.id, row.fileName)} className={ROW_ICON_BUTTON_DANGER} title={t("Delete")}>
                             <TrashIcon className="h-4 w-4" />
                         </button>
                     )}
@@ -419,7 +420,7 @@ const EmployeeDocumentsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Employee Documents" description="Manage employee documents and credentials" />
+            <PageMeta title={t("Employee Documents")} description="Manage employee documents and credentials" />
             <PageBreadcrumb
                 pageTitle={employeeIdNum && documents[0]?.employeeName ? `${documents[0].employeeName}'s Documents` : "Documents"}
                 actions={
@@ -433,7 +434,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                     disabled={documents.length === 0}
                                 >
                                     <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                    Export
+                                    {t("Export")}
                                 </button>
                                 {showExportMenu && (
                                     <div className="absolute right-0 top-9 w-48 bg-white dark:bg-[#191919] shadow-lg rounded-md border border-gray-200 dark:!border-transparent z-50 py-1">
@@ -443,7 +444,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                             className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
                                         >
                                             <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                            Export PDF
+                                            {t("Export PDF")}
                                         </button>
                                         <button
                                             type="button"
@@ -451,7 +452,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                             className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#222222]"
                                         >
                                             <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                            Export Excel
+                                            {t("Export Excel")}
                                         </button>
                                     </div>
                                 )}
@@ -464,20 +465,20 @@ const EmployeeDocumentsPage: React.FC = () => {
                             disabled={documents.length === 0}
                         >
                             <PrinterIcon className="h-3.5 w-3.5" />
-                            Print
+                            {t("Print")}
                         </button>
                         {/* Uploads go to one employee: open them from the employee's page */}
-                        {employeeIdNum > 0 && <AddButton label="Upload Document" onClick={() => setIsUploadOpen(true)} />}
+                        {employeeIdNum > 0 && <AddButton label={t("Upload Document")} onClick={() => setIsUploadOpen(true)} />}
                     </div>
                 }
             />
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Total Documents" value={totalDocuments} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
-                    <StatsCard label="Verified" value={verifiedCount} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ShieldCheckIcon className="h-5 w-5" />} />
-                    <StatsCard label="Pending Verification" value={pendingCount} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
-                    <StatsCard label="Rejected" value={documents.filter(d => d.status === "REJECTED").length} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={loadDocs} />
+                    <StatsCard label={t("Total Documents")} value={totalDocuments} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Verified")} value={verifiedCount} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ShieldCheckIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Pending Verification")} value={pendingCount} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Rejected")} value={documents.filter(d => d.status === "REJECTED").length} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={loadDocs} />
                 </div>
 
                 {/* Documents Table */}
@@ -490,7 +491,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                     emptyState={
                         <div className="flex flex-col items-center">
                             <DocumentTextIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-                            <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">No documents found</p>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">{t("No documents found")}</p>
                             <p className="text-gray-400 dark:text-gray-500 text-xs">
                                 {employeeIdNum ? 'Click "Upload Document" to add one' : "Employees upload theirs from their Documents page"}
                             </p>
@@ -501,39 +502,39 @@ const EmployeeDocumentsPage: React.FC = () => {
                 {/* Upload Modal */}
                 <PaginatedPopup
                     isOpen={isUploadOpen}
-                    title="Upload Document"
+                    title={t("Upload Document")}
                     onClose={() => setIsUploadOpen(false)}
                     onSubmit={(e) => {
                         e.preventDefault();
                         handleUpload(e);
                     }}
-                    submitLabel={loading ? "Uploading..." : "Upload"}
-                    cancelLabel="Cancel"
+                    submitLabel={t(loading ? "Uploading..." : "Upload")}
+                    cancelLabel={t("Cancel")}
                     maxWidthClassName="max-w-lg dark:!border-transparent"
                     submitting={loading}
                     fields={[
                         <div key="doc-type">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Document Type</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t("Document Type")}</label>
                             <select
                                 value={documentType}
                                 onChange={e => setDocumentType(e.target.value)}
                                 className="mt-1 block w-full border border-gray-300 dark:!border-transparent rounded-md shadow-sm p-2 bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-cyan-500 focus:border-cyan-500 outline-none"
                                 required
                             >
-                                <option value="" className="dark:bg-[#222222] dark:text-gray-400">Select Document Type</option>
+                                <option value="" className="dark:bg-[#222222] dark:text-gray-400">{t("Select Document Type")}</option>
                                 {DOCUMENT_TYPES.map(type => (
                                     <option key={type.value} value={type.value} className="dark:bg-[#222222] dark:text-white">{type.label}</option>
                                 ))}
                             </select>
                         </div>,
                         <div key="file-upload">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">File</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t("File")}</label>
                             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-700/60 border-dashed rounded-lg bg-gray-50/50 dark:bg-[#222222]/40">
                                 <div className="space-y-1 text-center">
                                     <ArrowUpIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                                     <div className="flex text-sm text-gray-600 dark:text-gray-400 justify-center">
                                         <label className="relative cursor-pointer bg-white dark:bg-transparent rounded-md font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-cyan-500">
-                                            <span>Upload a file</span>
+                                            <span>{t("Upload a file")}</span>
                                             <input
                                                 type="file"
                                                 accept=".pdf,.jpg,.jpeg,.png"
@@ -542,14 +543,14 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                 required
                                             />
                                         </label>
-                                        <p className="pl-1">or drag and drop</p>
+                                        <p className="pl-1">{t("or drag and drop")}</p>
                                     </div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        PDF, JPG or PNG up to 5 MB
+                                        {t("PDF, JPG or PNG up to 5 MB")}
                                     </p>
                                     {file && (
                                         <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 font-medium">
-                                            Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                                            {t("Selected:")} {file.name} ({(file.size / 1024).toFixed(2)} KB)
                                         </p>
                                     )}
                                 </div>
@@ -557,7 +558,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                         </div>,
                         <div key="note-box" className="col-span-2 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:!border-transparent">
                             <p className="text-sm text-blue-800 dark:text-gray-300">
-                                <strong className="dark:text-white">Note:</strong> HR verifies each document.
+                                <strong className="dark:text-white">{t("Note:")}</strong> HR verifies each document.
                                 Clear scans are verified faster.
                             </p>
                         </div>
@@ -575,7 +576,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                                                    Document Details
+                                                    {t("Document Details")}
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
@@ -588,37 +589,37 @@ const EmployeeDocumentsPage: React.FC = () => {
                                             <div className="mb-6 p-4 bg-gray-50 dark:bg-[#222222] rounded-lg border border-gray-100 dark:!border-transparent">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Document Type</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("Document Type")}</p>
                                                         <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedDocument.documentType}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("Status")}</p>
                                                         <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 border border-transparent ${selectedDocument.verified ? 'bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300' : 'bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-400'}`}>
                                                             {selectedDocument.verified ? <CheckCircleIcon className="h-3 w-3 mr-1" /> : <ClockIcon className="h-3 w-3 mr-1" />}
-                                                            {selectedDocument.verified ? 'Verified' : 'Pending'}
+                                                            {t(selectedDocument.verified ? 'Verified' : 'Pending')}
                                                         </span>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">File Name</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("File Name")}</p>
                                                         <p className="text-sm text-gray-700 dark:text-gray-300 break-all font-mono">{selectedDocument.fileName}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">File Type</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("File Type")}</p>
                                                         <p className="text-sm text-gray-700 dark:text-gray-300">{selectedDocument.fileType}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">File Size</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("File Size")}</p>
                                                         <p className="text-sm text-gray-700 dark:text-gray-300">{formatFileSize(selectedDocument.fileSize)}</p>
                                                     </div>
                                                     {selectedDocument.uploadedAt && (
                                                         <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Uploaded Date</p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">{t("Uploaded Date")}</p>
                                                             <p className="text-sm text-gray-600 dark:text-gray-400">{formatDateTime(selectedDocument.uploadedAt)}</p>
                                                         </div>
                                                     )}
                                                     {selectedDocument.remarks && (
                                                         <div className="col-span-2">
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Remarks</p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">{t("Remarks")}</p>
                                                             <p className="text-sm text-gray-700 dark:text-gray-300">{selectedDocument.remarks}</p>
                                                         </div>
                                                     )}
@@ -637,7 +638,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <EyeIcon className="h-4 w-4 mr-2" />
-                                        Preview
+                                        {t("Preview")}
                                     </button>
                                     <button
                                         type="button"
@@ -648,14 +649,14 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:!border-transparent shadow-sm px-4 py-2 bg-white dark:bg-[#222222] text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <ArrowCircleDownRounded className="h-4 w-4 mr-2" />
-                                        Download
+                                        {t("Download")}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:!border-transparent shadow-sm px-4 py-2 bg-white dark:bg-[#222222] text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>
@@ -677,7 +678,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                                                    Document Preview
+                                                    {t("Document Preview")}
                                                 </h3>
                                                 <button
                                                     onClick={() => {
@@ -693,11 +694,11 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                 {previewFileType.includes('image') ? (
                                                     <img src={previewUrl} alt="Preview" className="max-w-full max-h-[70vh] object-contain" />
                                                 ) : previewFileType.includes('pdf') ? (
-                                                    <iframe src={previewUrl} className="w-full h-[70vh]" title="PDF Preview" />
+                                                    <iframe src={previewUrl} className="w-full h-[70vh]" title={t("PDF Preview")} />
                                                 ) : (
                                                     <div className="text-center">
                                                         <DocumentTextIcon className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                                                        <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type</p>
+                                                        <p className="text-gray-500 dark:text-gray-400">{t("Preview not available for this file type")}</p>
                                                         <button
                                                             onClick={() => {
                                                                 const link = document.createElement("a");
@@ -707,7 +708,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                             }}
                                                             className="mt-4 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
                                                         >
-                                                            Download to View
+                                                            {t("Download to View")}
                                                         </button>
                                                     </div>
                                                 )}
@@ -727,7 +728,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <ArrowCircleDownRounded className="h-4 w-4 mr-2" />
-                                        Download
+                                        {t("Download")}
                                     </button>
                                     <button
                                         type="button"
@@ -737,7 +738,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                         }}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:!border-transparent shadow-sm px-4 py-2 bg-white dark:bg-[#222222] text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>

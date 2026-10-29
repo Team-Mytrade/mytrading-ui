@@ -18,6 +18,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import DynamicPopup from "../../components/common/Popup";
 import StatsCard from "../../components/common/Statscard";
 
+import { t } from "../../i18n/i18n";
 interface RouteSchedule {
   id: number; routeCode: string; routeName: string; startPoint: string;
   endPoint: string; scheduledDate: string; vehicleNumber: string; status: string;
@@ -157,11 +158,11 @@ const RouteSchedulePage: React.FC = () => {
       headerClassName: "!text-right pr-8", className: "text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button onClick={() => handleEdit(row)} title="Edit"
+          <button onClick={() => handleEdit(row)} title={t("Edit")}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors">
             <PencilSquareIcon className="h-4 w-4" />
           </button>
-          <button onClick={() => promptDelete(row)} title="Delete"
+          <button onClick={() => promptDelete(row)} title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
             <TrashIcon className="h-4 w-4" />
           </button>
@@ -173,7 +174,7 @@ const RouteSchedulePage: React.FC = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      <PageMeta title="Route / Schedule Management" description="Manage routes and schedules" />
+      <PageMeta title={t("Route / Schedule Management")} description="Manage routes and schedules" />
       <PageBreadcrumb pageTitle="Route / Schedule Management" />
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -181,18 +182,18 @@ const RouteSchedulePage: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Route / Schedule Management</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage delivery routes and schedules</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("Route / Schedule Management")}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{t("Manage delivery routes and schedules")}</p>
           </div>
-          <AddButton label="Add Route" onClick={() => { clearForm(); setShowForm(true); }} />
+          <AddButton label={t("Add Route")} onClick={() => { clearForm(); setShowForm(true); }} />
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <StatsCard label="Total Routes" value={stats.total}     gradient="from-cyan-50 to-blue-50"     borderColor="border-cyan-100"   labelColor="text-cyan-600" />
-          <StatsCard label="Scheduled"    value={stats.scheduled} gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
-          <StatsCard label="Completed"    value={stats.completed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
-          <StatsCard label="Cancelled"    value={stats.cancelled} gradient="from-red-50 to-pink-50"      borderColor="border-red-100"    labelColor="text-red-600" />
+          <StatsCard label={t("Total Routes")} value={stats.total}     gradient="from-cyan-50 to-blue-50"     borderColor="border-cyan-100"   labelColor="text-cyan-600" />
+          <StatsCard label={t("Scheduled")}    value={stats.scheduled} gradient="from-blue-50 to-indigo-50"   borderColor="border-blue-100"   labelColor="text-blue-600" />
+          <StatsCard label={t("Completed")}    value={stats.completed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100"  labelColor="text-green-600" />
+          <StatsCard label={t("Cancelled")}    value={stats.cancelled} gradient="from-red-50 to-pink-50"      borderColor="border-red-100"    labelColor="text-red-600" />
         </div>
 
         {/* Inline form */}
@@ -200,7 +201,7 @@ const RouteSchedulePage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                {editingId ? "Edit Route" : "Add New Route"}
+                {t(editingId ? "Edit Route" : "Add New Route")}
               </h3>
               <button onClick={clearForm} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <XMarkIcon className="h-6 w-6" />
@@ -222,28 +223,28 @@ const RouteSchedulePage: React.FC = () => {
                   </div>
                 ))}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t("Scheduled Date")} <span className="text-red-500">*</span></label>
                   <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
                   <select value={status} onChange={e => setStatus(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
-                    <option>Scheduled</option>
-                    <option>Completed</option>
-                    <option>Cancelled</option>
+                    <option>{t("Scheduled")}</option>
+                    <option>{t("Completed")}</option>
+                    <option>{t("Cancelled")}</option>
                   </select>
                 </div>
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button type="submit"
                   className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors">
-                  {editingId ? "Update Route" : "Add Route"}
+                  {t(editingId ? "Update Route" : "Add Route")}
                 </button>
                 <button type="button" onClick={clearForm}
                   className="px-5 py-2.5 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </form>
@@ -256,7 +257,7 @@ const RouteSchedulePage: React.FC = () => {
           columns={columns}
           loading={loading}
           searchable
-          searchPlaceholder="Search by route name or destination..."
+          searchPlaceholder={t("Search by route name or destination...")}
           searchFields={["routeName", "endPoint", "startPoint", "routeCode", "vehicleNumber"]}
           pageSize={5}
           defaultSortKey="routeName"
@@ -265,9 +266,9 @@ const RouteSchedulePage: React.FC = () => {
               <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <MapPinIcon className="h-8 w-8 text-gray-400" />
               </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No routes found</p>
+              <p className="text-gray-500 text-sm font-medium mb-2">{t("No routes found")}</p>
               <button onClick={() => { clearForm(); setShowForm(true); }} className="text-cyan-600 hover:text-cyan-700 text-sm font-medium">
-                Add your first route →
+                {t("Add your first route →")}
               </button>
             </div>
           }
@@ -280,10 +281,10 @@ const RouteSchedulePage: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Route"
+        innerText={t("Delete Route")}
         subText={`Are you sure you want to delete "${deletingRoute?.routeName}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />

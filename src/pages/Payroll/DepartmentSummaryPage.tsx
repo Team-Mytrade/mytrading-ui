@@ -9,6 +9,7 @@ import StatsCard from "../../components/common/Statscard";
 import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_INPUT } from "./hrmsUi";
 import { formatMoney, formatNumber as companyFormatNumber } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
 const DepartmentSummaryPage: React.FC = () => {
@@ -65,7 +66,7 @@ const DepartmentSummaryPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Department Summary" description="Overview of department-wise payroll metrics" />
+            <PageMeta title={t("Department Summary")} description="Overview of department-wise payroll metrics" />
             <PageBreadcrumb
                 pageTitle="Department Summary"
                 actions={
@@ -74,14 +75,14 @@ const DepartmentSummaryPage: React.FC = () => {
                         value={salaryMonth}
                         onChange={(e) => setSalaryMonth(e.target.value)}
                         className={TOOL_INPUT}
-                        aria-label="Payroll month"
+                        aria-label={t("Payroll month")}
                     />
                 }
             />
 
             <div className={PAGE_BODY}>
                 {loading ? (
-                    <div className={`${CARD} py-12 text-center text-sm text-gray-500 dark:text-gray-400`}>Loading department summary...</div>
+                    <div className={`${CARD} py-12 text-center text-sm text-gray-500 dark:text-gray-400`}>{t("Loading department summary...")}</div>
                 ) : error || departmentSummary.length === 0 ? (
                     <div className={`${CARD} flex flex-col items-center justify-center py-14 text-center`}>
                         <ChartBarIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
@@ -90,17 +91,17 @@ const DepartmentSummaryPage: React.FC = () => {
                 ) : (
                     <div className="space-y-4">
                         <div className={STATS_ROW}>
-                            <StatsCard label="Departments" value={departmentSummary.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-5 w-5" />} />
-                            <StatsCard label="Employees" value={formatNumber(totalEmployees)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-5 w-5" />} />
-                            <StatsCard label="Payroll Cost (Gross)" value={formatCurrency(totalGross)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BanknotesIcon className="h-5 w-5" />} />
-                            <StatsCard label="Net Paid" value={formatCurrency(totalNet)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchDepartmentSummary} />
+                            <StatsCard label={t("Departments")} value={departmentSummary.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<BuildingOfficeIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Employees")} value={formatNumber(totalEmployees)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Payroll Cost (Gross)")} value={formatCurrency(totalGross)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BanknotesIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Net Paid")} value={formatCurrency(totalNet)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchDepartmentSummary} />
                         </div>
 
                         {/* Charts Section */}
                         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                             {/* Bar Chart */}
                             <div className={`${CARD} p-4 lg:col-span-2`}>
-                                <h3 className={`${CARD_TITLE} mb-4`}>Salary Breakdown by Department</h3>
+                                <h3 className={`${CARD_TITLE} mb-4`}>{t("Salary Breakdown by Department")}</h3>
                                 <div className="h-80 w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
                                     <div style={{ minWidth: `${Math.max(100, departmentSummary.length * 15)}%`, height: '100%' }}>
                                         <ResponsiveContainer width="100%" height="100%">
@@ -130,7 +131,7 @@ const DepartmentSummaryPage: React.FC = () => {
 
                             {/* Pie Chart */}
                             <div className={`${CARD} p-4`}>
-                                <h3 className={`${CARD_TITLE} mb-4`}>Employee Distribution</h3>
+                                <h3 className={`${CARD_TITLE} mb-4`}>{t("Employee Distribution")}</h3>
                                 <div className="flex h-80 w-full items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>

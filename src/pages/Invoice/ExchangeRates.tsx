@@ -129,7 +129,7 @@ const ExchangeRates: React.FC = () => {
             <FloatingInput label={t("Source (optional)")} name="source" value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
             <div className="flex items-end">
               <button type="submit" disabled={saving} className="h-10 w-full rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">
-                {saving ? "Saving..." : "Save rate"}
+                {t(saving ? "Saving..." : "Save rate")}
               </button>
             </div>
           </form>
@@ -151,7 +151,7 @@ const ExchangeRates: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                     <CurrencyDollarIcon className="mx-auto mb-2 h-10 w-10 text-gray-300" />
-                    {loading ? "Loading…" : "No rates yet. Documents in the company's own currency need none."}
+                    {t(loading ? "Loading…" : "No rates yet. Documents in the company's own currency need none.")}
                   </td>
                 </tr>
               )}

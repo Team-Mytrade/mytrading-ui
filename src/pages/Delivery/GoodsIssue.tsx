@@ -26,6 +26,7 @@ import { todayIso } from "../../utils/localDate";
 import { DELIVERY_API, apiError, useDeliveryLookups } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // A goods issue records what left the warehouse against a delivery note: drafted, then posted (or
 // cancelled). Quantities can never exceed what is still open on the note. Stock itself is taken out
 // of inventory by the sales dispatch.
@@ -362,21 +363,21 @@ const GoodsIssuePage: React.FC = () => {
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           {r.status === "DRAFT" && (
             <>
-              {canUpdate && (<button type="button" onClick={() => setStatusChange({ record: r, status: "POSTED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-green-50 hover:text-green-600" title="Post">
+              {canUpdate && (<button type="button" onClick={() => setStatusChange({ record: r, status: "POSTED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-green-50 hover:text-green-600" title={t("Post")}>
                 <CheckCircleIcon className="h-4 w-4" />
               </button>)}
-              {canUpdate && (<button type="button" onClick={() => handleEdit(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+              {canUpdate && (<button type="button" onClick={() => handleEdit(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit")}>
                 <PencilSquareIcon className="h-4 w-4" />
               </button>)}
             </>
           )}
           {r.status !== "CANCELLED" && (
-            canUpdate && <button type="button" onClick={() => setStatusChange({ record: r, status: "CANCELLED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600" title="Cancel">
+            canUpdate && <button type="button" onClick={() => setStatusChange({ record: r, status: "CANCELLED" })} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600" title={t("Cancel")}>
               <NoSymbolIcon className="h-4 w-4" />
             </button>
           )}
           {r.status !== "POSTED" && (
-            canDelete && <button type="button" onClick={() => handleDelete(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+            canDelete && <button type="button" onClick={() => handleDelete(r)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title={t("Delete")}>
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -393,20 +394,20 @@ const GoodsIssuePage: React.FC = () => {
   // ---------- Render ----------
   return (
     <>
-      <PageMeta title="Goods Issue" description="Record goods leaving the warehouse against delivery notes" />
+      <PageMeta title={t("Goods Issue")} description="Record goods leaving the warehouse against delivery notes" />
       <PageBreadcrumb pageTitle="Goods Issue" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton label="Add Goods Issue" onClick={handleAddNew} />
+          <AddButton label={t("Add Goods Issue")} onClick={handleAddNew} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard label="Total Goods Issues" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Draft" value={stats.draft} gradient="from-gray-50 to-slate-50" borderColor="border-gray-200" labelColor="text-gray-500" />
-          <StatsCard label="Posted" value={stats.posted} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Cancelled" value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Total Goods Issues")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Draft")} value={stats.draft} gradient="from-gray-50 to-slate-50" borderColor="border-gray-200" labelColor="text-gray-500" />
+          <StatsCard label={t("Posted")} value={stats.posted} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -415,7 +416,7 @@ const GoodsIssuePage: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by issue number, delivery note, or status..."
+                placeholder={t("Search by issue number, delivery note, or status...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -429,7 +430,7 @@ const GoodsIssuePage: React.FC = () => {
           </div>
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <button title="Filters" aria-label="Filters"
+            <button title={t("Filters")} aria-label={t("Filters")}
               onClick={() => setShowFilters(!showFilters)}
               className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
                 showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
@@ -445,7 +446,7 @@ const GoodsIssuePage: React.FC = () => {
             <div className="flex flex-wrap gap-4">
               <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
                 <FloatingSelect
-                  label="Filter by Status"
+                  label={t("Filter by Status")}
                   name="filter"
                   value={activeFilter}
                   onChange={(e) => setActiveFilter(e.target.value as IssueStatus | "ALL")}
@@ -456,7 +457,7 @@ const GoodsIssuePage: React.FC = () => {
               </div>
               {activeFilter !== "ALL" && (
                 <button onClick={() => setActiveFilter("ALL")} className="self-end mb-1 text-sm text-red-600 hover:text-red-800">
-                  Clear Filter
+                  {t("Clear Filter")}
                 </button>
               )}
             </div>
@@ -473,12 +474,12 @@ const GoodsIssuePage: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ClipboardDocumentListIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No goods issues found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No goods issues found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button type="button" onClick={handleAddNew} className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium">
-                  Create your first goods issue
+                  {t("Create your first goods issue")}
                 </button>
               )}
             </div>
@@ -495,10 +496,10 @@ const GoodsIssuePage: React.FC = () => {
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {form.id ? `Edit ${form.issueNo ?? "Goods Issue"}` : "Create Goods Issue"}
+                      {form.id ? `Edit ${form.issueNo ?? "Goods Issue"}` : t("Create Goods Issue")}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Saved as a draft. Quantities cannot exceed what is still open on the delivery note.
+                      {t("Saved as a draft. Quantities cannot exceed what is still open on the delivery note.")}
                     </p>
                   </div>
                   <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -509,7 +510,7 @@ const GoodsIssuePage: React.FC = () => {
                 <form onSubmit={handleSubmit} className="p-5 max-h-[75vh] overflow-y-auto">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     <FloatingSelect
-                      label="Delivery Note"
+                      label={t("Delivery Note")}
                       name="deliveryNoteId"
                       value={form.deliveryNoteId ? String(form.deliveryNoteId) : ""}
                       onChange={(e) => chooseNote(Number(e.target.value))}
@@ -518,7 +519,7 @@ const GoodsIssuePage: React.FC = () => {
                       options={noteOptions}
                     />
                     <FloatingInput
-                      label="Issue Date"
+                      label={t("Issue Date")}
                       name="issueDate"
                       type="date"
                       value={form.issueDate}
@@ -529,7 +530,7 @@ const GoodsIssuePage: React.FC = () => {
 
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-3">
-                      <label className="text-sm font-medium text-gray-900">Lines</label>
+                      <label className="text-sm font-medium text-gray-900">{t("Lines")}</label>
                       <button
                         type="button"
                         onClick={addItem}
@@ -537,36 +538,36 @@ const GoodsIssuePage: React.FC = () => {
                         className="inline-flex items-center gap-1 text-sm font-medium text-cyan-600 hover:text-cyan-700 disabled:opacity-40"
                       >
                         <PlusIcon className="h-4 w-4" />
-                        Add Line
+                        {t("Add Line")}
                       </button>
                     </div>
 
                     {!form.deliveryNoteId ? (
-                      <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-lg">Choose a delivery note to load its lines.</p>
+                      <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-lg">{t("Choose a delivery note to load its lines.")}</p>
                     ) : form.items.length === 0 ? (
                       <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
-                        No lines: everything still open on {selectedNote?.deliveryNo ?? "the note"} will be issued.
+                        {t("No lines: everything still open on")} {selectedNote?.deliveryNo ?? "the note"} will be issued.
                       </p>
                     ) : (
                       <div className="space-y-3">
                         {form.items.map((item, index) => (
                           <div key={index} className="grid grid-cols-[1fr_8rem_auto] gap-3 items-end bg-gray-50 border border-gray-200 rounded-lg p-3">
                             <div className="min-w-0">
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Product</label>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">{t("Product")}</label>
                               <select
                                 value={item.productId}
                                 onChange={(e) => updateItem(index, "productId", Number(e.target.value))}
                                 required
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                               >
-                                <option value={0} disabled>Select product</option>
+                                <option value={0} disabled>{t("Select product")}</option>
                                 {productOptions(item.productId).map(p => (
                                   <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                               </select>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">{t("Quantity")}</label>
                               <input
                                 type="number"
                                 min={0}
@@ -580,7 +581,7 @@ const GoodsIssuePage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              title="Remove line"
+                              title={t("Remove line")}
                               className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                             >
                               <TrashIcon className="h-4 w-4" />
@@ -593,7 +594,7 @@ const GoodsIssuePage: React.FC = () => {
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
                     <button type="button" onClick={resetForm} className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="submit"
@@ -615,10 +616,10 @@ const GoodsIssuePage: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Goods Issue"
+        innerText={t("Delete Goods Issue")}
         subText={`Are you sure you want to delete "${deletingRecord?.issueNo ?? "this goods issue"}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeletingRecord(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
@@ -636,7 +637,7 @@ const GoodsIssuePage: React.FC = () => {
           ? `Post "${statusChange?.record.issueNo}"? A posted goods issue can no longer be edited or deleted, only cancelled.`
           : `Cancel "${statusChange?.record.issueNo}"? Its quantities become available on the delivery note again.`}
         confirmLabel={statusChange?.status === "POSTED" ? "Post" : "Cancel Issue"}
-        cancelLabel="Back"
+        cancelLabel={t("Back")}
         onConfirm={confirmStatusChange}
         onCancel={() => setStatusChange(null)}
         confirmBtnClass={statusChange?.status === "POSTED"

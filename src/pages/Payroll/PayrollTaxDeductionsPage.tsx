@@ -41,6 +41,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatDate, formatDateTime, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type TaxDeduction = {
     id: number;
     employeeId: string;
@@ -270,7 +271,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Tax Deductions" description="Manage statutory deductions and tax compliance" />
+            <PageMeta title={t("Tax Deductions")} description="Manage statutory deductions and tax compliance" />
             <PageBreadcrumb pageTitle="Statutory Auditor" />
 
             <div className="max-w-7xl mx-auto p-6">
@@ -279,7 +280,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Total Deductions</p>
+                                <p className="text-sm text-gray-600">{t("Total Deductions")}</p>
                                 <p className="text-2xl font-semibold text-gray-900">{deductions.length}</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-full">
@@ -291,7 +292,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Total Amount</p>
+                                <p className="text-sm text-gray-600">{t("Total Amount")}</p>
                                 <p className="text-2xl font-semibold text-green-600">{formatMoney(totalAmount, { compact: true })}</p>
                             </div>
                             <div className="p-3 bg-green-100 rounded-full">
@@ -303,7 +304,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Verified</p>
+                                <p className="text-sm text-gray-600">{t("Verified")}</p>
                                 <p className="text-2xl font-semibold text-emerald-600">{verifiedCount}</p>
                             </div>
                             <div className="p-3 bg-emerald-100 rounded-full">
@@ -315,7 +316,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Pending / Flagged</p>
+                                <p className="text-sm text-gray-600">{t("Pending / Flagged")}</p>
                                 <p className="text-2xl font-semibold text-amber-600">{pendingCount + flaggedCount}</p>
                             </div>
                             <div className="p-3 bg-amber-100 rounded-full">
@@ -332,7 +333,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by employee or deduction type..."
+                                placeholder={t("Search by employee or deduction type...")}
                                 value={search}
                                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -358,14 +359,14 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
+                                        {t("Export PDF")}
                                     </button>
                                     <button
                                         onClick={exportExcel}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
+                                        {t("Export Excel")}
                                     </button>
                                 </div>
                             )}
@@ -405,7 +406,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                             className={`px-4 !mb-0 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${ADD_BUTTON_COLORS}`}
                         >
                             <PlusIcon className="h-5 w-5" />
-                            <span className="hidden sm:inline">Add Deduction</span>
+                            <span className="hidden sm:inline">{t("Add Deduction")}</span>
                         </button>)}
                     </div>
                 </div>
@@ -415,26 +416,26 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex flex-wrap gap-4">
                             <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
                                 <select
                                     value={statusFilter}
                                     onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="All">All Status</option>
-                                    <option value="Verified">Verified</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Flagged">Flagged</option>
+                                    <option value="All">{t("All Status")}</option>
+                                    <option value="Verified">{t("Verified")}</option>
+                                    <option value="Pending">{t("Pending")}</option>
+                                    <option value="Flagged">{t("Flagged")}</option>
                                 </select>
                             </div>
                             <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Deduction Type</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Deduction Type")}</label>
                                 <select
                                     value={deductionTypeFilter}
                                     onChange={e => { setDeductionTypeFilter(e.target.value); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="">All Types</option>
+                                    <option value="">{t("All Types")}</option>
                                     {uniqueTypes.map(type => (
                                         <option key={type} value={type}>{type}</option>
                                     ))}
@@ -448,7 +449,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                     }}
                                     className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
                                 >
-                                    Clear Filters
+                                    {t("Clear Filters")}
                                 </button>
                             )}
                         </div>
@@ -489,7 +490,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                         <td colSpan={6} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading tax deductions...</p>
+                                                <p className="text-gray-500 text-sm">{t("Loading tax deductions...")}</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -556,7 +557,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
+                                                                {t("View Details")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>
@@ -571,7 +572,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
+                                                                {t("Edit")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -582,7 +583,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
                                                             >
                                                                 <TrashIcon className="h-4 w-4" />
-                                                                Delete
+                                                                {t("Delete")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -595,7 +596,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                         <td colSpan={6} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <BanknotesIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No tax deductions found</p>
+                                                <p className="text-gray-500 text-sm mb-2">{t("No tax deductions found")}</p>
                                                 <p className="text-gray-400 text-xs">Click "Add Deduction" to create one</p>
                                             </div>
                                         </td>
@@ -614,41 +615,41 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                     disabled={page === 1}
                                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Previous
+                                    {t("Previous")}
                                 </button>
                                 <button
                                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                                     disabled={page === totalPages}
                                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Next
+                                    {t("Next")}
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
+                                        {t("Showing")} <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> {t("to")}{' '}
                                         <span className="font-medium">
                                             {Math.min(page * PAGE_SIZE, filtered.length)}
                                         </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
+                                        of <span className="font-medium">{filtered.length}</span> {t("results")}
                                     </p>
                                 </div>
                                 <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label={t("Pagination")}>
                                         <button
                                             onClick={() => setPage(1)}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            First
+                                            {t("First")}
                                         </button>
                                         <button
                                             onClick={() => setPage(Math.max(1, page - 1))}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Previous
+                                            {t("Previous")}
                                         </button>
                                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                                             let pageNum: number;
@@ -679,14 +680,14 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Next
+                                            {t("Next")}
                                         </button>
                                         <button
                                             onClick={() => setPage(totalPages)}
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Last
+                                            {t("Last")}
                                         </button>
                                     </nav>
                                 </div>
@@ -706,7 +707,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                    Tax Deduction Details
+                                                    {t("Tax Deduction Details")}
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
@@ -717,15 +718,15 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                             </div>
                                             
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Employee Information</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Employee Information")}</h4>
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <span className="text-gray-500">Name:</span>
+                                                    <span className="text-gray-500">{t("Name:")}</span>
                                                     <span className="font-medium">{selectedDeduction.employeeName || selectedDeduction.employeeId}</span>
-                                                    <span className="text-gray-500">Employee Code:</span>
+                                                    <span className="text-gray-500">{t("Employee Code:")}</span>
                                                     <span className="font-medium">{selectedDeduction.employeeCode || "—"}</span>
-                                                    <span className="text-gray-500">Deduction Type:</span>
+                                                    <span className="text-gray-500">{t("Deduction Type:")}</span>
                                                     <span className="font-medium">{selectedDeduction.deductionType}</span>
-                                                    <span className="text-gray-500">Status:</span>
+                                                    <span className="text-gray-500">{t("Status:")}</span>
                                                     <span className={`font-medium ${
                                                         selectedDeduction.status === "Verified" ? "text-green-600" :
                                                         selectedDeduction.status === "Pending" ? "text-yellow-600" : "text-red-600"
@@ -736,14 +737,14 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                             </div>
 
                                             <div className="mb-6">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Deduction Details</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Deduction Details")}</h4>
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Amount:</span>
+                                                        <span className="text-gray-500">{t("Amount:")}</span>
                                                         <span className="font-bold text-gray-900">{formatMoney(selectedDeduction.amount)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Effective Date:</span>
+                                                        <span className="text-gray-500">{t("Effective Date:")}</span>
                                                         <span className="font-medium">{formatDate(selectedDeduction.effectiveDate)}</span>
                                                     </div>
                                                 </div>
@@ -751,7 +752,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
 
                                             {selectedDeduction.remarks && (
                                                 <div className="mb-6">
-                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Remarks</h4>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Remarks")}</h4>
                                                     <div className="p-4 bg-gray-50 rounded-lg">
                                                         <p className="text-sm text-gray-700">{selectedDeduction.remarks}</p>
                                                     </div>
@@ -760,7 +761,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
 
                                             {selectedDeduction.createdAt && (
                                                 <div className="text-xs text-gray-400 mt-4">
-                                                    Created: {formatDateTime(selectedDeduction.createdAt)}
+                                                    {t("Created:")} {formatDateTime(selectedDeduction.createdAt)}
                                                 </div>
                                             )}
                                         </div>
@@ -778,14 +779,14 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <PencilSquareIcon className="h-4 w-4 mr-2" />
-                                        Edit
+                                        {t("Edit")}
                                     </button>)}
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>
@@ -803,11 +804,11 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                     <div className="sm:flex sm:items-start">
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {editingDeduction ? "Edit Tax Deduction" : "Add Tax Deduction"}
+                                                {t(editingDeduction ? "Edit Tax Deduction" : "Add Tax Deduction")}
                                             </h3>
                                             <form onSubmit={handleSubmit} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Employee ID</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Employee ID")}</label>
                                                     <input
                                                         type="text"
                                                         value={form.employeeId}
@@ -817,7 +818,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Deduction Type</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Deduction Type")}</label>
                                                     <input
                                                         type="text"
                                                         value={form.deductionType}
@@ -827,7 +828,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Amount ({companyCurrency()})</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Amount")} ({companyCurrency()})</label>
                                                     <input
                                                         type="number"
                                                         value={form.amount}
@@ -837,7 +838,7 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Effective Date</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Effective Date")}</label>
                                                     <input
                                                         type="date"
                                                         value={form.effectiveDate}
@@ -847,19 +848,19 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Remarks</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Remarks")}</label>
                                                     <textarea
                                                         value={form.remarks}
                                                         onChange={e => setForm({ ...form, remarks: e.target.value })}
                                                         rows={3}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="Optional remarks..."
+                                                        placeholder={t("Optional remarks...")}
                                                     />
                                                 </div>
 
                                                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                                     <p className="text-sm text-yellow-800">
-                                                        <strong>Note:</strong> Statutory entries are subject to quarterly governmental audit. 
+                                                        <strong>{t("Note:")}</strong> Statutory entries are subject to quarterly governmental audit. 
                                                         Erasure from historical records requires CFO authorization.
                                                     </p>
                                                 </div>
@@ -873,14 +874,14 @@ const PayrollTaxDeductionsPage: React.FC = () => {
                                         onClick={handleSubmit}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        {editingDeduction ? "Update" : "Save"}
+                                        {t(editingDeduction ? "Update" : "Save")}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={closeForm}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                 </div>
                             </div>

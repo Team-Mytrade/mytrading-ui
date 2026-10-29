@@ -1,10 +1,11 @@
 // Shared pieces of the module dashboards (Procurement, Delivery, HRMS, Attendance). Every figure on
+import { t } from "../../i18n/i18n";
 // those dashboards comes from the module's own API; nothing here holds sample data.
 import { useEffect, useState, type ReactNode } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { formatMoney as companyMoney, formatNumber as companyNumber, formatDate as companyDate } from "../../company/format";
+import { formatMoney as companyMoney, formatNumber as companyNumber, formatDate as companyDate, dateLocale } from "../../company/format";
 
 /* ================= data ================= */
 
@@ -113,7 +114,7 @@ export const weeksBack = (count: number) => {
   return Array.from({ length: count }, (_, i) => {
     const start = new Date(current);
     start.setDate(start.getDate() - 7 * (count - 1 - i));
-    return { key: isoDate(start), label: start.toLocaleDateString(undefined, { day: "2-digit", month: "short" }) };
+    return { key: isoDate(start), label: start.toLocaleDateString(dateLocale(), { day: "2-digit", month: "short" }) };
   });
 };
 
@@ -225,7 +226,7 @@ export function ModuleTiles({ tiles, loading }: { tiles: DashboardTile[]; loadin
               <Icon className="h-5 w-5" />
             </div>
             <h4 className="mt-2 text-center text-xs font-bold text-gray-900 dark:text-white">
-              {tile.name}
+              {t(tile.name)}
             </h4>
             {tile.count !== undefined && (
               <span className={`mt-1.5 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tonePill(tile.tone)}`}>
@@ -253,10 +254,10 @@ export function KpiCard({ label, value, hint, icon: Icon, tone, loading }: {
         <div className={`flex-none rounded-lg p-1.5 ${toneIcon(tone)}`}>
           <Icon className="h-4 w-4" />
         </div>
-        <span className="text-xs font-bold text-gray-900 dark:text-white">{label}</span>
+        <span className="text-xs font-bold text-gray-900 dark:text-white">{typeof label === "string" ? t(label) : label}</span>
       </div>
       <p className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{loading ? "…" : value}</p>
-      {hint && !loading && <p className="text-[11px] text-gray-600 dark:text-gray-400">{hint}</p>}
+      {hint && !loading && <p className="text-[11px] text-gray-600 dark:text-gray-400">{typeof hint === "string" ? t(hint) : hint}</p>}
     </div>
   );
 }
@@ -274,8 +275,8 @@ export function Panel({ title, subtitle, icon: Icon, children, bodyClass = "p-5"
     <section className={`overflow-hidden ${DASH_CARD}`}>
       <div className="flex items-center justify-between border-b border-[#dcedc8] px-5 py-3.5 dark:border-gray-800">
         <div>
-          <h3 className={DASH_TITLE}>{title}</h3>
-          {subtitle && <p className={`mt-0.5 ${DASH_SUBTITLE}`}>{subtitle}</p>}
+          <h3 className={DASH_TITLE}>{typeof title === "string" ? t(title) : title}</h3>
+          {subtitle && <p className={`mt-0.5 ${DASH_SUBTITLE}`}>{typeof subtitle === "string" ? t(subtitle) : subtitle}</p>}
         </div>
         {Icon && <Icon className="h-[18px] w-[18px] text-[#0097a7] dark:text-cyan-300" />}
       </div>

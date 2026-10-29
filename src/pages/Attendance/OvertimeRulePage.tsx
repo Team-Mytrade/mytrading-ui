@@ -30,6 +30,7 @@ import { AddButton } from "../../components/common/AddButton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OvertimeRule {
@@ -70,8 +71,8 @@ const emptyForm: OvertimeRule = {
 
 const BoolBadge: React.FC<{ value: boolean }> = ({ value }) =>
   value
-    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />Yes</span>
-    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"><XCircleIcon className="h-3 w-3" />No</span>;
+    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />{t("Yes")}</span>
+    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"><XCircleIcon className="h-3 w-3" />{t("No")}</span>;
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
@@ -353,7 +354,7 @@ const OvertimeRulePage: React.FC = () => {
       key: "priority", label: "Priority", sortable: true,
       render: (_: OvertimeRule, v: unknown) => (
         <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-          Priority {String(v)}
+          {t("Priority")} {String(v)}
         </span>
       ),
     },
@@ -381,14 +382,14 @@ const OvertimeRulePage: React.FC = () => {
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
           {canUpdate && (<button
             onClick={() => openEditForm(row)}
-            title="Edit"
+            title={t("Edit")}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
-            title="Delete"
+            title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
@@ -400,23 +401,23 @@ const OvertimeRulePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Overtime Rules" description="Manage overtime rules" />
+      <PageMeta title={t("Overtime Rules")} description="Manage overtime rules" />
       <PageBreadcrumb pageTitle="Overtime Rules" />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Overtime Rules</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Configure overtime multipliers and eligibility policies</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("Overtime Rules")}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{t("Configure overtime multipliers and eligibility policies")}</p>
           </div>
-          <AddButton label="Add Rule" onClick={openCreateForm} />
+          <AddButton label={t("Add Rule")} onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatsCard
-            label="Total Rules"
+            label={t("Total Rules")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -424,7 +425,7 @@ const OvertimeRulePage: React.FC = () => {
             icon={<BoltIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Active Rules"
+            label={t("Active Rules")}
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -432,7 +433,7 @@ const OvertimeRulePage: React.FC = () => {
             icon={<CheckCircleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Weekend Rules"
+            label={t("Weekend Rules")}
             value={stats.weekends}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -440,7 +441,7 @@ const OvertimeRulePage: React.FC = () => {
             icon={<CalendarDaysIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Holiday Rules"
+            label={t("Holiday Rules")}
             value={stats.holidays}
             gradient="from-amber-50 to-yellow-50"
             borderColor="border-amber-100"
@@ -455,14 +456,14 @@ const OvertimeRulePage: React.FC = () => {
           columns={columns}
           loading={loading}
           searchable={true}
-          searchPlaceholder="Search by rule name or description..."
+          searchPlaceholder={t("Search by rule name or description...")}
           searchFields={["ruleName", "description"]}
           pageSize={PAGE_SIZE}
           defaultSortKey="priority"
           defaultSortOrder="asc"
           toolbar={
             <FilterPopover
-              title="Filter Rules"
+              title={t("Filter Rules")}
               buttonLabel="Filter"
               onReset={() => {
                 setSelectedActiveFilter("");
@@ -472,27 +473,27 @@ const OvertimeRulePage: React.FC = () => {
             >
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Status")}</label>
                   <select
                     value={selectedActiveFilter}
                     onChange={e => setSelectedActiveFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Rules</option>
-                    <option value="active">Active Only</option>
-                    <option value="inactive">Inactive Only</option>
+                    <option value="">{t("All Rules")}</option>
+                    <option value="active">{t("Active Only")}</option>
+                    <option value="inactive">{t("Inactive Only")}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Weekend Applicable</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Weekend Applicable")}</label>
                   <select
                     value={selectedWeekendFilter}
                     onChange={e => setSelectedWeekendFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All</option>
-                    <option value="yes">Applicable on Weekends</option>
-                    <option value="no">Not Applicable on Weekends</option>
+                    <option value="">{t("All")}</option>
+                    <option value="yes">{t("Applicable on Weekends")}</option>
+                    <option value="no">{t("Not Applicable on Weekends")}</option>
                   </select>
                 </div>
               </div>
@@ -503,13 +504,13 @@ const OvertimeRulePage: React.FC = () => {
               <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <BoltIcon className="h-8 w-8 text-gray-400" />
               </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No rules found</p>
+              <p className="text-gray-500 text-sm font-medium mb-2">{t("No rules found")}</p>
               {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
-                Add your first rule
+                {t("Add your first rule")}
               </button>)}
             </div>
           }
@@ -518,27 +519,27 @@ const OvertimeRulePage: React.FC = () => {
         {/* Overtime Rule Form Modal */}
         <PaginatedPopup
           isOpen={showForm}
-          title={editingRule ? "Edit Overtime Rule" : "Add Overtime Rule"}
-          subtitle={editingRule ? "Update overtime rule details" : "Configure a new overtime rule"}
+          title={t(editingRule ? "Edit Overtime Rule" : "Add Overtime Rule")}
+          subtitle={t(editingRule ? "Update overtime rule details" : "Configure a new overtime rule")}
           onClose={resetForm}
           onSubmit={submitForm}
-          submitLabel={editingRule ? "Update Rule" : "Add Rule"}
+          submitLabel={t(editingRule ? "Update Rule" : "Add Rule")}
           fields={[
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Rule Name <span className="text-red-500">*</span>
+                {t("Rule Name")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={form.ruleName}
                 required
                 onChange={e => handleChange("ruleName", e.target.value)}
-                placeholder="e.g., Weekday OT"
+                placeholder={t("e.g., Weekday OT")}
                 className={inputCls}
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Multiplier</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Multiplier")}</label>
               <input
                 type="number"
                 step="0.1"
@@ -549,7 +550,7 @@ const OvertimeRulePage: React.FC = () => {
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Priority")}</label>
               <input
                 type="number"
                 step="1"
@@ -561,7 +562,7 @@ const OvertimeRulePage: React.FC = () => {
               <p className="mt-1 text-xs text-gray-500">Lower number = Higher priority</p>
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Duration</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Minimum Duration")}</label>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -569,7 +570,7 @@ const OvertimeRulePage: React.FC = () => {
                   step="0.5"
                   value={minDurationValue}
                   onChange={e => handleMinDurationChange(e.target.value, minDurationUnit)}
-                  placeholder="Enter duration"
+                  placeholder={t("Enter duration")}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
                 <select
@@ -577,14 +578,14 @@ const OvertimeRulePage: React.FC = () => {
                   onChange={e => handleMinDurationChange(minDurationValue, e.target.value as "M" | "H")}
                   className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
-                  <option value="M">Minutes</option>
-                  <option value="H">Hours</option>
+                  <option value="M">{t("Minutes")}</option>
+                  <option value="H">{t("Hours")}</option>
                 </select>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Minimum overtime duration required</p>
+              <p className="mt-1 text-xs text-gray-500">{t("Minimum overtime duration required")}</p>
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Threshold Hours</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Threshold Hours")}</label>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -592,7 +593,7 @@ const OvertimeRulePage: React.FC = () => {
                   step="0.5"
                   value={thresholdValue}
                   onChange={e => handleThresholdChange(e.target.value, thresholdUnit)}
-                  placeholder="Enter threshold"
+                  placeholder={t("Enter threshold")}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
                 <select
@@ -600,24 +601,24 @@ const OvertimeRulePage: React.FC = () => {
                   onChange={e => handleThresholdChange(thresholdValue, e.target.value as "M" | "H")}
                   className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
-                  <option value="M">Minutes</option>
-                  <option value="H">Hours</option>
+                  <option value="M">{t("Minutes")}</option>
+                  <option value="H">{t("Hours")}</option>
                 </select>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Hours after which overtime applies</p>
+              <p className="mt-1 text-xs text-gray-500">{t("Hours after which overtime applies")}</p>
             </div>,
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Description")}</label>
               <textarea
                 value={form.description}
                 onChange={e => handleChange("description", e.target.value)}
                 rows={2}
-                placeholder="Describe when this rule applies..."
+                placeholder={t("Describe when this rule applies...")}
                 className={inputCls}
               />
             </div>,
             <div className="md:col-span-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Applicability</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{t("Applicability")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {([
                   { key: "applicableOnWeekends", label: "Applicable on Weekends" },

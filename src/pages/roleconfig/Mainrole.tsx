@@ -13,6 +13,7 @@ import RoleTab from "./RoleTab";
 import PermissionTab from "./PermissionTab";
 import RolePermissionTab from "./RolePermissionTab";
 import UserEmployeeTab from "./UserEmployeeTab";
+import { t } from "../../i18n/i18n";
 import "../../styles/Mainrole.css";
 
 const RoleConfig: React.FC = () => {
@@ -34,8 +35,8 @@ const RoleConfig: React.FC = () => {
     return (
       <div className="p-12 text-center max-w-md mx-auto">
         <div className="bg-red-50 text-red-600 p-6 rounded-xl border border-red-100 shadow-sm">
-          <h2 className="text-xl font-bold">Access Denied</h2>
-          <p className="text-xs text-gray-500 mt-2">You do not have the required administrator privileges to access configurations.</p>
+          <h2 className="text-xl font-bold">{t("Access Denied")}</h2>
+          <p className="text-xs text-gray-500 mt-2">{t("You do not have the required administrator privileges to access configurations.")}</p>
         </div>
       </div>
     );
@@ -104,7 +105,7 @@ const RoleConfig: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Role Configuration" description="Manage roles and permissions" />
+      <PageMeta title={t("Role Configuration")} description="Manage roles and permissions" />
       <div className="role-config-breadcrumb">
         <PageBreadcrumb pageTitle="Role Config" />
       </div>
@@ -114,14 +115,14 @@ const RoleConfig: React.FC = () => {
           <aside className="self-start rounded-lg border border-gray-200 bg-white shadow-sm lg:sticky lg:top-2">
             <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-2.5 py-1.5">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Setup Areas</p>
-                <p className="text-xs font-medium text-gray-900">Structure and access</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{t("Setup Areas")}</p>
+                <p className="text-xs font-medium text-gray-900">{t("Structure and access")}</p>
               </div>
             </div>
             <nav
               id="role-config-setup-nav"
               className="grid grid-cols-1 gap-0.5 p-1.5"
-              aria-label="Role configuration sections"
+              aria-label={t("Role configuration sections")}
             >
               {pages.map((page) => {
                 const isActive = activePage === page;

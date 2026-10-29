@@ -16,6 +16,7 @@ import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 const API_BASE = "/v1/api/user/domains";
 const PAGE_SIZE = 10;
 
@@ -229,21 +230,21 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
           <button
             onClick={() => onViewDepartments && onViewDepartments(row.id)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
-            title="View Departments"
+            title={t("View Departments")}
           >
             <BuildingLibraryIcon className="h-4 w-4" />
           </button>
           {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.id)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -260,7 +261,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
           <div className="flex items-center gap-2">
             <GlobeAltIcon className="h-5 w-5 text-cyan-600" />
             <span>
-              Showing domains for selected Tenant ID:{" "}
+              {t("Showing domains for selected Tenant ID:")}{" "}
               <span className="font-mono bg-cyan-100/60 px-2 py-0.5 rounded text-cyan-900 font-bold">
                 {selectedTenantFilter}
               </span>
@@ -270,7 +271,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
             onClick={onClearTenantFilter}
             className="flex items-center gap-1 text-xs text-cyan-600 hover:text-cyan-800 bg-white hover:bg-cyan-100/20 px-3 py-1.5 rounded-lg border border-cyan-200 transition-colors shadow-sm"
           >
-            Clear Filter
+            {t("Clear Filter")}
           </button>
         </div>
       )}
@@ -281,7 +282,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search domains..."
+            placeholder={t("Search domains...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
@@ -305,7 +306,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors"
         >
           <PlusIcon className="h-4 w-4" />
-          Add Domain
+          {t("Add Domain")}
         </button>)}
       </div>
 
@@ -322,7 +323,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
         emptyState={
           <div className="flex flex-col items-center py-12">
             <Cog6ToothIcon className="h-12 w-12 text-gray-300 mb-3" />
-            <p className="text-gray-500 text-sm">No domains found</p>
+            <p className="text-gray-500 text-sm">{t("No domains found")}</p>
             {!search && (
               canCreate && <button
                 onClick={() => {
@@ -332,7 +333,7 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
                 }}
                 className="mt-3 text-sm text-cyan-600 hover:text-cyan-700"
               >
-                Add your first domain →
+                {t("Add your first domain →")}
               </button>
             )}
           </div>
@@ -346,10 +347,10 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
             <div className="flex items-center justify-between p-5 border-b">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {editingId ? "Edit Domain" : "New Domain"}
+                  {t(editingId ? "Edit Domain" : "New Domain")}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {editingId ? "Update domain details" : "Create a new domain"}
+                  {t(editingId ? "Update domain details" : "Create a new domain")}
                 </p>
               </div>
               <button
@@ -364,32 +365,32 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Domain Name <span className="text-red-500">*</span>
+                    {t("Domain Name")} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={form.domainName}
                     onChange={(e) => setForm({ ...form, domainName: e.target.value })}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                    placeholder="e.g., Trading Operations"
+                    placeholder={t("e.g., Trading Operations")}
                     autoFocus
                   />
-                  <p className="text-xs text-gray-400 mt-1">Domain code will be auto-generated</p>
+                  <p className="text-xs text-gray-400 mt-1">{t("Domain code will be auto-generated")}</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t("Description")}</label>
                   <textarea
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     rows={3}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                    placeholder="Optional description"
+                    placeholder={t("Optional description")}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">Active</label>
+                  <label className="text-sm font-medium text-gray-700">{t("Active")}</label>
                   <Toggle
                     value={form.active}
                     onChange={(v) => setForm({ ...form, active: v })}
@@ -403,13 +404,13 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
                   onClick={() => setShowFormModal(false)}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors"
                 >
-                  {editingId ? "Update" : "Create"}
+                  {t(editingId ? "Update" : "Create")}
                 </button>
               </div>
             </form>
@@ -424,22 +425,22 @@ const DomainTab: React.FC<DomainTabProps> = ({ selectedTenantFilter, onClearTena
             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
               <TrashIcon className="h-6 w-6 text-red-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Domain?</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("Delete Domain?")}</h3>
             <p className="text-sm text-gray-500 mb-6">
-              This action cannot be undone. All associated data will be lost.
+              {t("This action cannot be undone. All associated data will be lost.")}
             </p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 onClick={() => handleDelete(showDeleteConfirm)}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
               >
-                Delete
+                {t("Delete")}
               </button>
             </div>
           </div>

@@ -50,6 +50,7 @@ import {
 } from "./crmShared";
 import { formatDate as companyFormatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const API_BASE = "/v1/api/crm/activities";
 const LEADS_API = "/v1/api/crm/leads";
 const CUSTOMERS_API = "/v1/api/common/customers";
@@ -395,7 +396,7 @@ const Tasks: React.FC = () => {
       sortable: true,
       render: (a) => !canUpdate ? (
         <span className={`inline-flex w-[112px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStatusBadgeColor(a.status)}`}>
-          {ACTIVITY_STATUS_OPTIONS.find((option) => option.id === (a.status || "PENDING"))?.name ?? a.status}
+          {t(String(ACTIVITY_STATUS_OPTIONS.find((option) => option.id === (a.status || "PENDING"))?.name ?? a.status ?? ""))}
         </span>
       ) : (
         <div onClick={(e) => e.stopPropagation()}>
@@ -412,7 +413,7 @@ const Tasks: React.FC = () => {
             }`}
           >
             {ACTIVITY_STATUS_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.name}</option>
+              <option key={option.id} value={option.id}>{t(option.name)}</option>
             ))}
           </select>
         </div>
@@ -451,25 +452,25 @@ const Tasks: React.FC = () => {
           {a.lead && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <UsersIcon className="h-3 w-3 text-gray-400" />
-              <span className="truncate">Lead: {a.lead.name}</span>
+              <span className="truncate">{t("Lead:")} {a.lead.name}</span>
             </div>
           )}
           {a.customer && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <BuildingOfficeIcon className="h-3 w-3 text-gray-400" />
               <span className="truncate">
-                Customer: {getCustomerLabel(a.customer)}
+                {t("Customer:")} {getCustomerLabel(a.customer)}
               </span>
             </div>
           )}
           {a.contact && (
             <div className="flex items-center gap-1 text-xs text-gray-600">
               <UserIcon className="h-3 w-3 text-gray-400" />
-              <span className="truncate">Contact: {a.contact.fullName}</span>
+              <span className="truncate">{t("Contact:")} {a.contact.fullName}</span>
             </div>
           )}
           {!a.lead && !a.customer && !a.contact && (
-            <span className="text-xs text-gray-400">Not linked</span>
+            <span className="text-xs text-gray-400">{t("Not linked")}</span>
           )}
         </div>
       ),
@@ -490,7 +491,7 @@ const Tasks: React.FC = () => {
               type="button"
               onClick={() => handleEdit(a)}
               className="rounded-lg p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
-              title="Edit"
+              title={t("Edit")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -500,7 +501,7 @@ const Tasks: React.FC = () => {
               type="button"
               onClick={() => confirmDelete(a.id)}
               className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-              title="Delete"
+              title={t("Delete")}
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -512,7 +513,7 @@ const Tasks: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Activities" description="Manage your activities" />
+      <PageMeta title={t("Activities")} description="Manage your activities" />
       <PageBreadcrumb
         pageTitle="Activities"
         actions={
@@ -521,7 +522,7 @@ const Tasks: React.FC = () => {
               setForm({ activityType: "TASK", priority: "MEDIUM", status: "PENDING" });
               setShowFormModal(true);
             }}
-            label="New Activity"
+            label={t("New Activity")}
           />
         }
       />
@@ -530,21 +531,21 @@ const Tasks: React.FC = () => {
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard
-              label="Total Activities"
+              label={t("Total Activities")}
               value={activities.length}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
               labelColor="text-cyan-600"
             />
             <StatsCard
-              label="Pending"
+              label={t("Pending")}
               value={activities.filter((a) => a.status === "PENDING").length}
               gradient="from-green-50 to-emerald-50"
               borderColor="border-green-100"
               labelColor="text-green-600"
             />
             <StatsCard
-              label="Completed"
+              label={t("Completed")}
               value={
                 activities.filter((a) => a.status === "COMPLETED").length
               }
@@ -553,7 +554,7 @@ const Tasks: React.FC = () => {
               labelColor="text-purple-600"
             />
             <StatsCard
-              label="High Priority"
+              label={t("High Priority")}
               value={
                 activities.filter((a) => a.priority === "HIGH").length
               }
@@ -574,7 +575,7 @@ const Tasks: React.FC = () => {
            rowDetailsTitle={(row: any) =>
              row.title || row.taskName || row.subject || `Task #${row.id}`
              }
-             rowDetailsSubtitle="Task details"
+             rowDetailsSubtitle={t("Task details")}
               hiddenDetailKeys={[
     "id",
     "tenantId",
@@ -591,7 +592,7 @@ const Tasks: React.FC = () => {
               <div className="flex flex-col items-center justify-center py-12">
                 <CalendarIcon className="h-12 w-12 text-gray-400 mb-3" />
                 <p className="text-gray-500 text-sm mb-2">
-                  No activities found
+                  {t("No activities found")}
                 </p>
                 {canCreate && (
                   <button
@@ -602,7 +603,7 @@ const Tasks: React.FC = () => {
                     }}
                     className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                   >
-                    Add your first activity
+                    {t("Add your first activity")}
                   </button>
                 )}
               </div>
@@ -618,10 +619,10 @@ const Tasks: React.FC = () => {
               <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Activity Details
+                    {t("Activity Details")}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    View complete information about this activity
+                    {t("View complete information about this activity")}
                   </p>
                 </div>
                 <button
@@ -672,7 +673,7 @@ const Tasks: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
-                        Activity Type
+                        {t("Activity Type")}
                       </p>
                       <div className="flex items-center gap-2">
                         {getTypeIcon(selectedActivity.activityType)}
@@ -683,7 +684,7 @@ const Tasks: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
-                        Assigned To
+                        {t("Assigned To")}
                       </p>
                       <div className="flex items-center gap-2">
                         <UserIcon className="h-4 w-4 text-gray-400" />
@@ -696,7 +697,7 @@ const Tasks: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
-                        Scheduled Time
+                        {t("Scheduled Time")}
                       </p>
                       <div className="flex items-center gap-2">
                         <CalendarIcon className="h-4 w-4 text-gray-400" />
@@ -707,7 +708,7 @@ const Tasks: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
-                        Completed Time
+                        {t("Completed Time")}
                       </p>
                       <div className="flex items-center gap-2">
                         <CheckCircleIcon className="h-4 w-4 text-gray-400" />
@@ -724,7 +725,7 @@ const Tasks: React.FC = () => {
                   selectedActivity.contact) && (
                   <div className="border-t border-gray-100 pt-4">
                     <p className="text-xs font-medium text-gray-500 mb-3">
-                      Linked Records
+                      {t("Linked Records")}
                     </p>
                     <div className="space-y-2">
                       {selectedActivity.lead && (
@@ -732,7 +733,7 @@ const Tasks: React.FC = () => {
                           <UsersIcon className="h-4 w-4 text-blue-600" />
                           <div>
                             <p className="text-xs font-medium text-blue-900">
-                              Lead
+                              {t("Lead")}
                             </p>
                             <p className="text-sm text-blue-800">
                               {selectedActivity.lead.name}
@@ -745,7 +746,7 @@ const Tasks: React.FC = () => {
                           <BuildingOfficeIcon className="h-4 w-4 text-purple-600" />
                           <div>
                             <p className="text-xs font-medium text-purple-900">
-                              Customer
+                              {t("Customer")}
                             </p>
                             <p className="text-sm text-purple-800">
                               {getCustomerLabel(selectedActivity.customer)}
@@ -758,7 +759,7 @@ const Tasks: React.FC = () => {
                           <UserIcon className="h-4 w-4 text-green-600" />
                           <div>
                             <p className="text-xs font-medium text-green-900">
-                              Contact
+                              {t("Contact")}
                             </p>
                             <p className="text-sm text-green-800">
                               {selectedActivity.contact.fullName}
@@ -775,7 +776,7 @@ const Tasks: React.FC = () => {
                   onClick={() => setShowViewModal(false)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
                 >
-                  Close
+                  {t("Close")}
                 </button>
               </div>
             </div>
@@ -783,18 +784,18 @@ const Tasks: React.FC = () => {
         )}
 <PaginatedPopup
   isOpen={showFormModal}
-  title={form.id ? "Edit Activity" : "Add New Activity"}
-  subtitle={
+  title={t(form.id ? "Edit Activity" : "Add New Activity")}
+  subtitle={t(
     form.id
       ? "Update activity details"
       : "Create a new task or activity"
-  }
+  )}
   onClose={resetForm}
   onSubmit={(e) => {
     e.preventDefault();
     handleSave();
   }}
-  submitLabel={form.id ? "Update Activity" : "Add Activity"}
+  submitLabel={t(form.id ? "Update Activity" : "Add Activity")}
   submitting={isSaving}
   maxWidthClassName="max-w-3xl"
   tabs={[
@@ -803,7 +804,7 @@ const Tasks: React.FC = () => {
       fields: [
         <div key="title" className="md:col-span-2">
           <FloatingInput
-            label="Title"
+            label={t("Title")}
             name="title"
             value={form.title || ""}
             onChange={handleChange}
@@ -812,7 +813,7 @@ const Tasks: React.FC = () => {
         </div>,
         <div key="description" className="md:col-span-2">
           <FloatingTextarea
-            label="Description"
+            label={t("Description")}
             name="description"
             value={form.description || ""}
             onChange={handleChange}
@@ -821,7 +822,7 @@ const Tasks: React.FC = () => {
         </div>,
         <div key="assignedTo" className="md:col-span-2">
           <FloatingSelect
-            label="Assigned To"
+            label={t("Assigned To")}
             name="assignedTo"
             value={form.assignedTo || ""}
             onChange={handleChange}
@@ -835,7 +836,7 @@ const Tasks: React.FC = () => {
       fields: [
         <FloatingSelect
           key="activityType"
-          label="Activity Type"
+          label={t("Activity Type")}
           name="activityType"
           value={form.activityType || ""}
           onChange={handleChange}
@@ -844,7 +845,7 @@ const Tasks: React.FC = () => {
         />,
         <FloatingSelect
           key="priority"
-          label="Priority"
+          label={t("Priority")}
           name="priority"
           value={form.priority || ""}
           onChange={handleChange}
@@ -852,7 +853,7 @@ const Tasks: React.FC = () => {
         />,
         <FloatingSelect
           key="status"
-          label="Status"
+          label={t("Status")}
           name="status"
           value={form.status || ""}
           onChange={handleChange}
@@ -862,7 +863,7 @@ const Tasks: React.FC = () => {
         <FloatingInput
           key="scheduledTime"
           type="datetime-local"
-          label="Scheduled Time"
+          label={t("Scheduled Time")}
           name="scheduledTime"
           value={toDateTimeInput(form.scheduledTime)}
           onChange={(e) => setDateField("scheduledTime", e.target.value)}
@@ -870,7 +871,7 @@ const Tasks: React.FC = () => {
         <FloatingInput
           key="completedTime"
           type="datetime-local"
-          label="Completed Time"
+          label={t("Completed Time")}
           name="completedTime"
           value={toDateTimeInput(form.completedTime)}
           onChange={(e) => setDateField("completedTime", e.target.value)}
@@ -882,7 +883,7 @@ const Tasks: React.FC = () => {
       fields: [
         <FloatingSelect
           key="lead"
-          label="Lead"
+          label={t("Lead")}
           name="lead"
           value={form.lead?.id ?? ""}
           onChange={(e) =>
@@ -897,7 +898,7 @@ const Tasks: React.FC = () => {
         />,
         <FloatingSelect
           key="customer"
-          label="Customer"
+          label={t("Customer")}
           name="customer"
           value={form.customer?.id ?? ""}
           onChange={(e) => {
@@ -920,7 +921,7 @@ const Tasks: React.FC = () => {
         />,
         <FloatingSelect
           key="contact"
-          label="Contact"
+          label={t("Contact")}
           name="contact"
           value={form.contact?.id ?? ""}
           onChange={(e) =>
@@ -941,7 +942,7 @@ const Tasks: React.FC = () => {
           className="md:col-span-2 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30"
         >
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            <span className="font-medium">Note:</span> Link this activity to a
+            <span className="font-medium">{t("Note:")}</span> Link this activity to a
             lead, customer, or contact. If a customer is selected, the contact
             list is filtered to that customer.
           </p>
@@ -959,17 +960,17 @@ const Tasks: React.FC = () => {
         setIsPopupOpen={setShowDeleteConfirm}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Activity"
+        innerText={t("Delete Activity")}
         subText={
           deleteConfirmId
-            ? `Are you sure you want to delete "${
+            ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String((
                 activities.find((a) => a.id === deleteConfirmId)?.title ||
                 "this activity"
-              }"? This action cannot be undone.`
+              ) ?? "") })
             : "Are you sure you want to delete this activity?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={() => handleDelete(deleteConfirmId ?? undefined)}
         onCancel={() => setDeleteConfirmId(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

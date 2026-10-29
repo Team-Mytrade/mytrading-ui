@@ -22,6 +22,7 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../componen
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 
+import { t } from "../../i18n/i18n";
 interface TaxType {
   id: number;
   taxName: string;
@@ -236,7 +237,7 @@ const TaxTypes: React.FC = () => {
       className: "w-[18%]",
       render: (taxType) => (
         <span className="text-sm text-slate-600 truncate" title={taxType.description}>
-          {taxType.description || <span className="text-slate-400 italic">No description</span>}
+          {taxType.description || <span className="text-slate-400 italic">{t("No description")}</span>}
         </span>
       ),
     },
@@ -249,11 +250,11 @@ const TaxTypes: React.FC = () => {
       render: (taxType) => (
         taxType.isActive !== false ? (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/40">
-            <CheckCircleIcon className="h-3.5 w-3.5" /> Active
+            <CheckCircleIcon className="h-3.5 w-3.5" /> {t("Active")}
           </span>
         ) : (
           <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-            Inactive
+            {t("Inactive")}
           </span>
         )
       ),
@@ -270,7 +271,7 @@ const TaxTypes: React.FC = () => {
             type="button"
             onClick={() => handleEdit(taxType)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Tax Type"
+            title={t("Edit Tax Type")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -278,7 +279,7 @@ const TaxTypes: React.FC = () => {
             type="button"
             onClick={() => handleDelete(taxType)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Tax Type"
+            title={t("Delete Tax Type")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -289,37 +290,37 @@ const TaxTypes: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Tax Types" description="Manage tax types" />
+      <PageMeta title={t("Tax Types")} description="Manage tax types" />
       <PageBreadcrumb pageTitle="Tax Types" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          {canCreate && <AddButton onClick={openCreate} label="Add Tax Type" />}
+          {canCreate && <AddButton onClick={openCreate} label={t("Add Tax Type")} />}
         </div>
         <div className="grid my-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Tax Types"
+            label={t("Total Tax Types")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Active"
+            label={t("Active")}
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Inactive"
+            label={t("Inactive")}
             value={stats.inactive}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
             labelColor="text-red-600"
           />
           <StatsCard
-            label="Filtered"
+            label={t("Filtered")}
             value={filteredTaxTypes.length}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -339,16 +340,16 @@ const TaxTypes: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No tax types found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No tax types found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   type="button"
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first tax type
+                  {t("Create your first tax type")}
                 </button>
               )}
             </div>
@@ -357,12 +358,12 @@ const TaxTypes: React.FC = () => {
 
         <PaginatedPopup
           isOpen={showFormModal}
-          title={editingId !== null ? "Edit Tax Type" : "Create New Tax Type"}
-          subtitle={editingId !== null ? "Update your tax type details" : "Add a new tax type"}
+          title={t(editingId !== null ? "Edit Tax Type" : "Create New Tax Type")}
+          subtitle={t(editingId !== null ? "Update your tax type details" : "Add a new tax type")}
           onClose={closeModal}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId !== null ? "Update Tax Type" : "Create Tax Type"}
+          submitLabel={t(editingId !== null ? "Update Tax Type" : "Create Tax Type")}
           maxWidthClassName="max-w-2xl"
           tabs={[
             {
@@ -370,7 +371,7 @@ const TaxTypes: React.FC = () => {
               fields: [
                 <FloatingInput
                   key="taxName"
-                  label="Tax Code (as on products, e.g. VAT5)"
+                  label={t("Tax Code (as on products, e.g. VAT5)")}
                   name="taxName"
                   value={form.taxName || ""}
                   onChange={handleChange}
@@ -378,7 +379,7 @@ const TaxTypes: React.FC = () => {
                 />,
                 <FloatingInput
                   key="taxRate"
-                  label="Tax Rate (%)"
+                  label={t("Tax Rate (%)")}
                   name="taxRate"
                   type="number"
                   value={form.taxRate ?? ""}
@@ -386,7 +387,7 @@ const TaxTypes: React.FC = () => {
                 />,
                 <FloatingSelect
                   key="vatCategory"
-                  label="VAT Category"
+                  label={t("VAT Category")}
                   name="vatCategory"
                   value={form.vatCategory || ""}
                   onChange={(e) => setForm({ ...form, vatCategory: e.target.value || null })}
@@ -394,7 +395,7 @@ const TaxTypes: React.FC = () => {
                 />,
                 <FloatingSelect
                   key="region"
-                  label="Region"
+                  label={t("Region")}
                   name="region"
                   value={form.region || ""}
                   onChange={(e) => setForm({ ...form, region: e.target.value })}
@@ -402,7 +403,7 @@ const TaxTypes: React.FC = () => {
                 />,
                 <FloatingInput
                   key="description"
-                  label="Description"
+                  label={t("Description")}
                   name="description"
                   value={form.description || ""}
                   onChange={handleChange}
@@ -417,14 +418,14 @@ const TaxTypes: React.FC = () => {
           setIsPopupOpen={setShowDeletePopup}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Tax Type"
+          innerText={t("Delete Tax Type")}
           subText={
             taxTypeToDelete
               ? `Are you sure you want to delete "${taxTypeToDelete.taxName}"? This action cannot be undone.`
               : "Are you sure you want to delete this tax type?"
           }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete")}
+          cancelLabel={t("Cancel")}
           onConfirm={confirmDelete}
           onCancel={() => setTaxTypeToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

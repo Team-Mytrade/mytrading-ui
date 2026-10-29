@@ -28,6 +28,7 @@ import {
   countOf, formatDate, formatMoney, formatNumber, getList, isoDate, listOf, parseDate, titleCase, useDashboardSources,
 } from "../Dashboard/dashboardKit";
 
+import { t } from "../../i18n/i18n";
 // Live HRMS and payroll overview built from the payroll service.
 
 interface Employee {
@@ -176,7 +177,7 @@ const PayrollHrmsDashboard: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="HRMS Dashboard" description="Payroll and employee overview" />
+      <PageMeta title={t("HRMS Dashboard")} description="Payroll and employee overview" />
       <PageBreadcrumb pageTitle="HRMS Dashboard" />
 
       <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
@@ -184,16 +185,16 @@ const PayrollHrmsDashboard: React.FC = () => {
         <ModuleTiles tiles={tiles} loading={loading} />
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Active Employees" value={data.employees ? formatNumber(active.length) : "—"} hint={data.employees ? `${formatNumber(employees.length)} on record` : undefined} icon={Users} tone="blue" loading={loading} />
-          <KpiCard label="Monthly Payroll" value={latest ? formatMoney(latestTotal, null, true) : "—"} hint={latest ? `Last run: ${monthLabel(latestMonth, true)}` : "No completed payroll run yet"} icon={TrendingUp} tone="emerald" loading={loading} />
-          <KpiCard label="Avg Salary" value={latest && latestCount ? formatMoney(latestTotal / latestCount) : "—"} hint={latest ? `${formatNumber(latestCount)} employees paid` : undefined} icon={DollarSign} tone="orange" loading={loading} />
-          <KpiCard label="Departments" value={departments === null ? "—" : formatNumber(departments)} icon={Building2} tone="purple" loading={loading} />
+          <KpiCard label={t("Active Employees")} value={data.employees ? formatNumber(active.length) : "—"} hint={data.employees ? `${formatNumber(employees.length)} on record` : undefined} icon={Users} tone="blue" loading={loading} />
+          <KpiCard label={t("Monthly Payroll")} value={latest ? formatMoney(latestTotal, null, true) : "—"} hint={latest ? `Last run: ${monthLabel(latestMonth, true)}` : t("No completed payroll run yet")} icon={TrendingUp} tone="emerald" loading={loading} />
+          <KpiCard label={t("Avg Salary")} value={latest && latestCount ? formatMoney(latestTotal / latestCount) : "—"} hint={latest ? `${formatNumber(latestCount)} employees paid` : undefined} icon={DollarSign} tone="orange" loading={loading} />
+          <KpiCard label={t("Departments")} value={departments === null ? "—" : formatNumber(departments)} icon={Building2} tone="purple" loading={loading} />
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Payroll Trend" subtitle="Completed payroll runs (last 6)" icon={TrendingUp} iconClass="text-emerald-500">
+          <Panel title={t("Payroll Trend")} subtitle={t("Completed payroll runs (last 6)")} icon={TrendingUp} iconClass="text-emerald-500">
             {trend.length === 0 ? (
-              <EmptyState loading={loading}>No completed payroll runs yet.</EmptyState>
+              <EmptyState loading={loading}>{t("No completed payroll runs yet.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={trend}>
@@ -214,9 +215,9 @@ const PayrollHrmsDashboard: React.FC = () => {
             )}
           </Panel>
 
-          <Panel title="By Department" subtitle={departmentChartIsMoney ? `Net payroll, ${monthLabel(latestMonth, true)}` : "Active employees per department"} icon={Building2} iconClass="text-cyan-500">
+          <Panel title={t("By Department")} subtitle={departmentChartIsMoney ? `Net payroll, ${monthLabel(latestMonth, true)}` : t("Active employees per department")} icon={Building2} iconClass="text-cyan-500">
             {departmentChart.length === 0 ? (
-              <EmptyState loading={loading}>No employees yet.</EmptyState>
+              <EmptyState loading={loading}>{t("No employees yet.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={departmentChart} layout="vertical" margin={{ left: 60 }}>
@@ -238,20 +239,20 @@ const PayrollHrmsDashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Recent Payroll Runs" subtitle="Latest batches from the payroll engine" bodyClass="overflow-x-auto">
+          <Panel title={t("Recent Payroll Runs")} subtitle={t("Latest batches from the payroll engine")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  <th className={TABLE_HEAD}>Month</th>
-                  <th className={TABLE_HEAD}>Processed</th>
-                  <th className={TABLE_HEAD}>Total</th>
-                  <th className={TABLE_HEAD}>Employees</th>
-                  <th className={TABLE_HEAD}>Status</th>
+                  <th className={TABLE_HEAD}>{t("Month")}</th>
+                  <th className={TABLE_HEAD}>{t("Processed")}</th>
+                  <th className={TABLE_HEAD}>{t("Total")}</th>
+                  <th className={TABLE_HEAD}>{t("Employees")}</th>
+                  <th className={TABLE_HEAD}>{t("Status")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {recentRuns.length === 0 && (
-                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No payroll runs yet."}</td></tr>
+                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "No payroll runs yet.")}</td></tr>
                 )}
                 {recentRuns.map((run) => (
                   <tr key={run.batchReference ?? monthOf(run)} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -273,7 +274,7 @@ const PayrollHrmsDashboard: React.FC = () => {
             </table>
           </Panel>
 
-          <Panel title="Needs Attention" subtitle="From the employee records" icon={AlertCircle} iconClass="text-amber-500">
+          <Panel title={t("Needs Attention")} subtitle={t("From the employee records")} icon={AlertCircle} iconClass="text-amber-500">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {attention.map((item) => {
                 const Icon = item.icon;
@@ -290,7 +291,7 @@ const PayrollHrmsDashboard: React.FC = () => {
               })}
             </div>
             <p className="mt-3 flex items-center gap-1 text-xs text-gray-400">
-              <UserCheck className="h-3.5 w-3.5" /> Salary and department counts cover active employees only.
+              <UserCheck className="h-3.5 w-3.5" /> {t("Salary and department counts cover active employees only.")}
             </p>
           </Panel>
         </div>

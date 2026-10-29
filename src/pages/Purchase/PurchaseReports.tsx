@@ -23,6 +23,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { formatMoney, formatDate as companyFormatDate, formatMonth } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type TurnaroundRow = {
   id?: number;
   purchaseOrderId: number;
@@ -315,14 +316,13 @@ export default function PurchaseReports() {
 
   return (
     <>
-      <PageMeta title="Purchase Reports" description="Purchase analytics from the purchase reports controller." />
+      <PageMeta title={t("Purchase Reports")} description="Purchase analytics from the purchase reports controller." />
       <PageBreadcrumb pageTitle="Purchase Reports" />
 
       <div className="space-y-6 px-0 py-6">
         <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
-            Approved orders (drafts and cancelled orders are left out): spend by vendor, the last 12 months, and how
-            long fully received orders took to arrive.
+            {t("Approved orders (drafts and cancelled orders are left out): spend by vendor, the last 12 months, and how long fully received orders took to arrive.")}
           </p>
 
           <button
@@ -332,35 +332,35 @@ export default function PurchaseReports() {
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <ArrowPathIcon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            {t("Refresh")}
           </button>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
-            title="Total Spend"
+            title={t("Total Spend")}
             value={money(totalSpend)}
             icon={<BuildingStorefrontIcon className="h-6 w-6" />}
           />
           <SummaryCard
-            title="Best Month"
+            title={t("Best Month")}
             value={bestMonth ? bestMonth.month : "--"}
             icon={<CalendarDaysIcon className="h-6 w-6" />}
           />
           <SummaryCard
-            title="Avg Turnaround"
+            title={t("Avg Turnaround")}
             value={`${averageTurnaround ? averageTurnaround.toFixed(1) : "0.0"} days`}
             icon={<ClockIcon className="h-6 w-6" />}
           />
           <SummaryCard
-            title="Vendors"
+            title={t("Vendors")}
             value={String(totalVendors)}
             icon={<BuildingStorefrontIcon className="h-6 w-6" />}
           />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-2">
-          <ChartCard title="Monthly Purchase Trend">
+          <ChartCard title={t("Monthly Purchase Trend")}>
             {monthChartData.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={monthChartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -388,7 +388,7 @@ export default function PurchaseReports() {
             )}
           </ChartCard>
 
-          <ChartCard title="Purchase By Vendor">
+          <ChartCard title={t("Purchase By Vendor")}>
             <div className="h-full">
               {vendorChartData.length ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -409,7 +409,7 @@ export default function PurchaseReports() {
 
         <section className="grid gap-6 xl:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-base font-semibold text-slate-900">Purchase By Vendor</h3>
+            <h3 className="mb-4 text-base font-semibold text-slate-900">{t("Purchase By Vendor")}</h3>
             <ReusableTable
               data={vendorRows}
               columns={vendorTableColumns}
@@ -424,7 +424,7 @@ export default function PurchaseReports() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-base font-semibold text-slate-900">Monthly Purchase Totals</h3>
+            <h3 className="mb-4 text-base font-semibold text-slate-900">{t("Monthly Purchase Totals")}</h3>
             <ReusableTable
               data={monthRows}
               columns={monthTableColumns}
@@ -440,7 +440,7 @@ export default function PurchaseReports() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-base font-semibold text-slate-900">Turnaround Report</h3>
+            <h3 className="text-base font-semibold text-slate-900">{t("Turnaround Report")}</h3>
             <span className="text-sm text-slate-500">
               {turnaroundRows.length} fully received order{turnaroundRows.length === 1 ? "" : "s"}
             </span>

@@ -104,7 +104,7 @@ export default function PeriodLockCard({ editable }: { editable: boolean }) {
           <button type="button" disabled={saving || !date || date === current}
             onClick={() => void save(date)}
             className="h-[38px] rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">
-            {saving ? "Saving..." : "Save lock date"}
+            {t(saving ? "Saving..." : "Save lock date")}
           </button>
           {current && (
             <button type="button" disabled={saving} onClick={() => { setDate(""); void save(null); }}

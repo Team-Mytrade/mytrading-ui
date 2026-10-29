@@ -5,7 +5,6 @@ import {
   ArrowPathIcon,
   BuildingOffice2Icon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
   FunnelIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -25,6 +24,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
 
@@ -34,7 +34,7 @@ type Warehouse = {
   updatedDate?: string;
   createdBy?: string;
   tenantId?: string;
-  code: string; // "" when the server has no code (never a made-up value)
+  code: string;
   name: string;
   locationType: WarehouseLocationType;
   stockLevels?: any[];
@@ -55,26 +55,15 @@ type WarehouseForm = {
   status: string;
 };
 
-type PendingChange = {
-  warehouse: Warehouse;
-  field: "locationType" | "status";
-  value: string;
-};
-
 const API_URL = "/v1/api/inventory/warehouses";
 const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
+// 🔧 Route paths — matches your app's actual routes.
 const WAREHOUSE_ROUTE = "/warehouse";
 
 const FALLBACK_LOCATION_TYPES = ["MAIN", "DISTRIBUTION", "TRANSIT", "RETURN_CENTER"];
 const FALLBACK_STATUS = ["ACTIVE", "INACTIVE"];
-
-// FIX (code validation): uppercase letters/digits in hyphen-separated parts,
-// e.g. W-001, WH-001, WH-HYD-001. No spaces, no lowercase, no symbols.
-const CODE_PATTERN = /^[A-Z0-9]+(-[A-Z0-9]+)*$/;
-const CODE_MIN_LENGTH = 3;
-const CODE_MAX_LENGTH = 20;
 
 const emptyForm: WarehouseForm = {
   code: "",
@@ -96,18 +85,13 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-// FIX: the old resolveWarehouseCode() invented codes like "WH-000003" for
-// warehouses with no code. That hid real bad data and could save the fake
-// code back to the server on edit. Now a missing code stays empty.
-function normalizeCode(code: unknown): string {
+function resolveWarehouseCode(code: unknown, id: unknown): string {
   const trimmed = typeof code === "string" ? code.trim() : "";
-  if (!trimmed || trimmed === "null" || trimmed === "undefined") return "";
-  return trimmed;
-}
-
-// Treat records flagged as deleted by the backend as gone (soft delete).
-function isDeletedRecord(w: any): boolean {
-  return w?.deleted === true || w?.isDeleted === true || Boolean(w?.deletedAt);
+  if (trimmed && trimmed !== "null" && trimmed !== "undefined") return trimmed;
+  if (typeof id === "number" && Number.isFinite(id)) {
+    return `WH-${String(id).padStart(6, "0")}`;
+  }
+  return "WH-UNKNOWN";
 }
 
 function getLocationTypeColor(type: string) {
@@ -136,11 +120,6 @@ function getStatusColor(status: string) {
   }
 }
 
-const FIELD_LABELS: Record<PendingChange["field"], string> = {
-  locationType: "location type",
-  status: "status",
-};
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -149,6 +128,7 @@ const WarehousePage: React.FC = () => {
   const { canUpdate, canDelete } = usePermissions();
   const token = localStorage.getItem("accessToken");
 
+  // ── NEW: read URL filter params ─────────────────────────────────
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const filterWarehouseId = searchParams.get("warehouseId");
@@ -170,8 +150,6 @@ const WarehousePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteWarehouse, setDeleteWarehouse] = useState<Warehouse | null>(null);
-  // FIX (inline dropdowns): changes wait here until the user confirms.
-  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
 
   const [locationTypeOptions, setLocationTypeOptions] = useState<string[]>(
     FALLBACK_LOCATION_TYPES
@@ -179,11 +157,15 @@ const WarehousePage: React.FC = () => {
   const [enumLoading, setEnumLoading] = useState(true);
 
   const savingRowsRef = useRef<Set<number>>(new Set());
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    abortRef.current = controller;
+
     fetchEnums(controller.signal);
     fetchWarehouses(controller.signal);
+
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headers]);
@@ -241,26 +223,24 @@ const WarehousePage: React.FC = () => {
         ? response.data
         : (response.data as any)?.content || (response.data as any)?.data || [];
 
-      const enrichedData = rawData
-        // FIX (soft delete): hide records the backend marks as deleted.
-        .filter((warehouse) => !isDeletedRecord(warehouse))
-        .map((warehouse) => {
-          const stockCount =
-            warehouse.stockCount ??
-            warehouse.stockLevels?.reduce(
-              (sum: number, level: any) => sum + (Number(level?.quantity) || 0),
-              0
-            ) ??
-            0;
+      // The list already carries each warehouse's stock total; no per-warehouse detail calls
+      const enrichedData = rawData.map((warehouse) => {
+        const stockCount =
+          warehouse.stockCount ??
+          warehouse.stockLevels?.reduce(
+            (sum: number, level: any) => sum + (Number(level?.quantity) || 0),
+            0
+          ) ??
+          0;
 
-          return {
-            ...warehouse,
-            code: normalizeCode(warehouse.code),
-            locationType: warehouse.locationType || "MAIN",
-            stockCount,
-            status: warehouse.active === false ? "INACTIVE" : "ACTIVE",
-          };
-        });
+        return {
+          ...warehouse,
+          code: resolveWarehouseCode(warehouse.code, warehouse.id),
+          locationType: warehouse.locationType || "MAIN",
+          stockCount,
+          status: warehouse.active === false ? "INACTIVE" : "ACTIVE",
+        };
+      });
 
       setWarehouses(enrichedData);
     } catch (error) {
@@ -274,11 +254,6 @@ const WarehousePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // FIX (refresh): one function that re-runs every GET this page needs.
-  const refreshAll = async (): Promise<void> => {
-    await Promise.all([fetchEnums(), fetchWarehouses()]);
   };
 
   // -----------------------------------------------------------------------
@@ -315,28 +290,16 @@ const WarehousePage: React.FC = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
-    // FIX (code validation): force uppercase and drop spaces while typing.
-    const next = name === "code" ? value.toUpperCase().replace(/\s+/g, "") : value;
-    setForm((current) => ({ ...current, [name]: next }));
+    setForm((current) => ({ ...current, [name]: value }));
   };
 
   // -----------------------------------------------------------------------
-  // Inline table update (runs only after confirmation)
+  // Inline table update
   // -----------------------------------------------------------------------
-
-  const requestTableUpdate = (
-    warehouse: Warehouse,
-    field: PendingChange["field"],
-    value: string
-  ): void => {
-    const current = field === "status" ? warehouse.status || "ACTIVE" : warehouse.locationType;
-    if (value === current) return;
-    setPendingChange({ warehouse, field, value });
-  };
 
   const handleTableUpdate = async (
     id: number,
-    field: PendingChange["field"],
+    field: "locationType" | "status",
     value: string
   ): Promise<void> => {
     if (savingRowsRef.current.has(id)) return;
@@ -344,56 +307,56 @@ const WarehousePage: React.FC = () => {
     const previous = warehouses.find((w) => w.id === id);
     if (!previous) return;
 
-    const nextLocationType = field === "locationType" ? value : previous.locationType;
-    const nextActive = field === "status" ? value === "ACTIVE" : previous.active !== false;
+    if (field === "status") {
+      savingRowsRef.current.add(id);
+      try {
+        await axios.put(
+          `${API_URL}/${id}`,
+          { id, code: previous.code, name: previous.name, locationType: previous.locationType, active: value === "ACTIVE" },
+          { headers }
+        );
+      } catch (error) {
+        ToasterService.error("Failed to update status", getErrorMessage(error, "Please try again."));
+        return;
+      } finally {
+        savingRowsRef.current.delete(id);
+      }
+      setWarehouses((prev) =>
+        prev.map((w) => (w.id === id ? { ...w, status: value, active: value === "ACTIVE" } : w))
+      );
+      ToasterService.success("Warehouse status updated successfully");
+      return;
+    }
 
     savingRowsRef.current.add(id);
+
+    const optimistic: Warehouse = { ...previous, locationType: value };
+    setWarehouses((prev) => prev.map((w) => (w.id === id ? optimistic : w)));
+
     try {
       await axios.put(
         `${API_URL}/${id}`,
         {
           id,
-          // Send the real code (null if none) — never a placeholder.
-          code: previous.code || null,
+          code: previous.code,
           name: previous.name,
-          locationType: nextLocationType,
-          active: nextActive,
+          locationType: value,
+          active: previous.active !== false,
         },
         { headers }
       );
-
-      setWarehouses((prev) =>
-        prev.map((w) =>
-          w.id === id
-            ? {
-                ...w,
-                locationType: nextLocationType,
-                active: nextActive,
-                status: nextActive ? "ACTIVE" : "INACTIVE",
-              }
-            : w
-        )
-      );
-      ToasterService.success(
-        field === "status"
-          ? "Warehouse status updated successfully"
-          : "Location type updated successfully"
-      );
+      ToasterService.success(`${field} updated successfully`);
     } catch (error) {
+      setWarehouses((prev) =>
+        prev.map((w) => (w.id === id ? { ...w, locationType: previous.locationType } : w))
+      );
       ToasterService.error(
-        `Failed to update ${FIELD_LABELS[field]}`,
+        `Failed to update ${field}`,
         getErrorMessage(error, "Please try again.")
       );
     } finally {
       savingRowsRef.current.delete(id);
     }
-  };
-
-  const confirmTableUpdate = async (): Promise<void> => {
-    if (!pendingChange) return;
-    const { warehouse, field, value } = pendingChange;
-    setPendingChange(null);
-    await handleTableUpdate(warehouse.id, field, value);
   };
 
   // -----------------------------------------------------------------------
@@ -410,41 +373,37 @@ const WarehousePage: React.FC = () => {
     return editingId ? { id: editingId, ...base } : base;
   };
 
-  const validateForm = (): string | null => {
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+
     const trimmedName = form.name.trim();
     const trimmedCode = form.code.trim();
 
-    if (!trimmedCode) return "Warehouse Code is required";
-    if (trimmedCode.length < CODE_MIN_LENGTH || trimmedCode.length > CODE_MAX_LENGTH) {
-      return `Warehouse Code must be ${CODE_MIN_LENGTH}–${CODE_MAX_LENGTH} characters`;
+    if (!trimmedCode) {
+      ToasterService.error("Warehouse Code is required");
+      return;
     }
-    if (!CODE_PATTERN.test(trimmedCode)) {
-      return "Warehouse Code can only use capital letters, numbers and hyphens (e.g. WH-001)";
-    }
-    const duplicateCode = warehouses.find(
-      (w) => (w.code ?? "").toUpperCase() === trimmedCode && w.id !== editingId
-    );
-    if (duplicateCode) return `Warehouse Code "${trimmedCode}" is already used`;
 
-    if (!trimmedName) return "Warehouse Name is required";
-    if (trimmedName.length < 2) return "Warehouse Name must be at least 2 characters";
-    const duplicateName = warehouses.find(
+    if (!trimmedName) {
+      ToasterService.error("Warehouse Name is required");
+      return;
+    }
+    if (trimmedName.length < 2) {
+      ToasterService.error("Warehouse Name must be at least 2 characters");
+      return;
+    }
+    if (!form.locationType) {
+      ToasterService.error("Location Type is required");
+      return;
+    }
+
+    const duplicate = warehouses.find(
       (w) =>
         (w.name ?? "").trim().toLowerCase() === trimmedName.toLowerCase() &&
         w.id !== editingId
     );
-    if (duplicateName) return "A warehouse with this name already exists";
-
-    if (!form.locationType) return "Location Type is required";
-    return null;
-  };
-
-  const handleSubmit = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-
-    const validationError = validateForm();
-    if (validationError) {
-      ToasterService.error(validationError);
+    if (duplicate) {
+      ToasterService.error("A warehouse with this name already exists");
       return;
     }
 
@@ -455,14 +414,37 @@ const WarehousePage: React.FC = () => {
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, { headers });
         ToasterService.success("Warehouse updated successfully");
+
+        setWarehouses((prev) =>
+          prev.map((w) => {
+            if (w.id !== editingId) return w;
+            return {
+              ...w,
+              code: payload.code,
+              name: payload.name,
+              locationType: payload.locationType,
+              status: form.status,
+              active: payload.active,
+            };
+          })
+        );
       } else {
-        await axios.post(API_URL, payload, { headers });
+        const response = await axios.post(API_URL, payload, { headers });
         ToasterService.success("Warehouse created successfully");
+
+        const code = resolveWarehouseCode(response.data?.code, response.data?.id);
+
+        const newWarehouse: Warehouse = {
+          ...response.data,
+          code,
+          locationType: payload.locationType,
+          status: form.status || "ACTIVE",
+          active: payload.active,
+        };
+        setWarehouses((prev) => [newWarehouse, ...prev]);
       }
 
       closeForm();
-      // Reload from the server so the list, counts and stock items are accurate.
-      await fetchWarehouses();
     } catch (error) {
       ToasterService.error(
         "Failed to save warehouse",
@@ -479,14 +461,11 @@ const WarehousePage: React.FC = () => {
 
   const confirmDelete = async (): Promise<void> => {
     if (!deleteWarehouse?.id) return;
-    const deletedId = deleteWarehouse.id;
 
     try {
-      await axios.delete(`${API_URL}/${deletedId}`, { headers });
+      await axios.delete(`${API_URL}/${deleteWarehouse.id}`, { headers });
       ToasterService.success("Warehouse deleted successfully");
       setDeleteWarehouse(null);
-      // Remove it from the screen immediately, then reload from the server.
-      setWarehouses((prev) => prev.filter((w) => w.id !== deletedId));
       await fetchWarehouses();
     } catch (error) {
       ToasterService.error(
@@ -497,7 +476,7 @@ const WarehousePage: React.FC = () => {
   };
 
   // -----------------------------------------------------------------------
-  // Scoped list — filters to a single warehouse when URL has ?warehouseId=
+  // NEW: scoped list — filters to a single warehouse when URL has ?warehouseId=
   // -----------------------------------------------------------------------
 
   const scopedWarehouses = useMemo(
@@ -507,6 +486,10 @@ const WarehousePage: React.FC = () => {
         : warehouses,
     [warehouses, isWarehouseScoped, filterWarehouseId]
   );
+
+  // -----------------------------------------------------------------------
+  // Derived stats (using scoped list so stats reflect the filter)
+  // -----------------------------------------------------------------------
 
   const stats = useMemo(
     () => ({
@@ -520,7 +503,13 @@ const WarehousePage: React.FC = () => {
     [scopedWarehouses]
   );
 
-  const statusOptions = FALLBACK_STATUS;
+  const statusOptions = useMemo(() => {
+    const seen = new Set<string>(FALLBACK_STATUS);
+    warehouses.forEach((w) => {
+      if (w.status) seen.add(w.status);
+    });
+    return Array.from(seen);
+  }, [warehouses]);
 
   // -----------------------------------------------------------------------
   // Columns
@@ -537,19 +526,12 @@ const WarehousePage: React.FC = () => {
             <BuildingOffice2Icon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
           </div>
           <div>
-            {warehouse.code ? (
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                {warehouse.code}
-              </p>
-            ) : (
-              <p
-                className="inline-flex items-center gap-1 text-sm font-semibold text-amber-600 dark:text-amber-400"
-                title="This warehouse has no code saved. Edit it to add one."
-              >
-                <ExclamationTriangleIcon className="h-3.5 w-3.5" />
-                No code
-              </p>
-            )}
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {warehouse.code}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              {t("ID: #")}{warehouse.id}
+            </p>
           </div>
         </div>
       ),
@@ -568,32 +550,27 @@ const WarehousePage: React.FC = () => {
       key: "locationType",
       label: "Location Type",
       sortable: true,
-      render: (warehouse) =>
-        !canUpdate ? (
-          <span
-            className={`inline-flex w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(
-              warehouse.locationType
-            )}`}
-          >
-            {warehouse.locationType}
-          </span>
-        ) : (
-          <select
-            aria-label={`Location type for ${warehouse.name}`}
-            value={warehouse.locationType}
-            onChange={(e) => requestTableUpdate(warehouse, "locationType", e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className={`w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getLocationTypeColor(
-              warehouse.locationType
-            )}`}
-          >
-            {locationTypeOptions.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        ),
+      render: (warehouse) => !canUpdate ? (
+        <span className={`inline-flex w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getLocationTypeColor(warehouse.locationType)}`}>
+          {warehouse.locationType}
+        </span>
+      ) : (
+        <select
+          aria-label={`Location type for ${warehouse.name}`}
+          value={warehouse.locationType}
+          onChange={(e) => handleTableUpdate(warehouse.id, "locationType", e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className={`w-[150px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getLocationTypeColor(
+            warehouse.locationType
+          )}`}
+        >
+          {locationTypeOptions.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+      ),
     },
     {
       key: "status",
@@ -603,11 +580,7 @@ const WarehousePage: React.FC = () => {
         const status = warehouse.status || "ACTIVE";
         if (!canUpdate) {
           return (
-            <span
-              className={`inline-flex w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getStatusColor(
-                status
-              )}`}
-            >
+            <span className={`inline-flex w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium ${getStatusColor(status)}`}>
               {status}
             </span>
           );
@@ -616,12 +589,12 @@ const WarehousePage: React.FC = () => {
           <select
             aria-label={`Status for ${warehouse.name}`}
             value={status}
-            onChange={(e) => requestTableUpdate(warehouse, "status", e.target.value)}
+            onChange={(e) => handleTableUpdate(warehouse.id, "status", e.target.value)}
             onClick={(e) => e.stopPropagation()}
             className={`w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getStatusColor(
               status
             )}`}
-            title="Active warehouses can receive and issue stock"
+            title={t("Active warehouses can receive and issue stock")}
           >
             {statusOptions.map((s) => (
               <option key={s} value={s}>
@@ -649,59 +622,52 @@ const WarehousePage: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       render: (warehouse) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {canUpdate && (
-            <button
-              type="button"
-              onClick={() => openEdit(warehouse)}
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-              title="Edit"
-              aria-label={`Edit ${warehouse.name}`}
-            >
-              <PencilSquareIcon className="h-4 w-4" />
-            </button>
-          )}
-          {canDelete && (
-            <button
-              type="button"
-              onClick={() => setDeleteWarehouse(warehouse)}
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-              title="Delete"
-              aria-label={`Delete ${warehouse.name}`}
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
-          )}
+        <div
+          className="flex justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canUpdate && (<button
+            type="button"
+            onClick={() => openEdit(warehouse)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
+            title={t("Edit")}
+            aria-label={`Edit ${warehouse.name}`}
+          >
+            <PencilSquareIcon className="h-4 w-4" />
+          </button>)}
+          {canDelete && (<button
+            type="button"
+            onClick={() => setDeleteWarehouse(warehouse)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+            title={t("Delete")}
+            aria-label={`Delete ${warehouse.name}`}
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>)}
         </div>
       ),
     },
   ];
 
-  const pendingLabel = pendingChange
-    ? `${pendingChange.warehouse.code || pendingChange.warehouse.name}`
-    : "";
-  const pendingFrom = pendingChange
-    ? pendingChange.field === "status"
-      ? pendingChange.warehouse.status || "ACTIVE"
-      : pendingChange.warehouse.locationType
-    : "";
-
   return (
     <>
-      <PageMeta title="Warehouses" description="Manage warehouses" />
+      <PageMeta title={t("Warehouses")} description="Manage warehouses" />
       <PageBreadcrumb
         pageTitle="Warehouses"
-        actions={<AddButton onClick={openCreate} label="Add Warehouse" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Warehouse")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
+        {/* ── NEW: filter banner (matches customers / users pages) ── */}
         {isWarehouseScoped && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
             <div className="flex items-center gap-2">
               <FunnelIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <span>
-                Showing warehouse:{" "}
-                <strong>{filterWarehouseName || "selected warehouse"}</strong>
+                {t("Showing warehouse:")}{" "}
+                <strong>
+                  {filterWarehouseName || `#${filterWarehouseId}`}
+                </strong>
               </span>
             </div>
             <button
@@ -709,14 +675,14 @@ const WarehousePage: React.FC = () => {
               onClick={() => navigate(WAREHOUSE_ROUTE)}
               className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             >
-              View all warehouses
+              {t("View all warehouses")}
             </button>
           </div>
         )}
 
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Warehouses"
+            label={t("Total Warehouses")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -724,7 +690,7 @@ const WarehousePage: React.FC = () => {
             icon={<BuildingOffice2Icon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Active"
+            label={t("Active")}
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -732,7 +698,7 @@ const WarehousePage: React.FC = () => {
             icon={<CheckCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Inactive"
+            label={t("Inactive")}
             value={stats.inactive}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -740,7 +706,7 @@ const WarehousePage: React.FC = () => {
             icon={<XCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Main / Distribution"
+            label={t("Main / Distribution")}
             value={`${stats.main} / ${stats.distribution}`}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -763,7 +729,7 @@ const WarehousePage: React.FC = () => {
               <BuildingOffice2Icon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
                 {isWarehouseScoped
-                  ? `No warehouse matches "${filterWarehouseName || "selected warehouse"}"`
+                  ? `No warehouse matches "${filterWarehouseName || `#${filterWarehouseId}`}"`
                   : "No warehouses found"}
               </p>
               {isWarehouseScoped ? (
@@ -772,16 +738,16 @@ const WarehousePage: React.FC = () => {
                   onClick={() => navigate(WAREHOUSE_ROUTE)}
                   className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
-                  View all warehouses →
+                  {t("View all warehouses →")}
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => refreshAll()}
+                  onClick={() => fetchWarehouses()}
                   className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
                   <ArrowPathIcon className="h-3.5 w-3.5" />
-                  Reload all warehouses
+                  {t("Reload all warehouses")}
                 </button>
               )}
             </div>
@@ -791,12 +757,12 @@ const WarehousePage: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Warehouse" : "Create Warehouse"}
-        subtitle="Enter warehouse information"
+        title={t(editingId ? "Edit Warehouse" : "Create Warehouse")}
+        subtitle={t("Enter warehouse information")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Warehouse" : "Create Warehouse"}
+        submitLabel={t(editingId ? "Update Warehouse" : "Create Warehouse")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -804,7 +770,7 @@ const WarehousePage: React.FC = () => {
             fields: [
               <FloatingInput
                 key="code"
-                label="Warehouse Code (e.g. WH-001)"
+                label={t("Warehouse Code")}
                 name="code"
                 value={form.code}
                 onChange={handleChange}
@@ -812,7 +778,7 @@ const WarehousePage: React.FC = () => {
               />,
               <FloatingInput
                 key="name"
-                label="Name"
+                label={t("Name")}
                 name="name"
                 value={form.name}
                 onChange={handleChange}
@@ -820,7 +786,7 @@ const WarehousePage: React.FC = () => {
               />,
               <FloatingSelect
                 key="locationType"
-                label="Location Type"
+                label={t("Location Type")}
                 name="locationType"
                 value={form.locationType}
                 onChange={handleChange}
@@ -829,40 +795,16 @@ const WarehousePage: React.FC = () => {
               />,
               <FloatingSelect
                 key="status"
-                label="Status"
+                label={t("Status")}
                 name="status"
                 value={form.status}
                 onChange={handleChange}
                 includeEmptyOption={false}
                 options={statusOptions.map((status) => ({ id: status, name: status }))}
               />,
-              // Removed: developer-facing "Status is saved to the warehouse API…" note.
             ],
           },
         ]}
-      />
-
-      {/* FIX (inline dropdowns): confirm before changing a live record */}
-      <DynamicPopup
-        isPopupOpen={!!pendingChange}
-        setIsPopupOpen={(open) => {
-          if (!open) setPendingChange(null);
-        }}
-        icon={<ExclamationTriangleIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" />}
-        iconBg="bg-amber-100 dark:bg-amber-950/40"
-        innerText={
-          pendingChange ? `Change ${FIELD_LABELS[pendingChange.field]}?` : "Confirm change"
-        }
-        subText={
-          pendingChange
-            ? `Change ${FIELD_LABELS[pendingChange.field]} of "${pendingLabel}" from ${pendingFrom} to ${pendingChange.value}?`
-            : "Are you sure?"
-        }
-        confirmLabel="Change"
-        cancelLabel="Cancel"
-        onConfirm={confirmTableUpdate}
-        onCancel={() => setPendingChange(null)}
-        confirmBtnClass="bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 text-white"
       />
 
       <DynamicPopup
@@ -872,14 +814,14 @@ const WarehousePage: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Warehouse"
+        innerText={t("Delete Warehouse")}
         subText={
           deleteWarehouse
             ? `Are you sure you want to delete "${deleteWarehouse.name}"?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteWarehouse(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

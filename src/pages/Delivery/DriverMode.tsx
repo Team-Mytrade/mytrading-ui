@@ -22,6 +22,7 @@ import { DeliveryOrder, DeliveryStatus, StatusBadge, apiError, formatDateTime } 
 import { DRIVER_API, DriverVehicle, LocationPoint, Trip, directionsUrl, timeAgo } from "./trackingApi";
 import { formatTime, formatDateTime as companyFormatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Driver Mode: the driver's phone shares the vehicle's location during a trip and updates deliveries.
 // Browsers only give GPS to HTTPS pages (or localhost) and pause it when the page is in the background,
 // so the screen is kept awake and the page asks the driver to keep it open.
@@ -381,16 +382,16 @@ const DriverMode: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-gray-950 text-slate-800 dark:text-gray-100">
-      <PageMeta title="Driver Mode" description="Share your vehicle's location and update deliveries" />
+      <PageMeta title={t("Driver Mode")} description="Share your vehicle's location and update deliveries" />
 
       {/* Top bar */}
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-slate-900 px-4 py-3 text-white shadow">
         <div className="flex items-center gap-2 min-w-0">
-          <Link to="/" className="rounded-lg p-1 hover:bg-white/10" title="Back to myTrading" aria-label="Back to myTrading">
+          <Link to="/" className="rounded-lg p-1 hover:bg-white/10" title={t("Back to myTrading")} aria-label={t("Back to myTrading")}>
             <ChevronLeftIcon className="h-5 w-5" />
           </Link>
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight">Driver Mode</p>
+            <p className="text-sm font-semibold leading-tight">{t("Driver Mode")}</p>
             <p className="truncate text-xs text-slate-300">{user?.fullName || user?.username}</p>
           </div>
         </div>
@@ -399,19 +400,18 @@ const DriverMode: React.FC = () => {
           onClick={() => logout()}
           className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-slate-300 hover:bg-white/10 hover:text-white"
         >
-          <LogOutIcon className="h-4 w-4" /> Sign out
+          <LogOutIcon className="h-4 w-4" /> {t("Sign out")}
         </button>
       </header>
 
       <main className="mx-auto max-w-xl space-y-4 p-4 pb-24">
         {!secure && (
           <Banner tone="red" icon={<AlertTriangleIcon className="h-5 w-5" />}>
-            Location sharing needs a secure (HTTPS) connection. Ask your administrator to enable HTTPS for myTrading.
-            You can still update deliveries.
+            {t("Location sharing needs a secure (HTTPS) connection. Ask your administrator to enable HTTPS for myTrading. You can still update deliveries.")}
           </Banner>
         )}
         {secure && !hasGps && (
-          <Banner tone="red" icon={<AlertTriangleIcon className="h-5 w-5" />}>This browser cannot share its location.</Banner>
+          <Banner tone="red" icon={<AlertTriangleIcon className="h-5 w-5" />}>{t("This browser cannot share its location.")}</Banner>
         )}
         {error && (
           <Banner tone="red" icon={<AlertTriangleIcon className="h-5 w-5" />} onClose={() => setError(null)}>{error}</Banner>
@@ -421,18 +421,18 @@ const DriverMode: React.FC = () => {
         )}
 
         {loading ? (
-          <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm dark:bg-gray-900">Loading…</div>
+          <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm dark:bg-gray-900">{t("Loading…")}</div>
         ) : trip ? (
           /* ===== On a trip ===== */
           <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">On trip</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("On trip")}</p>
                 <p className="mt-0.5 flex items-center gap-2 text-xl font-bold">
                   <TruckIcon className="h-5 w-5 text-cyan-600" />
                   {trip.vehiclePlate}
                 </p>
-                <p className="text-xs text-slate-500">Since {formatTime(trip.startedAt)}</p>
+                <p className="text-xs text-slate-500">{t("Since")} {formatTime(trip.startedAt)}</p>
               </div>
               <span
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -445,30 +445,30 @@ const DriverMode: React.FC = () => {
             </div>
 
             <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <Stat label="Distance" value={`${trip.distanceKm.toFixed(1)} km`} />
-              <Stat label="GPS" value={lastFix?.accuracy != null ? `±${lastFix.accuracy} m` : "—"} />
-              <Stat label="Last sent" value={lastSentAt ? timeAgo(new Date(lastSentAt).toISOString()) : pending ? "waiting" : "—"} />
+              <Stat label={t("Distance")} value={`${trip.distanceKm.toFixed(1)} km`} />
+              <Stat label={t("GPS")} value={lastFix?.accuracy != null ? `±${lastFix.accuracy} m` : "—"} />
+              <Stat label={t("Last sent")} value={lastSentAt ? timeAgo(new Date(lastSentAt).toISOString()) : pending ? "waiting" : "—"} />
             </dl>
 
             <div className="mt-3 space-y-2">
               {gps === "denied" && (
                 <Banner tone="red" icon={<MapPinIcon className="h-5 w-5" />}>
-                  Location is blocked for this site. Allow location in the browser settings, then reload this page.
+                  {t("Location is blocked for this site. Allow location in the browser settings, then reload this page.")}
                 </Banner>
               )}
               {gps === "unavailable" && (
                 <Banner tone="amber" icon={<MapPinIcon className="h-5 w-5" />}>
-                  No GPS signal yet. Make sure location is switched on.
+                  {t("No GPS signal yet. Make sure location is switched on.")}
                 </Banner>
               )}
               {sendFailing && (
                 <Banner tone="amber" icon={<WifiOffIcon className="h-5 w-5" />}>
-                  No connection. {pending} location{pending === 1 ? "" : "s"} waiting; they will be sent when you are back online.
+                  {t("No connection.")} {pending} location{pending === 1 ? "" : "s"} waiting; they will be sent when you are back online.
                 </Banner>
               )}
               {wasHidden && (
                 <Banner tone="amber" icon={<AlertTriangleIcon className="h-5 w-5" />} onClose={() => setWasHidden(false)}>
-                  Keep this page open while driving. Location is not shared while you use other apps.
+                  {t("Keep this page open while driving. Location is not shared while you use other apps.")}
                 </Banner>
               )}
             </div>
@@ -479,22 +479,22 @@ const DriverMode: React.FC = () => {
               disabled={busy}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 text-base font-semibold text-white hover:bg-red-700 disabled:opacity-50"
             >
-              <SquareIcon className="h-4 w-4" /> End Trip
+              <SquareIcon className="h-4 w-4" /> {t("End Trip")}
             </button>
           </section>
         ) : (
           /* ===== Before a trip ===== */
           <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
-            <p className="text-base font-semibold">Start a trip</p>
-            <p className="mt-0.5 text-sm text-slate-500">Choose your vehicle. Its location is shared until you end the trip.</p>
-            <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-vehicle">Vehicle</label>
+            <p className="text-base font-semibold">{t("Start a trip")}</p>
+            <p className="mt-0.5 text-sm text-slate-500">{t("Choose your vehicle. Its location is shared until you end the trip.")}</p>
+            <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-vehicle">{t("Vehicle")}</label>
             <select
               id="driver-vehicle"
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base dark:border-gray-700 dark:bg-gray-800"
             >
-              <option value="">Choose a vehicle</option>
+              <option value="">{t("Choose a vehicle")}</option>
               {vehicles.map((v) => (
                 <option key={v.id} value={v.id} disabled={!!v.trackedBy && !v.trackedByMe}>
                   {v.licensePlate}
@@ -503,14 +503,14 @@ const DriverMode: React.FC = () => {
                 </option>
               ))}
             </select>
-            {vehicles.length === 0 && <p className="mt-2 text-sm text-slate-500">No vehicles are set up yet. Ask the office to add one.</p>}
+            {vehicles.length === 0 && <p className="mt-2 text-sm text-slate-500">{t("No vehicles are set up yet. Ask the office to add one.")}</p>}
             <button
               type="button"
               onClick={startTrip}
               disabled={!vehicleId || busy || !!(selectedVehicle?.trackedBy && !selectedVehicle.trackedByMe)}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3.5 text-base font-semibold text-white hover:bg-green-700 disabled:opacity-40"
             >
-              <PlayIcon className="h-5 w-5" /> {busy ? "Starting…" : "Start Trip"}
+              <PlayIcon className="h-5 w-5" /> {t(busy ? "Starting…" : "Start Trip")}
             </button>
           </section>
         )}
@@ -520,18 +520,18 @@ const DriverMode: React.FC = () => {
           <section>
             <div className="mb-2 flex items-center justify-between px-1">
               <p className="text-sm font-semibold">
-                Deliveries <span className="font-normal text-slate-500">· {openDeliveries.length} to go{doneCount ? `, ${doneCount} done today` : ""}</span>
+                {t("Deliveries")} <span className="font-normal text-slate-500">· {openDeliveries.length} to go{doneCount ? `, ${doneCount} done today` : ""}</span>
               </p>
-              <button type="button" onClick={() => loadDeliveries(trip ? undefined : vehicleId)} className="rounded-lg p-1.5 text-slate-500 hover:bg-white" title="Refresh" aria-label="Refresh deliveries">
+              <button type="button" onClick={() => loadDeliveries(trip ? undefined : vehicleId)} className="rounded-lg p-1.5 text-slate-500 hover:bg-white" title={t("Refresh")} aria-label={t("Refresh deliveries")}>
                 <RefreshCwIcon className="h-4 w-4" />
               </button>
             </div>
             {!trip && deliveries.length > 0 && (
-              <p className="mb-2 px-1 text-xs text-slate-500">Start the trip to update these deliveries.</p>
+              <p className="mb-2 px-1 text-xs text-slate-500">{t("Start the trip to update these deliveries.")}</p>
             )}
             {deliveries.length === 0 ? (
               <div className="rounded-2xl bg-white p-5 text-center text-sm text-slate-500 shadow-sm dark:bg-gray-900">
-                No deliveries are assigned to this vehicle.
+                {t("No deliveries are assigned to this vehicle.")}
               </div>
             ) : (
               <ul className="space-y-3">
@@ -546,14 +546,14 @@ const DriverMode: React.FC = () => {
 
       {/* End trip confirmation */}
       {confirmEnd && trip && (
-        <Sheet onClose={() => setConfirmEnd(false)} title="End this trip?">
+        <Sheet onClose={() => setConfirmEnd(false)} title={t("End this trip?")}>
           <p className="text-sm text-slate-600 dark:text-gray-300">
             {trip.vehiclePlate} stops sharing its location. {openDeliveries.length > 0 && `${openDeliveries.length} deliver${openDeliveries.length === 1 ? "y is" : "ies are"} still open.`}
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => setConfirmEnd(false)} className="rounded-xl border border-slate-300 py-3 font-medium dark:border-gray-700">Keep going</button>
+            <button type="button" onClick={() => setConfirmEnd(false)} className="rounded-xl border border-slate-300 py-3 font-medium dark:border-gray-700">{t("Keep going")}</button>
             <button type="button" onClick={endTrip} disabled={busy} className="rounded-xl bg-red-600 py-3 font-semibold text-white disabled:opacity-50">
-              {busy ? "Ending…" : "End Trip"}
+              {t(busy ? "Ending…" : "End Trip")}
             </button>
           </div>
         </Sheet>
@@ -565,17 +565,17 @@ const DriverMode: React.FC = () => {
           <p className="text-sm text-slate-600 dark:text-gray-300">{action.order.customerName}</p>
           {action.status === "RETURNED" && (
             <>
-              <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-reason">Reason *</label>
+              <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-reason">{t("Reason *")}</label>
               <input
                 id="driver-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. Customer not available, shop closed"
+                placeholder={t("e.g. Customer not available, shop closed")}
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base dark:border-gray-700 dark:bg-gray-800"
               />
             </>
           )}
-          <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-remarks">Note (optional)</label>
+          <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-remarks">{t("Note (optional)")}</label>
           <textarea
             id="driver-remarks"
             value={remarks}
@@ -585,17 +585,17 @@ const DriverMode: React.FC = () => {
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-base dark:border-gray-700 dark:bg-gray-800"
           />
           <p className="mt-2 text-xs text-slate-400">
-            {lastFix ? "Your current location is saved with this update." : "No GPS fix yet; the trip's last position is used."}
+            {t(lastFix ? "Your current location is saved with this update." : "No GPS fix yet; the trip's last position is used.")}
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => setAction(null)} className="rounded-xl border border-slate-300 py-3 font-medium dark:border-gray-700">Cancel</button>
+            <button type="button" onClick={() => setAction(null)} className="rounded-xl border border-slate-300 py-3 font-medium dark:border-gray-700">{t("Cancel")}</button>
             <button
               type="button"
               onClick={submitAction}
               disabled={busy}
               className={`rounded-xl py-3 font-semibold text-white disabled:opacity-50 ${action.status === "RETURNED" ? "bg-orange-600" : "bg-green-600"}`}
             >
-              {busy ? "Saving…" : "Confirm"}
+              {t(busy ? "Saving…" : "Confirm")}
             </button>
           </div>
         </Sheet>
@@ -634,7 +634,7 @@ const DeliveryCard: React.FC<{
         >
           <MapPinIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-cyan-600" />
           <span className="flex-1">{order.deliveryAddress}</span>
-          <span className="flex items-center gap-1 text-xs font-semibold text-cyan-700"><NavigationIcon className="h-3.5 w-3.5" />Navigate</span>
+          <span className="flex items-center gap-1 text-xs font-semibold text-cyan-700"><NavigationIcon className="h-3.5 w-3.5" />{t("Navigate")}</span>
         </a>
       )}
 
@@ -642,7 +642,7 @@ const DeliveryCard: React.FC<{
         <PackageIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
         <span>{order.items.map((i) => `${i.productName || `Product #${i.productId}`} × ${i.quantity}`).join(", ")}</span>
       </p>
-      {order.remarks && <p className="mt-1 text-xs text-slate-500">Note: {order.remarks}</p>}
+      {order.remarks && <p className="mt-1 text-xs text-slate-500">{t("Note:")} {order.remarks}</p>}
 
       {done ? (
         order.tracking && (
@@ -652,13 +652,13 @@ const DeliveryCard: React.FC<{
         )
       ) : order.status === "PENDING" || order.status === "CONFIRMED" ? (
         <button type="button" disabled={!canAct} onClick={() => onAction(order, "IN_TRANSIT")} className={`${button} mt-3 w-full bg-cyan-600 text-white`}>
-          Start delivery
+          {t("Start delivery")}
         </button>
       ) : (
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <button type="button" disabled={!canAct} onClick={() => onAction(order, "DELIVERED")} className={`${button} bg-green-600 text-white`}>Delivered</button>
-          <button type="button" disabled={!canAct} onClick={() => onAction(order, "PARTIAL")} className={`${button} bg-amber-100 text-amber-800`}>Partly</button>
-          <button type="button" disabled={!canAct} onClick={() => onAction(order, "RETURNED")} className={`${button} bg-orange-100 text-orange-800`}>Not delivered</button>
+          <button type="button" disabled={!canAct} onClick={() => onAction(order, "DELIVERED")} className={`${button} bg-green-600 text-white`}>{t("Delivered")}</button>
+          <button type="button" disabled={!canAct} onClick={() => onAction(order, "PARTIAL")} className={`${button} bg-amber-100 text-amber-800`}>{t("Partly")}</button>
+          <button type="button" disabled={!canAct} onClick={() => onAction(order, "RETURNED")} className={`${button} bg-orange-100 text-orange-800`}>{t("Not delivered")}</button>
         </div>
       )}
     </li>
@@ -688,7 +688,7 @@ const Banner: React.FC<{ tone: "red" | "amber" | "green"; icon: React.ReactNode;
       <span className="mt-0.5 flex-shrink-0">{icon}</span>
       <span className="flex-1">{children}</span>
       {onClose && (
-        <button type="button" onClick={onClose} className="flex-shrink-0 opacity-60 hover:opacity-100" aria-label="Dismiss">
+        <button type="button" onClick={onClose} className="flex-shrink-0 opacity-60 hover:opacity-100" aria-label={t("Dismiss")}>
           <XIcon className="h-4 w-4" />
         </button>
       )}
@@ -707,7 +707,7 @@ const Sheet: React.FC<{ title: string; onClose: () => void; children: React.Reac
     >
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-semibold">{title}</h2>
-        <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Close">
+        <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label={t("Close")}>
           <XIcon className="h-5 w-5" />
         </button>
       </div>

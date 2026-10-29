@@ -27,6 +27,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { formatAmount, formatMoney, formatNumber } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ---------- Type Definitions ----------
 interface Product {
   id: number;
@@ -477,13 +478,13 @@ const StockLevelsManager: React.FC = () => {
                   goToProduct(productId);
                 }}
                 className="text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-                title="View product"
+                title={t("View product")}
               >
                 {getProductName(stock, products)}
               </button>
               {getProductSku(stock, products) && (
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                  SKU: {getProductSku(stock, products)}
+                  {t("SKU:")} {getProductSku(stock, products)}
                 </div>
               )}
             </div>
@@ -511,7 +512,7 @@ const StockLevelsManager: React.FC = () => {
                   goToWarehouse(warehouseId, warehouseName);
                 }}
                 className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-                title="View warehouse"
+                title={t("View warehouse")}
               >
                 {warehouseName}
               </button>
@@ -552,7 +553,7 @@ const StockLevelsManager: React.FC = () => {
       detailFormatter: (stock) => (stock.averageCost == null ? "Not known yet" : formatAmount(stock.averageCost)),
       render: (stock) =>
         stock.averageCost == null ? (
-          <span className="text-xs text-slate-400" title="No purchase cost recorded for this stock yet">—</span>
+          <span className="text-xs text-slate-400" title={t("No purchase cost recorded for this stock yet")}>—</span>
         ) : (
           <span className="text-sm text-slate-700 dark:text-slate-200">{formatAmount(stock.averageCost)}</span>
         ),
@@ -600,7 +601,7 @@ const StockLevelsManager: React.FC = () => {
             type="button"
             onClick={() => openEdit(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Adjust Stock"
+            title={t("Adjust Stock")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -608,7 +609,7 @@ const StockLevelsManager: React.FC = () => {
             type="button"
             onClick={() => setDeletingStock(stock)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -620,23 +621,23 @@ const StockLevelsManager: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="Stock Levels"
+        title={t("Stock Levels")}
         description="Monitor and manage inventory stock levels"
       />
       <PageBreadcrumb
         pageTitle="Stock Levels"
-        actions={<AddButton onClick={openCreate} label="Add Stock" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Stock")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Stock"
+            label={t("Total Stock")}
             value={formatNumber(stats.totalStock)}
             icon={<CubeIcon />}
           />
           <StatsCard
-            label="Available Stock"
+            label={t("Available Stock")}
             value={formatNumber(stats.totalAvailable)}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -644,7 +645,7 @@ const StockLevelsManager: React.FC = () => {
             icon={<CheckBadgeIcon />}
           />
           <StatsCard
-            label="Reserved Stock"
+            label={t("Reserved Stock")}
             value={formatNumber(stats.totalReserved)}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
@@ -652,7 +653,7 @@ const StockLevelsManager: React.FC = () => {
             icon={<ChartBarIcon />}
           />
           <StatsCard
-            label="Low Stock Items"
+            label={t("Low Stock Items")}
             value={stats.lowStockCount}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -679,13 +680,13 @@ const StockLevelsManager: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No stock levels found</p>
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No stock levels found")}</p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Add your first stock
+                {t("Add your first stock")}
               </button>)}
             </div>
           }
@@ -695,12 +696,12 @@ const StockLevelsManager: React.FC = () => {
       {/* Stock Operation Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingStock ? "Adjust Stock" : "Add Stock"}
-        subtitle={
+        title={t(editingStock ? "Adjust Stock" : "Add Stock")}
+        subtitle={t(
           editingStock
             ? "Choose an operation and quantity to apply to this stock level"
             : "Select a product, warehouse, and quantity to add to stock"
-        }
+        )}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
@@ -718,7 +719,7 @@ const StockLevelsManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label={t("Product")}
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -728,7 +729,7 @@ const StockLevelsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="warehouseId"
-                label="Warehouse"
+                label={t("Warehouse")}
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={handleChange}
@@ -744,7 +745,7 @@ const StockLevelsManager: React.FC = () => {
               ? [
                   <FloatingSelect
                     key="operationType"
-                    label="Operation Type"
+                    label={t("Operation Type")}
                     name="operationType"
                     value={form.operationType}
                     onChange={handleChange}
@@ -753,7 +754,7 @@ const StockLevelsManager: React.FC = () => {
                   />,
                   <FloatingInput
                     key="quantity"
-                    label="Quantity"
+                    label={t("Quantity")}
                     name="quantity"
                     type="number"
                     min={1}
@@ -777,7 +778,7 @@ const StockLevelsManager: React.FC = () => {
               : [
                   <FloatingInput
                     key="quantity"
-                    label="Quantity"
+                    label={t("Quantity")}
                     name="quantity"
                     type="number"
                     min={1}
@@ -787,7 +788,7 @@ const StockLevelsManager: React.FC = () => {
                   />,
                   <FloatingInput
                     key="unitCost"
-                    label="Unit cost (optional)"
+                    label={t("Unit cost (optional)")}
                     name="unitCost"
                     type="number"
                     min={0}
@@ -813,7 +814,7 @@ const StockLevelsManager: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Stock Level"
+        innerText={t("Delete Stock Level")}
         subText={
           deletingStock
             ? `Are you sure you want to delete the stock level for "${getProductName(
@@ -822,8 +823,8 @@ const StockLevelsManager: React.FC = () => {
               )}" at "${getWarehouseName(deletingStock)}"? This action cannot be undone.`
             : "Are you sure you want to delete this stock level?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeletingStock(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

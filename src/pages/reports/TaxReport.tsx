@@ -7,6 +7,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { INVOICE_API, apiError, money, monthLabel } from "../Invoice/invoiceShared";
 
+import { t } from "../../i18n/i18n";
 interface TaxReportData {
   totalTaxableAmount?: number;
   totalTaxAmount?: number;
@@ -43,25 +44,25 @@ const TaxReport: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Tax Report" description="Tax charged on sales invoices" />
+      <PageMeta title={t("Tax Report")} description="Tax charged on sales invoices" />
       <PageBreadcrumb pageTitle="Tax Report" />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <p className="text-xs text-slate-500">
-          Tax on issued sales invoices. Tax paid on purchases is in{" "}
-          <button type="button" className="text-cyan-700 hover:underline" onClick={() => navigate("/taxRecords")}>Tax Records</button>.
+          {t("Tax on issued sales invoices. Tax paid on purchases is in")}{" "}
+          <button type="button" className="text-cyan-700 hover:underline" onClick={() => navigate("/taxRecords")}>{t("Tax Records")}</button>.
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Taxable value" value={money(report.totalTaxableAmount)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Tax charged" value={money(report.totalTaxAmount)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Invoice total" value={money(report.totalInvoiceAmount)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-          <StatsCard label="Effective rate" value={`${effectiveRate.toFixed(2)}%`} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label={t("Taxable value")} value={money(report.totalTaxableAmount)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Tax charged")} value={money(report.totalTaxAmount)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Invoice total")} value={money(report.totalInvoiceAmount)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label={t("Effective rate")} value={`${effectiveRate.toFixed(2)}%`} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
         </div>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-800">Tax charged by month</h2>
+          <h2 className="mb-3 text-sm font-semibold text-slate-800">{t("Tax charged by month")}</h2>
           {months.length === 0 ? (
-            <p className="text-sm text-slate-400">{loading ? "Loading…" : "No issued invoices yet"}</p>
+            <p className="text-sm text-slate-400">{t(loading ? "Loading…" : "No issued invoices yet")}</p>
           ) : (
             <ul className="space-y-2">
               {months.map(([key, value]) => (

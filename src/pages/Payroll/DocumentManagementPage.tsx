@@ -25,6 +25,7 @@ import { apiError } from '../../utils/apiError';
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from './hrmsUi';
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Document {
@@ -266,20 +267,20 @@ const DocumentManagementPage: React.FC = () => {
             render: (doc) => (
                 <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     {canApprove && doc.status !== 'APPROVED' && (
-                        <button type="button" onClick={() => updateDocumentStatus(doc.id, 'approve')} className={ROW_ICON_BUTTON} title="Verify">
+                        <button type="button" onClick={() => updateDocumentStatus(doc.id, 'approve')} className={ROW_ICON_BUTTON} title={t("Verify")}>
                             <CheckCircleIcon className="h-4 w-4" />
                         </button>
                     )}
                     {canApprove && doc.status === 'PENDING' && (
-                        <button type="button" onClick={() => updateDocumentStatus(doc.id, 'reject')} className={ROW_ICON_BUTTON_DANGER} title="Reject">
+                        <button type="button" onClick={() => updateDocumentStatus(doc.id, 'reject')} className={ROW_ICON_BUTTON_DANGER} title={t("Reject")}>
                             <XCircleIcon className="h-4 w-4" />
                         </button>
                     )}
-                    <button type="button" onClick={() => handleDownload(doc)} disabled={downloadingId === doc.id} className={ROW_ICON_BUTTON} title="Download">
+                    <button type="button" onClick={() => handleDownload(doc)} disabled={downloadingId === doc.id} className={ROW_ICON_BUTTON} title={t("Download")}>
                         <ArrowDownTrayIcon className={`h-4 w-4 ${downloadingId === doc.id ? 'animate-pulse' : ''}`} />
                     </button>
                     {canRemove(doc) && (
-                        <button type="button" onClick={() => handleDelete(doc)} className={ROW_ICON_BUTTON_DANGER} title="Delete">
+                        <button type="button" onClick={() => handleDelete(doc)} className={ROW_ICON_BUTTON_DANGER} title={t("Delete")}>
                             <TrashIcon className="h-4 w-4" />
                         </button>
                     )}
@@ -290,20 +291,20 @@ const DocumentManagementPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Documents" description="Manage your documents" />
+            <PageMeta title={t("Documents")} description="Manage your documents" />
             <PageBreadcrumb
                 pageTitle={whose}
                 actions={!notLinked && (
-                    <AddButton label="Upload Document" permission={null} onClick={() => setIsUploadModalOpen(true)} />
+                    <AddButton label={t("Upload Document")} permission={null} onClick={() => setIsUploadModalOpen(true)} />
                 )}
             />
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Total Documents" value={documents.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
-                    <StatsCard label="Verified" value={count('APPROVED')} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ShieldCheckIcon className="h-5 w-5" />} />
-                    <StatsCard label="Pending" value={count('PENDING')} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
-                    <StatsCard label="Rejected" value={count('REJECTED')} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={fetchDocuments} />
+                    <StatsCard label={t("Total Documents")} value={documents.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Verified")} value={count('APPROVED')} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ShieldCheckIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Pending")} value={count('PENDING')} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Rejected")} value={count('REJECTED')} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={fetchDocuments} />
                 </div>
 
                 <ReusableTable
@@ -325,7 +326,7 @@ const DocumentManagementPage: React.FC = () => {
                                     onClick={() => setIsUploadModalOpen(true)}
                                     className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                                 >
-                                    Upload your first document
+                                    {t("Upload your first document")}
                                 </button>
                             )}
                         </div>
@@ -335,12 +336,12 @@ const DocumentManagementPage: React.FC = () => {
 
             <PaginatedPopup
                 isOpen={isUploadModalOpen}
-                title="Upload Document"
-                subtitle="PDF, JPG or PNG up to 5 MB. HR reviews each document before it is verified."
+                title={t("Upload Document")}
+                subtitle={t("PDF, JPG or PNG up to 5 MB. HR reviews each document before it is verified.")}
                 onClose={closeUpload}
                 onSubmit={handleUpload}
                 submitting={isUploading}
-                submitLabel={isUploading ? `Uploading ${uploadProgress}%` : "Upload"}
+                submitLabel={isUploading ? `Uploading ${uploadProgress}%` : t("Upload")}
                 maxWidthClassName="max-w-lg"
                 tabs={[
                     {
@@ -348,7 +349,7 @@ const DocumentManagementPage: React.FC = () => {
                         fields: [
                             <div key="type" className="md:col-span-2">
                                 <FloatingSelect
-                                    label="Document Type"
+                                    label={t("Document Type")}
                                     name="documentType"
                                     value={documentType}
                                     onChange={(e) => setDocumentType(e.target.value)}

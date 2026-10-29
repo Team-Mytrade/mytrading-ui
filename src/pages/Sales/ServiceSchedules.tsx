@@ -27,6 +27,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type LocalTime = {
   hour: number;
   minute: number;
@@ -529,7 +530,7 @@ const ServiceSchedules: React.FC = () => {
               goToCustomer(schedule.customerId);
             }}
             className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             {name}
           </button>
@@ -561,7 +562,7 @@ const ServiceSchedules: React.FC = () => {
               goToEmployee(schedule.assignedEmployeeId);
             }}
             className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             {name}
           </button>
@@ -611,7 +612,7 @@ const ServiceSchedules: React.FC = () => {
               type="button"
               onClick={() => openFromSchedule(schedule)}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-              title="Copy to create"
+              title={t("Copy to create")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -621,7 +622,7 @@ const ServiceSchedules: React.FC = () => {
               type="button"
               onClick={() => openStatusModal(schedule)}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
-              title="Set status"
+              title={t("Set status")}
             >
               <CheckCircleIcon className="h-4 w-4" />
             </button>
@@ -630,7 +631,7 @@ const ServiceSchedules: React.FC = () => {
             type="button"
             onClick={() => setDeleteSchedule(schedule)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -641,17 +642,17 @@ const ServiceSchedules: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Service Schedules" description="Manage service schedules" />
+      <PageMeta title={t("Service Schedules")} description="Manage service schedules" />
       <PageBreadcrumb
         pageTitle="Service Schedules"
-        actions={<AddButton onClick={openCreate} label="Add schedule" />}
+        actions={<AddButton onClick={openCreate} label={t("Add schedule")} />}
       />
 
       <div className="w-full max-w-none space-y-6 px-0 py-6 sm:py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Schedules" value={stats.total} icon={<CalendarDaysIcon />} />
+          <StatsCard label={t("Schedules")} value={stats.total} icon={<CalendarDaysIcon />} />
           <StatsCard
-            label="Pending"
+            label={t("Pending")}
             value={stats.pending}
             icon={<ClockIcon />}
             gradient="from-orange-50 to-yellow-50"
@@ -659,7 +660,7 @@ const ServiceSchedules: React.FC = () => {
             labelColor="text-orange-600"
           />
           <StatsCard
-            label="In Progress"
+            label={t("In Progress")}
             value={stats.inProgress}
             icon={<UserIcon />}
             gradient="from-blue-50 to-cyan-50"
@@ -667,7 +668,7 @@ const ServiceSchedules: React.FC = () => {
             labelColor="text-blue-600"
           />
           <StatsCard
-            label="Completed"
+            label={t("Completed")}
             value={stats.completed}
             icon={<CheckCircleIcon />}
             gradient="from-green-50 to-emerald-50"
@@ -687,14 +688,14 @@ const ServiceSchedules: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <CalendarDaysIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No service schedules found
+                {t("No service schedules found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first service schedule
+                {t("Create your first service schedule")}
               </button>)}
             </div>
           }
@@ -704,12 +705,12 @@ const ServiceSchedules: React.FC = () => {
       {/* Create modal — Customer field is back, showing names */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title="Create Service Schedule"
-        subtitle="Select a sales order and customer, then set the schedule"
+        title={t("Create Service Schedule")}
+        subtitle={t("Select a sales order and customer, then set the schedule")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel="Create Service Schedule"
+        submitLabel={t("Create Service Schedule")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -717,27 +718,27 @@ const ServiceSchedules: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="serviceOrderId"
-                label="Service Order"
+                label={t("Service Order")}
                 name="serviceOrderId"
                 value={form.serviceOrderId}
                 onChange={handleChange}
-                emptyOptionLabel="Select service order"
+                emptyOptionLabel={t("Select service order")}
                 options={salesOrderOptions}
                 required
               />,
               <FloatingSelect
                 key="customerId"
-                label="Customer"
+                label={t("Customer")}
                 name="customerId"
                 value={form.customerId}
                 onChange={handleChange}
-                emptyOptionLabel="Select customer"
+                emptyOptionLabel={t("Select customer")}
                 options={customerOptions}
                 required
               />,
               <FloatingSelect
                 key="assignedEmployeeId"
-                label="Assigned Employee"
+                label={t("Assigned Employee")}
                 name="assignedEmployeeId"
                 value={form.assignedEmployeeId}
                 onChange={handleChange}
@@ -746,7 +747,7 @@ const ServiceSchedules: React.FC = () => {
               />,
               <div key="scheduledDate" className="md:col-span-2">
                 <FloatingDatePicker
-                  label="Scheduled Date"
+                  label={t("Scheduled Date")}
                   name="scheduledDate"
                   value={form.scheduledDate}
                   onChange={handleChange}
@@ -760,7 +761,7 @@ const ServiceSchedules: React.FC = () => {
             fields: [
               <FloatingInput
                 key="startTime"
-                label="Start Time"
+                label={t("Start Time")}
                 name="startTime"
                 type="time"
                 value={form.startTime}
@@ -769,7 +770,7 @@ const ServiceSchedules: React.FC = () => {
               />,
               <FloatingInput
                 key="endTime"
-                label="End Time"
+                label={t("End Time")}
                 name="endTime"
                 type="time"
                 value={form.endTime}
@@ -778,7 +779,7 @@ const ServiceSchedules: React.FC = () => {
               />,
               <div key="remarks" className="md:col-span-2">
                 <FloatingTextarea
-                  label="Remarks"
+                  label={t("Remarks")}
                   name="remarks"
                   value={form.remarks}
                   onChange={handleChange}
@@ -793,7 +794,7 @@ const ServiceSchedules: React.FC = () => {
       {/* Status Update Modal */}
       <PaginatedPopup
         isOpen={!!statusTarget}
-        title="Update Schedule Status"
+        title={t("Update Schedule Status")}
         subtitle={
           statusTarget ? `Schedule ${statusTarget.scheduleNo || `#${statusTarget.id}`}` : ""
         }
@@ -803,7 +804,7 @@ const ServiceSchedules: React.FC = () => {
           void confirmStatusUpdate();
         }}
         submitting={statusUpdatingId === statusTarget?.id}
-        submitLabel="Update Status"
+        submitLabel={t("Update Status")}
         maxWidthClassName="max-w-lg"
         tabs={[
           {
@@ -811,7 +812,7 @@ const ServiceSchedules: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="statusValue"
-                label="Status"
+                label={t("Status")}
                 name="statusValue"
                 value={statusValue}
                 onChange={(e) => setStatusValue(e.target.value)}
@@ -831,14 +832,14 @@ const ServiceSchedules: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Service Schedule"
+        innerText={t("Delete Service Schedule")}
         subText={
           deleteSchedule
             ? `Are you sure you want to delete schedule #${deleteSchedule.id}?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteSchedule(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

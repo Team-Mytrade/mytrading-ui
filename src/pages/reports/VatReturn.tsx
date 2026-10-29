@@ -9,6 +9,7 @@ import { INVOICE_API, apiError } from "../Invoice/invoiceShared";
 import { useCompany } from "../../company/companyApi";
 import { formatDate, formatMoney, todayIso } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface Box {
   taxableAmount: number;
   vatAmount: number;
@@ -114,7 +115,7 @@ const VatReturn: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="VAT Return" description="VAT due for a period" />
+      <PageMeta title={t("VAT Return")} description="VAT due for a period" />
       <PageBreadcrumb pageTitle="VAT Return" />
 
       <div className="w-full max-w-none space-y-4 py-4">
@@ -130,38 +131,38 @@ const VatReturn: React.FC = () => {
             ))}
             {period === "custom" && (
               <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <input type="date" className={INPUT} value={from} onChange={(e) => setRange([e.target.value, to])} aria-label="From" />
-                to
-                <input type="date" className={INPUT} value={to} onChange={(e) => setRange([from, e.target.value])} aria-label="To" />
+                <input type="date" className={INPUT} value={from} onChange={(e) => setRange([e.target.value, to])} aria-label={t("From")} />
+                {t("to")}
+                <input type="date" className={INPUT} value={to} onChange={(e) => setRange([from, e.target.value])} aria-label={t("To")} />
               </span>
             )}
           </div>
           <div className="text-right text-xs text-slate-500 dark:text-gray-400">
             <div className="font-semibold text-slate-700 dark:text-gray-200">{company?.legalName || company?.companyName}</div>
-            {vatRegistered ? <div>TRN {company?.taxNumber || "not set"}</div> : null}
+            {vatRegistered ? <div>{t("TRN")} {company?.taxNumber || "not set"}</div> : null}
             <div>{formatDate(from)} – {formatDate(to)}</div>
           </div>
         </div>
 
         {!vatRegistered && company && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Your company is not set as VAT registered. Set the tax registration and TRN in{" "}
-            <Link to="/company-settings" className="font-semibold underline">Company Settings</Link>.
+            {t("Your company is not set as VAT registered. Set the tax registration and TRN in")}{" "}
+            <Link to="/company-settings" className="font-semibold underline">{t("Company Settings")}</Link>.
           </p>
         )}
         {data && data.currencies.some((c) => c !== company?.currency) && (
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            This period has documents in {data.currencies.join(", ")}. Each counts in {company?.currency ?? "the company's currency"} at
+            {t("This period has documents in")} {data.currencies.join(", ")}. Each counts in {company?.currency ?? "the company's currency"} at
             the rate it was booked at (a credit note at its invoice's); documents from before exchange rates were kept count at face value.
-            Rates are set in <Link to="/exchangeRates" className="font-semibold underline">Exchange Rates</Link>.
+            Rates are set in <Link to="/exchangeRates" className="font-semibold underline">{t("Exchange Rates")}</Link>.
           </p>
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatsCard label="Output VAT" value={money(data?.outputVat)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Input VAT (recoverable)" value={money(data?.inputVat)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Output VAT")} value={money(data?.outputVat)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Input VAT (recoverable)")} value={money(data?.inputVat)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
           <StatsCard
-            label={data && data.netVatDue < 0 ? "VAT refundable" : "Net VAT payable"}
+            label={t(data && data.netVatDue < 0 ? "VAT refundable" : "Net VAT payable")}
             value={money(data ? Math.abs(data.netVatDue) : 0)}
             gradient={data && data.netVatDue < 0 ? "from-purple-50 to-pink-50" : "from-orange-50 to-yellow-50"}
             borderColor={data && data.netVatDue < 0 ? "border-purple-100" : "border-orange-100"}
@@ -173,15 +174,15 @@ const VatReturn: React.FC = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-[#222] dark:text-gray-400">
               <tr>
-                <th className="px-4 py-2">Box</th>
-                <th className="px-4 py-2 text-right">Documents</th>
-                <th className="px-4 py-2 text-right">Taxable value</th>
-                <th className="px-4 py-2 text-right">VAT</th>
+                <th className="px-4 py-2">{t("Box")}</th>
+                <th className="px-4 py-2 text-right">{t("Documents")}</th>
+                <th className="px-4 py-2 text-right">{t("Taxable value")}</th>
+                <th className="px-4 py-2 text-right">{t("VAT")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">{loading ? "Working it out…" : "No figures for this period"}</td></tr>
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">{t(loading ? "Working it out…" : "No figures for this period")}</td></tr>
               )}
               {rows.map((row) => (
                 <React.Fragment key={row.label}>
@@ -206,8 +207,8 @@ const VatReturn: React.FC = () => {
             </tbody>
             {data && (
               <tfoot className="border-t-2 border-slate-200 text-sm dark:border-gray-700">
-                <tr><td className="px-4 py-2 text-slate-600" colSpan={3}>Output VAT (standard-rated less credit notes, plus reverse charge)</td><td className="px-4 py-2 text-right font-medium">{money(data.outputVat)}</td></tr>
-                <tr><td className="px-4 py-2 text-slate-600" colSpan={3}>Input VAT recoverable</td><td className="px-4 py-2 text-right font-medium">−{money(data.inputVat)}</td></tr>
+                <tr><td className="px-4 py-2 text-slate-600" colSpan={3}>{t("Output VAT (standard-rated less credit notes, plus reverse charge)")}</td><td className="px-4 py-2 text-right font-medium">{money(data.outputVat)}</td></tr>
+                <tr><td className="px-4 py-2 text-slate-600" colSpan={3}>{t("Input VAT recoverable")}</td><td className="px-4 py-2 text-right font-medium">−{money(data.inputVat)}</td></tr>
                 <tr className="text-base font-semibold">
                   <td className="px-4 py-2" colSpan={3}>{data.netVatDue < 0 ? "VAT refundable" : "Net VAT payable"}</td>
                   <td className="px-4 py-2 text-right text-cyan-700 dark:text-cyan-400">{money(Math.abs(data.netVatDue))}</td>
@@ -218,9 +219,9 @@ const VatReturn: React.FC = () => {
         </section>
 
         <p className="text-xs text-slate-500">
-          From {data?.invoiceCount ?? 0} issued sales invoice(s) and {data?.billCount ?? 0} vendor bill(s) dated in the period.
-          A sales line's category comes from its product's tax code in <Link to="/taxTypes" className="text-cyan-700 hover:underline">Tax Types</Link>;
-          bills' VAT is recorded on <Link to="/purchaseInvoices" className="text-cyan-700 hover:underline">Purchase Invoices</Link>.
+          {t("From")} {data?.invoiceCount ?? 0} issued sales invoice(s) and {data?.billCount ?? 0} vendor bill(s) dated in the period.
+          A sales line's category comes from its product's tax code in <Link to="/taxTypes" className="text-cyan-700 hover:underline">{t("Tax Types")}</Link>;
+          bills' VAT is recorded on <Link to="/purchaseInvoices" className="text-cyan-700 hover:underline">{t("Purchase Invoices")}</Link>.
         </p>
       </div>
     </>

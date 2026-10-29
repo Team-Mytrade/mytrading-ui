@@ -22,6 +22,7 @@ import { RoutePoint, TRACKING_API, TRIP_STATE_STYLE, Trip, mapUrl, timeAgo, trip
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate, formatTime, formatDateTime } from "../../company/format";
 
+import { t as tr } from "../../i18n/i18n";
 // Live map of vehicles whose drivers are on a trip (Driver Mode on their phone), plus past trips' routes.
 // Map tiles: OpenStreetMap (free; for heavy use switch to a commercial tile provider).
 
@@ -83,7 +84,7 @@ const LiveTracking: React.FC = () => {
     const map = L.map(mapEl.current).setView(DEFAULT_VIEW, 5);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">{tr("OpenStreetMap")}</a> contributors',
     }).addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
     routeRef.current = L.layerGroup().addTo(map);
@@ -165,7 +166,7 @@ const LiveTracking: React.FC = () => {
         .bindPopup(
           `<strong>${escapeHtml(t.vehiclePlate)}</strong><br/>${escapeHtml(t.driverName)}<br/>` +
             `${escapeHtml(style.label)}${t.lastSpeedKmh != null ? ` · ${Math.round(t.lastSpeedKmh)} km/h` : ""}<br/>` +
-            `<span style="color:#64748b">Updated ${escapeHtml(timeAgo(t.lastSeenAt))}</span>`
+            `<span style="color:#64748b">{tr("Updated $")}{escapeHtml(timeAgo(t.lastSeenAt))}</span>`
         )
         .on("click", () => setSelectedId(t.id))
         .addTo(layer);
@@ -256,7 +257,7 @@ const LiveTracking: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Live Tracking" description="Live location of delivery vehicles" />
+      <PageMeta title={tr("Live Tracking")} description="Live location of delivery vehicles" />
       <PageBreadcrumb pageTitle="Live Tracking" />
       <style>{`
         .vt-icon { background: transparent; border: 0; }
@@ -275,11 +276,11 @@ const LiveTracking: React.FC = () => {
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
             <button type="button" onClick={() => switchTab("live")}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === "live" ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-gray-300"}`}>
-              <RadioIcon className="h-4 w-4" /> Live <span className="text-xs opacity-80">({live.length})</span>
+              <RadioIcon className="h-4 w-4" /> {tr("Live")} <span className="text-xs opacity-80">({live.length})</span>
             </button>
             <button type="button" onClick={() => switchTab("history")}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === "history" ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-gray-300"}`}>
-              <HistoryIcon className="h-4 w-4" /> Trip history
+              <HistoryIcon className="h-4 w-4" /> {tr("Trip history")}
             </button>
           </div>
 
@@ -291,17 +292,17 @@ const LiveTracking: React.FC = () => {
                   {TRIP_STATE_STYLE[s].label} {counts[s]}
                 </span>
               ))}
-              <button type="button" onClick={loadLive} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-600 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" title="Refresh now">
-                <RefreshCwIcon className="h-3.5 w-3.5" /> {lastRefresh ? `Updated ${timeAgo(new Date(lastRefresh).toISOString())}` : "Refresh"}
+              <button type="button" onClick={loadLive} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-600 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" title={tr("Refresh now")}>
+                <RefreshCwIcon className="h-3.5 w-3.5" /> {lastRefresh ? `Updated ${timeAgo(new Date(lastRefresh).toISOString())}` : tr("Refresh")}
               </button>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <input type="date" value={historyDate} max={todayIso()} onChange={(e) => setHistoryDate(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900" aria-label="Trip date" />
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900" aria-label={tr("Trip date")} />
               <select value={historyVehicle} onChange={(e) => setHistoryVehicle(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900" aria-label="Vehicle">
-                <option value="">All vehicles</option>
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900" aria-label={tr("Vehicle")}>
+                <option value="">{tr("All vehicles")}</option>
                 {vehicles.map((v) => <option key={v.id} value={v.id}>{v.licensePlate}</option>)}
               </select>
             </div>
@@ -314,22 +315,22 @@ const LiveTracking: React.FC = () => {
           {/* List */}
           <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold dark:border-gray-800">
-              {tab === "live" ? "Vehicles on a trip" : `Trips on ${formatDate(historyDate)}`}
+              {tab === "live" ? tr("Vehicles on a trip") : `Trips on ${formatDate(historyDate)}`}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {tab === "live" && loadingLive ? (
-                <p className="p-4 text-sm text-slate-500">Loading…</p>
+                <p className="p-4 text-sm text-slate-500">{tr("Loading…")}</p>
               ) : trips.length === 0 ? (
                 <div className="p-5 text-sm text-slate-500">
                   {tab === "live" ? (
                     <>
                       <SmartphoneIcon className="mb-2 h-8 w-8 text-slate-300" />
-                      <p className="font-medium text-slate-700 dark:text-gray-200">No vehicles are on a trip right now.</p>
-                      <p className="mt-1">Drivers open Driver Mode on their phone, choose a vehicle and tap Start Trip:</p>
+                      <p className="font-medium text-slate-700 dark:text-gray-200">{tr("No vehicles are on a trip right now.")}</p>
+                      <p className="mt-1">{tr("Drivers open Driver Mode on their phone, choose a vehicle and tap Start Trip:")}</p>
                       <div className="mt-2 flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-2 text-xs dark:bg-gray-800">
                         <span className="flex-1 break-all font-mono">{driverLink}</span>
-                        <button type="button" onClick={copyLink} className="flex items-center gap-1 font-semibold text-cyan-700" title="Copy link">
-                          <CopyIcon className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy"}
+                        <button type="button" onClick={copyLink} className="flex items-center gap-1 font-semibold text-cyan-700" title={tr("Copy link")}>
+                          <CopyIcon className="h-3.5 w-3.5" /> {tr(copied ? "Copied" : "Copy")}
                         </button>
                       </div>
                     </>
@@ -353,7 +354,7 @@ const LiveTracking: React.FC = () => {
                             {t.status === "ACTIVE" ? (
                               <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${state.badge}`}>{state.label}</span>
                             ) : (
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">Ended</span>
+                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">{tr("Ended")}</span>
                             )}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
@@ -379,41 +380,41 @@ const LiveTracking: React.FC = () => {
               <div className="border-t border-slate-100 p-4 text-sm dark:border-gray-800">
                 <p className="font-semibold text-slate-800 dark:text-gray-100">{selected.vehiclePlate} · {selected.driverName}</p>
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-gray-300">
-                  <dt className="text-slate-400">Started</dt><dd>{formatDateTime(selected.startedAt)}</dd>
-                  <dt className="text-slate-400">Duration</dt><dd>{durationLabel(selected.startedAt, selected.endedAt)}</dd>
-                  <dt className="text-slate-400">Distance</dt><dd>{selected.distanceKm.toFixed(2)} km</dd>
-                  <dt className="text-slate-400">GPS fixes</dt><dd>{selected.pointCount}</dd>
+                  <dt className="text-slate-400">{tr("Started")}</dt><dd>{formatDateTime(selected.startedAt)}</dd>
+                  <dt className="text-slate-400">{tr("Duration")}</dt><dd>{durationLabel(selected.startedAt, selected.endedAt)}</dd>
+                  <dt className="text-slate-400">{tr("Distance")}</dt><dd>{selected.distanceKm.toFixed(2)} km</dd>
+                  <dt className="text-slate-400">{tr("GPS fixes")}</dt><dd>{selected.pointCount}</dd>
                   {selected.status === "ACTIVE" && (
                     <>
-                      <dt className="text-slate-400">Speed</dt><dd>{selected.lastSpeedKmh != null ? `${Math.round(selected.lastSpeedKmh)} km/h` : "-"}</dd>
-                      <dt className="text-slate-400">Accuracy</dt><dd>{selected.lastAccuracy != null ? `±${Math.round(selected.lastAccuracy)} m` : "-"}</dd>
+                      <dt className="text-slate-400">{tr("Speed")}</dt><dd>{selected.lastSpeedKmh != null ? `${Math.round(selected.lastSpeedKmh)} km/h` : "-"}</dd>
+                      <dt className="text-slate-400">{tr("Accuracy")}</dt><dd>{selected.lastAccuracy != null ? `±${Math.round(selected.lastAccuracy)} m` : "-"}</dd>
                     </>
                   )}
-                  {selected.endedBy && (<><dt className="text-slate-400">Ended by</dt><dd>{selected.endedBy === "system" ? "System (no updates)" : selected.endedBy}</dd></>)}
+                  {selected.endedBy && (<><dt className="text-slate-400">{tr("Ended by")}</dt><dd>{selected.endedBy === "system" ? "System (no updates)" : selected.endedBy}</dd></>)}
                 </dl>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {selected.lastLatitude != null && selected.lastLongitude != null && (
                     <a href={mapUrl(selected.lastLatitude, selected.lastLongitude)} target="_blank" rel="noreferrer"
                       className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300">
-                      Open in OpenStreetMap
+                      {tr("Open in OpenStreetMap")}
                     </a>
                   )}
                   {selected.status === "ACTIVE" && (
                     canUpdate && <button type="button" onClick={() => endTrip(selected)} disabled={ending}
                       className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-                      title="For a trip the driver forgot to end">
-                      <SquareIcon className="h-3 w-3" /> End trip
+                      title={tr("For a trip the driver forgot to end")}>
+                      <SquareIcon className="h-3 w-3" /> {tr("End trip")}
                     </button>
                   )}
                 </div>
-                {route.length === 0 && <p className="mt-2 text-xs text-slate-400">No GPS fixes recorded for this trip yet.</p>}
+                {route.length === 0 && <p className="mt-2 text-xs text-slate-400">{tr("No GPS fixes recorded for this trip yet.")}</p>}
               </div>
             )}
           </aside>
 
           {/* Map */}
           <div className="relative min-h-[420px] overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700">
-            <div ref={mapEl} className="absolute inset-0 z-0" aria-label="Vehicle map" role="region" />
+            <div ref={mapEl} className="absolute inset-0 z-0" aria-label={tr("Vehicle map")} role="region" />
           </div>
         </div>
       </div>

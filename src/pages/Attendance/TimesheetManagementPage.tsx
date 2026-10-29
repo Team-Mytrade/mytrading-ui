@@ -8,8 +8,9 @@ import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from '../../utils/localDate';
 import { apiError, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, timeOf, withBrowserOffset } from './attendanceApi';
-import { leadingDays, weekdayLabels } from "../../company/format";
+import { leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Attendance regularization: the employee states the correct check-in / check-out times of a past day;
 // an approver applies them to the day.
 const REGULARIZATION_URL = '/v1/api/attendance/regularization';
@@ -63,7 +64,7 @@ const TimesheetManagementPage: React.FC = () => {
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthNames = liveMonthNames("long");
 
   const fetchRegularizationLogs = useCallback(async () => {
     if (!currentUser.hasEmployee) return;
@@ -282,7 +283,7 @@ const TimesheetManagementPage: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="Attendance Regularization Request"
+        title={t("Attendance Regularization Request")}
         description="Apply for attendance regularization and missed punches"
       />
       <PageBreadcrumb
@@ -290,7 +291,7 @@ const TimesheetManagementPage: React.FC = () => {
         actions={
           <button type="button" onClick={() => setIsHistoryDrawerOpen(true)} className={TOOL_BUTTON}>
             <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            Request History ({regularizationLogs.length})
+            {t("Request History")} ({regularizationLogs.length})
           </button>
         }
       />
@@ -300,7 +301,7 @@ const TimesheetManagementPage: React.FC = () => {
         {firstClickDate && (
           <div className="mb-3">
             <span className="text-cyan-700 dark:text-cyan-300 font-bold bg-cyan-50 dark:bg-[#222222] px-3 py-1 rounded-xl border border-cyan-200 dark:!border-transparent text-xs inline-block shadow-2xs">
-              Selected start: {displayDate(firstClickDate)}. Click an end date to pick a range.
+              {t("Selected start:")} {displayDate(firstClickDate)}. Click an end date to pick a range.
             </span>
           </div>
         )}
@@ -322,7 +323,7 @@ const TimesheetManagementPage: React.FC = () => {
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">Pick date(s)</span>
+                <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500">{t("Pick date(s)")}</span>
               </div>
 
               <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-2">
@@ -336,12 +337,12 @@ const TimesheetManagementPage: React.FC = () => {
 
             <div className="mt-3 pt-3 border-t border-slate-100 dark:!border-transparent space-y-1.5">
               <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> Today</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> Missing punch</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-amber-500 bg-amber-500/20 inline-block"></span> Request pending</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-cyan-500 bg-cyan-500/20 inline-block"></span> {t("Today")}</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-500/20 inline-block"></span> {t("Missing punch")}</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-amber-500 bg-amber-500/20 inline-block"></span> {t("Request pending")}</span>
               </div>
               <div className="text-[11px] text-slate-400 dark:text-gray-500">
-                Past working days only. Double click a date to select just that day.
+                {t("Past working days only. Double click a date to select just that day.")}
               </div>
             </div>
           </div>
@@ -355,10 +356,10 @@ const TimesheetManagementPage: React.FC = () => {
                   <Calendar className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg md:text-xl font-bold text-slate-700 dark:text-gray-300 tracking-tight max-w-xs leading-snug">
-                  Pick the day to correct
+                  {t("Pick the day to correct")}
                 </h3>
                 <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">
-                  Days with a missing punch are marked in red
+                  {t("Days with a missing punch are marked in red")}
                 </p>
               </div>
             ) : (
@@ -372,7 +373,7 @@ const TimesheetManagementPage: React.FC = () => {
 
                         <div className="bg-slate-100/80 dark:bg-[#191919] border-b border-slate-200/80 dark:!border-transparent px-3.5 py-2 flex items-center justify-between">
                           <span className="text-xs font-bold text-slate-800 dark:text-white">
-                            Request for <span className="font-mono text-cyan-600 dark:text-cyan-400">{displayDate(card.date)}</span>
+                            {t("Request for")} <span className="font-mono text-cyan-600 dark:text-cyan-400">{displayDate(card.date)}</span>
                           </span>
                           <div className="flex items-center gap-3">
                             <button
@@ -380,13 +381,13 @@ const TimesheetManagementPage: React.FC = () => {
                               onClick={() => setViewPunchesDate(card.date)}
                               className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
                             >
-                              View Punches
+                              {t("View Punches")}
                             </button>
                             <button
                               type="button"
                               onClick={() => removeCard(card.date)}
                               className="w-5 h-5 rounded-full bg-white dark:bg-[#191919] hover:bg-rose-50 dark:hover:bg-[#2a2a2a] text-slate-400 hover:text-rose-600 border border-slate-200 dark:!border-transparent flex items-center justify-center transition-colors cursor-pointer"
-                              title="Remove date"
+                              title={t("Remove date")}
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -396,13 +397,13 @@ const TimesheetManagementPage: React.FC = () => {
                         <div className="p-3 space-y-2.5">
                           <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-300 font-medium bg-white dark:bg-[#191919] px-3 py-1.5 rounded-lg border border-slate-200/60 dark:!border-transparent">
                             <div>
-                              Status: <span className="font-bold text-slate-900 dark:text-white">{DAY_KIND_LABEL[dayKind(day)] || 'No record'}</span>
+                              {t("Status:")} <span className="font-bold text-slate-900 dark:text-white">{DAY_KIND_LABEL[dayKind(day)] || 'No record'}</span>
                             </div>
                             <div>
-                              Check in: <span className="font-mono">{timeOf(day?.inTime) || '--:--'}</span>
+                              {t("Check in:")} <span className="font-mono">{timeOf(day?.inTime) || '--:--'}</span>
                             </div>
                             <div>
-                              Check out: <span className="font-mono">{day?.status === 'CHECKED_IN' ? '--:--' : timeOf(day?.outTime) || '--:--'}</span>
+                              {t("Check out:")} <span className="font-mono">{day?.status === 'CHECKED_IN' ? '--:--' : timeOf(day?.outTime) || '--:--'}</span>
                             </div>
                           </div>
 
@@ -450,13 +451,13 @@ const TimesheetManagementPage: React.FC = () => {
 
                           <div>
                             <label className="block text-[11px] font-bold text-slate-700 dark:text-gray-300 mb-1">
-                              <span className="text-rose-500">*</span> Reason
+                              <span className="text-rose-500">*</span> {t("Reason")}
                             </label>
                             <input
                               type="text"
                               value={card.reason}
                               maxLength={200}
-                              placeholder="e.g. Biometric was down, punched in the register"
+                              placeholder={t("e.g. Biometric was down, punched in the register")}
                               onChange={(e) => updateCardState(card.date, 'reason', e.target.value)}
                               className="w-full h-8 px-3 py-0 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500"
                             />
@@ -473,7 +474,7 @@ const TimesheetManagementPage: React.FC = () => {
                     disabled={isSubmitting}
                     className="inline-flex items-center justify-center h-9 px-8 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-xs disabled:opacity-50 cursor-pointer min-w-[140px]"
                   >
-                    {isSubmitting ? 'Submitting...' : selectedCards.length > 1 ? `SUBMIT ${selectedCards.length} REQUESTS` : 'SUBMIT'}
+                    {isSubmitting ? t('Submitting...') : selectedCards.length > 1 ? t('Submit {count} requests', { count: selectedCards.length }) : t('Submit')}
                   </button>
                 </div>
               </form>
@@ -490,8 +491,8 @@ const TimesheetManagementPage: React.FC = () => {
 
             <div className="p-4 border-b border-slate-200 dark:!border-transparent bg-slate-50 dark:bg-[#222222] flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Regularization Requests History</h2>
-                <p className="text-xs text-slate-500 dark:text-gray-400">Track status of submitted regularization requests</p>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">{t("Regularization Requests History")}</h2>
+                <p className="text-xs text-slate-500 dark:text-gray-400">{t("Track status of submitted regularization requests")}</p>
               </div>
               <button
                 type="button"
@@ -507,7 +508,7 @@ const TimesheetManagementPage: React.FC = () => {
                 <Search className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder="Search history..."
+                  placeholder={t("Search history...")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl text-xs text-slate-800 dark:text-white outline-none focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
@@ -515,7 +516,7 @@ const TimesheetManagementPage: React.FC = () => {
               </div>
 
               {filteredLogs.length === 0 && (
-                <p className="text-xs text-slate-400 dark:text-gray-500 text-center py-6">No regularization requests yet.</p>
+                <p className="text-xs text-slate-400 dark:text-gray-500 text-center py-6">{t("No regularization requests yet.")}</p>
               )}
 
               <div className="space-y-2.5">
@@ -539,13 +540,13 @@ const TimesheetManagementPage: React.FC = () => {
                             <span className="text-xs font-bold text-slate-900 dark:text-white">{displayDate(row.attendanceDate)}</span>
                           </div>
                           <div className="text-[11px] text-slate-600 dark:text-gray-300 font-medium mt-0.5">
-                            In {timeOf(row.requestedInTime) || '—'} · Out {timeOf(row.requestedOutTime) || '—'}
+                            {t("In")} {timeOf(row.requestedInTime) || '—'} · Out {timeOf(row.requestedOutTime) || '—'}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {status === 'PENDING' && (
                             <button type="button" onClick={() => handleWithdraw(row)}
-                              className="text-[10px] font-semibold text-rose-600 hover:underline cursor-pointer">Withdraw</button>
+                              className="text-[10px] font-semibold text-rose-600 hover:underline cursor-pointer">{t("Withdraw")}</button>
                           )}
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs ${badgeClass}`}>
                             {status}
@@ -555,7 +556,7 @@ const TimesheetManagementPage: React.FC = () => {
                       <div className="text-[11px] text-slate-500 dark:text-gray-400 mt-1">{row.reason}</div>
                       {row.rejectionReason && (
                         <div className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
-                          Rejected{row.actionBy ? ` by ${row.actionBy}` : ''}: {row.rejectionReason}
+                          {t("Rejected")}{row.actionBy ? ` by ${row.actionBy}` : ''}: {row.rejectionReason}
                         </div>
                       )}
                     </div>
@@ -570,7 +571,7 @@ const TimesheetManagementPage: React.FC = () => {
                 onClick={() => setIsHistoryDrawerOpen(false)}
                 className="px-4 py-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 rounded-xl font-semibold text-xs hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition cursor-pointer"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
 
@@ -587,7 +588,7 @@ const TimesheetManagementPage: React.FC = () => {
             <div className="bg-amber-50/80 dark:bg-[#222222] border-b border-amber-200/60 dark:!border-transparent p-4 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
                 <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>Punch Details for {displayDate(viewPunchesDate)}</span>
+                <span>{t("Punch Details for")} {displayDate(viewPunchesDate)}</span>
               </div>
               <button
                 type="button"
@@ -600,24 +601,24 @@ const TimesheetManagementPage: React.FC = () => {
             <div className="p-4 space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-[#222222] p-3 rounded-xl border border-slate-200/60 dark:!border-transparent">
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Status</span>
+                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">{t("Status")}</span>
                   <span className="font-bold text-slate-900 dark:text-white text-xs">{DAY_KIND_LABEL[dayKind(punchesDay)] || 'No record'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">Worked</span>
+                  <span className="text-slate-500 dark:text-gray-400 block text-[11px]">{t("Worked")}</span>
                   <span className="font-bold text-slate-900 dark:text-white text-xs font-mono">{hoursOf(punchesDay?.workedMinutes)}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:!border-transparent bg-slate-50/50 dark:bg-[#222222]">
-                  <span className="text-slate-600 dark:text-gray-300 font-medium">First check-in</span>
+                  <span className="text-slate-600 dark:text-gray-300 font-medium">{t("First check-in")}</span>
                   <span className={`font-mono font-bold text-xs ${punchesDay?.inTime ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'}`}>
                     {timeOf(punchesDay?.inTime) || '--:-- (Missing)'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:!border-transparent bg-slate-50/50 dark:bg-[#222222]">
-                  <span className="text-slate-600 dark:text-gray-300 font-medium">Last check-out</span>
+                  <span className="text-slate-600 dark:text-gray-300 font-medium">{t("Last check-out")}</span>
                   <span className={`font-mono font-bold text-xs ${punchesDay?.outTime && punchesDay?.status !== 'CHECKED_IN' ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'}`}>
                     {punchesDay?.outTime && punchesDay?.status !== 'CHECKED_IN' ? timeOf(punchesDay.outTime) : '--:-- (Missing)'}
                   </span>
@@ -627,7 +628,7 @@ const TimesheetManagementPage: React.FC = () => {
               {!punchesDay?.inTime && (
                 <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-[#222222] p-3 rounded-xl border border-rose-200 dark:!border-transparent text-[11px] font-medium">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                  <span>No punches recorded for this date. Submit a regularization with the correct times.</span>
+                  <span>{t("No punches recorded for this date. Submit a regularization with the correct times.")}</span>
                 </div>
               )}
             </div>
@@ -637,7 +638,7 @@ const TimesheetManagementPage: React.FC = () => {
                 onClick={() => setViewPunchesDate(null)}
                 className="px-4 py-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent text-slate-700 dark:text-gray-200 rounded-xl font-semibold hover:bg-slate-100 dark:hover:bg-[#2a2a2a] text-xs transition cursor-pointer"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
           </div>

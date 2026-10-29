@@ -11,7 +11,6 @@ import {
   TrashIcon,
   UserIcon,
   XCircleIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -31,6 +30,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface Product { id: number; productName: string; sku?: string; code?: string; }
 type ResultCode = "PASS" | "FAIL" | "HOLD" | "REJECT";
 type InspectionTypeCode = "INCOMING" | "RETURN" | "RANDOM" | "AUDIT";
@@ -131,9 +131,9 @@ const QualityInspectionManager: React.FC = () => {
   const getInspectionTypeLabel = (type?: string) => inspectionTypeOptions.find((t) => t.id === type)?.name || type || "N/A";
   const getProductDisplayName = (record: QualityInspection) => {
     const product = products.find((p) => p.id === record.productId);
-    if (product) return product.productName || product.sku || product.code || "Unknown product";
+    if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
     if (record.productName) return record.productName;
-    return record.productId ? "Unknown product" : "N/A";
+    return record.productId ? `Product #${record.productId}` : "N/A";
   };
   const getProductSku = (record: QualityInspection) => {
     const product = products.find((p) => p.id === record.productId);
@@ -146,9 +146,7 @@ const QualityInspectionManager: React.FC = () => {
 
   const normalizeInspection = (record: any): QualityInspection => {
     const rawResult = String(record?.result || "PASS").toUpperCase();
-    // Keep the real value even if it's not one of the defaults (the result list
-    // comes from the API); previously anything unknown was shown as "Pass".
-    const result = rawResult as ResultCode;
+    const result: ResultCode = DEFAULT_RESULT_OPTIONS.some((r) => r.id === rawResult) ? (rawResult as ResultCode) : "PASS";
     const rawType = record?.inspectionType ? String(record.inspectionType).toUpperCase() : undefined;
     const inspectionType: InspectionTypeCode | undefined = DEFAULT_INSPECTION_TYPE_OPTIONS.some((t) => t.id === rawType)
       ? (rawType as InspectionTypeCode) : undefined;
@@ -223,7 +221,7 @@ const QualityInspectionManager: React.FC = () => {
       inspector: formData.inspectorName || formData.inspector || "",
       result: String(formData.result).toUpperCase(),
       inspectionType: formData.inspectionType || null,
-      remarks: (formData.remarks || "").trim(),
+      remarks: formData.remarks || "",
       productId,
     };
     if (editingId) payload.id = editingId;
@@ -288,20 +286,6 @@ const QualityInspectionManager: React.FC = () => {
     setViewModalOpen(true);
   };
 
-  const closeView = () => {
-    setViewModalOpen(false);
-    setSelectedRecord(null);
-  };
-
-  useEffect(() => {
-    if (!viewModalOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeView();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [viewModalOpen]);
-
   const confirmDelete = async () => {
     if (!deletingRecord) return;
     try {
@@ -355,10 +339,10 @@ const QualityInspectionManager: React.FC = () => {
               <button type="button"
                 onClick={(e) => { e.stopPropagation(); goToProduct(record.productId); }}
                 className="truncate text-left text-sm font-semibold leading-snug text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-                title="View product">
+                title={t("View product")}>
                 {getProductDisplayName(record)}
               </button>
-              {sku && <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">SKU: {sku}</div>}
+              {sku && <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{t("SKU:")} {sku}</div>}
             </div>
           </div>
         );
@@ -409,13 +393,13 @@ const QualityInspectionManager: React.FC = () => {
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => handleView(record)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
-            title="View Details"><ClipboardDocumentCheckIcon className="h-4 w-4" /></button>
+            title={t("View Details")}><ClipboardDocumentCheckIcon className="h-4 w-4" /></button>
           {canUpdate && (<button type="button" onClick={() => handleEdit(record)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit Inspection"><PencilSquareIcon className="h-4 w-4" /></button>)}
+            title={t("Edit Inspection")}><PencilSquareIcon className="h-4 w-4" /></button>)}
           {canDelete && (<button type="button" onClick={() => setDeletingRecord(record)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete Inspection"><TrashIcon className="h-4 w-4" /></button>)}
+            title={t("Delete Inspection")}><TrashIcon className="h-4 w-4" /></button>)}
         </div>
       ),
     },
@@ -423,16 +407,16 @@ const QualityInspectionManager: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Quality Inspection" description="Manage quality inspection records" />
+      <PageMeta title={t("Quality Inspection")} description="Manage quality inspection records" />
       <PageBreadcrumb pageTitle="Quality Inspection"
-        actions={<AddButton label="Add Inspection" onClick={() => { setFormMode("add"); setEditingId(null); setFormData(emptyFormState); setShowForm(true); }} />}
+        actions={<AddButton label={t("Add Inspection")} onClick={() => { setFormMode("add"); setEditingId(null); setFormData(emptyFormState); setShowForm(true); }} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatsCard label="Total Inspections" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ClipboardDocumentCheckIcon />} />
-          <StatsCard label="Pass Rate" value={`${passRate}%`} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon />} />
-          <StatsCard label="Passed / Failed" value={`${passedCount} / ${failedCount}`} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ChartBarIcon />} />
+          <StatsCard label={t("Total Inspections")} value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ClipboardDocumentCheckIcon />} />
+          <StatsCard label={t("Pass Rate")} value={`${passRate}%`} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon />} />
+          <StatsCard label={t("Passed / Failed")} value={`${passedCount} / ${failedCount}`} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ChartBarIcon />} />
         </div>
 
         {/* ✅ Only valid props — no renderRowDetails / rowDetailsRender */}
@@ -448,107 +432,82 @@ const QualityInspectionManager: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ClipboardDocumentCheckIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No inspection records found</p>
+              <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No inspection records found")}</p>
               {canCreate && (<button type="button" onClick={() => { setFormMode("add"); setEditingId(null); setFormData(emptyFormState); setShowForm(true); }}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
-                Create your first inspection record
+                {t("Create your first inspection record")}
               </button>)}
             </div>
           }
         />
       </div>
 
-      {/* Inspection details — read-only, so it only has a Close button */}
-      {viewModalOpen && selectedRecord && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-          onClick={closeView}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="inspection-view-title"
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl dark:bg-slate-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h2 id="inspection-view-title" className="text-lg font-semibold text-slate-900 dark:text-white">
-                Inspection Details
-              </h2>
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                aria-label="Close"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Product</div>
-                <button type="button" onClick={() => { closeView(); goToProduct(selectedRecord.productId); }}
+      <PaginatedPopup
+        isOpen={viewModalOpen}
+        title={t("Inspection Details")}
+        subtitle={selectedRecord ? `Inspection record #${selectedRecord.id}` : t("Inspection record details")}
+        onClose={() => setViewModalOpen(false)}
+        submitting={false}
+        maxWidthClassName="max-w-2xl"
+        tabs={[{ label: "Details", fields: [
+          selectedRecord && (
+            <div key="view-content" className="md:col-span-2 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Record ID")}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">#{selectedRecord.id}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Product")}</div>
+                <button type="button" onClick={() => goToProduct(selectedRecord.productId)}
                   className="mt-1 text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300">
                   {getProductDisplayName(selectedRecord)}
                 </button>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">SKU</div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("SKU")}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{getProductSku(selectedRecord) || "--"}</div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Inspector</div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Inspector")}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{selectedRecord.inspectorName || "--"}</div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Inspection Date</div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Inspection Date")}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatDate(selectedRecord.inspectionDate)}</div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Inspection Type</div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Inspection Type")}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{getInspectionTypeLabel(selectedRecord.inspectionType)}</div>
               </div>
               <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Result</div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Result")}</div>
                 <span className={`mt-1 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getResultBadge(selectedRecord.result)}`}>
                   {getResultIcon(selectedRecord.result)}{getResultLabel(selectedRecord.result)}
                 </span>
               </div>
               {selectedRecord.remarks && (
                 <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Remarks</div>
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{t("Remarks")}</div>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{selectedRecord.remarks}</p>
                 </div>
               )}
               {(selectedRecord.result === "FAIL" || selectedRecord.result === "REJECT") && (
                 <div className="col-span-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/40">
                   <p className="text-sm text-red-800 dark:text-red-300">
-                    <strong>{selectedRecord.result === "REJECT" ? "Rejected Inspection:" : "Failed Inspection:"}</strong>{" "}
+                    <strong>{t(selectedRecord.result === "REJECT" ? "Rejected Inspection:" : "Failed Inspection:")}</strong>{" "}
                     This product did not meet quality standards.
                   </p>
                 </div>
               )}
             </div>
-            </div>
-            <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          ),
+        ]}]}
+      />
 
       <PaginatedPopup
         isOpen={showForm}
         title={formMode === "add" ? "Add Inspection Record" : "Edit Inspection Record"}
-        subtitle="Enter the quality inspection details"
+        subtitle={t("Enter the quality inspection details")}
         onClose={closeForm}
         onSubmit={handleSave}
         submitting={submitting}
@@ -556,26 +515,26 @@ const QualityInspectionManager: React.FC = () => {
         maxWidthClassName="max-w-2xl"
         tabs={[
           { label: "Details", fields: [
-            <FloatingSelect key="productId" label="Product" name="productId"
+            <FloatingSelect key="productId" label={t("Product")} name="productId"
               value={String(formData.productId || "")}
               onChange={(e) => { const id = Number(e.target.value) || 0; setFormData({ ...formData, productId: id }); }}
               options={products.map((p) => ({ id: String(p.id), name: p.sku ? `${p.productName} (${p.sku})` : p.productName }))}
               required
             />,
-            <FloatingInput key="inspectorName" label="Inspector Name" name="inspectorName"
+            <FloatingInput key="inspectorName" label={t("Inspector Name")} name="inspectorName"
               value={formData.inspectorName} onChange={(e) => setFormData({ ...formData, inspectorName: e.target.value })} required />,
-            <FloatingInput key="inspectionDate" label="Inspection Date" name="inspectionDate" type="date"
+            <FloatingInput key="inspectionDate" label={t("Inspection Date")} name="inspectionDate" type="date"
               value={formData.inspectionDate} onChange={(e) => setFormData({ ...formData, inspectionDate: e.target.value })} required />,
-            <FloatingSelect key="result" label="Result" name="result"
+            <FloatingSelect key="result" label={t("Result")} name="result"
               value={formData.result} onChange={(e) => setFormData({ ...formData, result: e.target.value as ResultCode })}
               options={resultOptions} includeEmptyOption={false} />,
-            <FloatingSelect key="inspectionType" label="Inspection Type" name="inspectionType"
+            <FloatingSelect key="inspectionType" label={t("Inspection Type")} name="inspectionType"
               value={formData.inspectionType} onChange={(e) => setFormData({ ...formData, inspectionType: e.target.value as InspectionTypeCode })}
               options={inspectionTypeOptions} required />,
           ]},
           { label: "Remarks", fields: [
             <div className="md:col-span-2" key="remarks">
-              <FloatingTextarea label="Remarks (Optional)" name="remarks" value={formData.remarks}
+              <FloatingTextarea label={t("Remarks (Optional)")} name="remarks" value={formData.remarks}
                 onChange={(e) => setFormData({ ...formData, remarks: e.target.value })} rows={3} />
             </div>,
           ]},
@@ -587,9 +546,9 @@ const QualityInspectionManager: React.FC = () => {
         setIsPopupOpen={(open: boolean) => { if (!open) setDeletingRecord(null); }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Inspection Record"
-        subText={deletingRecord ? `Are you sure you want to delete the inspection record for "${getProductDisplayName(deletingRecord)}"? This action cannot be undone.` : "Are you sure you want to delete this inspection record?"}
-        confirmLabel="Delete" cancelLabel="Cancel"
+        innerText={t("Delete Inspection Record")}
+        subText={deletingRecord ? `Are you sure you want to delete the inspection record for "${getProductDisplayName(deletingRecord)}"? This action cannot be undone.` : t("Are you sure you want to delete this inspection record?")}
+        confirmLabel={t("Delete")} cancelLabel={t("Cancel")}
         onConfirm={confirmDelete} onCancel={() => setDeletingRecord(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
       />

@@ -14,6 +14,7 @@ import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 const API_BASE = "/v1/api/user/permissions";
 const DOMAIN_API_BASE = "/v1/api/user/domains";
 const PAGE_SIZE = 10;
@@ -250,21 +251,21 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
           <button
             onClick={() => onViewRolePermissions && onViewRolePermissions(row.id)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
-            title="View Role Permissions"
+            title={t("View Role Permissions")}
           >
             <LinkIcon className="h-4 w-4" />
           </button>
           {canUpdate && (<button
             onClick={() => handleEdit(row)}
             className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => setShowDeleteConfirm(row.id)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -282,7 +283,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search permissions..."
+            placeholder={t("Search permissions...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
@@ -306,7 +307,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors"
         >
           <PlusIcon className="h-4 w-4" />
-          Add Permission
+          {t("Add Permission")}
         </button>)}
       </div>
 
@@ -323,7 +324,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
         emptyState={
           <div className="flex flex-col items-center py-12">
             <Cog6ToothIcon className="h-12 w-12 text-gray-300 mb-3" />
-            <p className="text-gray-500 text-sm">No permissions found</p>
+            <p className="text-gray-500 text-sm">{t("No permissions found")}</p>
             {!search && (
               canCreate && <button
                 onClick={() => {
@@ -333,7 +334,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
                 }}
                 className="mt-3 text-sm text-cyan-600 hover:text-cyan-700"
               >
-                Add your first permission →
+                {t("Add your first permission →")}
               </button>
             )}
           </div>
@@ -347,10 +348,10 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
             <div className="flex items-center justify-between p-5 border-b">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {editingId ? "Edit Permission" : "New Permission"}
+                  {t(editingId ? "Edit Permission" : "New Permission")}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {editingId ? "Update permission details" : "Create a new permission"}
+                  {t(editingId ? "Update permission details" : "Create a new permission")}
                 </p>
               </div>
               <button
@@ -365,35 +366,35 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Permission Code <span className="text-red-500">*</span>
+                    {t("Permission Code")} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={form.permissionCode}
                     onChange={(e) => setForm({ ...form, permissionCode: e.target.value.toUpperCase() })}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-mono"
-                    placeholder="e.g., USER_READ"
+                    placeholder={t("e.g., USER_READ")}
                     autoFocus
                   />
-                  <p className="text-xs text-gray-400 mt-1">Unique identifier for the permission (auto-uppercase)</p>
+                  <p className="text-xs text-gray-400 mt-1">{t("Unique identifier for the permission (auto-uppercase)")}</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Permission Name <span className="text-red-500">*</span>
+                    {t("Permission Name")} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={form.permissionName}
                     onChange={(e) => setForm({ ...form, permissionName: e.target.value })}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                    placeholder="e.g., Read User"
+                    placeholder={t("e.g., Read User")}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Domain <span className="text-red-500">*</span>
+                    {t("Domain")} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.domainId || ""}
@@ -401,7 +402,7 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                     required
                   >
-                    <option value="">Select Domain</option>
+                    <option value="">{t("Select Domain")}</option>
                     {domains.map((domain) => (
                       <option key={domain.id} value={domain.id}>
                         {domain.domainName || domain.domainCode}
@@ -417,13 +418,13 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
                   onClick={() => setShowFormModal(false)}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors"
                 >
-                  {editingId ? "Update" : "Create"}
+                  {t(editingId ? "Update" : "Create")}
                 </button>
               </div>
             </form>
@@ -438,22 +439,22 @@ const PermissionTab: React.FC<PermissionTabProps> = ({ onViewRolePermissions }) 
             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
               <TrashIcon className="h-6 w-6 text-red-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Permission?</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("Delete Permission?")}</h3>
             <p className="text-sm text-gray-500 mb-6">
-              This action cannot be undone. Users with this permission may be affected.
+              {t("This action cannot be undone. Users with this permission may be affected.")}
             </p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 onClick={() => handleDelete(showDeleteConfirm)}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
               >
-                Delete
+                {t("Delete")}
               </button>
             </div>
           </div>

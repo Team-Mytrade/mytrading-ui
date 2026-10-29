@@ -22,6 +22,7 @@ import {
   countOf, formatDate, formatNumber, getList, isoDate, parseDate, titleCase, useDashboardSources, weekStart, weeksBack,
 } from "../Dashboard/dashboardKit";
 
+import { t } from "../../i18n/i18n";
 // Live delivery overview built from the delivery service.
 
 interface DeliveryOrder {
@@ -148,7 +149,7 @@ const DeliveryDashboard: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Delivery Dashboard" description="Delivery and distribution overview" />
+      <PageMeta title={t("Delivery Dashboard")} description="Delivery and distribution overview" />
       <PageBreadcrumb pageTitle="Delivery Dashboard" />
 
       <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
@@ -156,16 +157,16 @@ const DeliveryDashboard: React.FC = () => {
         <ModuleTiles tiles={tiles} loading={loading} />
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Total Deliveries" value={formatNumber(orders.length)} hint={`${formatNumber(thisMonth.length)} this month`} icon={Truck} tone="blue" loading={loading} />
-          <KpiCard label="Vehicles Active" value={vehicles ? formatNumber(vehicles.filter((v) => v.active !== false).length) : "—"} hint={vehicles ? `${formatNumber(vehicles.length)} vehicles` : undefined} icon={Car} tone="emerald" loading={loading} />
-          <KpiCard label="Active Routes" value={routes ? formatNumber(routes.filter((r) => r.active !== false).length) : "—"} hint={routes ? `${formatNumber(routes.length)} routes` : undefined} icon={MapPin} tone="orange" loading={loading} />
-          <KpiCard label="Pending Deliveries" value={formatNumber(pending.length)} hint="Not yet delivered, cancelled or failed" icon={ClipboardList} tone="purple" loading={loading} />
+          <KpiCard label={t("Total Deliveries")} value={formatNumber(orders.length)} hint={t("{count} this month", { count: formatNumber(thisMonth.length) })} icon={Truck} tone="blue" loading={loading} />
+          <KpiCard label={t("Vehicles Active")} value={vehicles ? formatNumber(vehicles.filter((v) => v.active !== false).length) : "—"} hint={vehicles ? t("{count} vehicles", { count: formatNumber(vehicles.length) }) : undefined} icon={Car} tone="emerald" loading={loading} />
+          <KpiCard label={t("Active Routes")} value={routes ? formatNumber(routes.filter((r) => r.active !== false).length) : "—"} hint={routes ? t("{count} routes", { count: formatNumber(routes.length) }) : undefined} icon={MapPin} tone="orange" loading={loading} />
+          <KpiCard label={t("Pending Deliveries")} value={formatNumber(pending.length)} hint={t("Not yet delivered, cancelled or failed")} icon={ClipboardList} tone="purple" loading={loading} />
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Delivery Trend" subtitle="Deliveries per week (last 8 weeks)" icon={TrendingUp} iconClass="text-emerald-500">
+          <Panel title={t("Delivery Trend")} subtitle={t("Deliveries per week (last 8 weeks)")} icon={TrendingUp} iconClass="text-emerald-500">
             {orders.length === 0 ? (
-              <EmptyState loading={loading}>No delivery orders yet.</EmptyState>
+              <EmptyState loading={loading}>{t("No delivery orders yet.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={trend}>
@@ -180,16 +181,16 @@ const DeliveryDashboard: React.FC = () => {
                   <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
                   <Tooltip contentStyle={CHART_TOOLTIP} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Area type="monotone" dataKey="deliveries" name="Deliveries" stroke="#06b6d4" strokeWidth={2} fill="url(#deliveryGradient)" />
-                  <Area type="monotone" dataKey="delivered" name="Delivered" stroke="#10b981" strokeWidth={2} fill="none" />
+                  <Area type="monotone" dataKey="deliveries" name={t("Deliveries")} stroke="#06b6d4" strokeWidth={2} fill="url(#deliveryGradient)" />
+                  <Area type="monotone" dataKey="delivered" name={t("Delivered")} stroke="#10b981" strokeWidth={2} fill="none" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
           </Panel>
 
-          <Panel title="Vehicle Utilization" subtitle="Scheduled trips per vehicle (top 6)" icon={Car} iconClass="text-orange-500">
+          <Panel title={t("Vehicle Utilization")} subtitle={t("Scheduled trips per vehicle (top 6)")} icon={Car} iconClass="text-orange-500">
             {vehicleTrips.length === 0 ? (
-              <EmptyState loading={loading}>No vehicle schedules yet.</EmptyState>
+              <EmptyState loading={loading}>{t("No vehicle schedules yet.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={vehicleTrips} layout="vertical" margin={{ left: 60 }}>
@@ -207,19 +208,19 @@ const DeliveryDashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Top Routes" subtitle="By scheduled trips" bodyClass="overflow-x-auto">
+          <Panel title={t("Top Routes")} subtitle={t("By scheduled trips")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  <th className={TABLE_HEAD}>Route</th>
-                  <th className={TABLE_HEAD}>Trips</th>
-                  <th className={TABLE_HEAD}>Upcoming</th>
-                  <th className={TABLE_HEAD}>Distance</th>
+                  <th className={TABLE_HEAD}>{t("Route")}</th>
+                  <th className={TABLE_HEAD}>{t("Trips")}</th>
+                  <th className={TABLE_HEAD}>{t("Upcoming")}</th>
+                  <th className={TABLE_HEAD}>{t("Distance")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {topRoutes.length === 0 && (
-                  <tr><td colSpan={4} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No route schedules yet."}</td></tr>
+                  <tr><td colSpan={4} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "No route schedules yet.")}</td></tr>
                 )}
                 {topRoutes.map((r) => (
                   <tr key={r.route} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -233,9 +234,9 @@ const DeliveryDashboard: React.FC = () => {
             </table>
           </Panel>
 
-          <Panel title="Recent Deliveries" subtitle="Latest delivery orders" icon={PackageCheck} iconClass="text-cyan-500" bodyClass="divide-y divide-gray-100 dark:divide-gray-800">
+          <Panel title={t("Recent Deliveries")} subtitle={t("Latest delivery orders")} icon={PackageCheck} iconClass="text-cyan-500" bodyClass="divide-y divide-gray-100 dark:divide-gray-800">
             {recent.length === 0 && (
-              <p className="px-5 py-6 text-center text-sm text-gray-500">{loading ? "Loading…" : "No delivery orders yet."}</p>
+              <p className="px-5 py-6 text-center text-sm text-gray-500">{t(loading ? "Loading…" : "No delivery orders yet.")}</p>
             )}
             {recent.map((o) => {
               const status = statusOf(o);

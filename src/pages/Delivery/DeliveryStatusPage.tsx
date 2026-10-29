@@ -35,6 +35,7 @@ import {
   useDeliveryLookups,
 } from "./deliveryShared";
 
+import { t } from "../../i18n/i18n";
 // Tracking board: every update is recorded on the order (who, when, remarks) and moves it to that status.
 
 const API = {
@@ -226,7 +227,7 @@ const DeliveryStatusPage: React.FC = () => {
             </span>
           </div>
         ) : (
-          <span className="text-xs text-slate-400">No updates yet</span>
+          <span className="text-xs text-slate-400">{t("No updates yet")}</span>
         ),
     },
     {
@@ -237,11 +238,11 @@ const DeliveryStatusPage: React.FC = () => {
       className: "w-[10%] text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={() => openTracking(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="Tracking details">
+          <button type="button" onClick={() => openTracking(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title={t("Tracking details")}>
             <EyeIcon className="h-4 w-4" />
           </button>
           {nextStatuses(row.status).length > 0 && (
-            <button type="button" onClick={() => openStatus(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600" title="Post an update">
+            <button type="button" onClick={() => openStatus(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-purple-50 hover:text-purple-600" title={t("Post an update")}>
               <ArrowRightLeftIcon className="h-4 w-4" />
             </button>
           )}
@@ -252,17 +253,17 @@ const DeliveryStatusPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Delivery Status" description="Track deliveries and post status updates" />
+      <PageMeta title={t("Delivery Status")} description="Track deliveries and post status updates" />
       <PageBreadcrumb pageTitle="Delivery Status" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
-          <StatsCard label="Active" value={stats.active} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Due Today" value={stats.dueToday} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
-          <StatsCard label="In Transit" value={stats.inTransit} gradient="from-purple-50 to-violet-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-          <StatsCard label="Delivered" value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Returned" value={stats.returned} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label="Cancelled" value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Active")} value={stats.active} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Due Today")} value={stats.dueToday} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
+          <StatsCard label={t("In Transit")} value={stats.inTransit} gradient="from-purple-50 to-violet-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label={t("Delivered")} value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Returned")} value={stats.returned} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -270,7 +271,7 @@ const DeliveryStatusPage: React.FC = () => {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search by order no, customer, vehicle or remarks..."
+                placeholder={t("Search by order no, customer, vehicle or remarks...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
@@ -278,12 +279,12 @@ const DeliveryStatusPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchOrders} className="p-2 border rounded-lg hover:bg-gray-50" title="Refresh">
+            <button onClick={fetchOrders} className="p-2 border rounded-lg hover:bg-gray-50" title={t("Refresh")}>
               <RefreshCwIcon className={`h-5 w-5 text-gray-600 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button onClick={() => setShowFilters(!showFilters)} className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
               <FunnelIcon className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-600">Filters</span>
+              <span className="text-sm text-gray-600">{t("Filters")}</span>
             </button>
           </div>
         </div>
@@ -291,21 +292,21 @@ const DeliveryStatusPage: React.FC = () => {
         {showFilters && (
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as DeliveryStatus | "ALL" | "ACTIVE")}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="ACTIVE">Active (on its way)</option>
-                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">{t("Active (on its way)")}</option>
+                <option value="ALL">{t("All Statuses")}</option>
                 {DELIVERY_STATUSES.map((status) => (
                   <option key={status} value={status}>{statusConfig(status).label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("Delivery Date")}</label>
               <input
                 type="date"
                 value={dateFilter}
@@ -322,7 +323,7 @@ const DeliveryStatusPage: React.FC = () => {
                   }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium"
                 >
-                  ✕ Reset Filters
+                  {t("✕ Reset Filters")}
                 </button>
               )}
             </div>
@@ -331,7 +332,7 @@ const DeliveryStatusPage: React.FC = () => {
 
         {!showFilters && statusFilter === "ACTIVE" && (
           <p className="-mt-3 text-xs text-slate-500">
-            Showing deliveries still on their way. Use Filters to see delivered, returned or cancelled ones.
+            {t("Showing deliveries still on their way. Use Filters to see delivered, returned or cancelled ones.")}
           </p>
         )}
 
@@ -346,8 +347,8 @@ const DeliveryStatusPage: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center -mt-10">
               <TruckIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-1">No deliveries to show</p>
-              <p className="text-gray-400 text-xs">Delivery orders created on the Delivery Order page appear here.</p>
+              <p className="text-gray-500 text-sm mb-1">{t("No deliveries to show")}</p>
+              <p className="text-gray-400 text-xs">{t("Delivery orders created on the Delivery Order page appear here.")}</p>
             </div>
           }
         />
@@ -370,31 +371,31 @@ const DeliveryStatusPage: React.FC = () => {
               </div>
 
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Status</span><StatusBadge status={selected.status} /></div>
-                <div className="flex justify-between"><span className="text-slate-500">Due</span><span className="text-slate-700">{formatDateTime(selected.deliveryDate)}</span></div>
-                <div className="flex justify-between gap-4"><span className="text-slate-500">Vehicle</span><span className="text-slate-700 text-right">{selected.vehiclePlate ?? "Not assigned"}{selected.transporterName ? ` · ${selected.transporterName}` : ""}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Status")}</span><StatusBadge status={selected.status} /></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t("Due")}</span><span className="text-slate-700">{formatDateTime(selected.deliveryDate)}</span></div>
+                <div className="flex justify-between gap-4"><span className="text-slate-500">{t("Vehicle")}</span><span className="text-slate-700 text-right">{selected.vehiclePlate ?? "Not assigned"}{selected.transporterName ? ` · ${selected.transporterName}` : ""}</span></div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500 flex items-center gap-1"><MapPinIcon className="h-3.5 w-3.5" />Address</span>
+                  <span className="text-slate-500 flex items-center gap-1"><MapPinIcon className="h-3.5 w-3.5" />{t("Address")}</span>
                   <span className="text-slate-700 text-right">{selected.deliveryAddress ?? "Not set"}</span>
                 </div>
               </div>
 
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Latest update</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">{t("Latest update")}</p>
                 {selected.tracking ? (
                   <>
                     <p className="text-slate-700">
                       {statusConfig(selected.tracking.currentStatus).label}
                       {selected.tracking.remarks ? ` — ${selected.tracking.remarks}` : ""}
                     </p>
-                    {selected.tracking.failureReason && <p className="text-red-600 text-xs mt-1">Reason: {selected.tracking.failureReason}</p>}
+                    {selected.tracking.failureReason && <p className="text-red-600 text-xs mt-1">{t("Reason:")} {selected.tracking.failureReason}</p>}
                     <p className="text-xs text-slate-400 mt-1">
                       {formatDateTime(selected.tracking.statusUpdatedAt)}
                       {selected.tracking.updatedBy ? ` by ${selected.tracking.updatedBy}` : ""}
                     </p>
                   </>
                 ) : (
-                  <p className="text-slate-500">No updates yet. The order is {statusConfig(selected.status).label.toLowerCase()}.</p>
+                  <p className="text-slate-500">{t("No updates yet. The order is")} {statusConfig(selected.status).label.toLowerCase()}.</p>
                 )}
               </div>
 
@@ -408,7 +409,7 @@ const DeliveryStatusPage: React.FC = () => {
                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
                   >
                     <ArrowRightLeftIcon className="h-4 w-4 inline mr-1" />
-                    Post an Update
+                    {t("Post an Update")}
                   </button>
                 </div>
               )}
@@ -422,14 +423,14 @@ const DeliveryStatusPage: React.FC = () => {
             <div className="bg-white p-6 rounded-xl w-full max-w-md">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <ArrowRightLeftIcon className="h-6 w-6 text-purple-600" />
-                Post an Update
+                {t("Post an Update")}
               </h2>
               <div className="mb-4 flex items-center justify-between text-sm">
                 <span className="font-medium text-gray-700">{selected.deliveryOrderNumber}</span>
                 <StatusBadge status={selected.status} />
               </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Status *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("New Status *")}</label>
               <select
                 value={newStatus}
                 onChange={(e) => setNewStatus(e.target.value as DeliveryStatus)}
@@ -440,22 +441,22 @@ const DeliveryStatusPage: React.FC = () => {
                 ))}
               </select>
 
-              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t("Remarks")}</label>
               <textarea
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
                 rows={2}
-                placeholder="e.g. Left the warehouse at 9:40, signed by store manager"
+                placeholder={t("e.g. Left the warehouse at 9:40, signed by store manager")}
                 className="w-full p-2 mb-4 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
               />
 
               {needsReason && (
                 <>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t("Reason *")}</label>
                   <input
                     value={failureReason}
                     onChange={(e) => setFailureReason(e.target.value)}
-                    placeholder="e.g. Customer not available, damaged in transit"
+                    placeholder={t("e.g. Customer not available, damaged in transit")}
                     className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
                   />
                 </>
@@ -463,7 +464,7 @@ const DeliveryStatusPage: React.FC = () => {
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button type="button" onClick={() => setShowStatusModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium" disabled={submitting}>
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="button"
@@ -471,7 +472,7 @@ const DeliveryStatusPage: React.FC = () => {
                   disabled={submitting || !newStatus}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Saving..." : "Save Update"}
+                  {t(submitting ? "Saving..." : "Save Update")}
                 </button>
               </div>
             </div>

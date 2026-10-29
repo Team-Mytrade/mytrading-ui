@@ -11,17 +11,17 @@ import {
 } from "../../utils/indiaValidators";
 import {
   DATE_FORMATS, DEFAULT_REGIONAL, LANGUAGES, NUMBER_LOCALES, WEEK_DAYS, WEEK_STARTS, countries, currencies, currencyDigits,
-  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, vatNumberError,
-} from "../../company/regional";
+  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, vatNumberError, countryLabel } from "../../company/regional";
 import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
-import { formatDateTime } from "../../company/format";
+import { formatDateTime, liveMonthNames } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
 const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300";
 const ERROR = "mt-1 text-[11px] text-red-600";
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS = liveMonthNames("long");
 const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /** Section heading with the cyan icon chip used on the profile page. */
@@ -30,7 +30,7 @@ const sectionTitle = (Icon: React.ComponentType<{ className?: string }>, text: s
     <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#e0f7fa] text-[#0097a7] dark:bg-cyan-950/40 dark:text-cyan-300">
       <Icon className="h-4 w-4" />
     </span>
-    {text}
+    {t(text)}
   </h3>
 );
 
@@ -197,26 +197,26 @@ export default function CompanySettingsPage() {
 
   const field = (key: keyof Form, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
-      <label className={LABEL} htmlFor={`company-${key}`}>{label}</label>
+      <label className={LABEL} htmlFor={`company-${key}`}>{t(label)}</label>
       <input id={`company-${key}`} className={INPUT} disabled={!editable} value={String(form?.[key] ?? "")}
-        onChange={(e) => set(key, e.target.value)} {...props} />
-      {errors[key] && <p className={ERROR}>{errors[key]}</p>}
+        onChange={(e) => set(key, e.target.value)} {...props} placeholder={props.placeholder ? t(String(props.placeholder)) : undefined} />
+      {errors[key] && <p className={ERROR}>{t(String(errors[key]))}</p>}
     </div>
   );
 
   return (
     <>
-      <PageMeta title="Company Settings" description="Company details used on documents" />
+      <PageMeta title={t("Company Settings")} description="Company details used on documents" />
       <PageBreadcrumb
         pageTitle="Company Settings"
         actions={editable && form ? (
           <div className="flex items-center gap-2">
             <button type="button" className={TOOL_BUTTON} disabled={!dirty} onClick={() => { setForm(toForm(company!)); setErrors({}); }}>
-              Discard changes
+              {t("Discard changes")}
             </button>
             <button type="submit" form="company-settings-form" className={`${TOOL_BUTTON} ${ADD_BUTTON_COLORS}`} disabled={saving || !dirty}>
               <Save className="h-3.5 w-3.5" />
-              {saving ? "Saving..." : "Save"}
+              {t(saving ? "Saving..." : "Save")}
             </button>
           </div>
         ) : undefined}
@@ -224,12 +224,12 @@ export default function CompanySettingsPage() {
 
       <div className={PAGE_BODY}>
         {loading || !form ? (
-          <div className={`${CARD} p-6 text-sm text-slate-400`}>{loading ? "Loading..." : "The company details could not be loaded."}</div>
+          <div className={`${CARD} p-6 text-sm text-slate-400`}>{t(loading ? "Loading..." : "The company details could not be loaded.")}</div>
         ) : (
           <form id="company-settings-form" onSubmit={save} className="space-y-4">
             {!editable && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                Only a Tenant Administrator can change these details.
+                {t("Only a Tenant Administrator can change these details.")}
               </p>
             )}
 
@@ -242,12 +242,12 @@ export default function CompanySettingsPage() {
                     {field("legalName", "Registered (legal) name", { maxLength: 200, placeholder: india ? "As on the GST certificate" : "As on the trade licence" })}
                     {/* VAT companies print their TRN on tax invoices and file VAT returns; GST companies use the GSTIN */}
                     <div>
-                      <label className={LABEL} htmlFor="company-taxRegime">Tax registration</label>
+                      <label className={LABEL} htmlFor="company-taxRegime">{t("Tax registration")}</label>
                       <select id="company-taxRegime" className={INPUT} disabled={!editable} value={form.taxRegime ?? "NONE"}
                         onChange={(e) => set("taxRegime", e.target.value)}>
-                        <option value="VAT">VAT registered</option>
-                        <option value="GST">GST registered (India)</option>
-                        <option value="NONE">Not registered for tax</option>
+                        <option value="VAT">{t("VAT registered")}</option>
+                        <option value="GST">{t("GST registered (India)")}</option>
+                        <option value="NONE">{t("Not registered for tax")}</option>
                       </select>
                     </div>
                     {form.taxRegime === "VAT" && field("taxNumber", "VAT registration number (TRN) *", {
@@ -267,11 +267,11 @@ export default function CompanySettingsPage() {
                     {field("addressLine2", "Address line 2", { maxLength: 200 })}
                     {field("city", "City", { maxLength: 100 })}
                     <div>
-                      <label className={LABEL} htmlFor="company-state">State</label>
+                      <label className={LABEL} htmlFor="company-state">{t("State")}</label>
                       {india ? (
                         <select id="company-state" className={INPUT} disabled={!editable} value={form.state ?? ""}
                           onChange={(e) => set("state", e.target.value)}>
-                          <option value="">Select state</option>
+                          <option value="">{t("Select state")}</option>
                           {form.state && !findIndianState(form.state) && <option value={form.state}>{form.state}</option>}
                           {INDIAN_STATES.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
                         </select>
@@ -282,11 +282,11 @@ export default function CompanySettingsPage() {
                     </div>
                     {field("postalCode", india ? "PIN code" : "Postal code / PO Box", { maxLength: 20 })}
                     <div>
-                      <label className={LABEL} htmlFor="company-country">Country</label>
+                      <label className={LABEL} htmlFor="company-country">{t("Country")}</label>
                       <select id="company-country" className={INPUT} disabled={!editable} value={form.country ?? ""}
                         onChange={(e) => changeCountry(e.target.value)}>
                         {form.country && !findCountry(form.country) && <option value={form.country}>{form.country}</option>}
-                        {countryList.map((c) => <option key={c.isoCode} value={c.name}>{c.name}</option>)}
+                        {countryList.map((c) => <option key={c.isoCode} value={c.name}>{countryLabel(c.isoCode, c.name)}</option>)}
                       </select>
                     </div>
                   </div>
@@ -305,7 +305,7 @@ export default function CompanySettingsPage() {
                   {sectionTitle(Globe2, "Regional settings")}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div>
-                      <label className={LABEL} htmlFor="company-currency">Currency</label>
+                      <label className={LABEL} htmlFor="company-currency">{t("Currency")}</label>
                       <select id="company-currency" className={INPUT} disabled={!editable} value={form.currency}
                         onChange={(e) => changeCurrency(e.target.value)}>
                         {!currencyList.some((c) => c.code === form.currency) && <option value={form.currency}>{form.currency}</option>}
@@ -313,21 +313,21 @@ export default function CompanySettingsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-decimals">Decimal places for amounts</label>
+                      <label className={LABEL} htmlFor="company-decimals">{t("Decimal places for amounts")}</label>
                       <select id="company-decimals" className={INPUT} disabled={!editable} value={form.currencyDecimals}
                         onChange={(e) => set("currencyDecimals", Number(e.target.value))}>
-                        {[0, 1, 2, 3].map((d) => <option key={d} value={d}>{d}{d === currencyDigits(form.currency) ? ` (usual for ${form.currency})` : ""}</option>)}
+                        {[0, 1, 2, 3].map((d) => <option key={d} value={d}>{d}{d === currencyDigits(form.currency) ? ` ${t("(usual for {currency})", { currency: form.currency })}` : ""}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-language">Language</label>
+                      <label className={LABEL} htmlFor="company-language">{t("Language")}</label>
                       <select id="company-language" className={INPUT} disabled={!editable} value={form.language}
                         onChange={(e) => set("language", e.target.value)}>
                         {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-zone">Time zone</label>
+                      <label className={LABEL} htmlFor="company-zone">{t("Time zone")}</label>
                       <select id="company-zone" className={INPUT} disabled={!editable} value={form.timeZone}
                         onChange={(e) => set("timeZone", e.target.value)}>
                         {!zoneList.includes(form.timeZone) && <option value={form.timeZone}>{form.timeZone}</option>}
@@ -335,14 +335,14 @@ export default function CompanySettingsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-date-format">Date format</label>
+                      <label className={LABEL} htmlFor="company-date-format">{t("Date format")}</label>
                       <select id="company-date-format" className={INPUT} disabled={!editable} value={form.dateFormat}
                         onChange={(e) => set("dateFormat", e.target.value)}>
                         {DATE_FORMATS.map((f) => <option key={f} value={f}>{f.replace("yyyy", "YYYY").replace("dd", "DD")}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-time-format">Time format</label>
+                      <label className={LABEL} htmlFor="company-time-format">{t("Time format")}</label>
                       <select id="company-time-format" className={INPUT} disabled={!editable} value={form.timeFormat}
                         onChange={(e) => set("timeFormat", e.target.value)}>
                         <option value="12h">12-hour (2:30 PM)</option>
@@ -350,29 +350,29 @@ export default function CompanySettingsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-number-format">Number format</label>
+                      <label className={LABEL} htmlFor="company-number-format">{t("Number format")}</label>
                       <select id="company-number-format" className={INPUT} disabled={!editable} value={form.numberLocale}
                         onChange={(e) => set("numberLocale", e.target.value)}>
                         {NUMBER_LOCALES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-week-start">Week starts on</label>
+                      <label className={LABEL} htmlFor="company-week-start">{t("Week starts on")}</label>
                       <select id="company-week-start" className={INPUT} disabled={!editable} value={form.weekStart}
                         onChange={(e) => set("weekStart", e.target.value)}>
                         {WEEK_STARTS.map((d) => <option key={d} value={d}>{dayLabel(d)}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-fy">Financial year starts in</label>
+                      <label className={LABEL} htmlFor="company-fy">{t("Financial year starts in")}</label>
                       <select id="company-fy" className={INPUT} disabled={!editable} value={form.financialYearStartMonth}
                         onChange={(e) => set("financialYearStartMonth", Number(e.target.value))}>
                         {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                       </select>
                     </div>
                     <div className="md:col-span-3">
-                      <span className={LABEL}>Weekend days</span>
-                      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Weekend days">
+                      <span className={LABEL}>{t("Weekend days")}</span>
+                      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Weekend days")}>
                         {WEEK_DAYS.map((day) => {
                           const on = form.weekendDays.includes(day);
                           return (
@@ -389,7 +389,7 @@ export default function CompanySettingsPage() {
                   </div>
                   {preview && (
                     <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-[#222222] dark:text-gray-300">
-                      <span className="font-semibold">Preview:</span> {preview}
+                      <span className="font-semibold">{t("Preview:")}</span> {preview}
                     </p>
                   )}
                 </section>
@@ -402,10 +402,10 @@ export default function CompanySettingsPage() {
                     {logo ? (
                       <img src={logo.dataUrl} alt="Company logo" className="max-h-24 max-w-[90%] object-contain" />
                     ) : (
-                      <span className="text-xs text-slate-400">No logo yet</span>
+                      <span className="text-xs text-slate-400">{t("No logo yet")}</span>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">PNG, JPEG or WebP, up to 512 KB. Shown on quotations and payslips (payslips need PNG or JPEG).</p>
+                  <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">{t("PNG, JPEG or WebP, up to 512 KB. Shown on quotations and payslips (payslips need PNG or JPEG).")}</p>
                   {editable && (
                     <div className="mt-3 flex gap-2">
                       <input ref={fileRef} type="file" accept={LOGO_TYPES.join(",")} className="hidden"
@@ -415,7 +415,7 @@ export default function CompanySettingsPage() {
                       </button>
                       {company?.hasLogo && (
                         <button type="button" className={SECONDARY_BUTTON} onClick={removeLogo}>
-                          <Trash2 className="mr-1 inline h-4 w-4" />Remove
+                          <Trash2 className="mr-1 inline h-4 w-4" />{t("Remove")}
                         </button>
                       )}
                     </div>
@@ -425,7 +425,7 @@ export default function CompanySettingsPage() {
             </div>
 
             {company?.updatedDate && (
-              <p className="text-right text-[11px] text-slate-400">Last changed {formatDateTime(company.updatedDate)}</p>
+              <p className="text-right text-[11px] text-slate-400">{t("Last changed")} {formatDateTime(company.updatedDate)}</p>
             )}
           </form>
         )}

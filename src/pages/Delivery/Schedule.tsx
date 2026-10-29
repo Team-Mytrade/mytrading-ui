@@ -23,6 +23,7 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../componen
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 // ScheduleResponseDTO: times come as "HH:mm:ss"
@@ -345,7 +346,7 @@ const SchedulePage: React.FC = () => {
             type="button"
             onClick={() => handleEdit(s)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Schedule"
+            title={t("Edit Schedule")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -353,7 +354,7 @@ const SchedulePage: React.FC = () => {
             type="button"
             onClick={() => promptDelete(s)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Schedule"
+            title={t("Delete Schedule")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -366,40 +367,40 @@ const SchedulePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Schedule Management" description="Manage delivery schedules" />
+      <PageMeta title={t("Schedule Management")} description="Manage delivery schedules" />
       <PageBreadcrumb pageTitle="Schedules" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
 
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton onClick={handleAddNew} label="Add Schedule" />
+          <AddButton onClick={handleAddNew} label={t("Add Schedule")} />
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Schedules"
+            label={t("Total Schedules")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Today"
+            label={t("Today")}
             value={stats.today}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Upcoming"
+            label={t("Upcoming")}
             value={stats.upcoming}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
           />
           <StatsCard
-            label="Past"
+            label={t("Past")}
             value={stats.past}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -414,7 +415,7 @@ const SchedulePage: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by route, vehicle, or date..."
+                placeholder={t("Search by route, vehicle, or date...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -431,7 +432,7 @@ const SchedulePage: React.FC = () => {
           </div>
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <button title="Filters" aria-label="Filters"
+            <button title={t("Filters")} aria-label={t("Filters")}
               onClick={() => setShowFilters(!showFilters)}
               className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
                 }`}
@@ -447,7 +448,7 @@ const SchedulePage: React.FC = () => {
             <div className="flex flex-wrap gap-4">
               <div className="w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
                 <FloatingSelect
-                  label="Filter by Date"
+                  label={t("Filter by Date")}
                   name="filter"
                   value={activeFilter}
                   onChange={(e) => setActiveFilter(e.target.value)}
@@ -466,7 +467,7 @@ const SchedulePage: React.FC = () => {
                   onClick={() => setActiveFilter("ALL")}
                   className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
                 >
-                  Clear Filter
+                  {t("Clear Filter")}
                 </button>
               )}
             </div>
@@ -484,16 +485,16 @@ const SchedulePage: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <CalendarDaysIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No schedules found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No schedules found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   type="button"
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first schedule
+                  {t("Create your first schedule")}
                 </button>
               )}
             </div>
@@ -511,10 +512,10 @@ const SchedulePage: React.FC = () => {
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {form.id ? "Edit Schedule" : "Create New Schedule"}
+                      {t(form.id ? "Edit Schedule" : "Create New Schedule")}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {form.id ? "Update this schedule's details" : "Assign a route and vehicle to a time slot"}
+                      {t(form.id ? "Update this schedule's details" : "Assign a route and vehicle to a time slot")}
                     </p>
                   </div>
                   <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -525,7 +526,7 @@ const SchedulePage: React.FC = () => {
                 <form onSubmit={handleSubmit} className="p-5 max-h-[70vh] overflow-y-auto">
                   <div className="space-y-4 pt-2">
                     <FloatingSelect
-                      label="Route"
+                      label={t("Route")}
                       name="routeId"
                       value={form.routeId}
                       onChange={(e) => handleChange("routeId", e.target.value)}
@@ -535,7 +536,7 @@ const SchedulePage: React.FC = () => {
                     />
 
                     <FloatingSelect
-                      label="Vehicle"
+                      label={t("Vehicle")}
                       name="vehicleId"
                       value={form.vehicleId}
                       onChange={(e) => handleChange("vehicleId", e.target.value)}
@@ -545,7 +546,7 @@ const SchedulePage: React.FC = () => {
                     />
 
                     <FloatingInput
-                      label="Scheduled Date"
+                      label={t("Scheduled Date")}
                       name="scheduledDate"
                       type="date"
                       value={form.scheduledDate}
@@ -555,7 +556,7 @@ const SchedulePage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex flex-col">
-                        <label className="mb-1 text-xs font-medium text-gray-600">Start Time</label>
+                        <label className="mb-1 text-xs font-medium text-gray-600">{t("Start Time")}</label>
                         <input
                           type="time"
                           name="startTime"
@@ -566,7 +567,7 @@ const SchedulePage: React.FC = () => {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="mb-1 text-xs font-medium text-gray-600">End Time</label>
+                        <label className="mb-1 text-xs font-medium text-gray-600">{t("End Time")}</label>
                         <input
                           type="time"
                           name="endTime"
@@ -580,7 +581,7 @@ const SchedulePage: React.FC = () => {
 
                     {form.id && (
                       <FloatingSelect
-                        label="Status"
+                        label={t("Status")}
                         name="status"
                         value={form.status}
                         onChange={(e) => handleChange("status", e.target.value)}
@@ -595,7 +596,7 @@ const SchedulePage: React.FC = () => {
                       onClick={resetForm}
                       className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="submit"
@@ -617,14 +618,14 @@ const SchedulePage: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Schedule"
+        innerText={t("Delete Schedule")}
         subText={
           deletingItem
             ? `Are you sure you want to delete the schedule on ${deletingItem.scheduledDate}? This action cannot be undone.`
             : "Are you sure you want to delete this schedule?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeletingItem(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

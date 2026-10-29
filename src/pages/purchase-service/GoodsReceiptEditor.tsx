@@ -1,7 +1,9 @@
+import { monthNames } from "../../company/format";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { PurchaseRecord, SelectOption } from "../Purchase/PurchaseResourcePage";
 import { ToasterService } from "../../Services/ToasterService";
+import { t } from "../../i18n/i18n";
 import "../../styles/GoodsReceiptEditor.css";
 
 type GrnItem = {
@@ -135,7 +137,7 @@ const displayDate = (value: unknown) => {
   const iso = toInputDate(value);
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
-  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m) - 1];
+  const month = monthNames("short")[Number(m) - 1];
   return `${d} ${month} ${y}`;
 };
 
@@ -256,10 +258,10 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     }
     if (max != null && accepted > max) return `${name}: only ${max} can be accepted for this pending replacement.`;
     // Required by the product's tracking settings (only when known).
-    const t = item.tracking;
-    if (t?.batch && !item.batchNumber) return `${name}: enter the batch number (this product is batch tracked).`;
-    if (t?.expiry && !item.expiryDate) return `${name}: enter the expiry date (this product is expiry tracked).`;
-    if (t?.serial && accepted > 0 && !item.serialNumbers.some(Boolean)) {
+    const tracking = item.tracking;
+    if (tracking?.batch && !item.batchNumber) return `${name}: enter the batch number (this product is batch tracked).`;
+    if (tracking?.expiry && !item.expiryDate) return `${name}: enter the expiry date (this product is expiry tracked).`;
+    if (tracking?.serial && accepted > 0 && !item.serialNumbers.some(Boolean)) {
       return `${name}: enter ${accepted} serial number(s) (this product is serial tracked).`;
     }
     if (item.manufacturingDate && item.expiryDate && item.expiryDate <= item.manufacturingDate) {
@@ -317,7 +319,7 @@ function SerialInputs({
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <span>
-          Serial numbers{required && <span className="text-red-500"> *</span>}
+          {t("Serial numbers")}{required && <span className="text-red-500"> *</span>}
         </span>
         {boxes > 0 && (
           <span className={`text-xs ${filled === boxes ? "text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}>
@@ -326,7 +328,7 @@ function SerialInputs({
         )}
       </div>
       {boxes === 0 ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400">Enter the accepted quantity first; one box appears per unit.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{t("Enter the accepted quantity first; one box appears per unit.")}</p>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {slots.map((value, i) => {
@@ -364,7 +366,7 @@ function SerialInputs({
       )}
       {count > MAX_SERIAL_BOXES && (
         <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-          Showing the first {MAX_SERIAL_BOXES} boxes. For more units, split the receipt into two GRNs.
+          {t("Showing the first")} {MAX_SERIAL_BOXES} boxes. For more units, split the receipt into two GRNs.
         </p>
       )}
     </div>
@@ -519,29 +521,29 @@ export default function GoodsReceiptEditor({
     <form className="goods-receipt-editor" onSubmit={handleSubmit}>
       {form.lastGrnReview && (
         <section className="mb-4 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-100">
-          <div className="font-semibold">Previous GRN review</div>
+          <div className="font-semibold">{t("Previous GRN review")}</div>
           <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-            <span>GRN: {(form.lastGrnReview as PurchaseRecord).receiptNumber || "--"}</span>
-            <span>Last updated: {displayDate((form.lastGrnReview as PurchaseRecord).updatedDate)}</span>
-            <span>Received: {num((form.lastGrnReview as PurchaseRecord).receivedQuantity)}</span>
-            <span>Accepted: {num((form.lastGrnReview as PurchaseRecord).acceptedQuantity)}</span>
+            <span>{t("GRN:")} {(form.lastGrnReview as PurchaseRecord).receiptNumber || "--"}</span>
+            <span>{t("Last updated:")} {displayDate((form.lastGrnReview as PurchaseRecord).updatedDate)}</span>
+            <span>{t("Received:")} {num((form.lastGrnReview as PurchaseRecord).receivedQuantity)}</span>
+            <span>{t("Accepted:")} {num((form.lastGrnReview as PurchaseRecord).acceptedQuantity)}</span>
           </div>
         </section>
       )}
       <section className="goods-receipt-editor__receipt">
         <div className="goods-receipt-editor__receipt-head">
-          <span>GRN RECEIPT</span>
+          <span>{t("GRN RECEIPT")}</span>
           <time>{displayDate(form.receiptDate)}</time>
         </div>
         <div className="goods-receipt-editor__controls">
           <label>
-            Purchase order
+            {t("Purchase order")}
             {isEditing ? (
               // Can't move a saved GRN to another PO.
               <input value={poLabel} readOnly aria-readonly="true" />
             ) : (
               <select required value={form.purchaseOrderId || ""} onChange={(event) => loadItems(event.target.value)}>
-                <option value="">Select purchase order</option>
+                <option value="">{t("Select purchase order")}</option>
                 {purchaseOrders.map((option) => (
                   <option key={String(option.value)} value={String(option.value)}>
                     {option.label}
@@ -551,13 +553,13 @@ export default function GoodsReceiptEditor({
             )}
           </label>
           <label>
-            Warehouse
+            {t("Warehouse")}
             <select
               required
               value={form.warehouseId || ""}
               onChange={(event) => onChange("warehouseId", event.target.value)}
             >
-              <option value="">Select warehouse</option>
+              <option value="">{t("Select warehouse")}</option>
               {warehouses.map((option) => (
                 <option key={String(option.value)} value={String(option.value)}>
                   {option.label}
@@ -566,7 +568,7 @@ export default function GoodsReceiptEditor({
             </select>
           </label>
           <label>
-            Receipt date
+            {t("Receipt date")}
             <input
               required
               type="date"
@@ -584,7 +586,7 @@ export default function GoodsReceiptEditor({
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             {/* Header bar: same left padding (px-4) as the table cells, so the title lines up with "Product". */}
             <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/60">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Ordered products</h3>
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t("Ordered products")}</h3>
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {orderLines.length} product{orderLines.length === 1 ? "" : "s"} on this purchase order
               </span>
@@ -604,12 +606,12 @@ export default function GoodsReceiptEditor({
                 </colgroup>
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-800">
-                    <th className={th}>Product</th>
-                    <th className={th}>Code</th>
-                    <th className={`${th} text-center`}>Ordered</th>
-                    <th className={`${th} text-center`}>Received so far</th>
-                    <th className={`${th} text-center`}>Pending</th>
-                    <th className={`${th} text-center`}>UOM</th>
+                    <th className={th}>{t("Product")}</th>
+                    <th className={th}>{t("Code")}</th>
+                    <th className={`${th} text-center`}>{t("Ordered")}</th>
+                    <th className={`${th} text-center`}>{t("Received so far")}</th>
+                    <th className={`${th} text-center`}>{t("Pending")}</th>
+                    <th className={`${th} text-center`}>{t("UOM")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -625,7 +627,7 @@ export default function GoodsReceiptEditor({
                       <td className={`${td} text-center tabular-nums`}>{line.received}</td>
                       <td className={`${td} text-center font-semibold tabular-nums`}>
                         {line.pending === 0 ? (
-                          <span className="text-green-700 dark:text-green-400">Done</span>
+                          <span className="text-green-700 dark:text-green-400">{t("Done")}</span>
                         ) : (
                           line.pending
                         )}
@@ -642,12 +644,12 @@ export default function GoodsReceiptEditor({
 
       <section className="goods-receipt-editor__items">
         <div className="goods-receipt-editor__section-title">
-          <h3>Received items</h3>
+          <h3>{t("Received items")}</h3>
           <span>
             {items.length} item{items.length === 1 ? "" : "s"}
           </span>
         </div>
-        {loadingItems && <p className="goods-receipt-editor__empty">Loading purchase order items…</p>}
+        {loadingItems && <p className="goods-receipt-editor__empty">{t("Loading purchase order items…")}</p>}
         {!loadingItems && !items.length && (
           <p className="goods-receipt-editor__empty">
             {form.purchaseOrderId
@@ -672,7 +674,7 @@ export default function GoodsReceiptEditor({
               </header>
               <div className="goods-receipt-editor__quantities">
                 <label>
-                  Received quantity
+                  {t("Received quantity")}
                   <input
                     required
                     min="0"
@@ -684,7 +686,7 @@ export default function GoodsReceiptEditor({
                   />
                 </label>
                 <label>
-                  Accepted quantity
+                  {t("Accepted quantity")}
                   <input
                     required
                     type="number"
@@ -697,12 +699,12 @@ export default function GoodsReceiptEditor({
                   />
                   {max != null && (
                     <span className="mt-1 block text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      Pending replacement: {max}
+                      {t("Pending replacement:")} {max}
                     </span>
                   )}
                 </label>
                 <label>
-                  Rejected quantity
+                  {t("Rejected quantity")}
                   <input
                     required
                     min="0"
@@ -716,14 +718,14 @@ export default function GoodsReceiptEditor({
               </div>
               {(() => {
                 // Unknown tracking (product not found) → show every field, all optional, as before.
-                const t = item.tracking;
-                const showBatch = !t || t.batch;
-                const showExpiry = !t || t.expiry;
-                const showSerial = !t || t.serial;
+                const tracking = item.tracking;
+                const showBatch = !tracking || tracking.batch;
+                const showExpiry = !tracking || tracking.expiry;
+                const showSerial = !tracking || tracking.serial;
                 if (!showBatch && !showExpiry && !showSerial) {
                   return (
                     <p className="px-1 pb-1 text-xs text-gray-500 dark:text-gray-400">
-                      No batch, expiry or serial tracking for this product.
+                      {t("No batch, expiry or serial tracking for this product.")}
                     </p>
                   );
                 }
@@ -731,17 +733,17 @@ export default function GoodsReceiptEditor({
                   <div className="goods-receipt-editor__tracking">
                     {showBatch && (
                       <label>
-                        Batch number{t?.batch && <span className="text-red-500"> *</span>}
+                        {t("Batch number")}{tracking?.batch && <span className="text-red-500"> *</span>}
                         <input
                           value={item.batchNumber || ""}
                           onChange={(event) => updateItem(index, { batchNumber: event.target.value.trim().toUpperCase() || null })}
-                          placeholder={t?.batch ? "e.g. B2026-10" : "Optional"}
+                          placeholder={t(tracking?.batch ? "e.g. B2026-10" : "Optional")}
                         />
                       </label>
                     )}
                     {showBatch && (
                       <label>
-                        Manufacturing date
+                        {t("Manufacturing date")}
                         <input
                           type="date"
                           value={item.manufacturingDate || ""}
@@ -751,7 +753,7 @@ export default function GoodsReceiptEditor({
                     )}
                     {showExpiry && (
                       <label>
-                        Expiry date{t?.expiry && <span className="text-red-500"> *</span>}
+                        {t("Expiry date")}{tracking?.expiry && <span className="text-red-500"> *</span>}
                         <input
                           type="date"
                           min={item.manufacturingDate || undefined}
@@ -764,7 +766,7 @@ export default function GoodsReceiptEditor({
                       <div className="goods-receipt-editor__serials">
                         <SerialInputs
                           count={num(item.acceptedQuantity)}
-                          required={Boolean(t?.serial)}
+                          required={Boolean(tracking?.serial)}
                           values={item.serialNumbers}
                           onChange={(serialNumbers) => updateItem(index, { serialNumbers })}
                         />
@@ -782,7 +784,7 @@ export default function GoodsReceiptEditor({
       <footer className="dragger__footer mt-6">
         <div className="dragger__footer-actions">
           <button type="button" className="dragger__cancel" onClick={onCancel}>
-            Cancel
+            {t("Cancel")}
           </button>
           <button type="submit" className="dragger__submit" disabled={submitting || loadingItems || !items.length}>
             {submitting ? "Saving..." : isEditing ? "Update" : "Create"}

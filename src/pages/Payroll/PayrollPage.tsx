@@ -46,6 +46,7 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
 import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
 
@@ -489,12 +490,12 @@ const PayrollPage: React.FC = () => {
             render: (row) => row.isProcessed ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
-                    Processed
+                    {t("Processed")}
                 </span>
             ) : (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 shrink-0" />
-                    Draft
+                    {t("Draft")}
                 </span>
             )
         },
@@ -508,7 +509,7 @@ const PayrollPage: React.FC = () => {
                     <button
                         onClick={() => handleViewDetails(row)}
                         className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
-                        title="View Details"
+                        title={t("View Details")}
                     >
                         <EyeIcon className="h-3.5 w-3.5" />
                     </button>
@@ -516,7 +517,7 @@ const PayrollPage: React.FC = () => {
                         onClick={() => downloadPayslip(row.employee?.id as number, row.month, `${row.employee?.firstName} ${row.employee?.lastName}`)}
                         disabled={!row.payslipGenerated}
                         className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={row.payslipGenerated ? "Download Payslip" : "Payslip not generated yet (Generate Payslips)"}
+                        title={t(row.payslipGenerated ? "Download Payslip" : "Payslip not generated yet (Generate Payslips)")}
                     >
                         <DocumentArrowDownIcon className="h-3.5 w-3.5" />
                     </button>
@@ -526,7 +527,7 @@ const PayrollPage: React.FC = () => {
                             setIsZipModalOpen(true);
                         }}
                         className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
-                        title="Download Range (ZIP)"
+                        title={t("Download Range (ZIP)")}
                     >
                         <FolderArrowDownIcon className="h-3.5 w-3.5" />
                     </button>
@@ -534,7 +535,7 @@ const PayrollPage: React.FC = () => {
                         canCreate && <button
                             onClick={() => rollback(row.id, `${row.employee?.firstName} ${row.employee?.lastName}`)}
                             className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
-                            title="Rollback"
+                            title={t("Rollback")}
                         >
                             <ArrowPathIcon className="h-3.5 w-3.5" />
                         </button>
@@ -564,7 +565,7 @@ const PayrollPage: React.FC = () => {
                             value={filterMonth}
                             onChange={e => { setFilterMonth(e.target.value); }}
                             className={TOOL_INPUT}
-                            aria-label="Payroll month"
+                            aria-label={t("Payroll month")}
                         />
 
                         {/* Export Menu */}
@@ -574,10 +575,10 @@ const PayrollPage: React.FC = () => {
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className={TOOL_BUTTON}
                                 disabled={salaries.length === 0}
-                                title="Export options"
+                                title={t("Export options")}
                             >
                                 <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                Export
+                                {t("Export")}
                             </button>)}
 
                             {showExportMenu && (
@@ -591,7 +592,7 @@ const PayrollPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
-                                        Export PDF
+                                        {t("Export PDF")}
                                     </button>
                                     <button
                                         type="button"
@@ -602,7 +603,7 @@ const PayrollPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
-                                        Export Excel
+                                        {t("Export Excel")}
                                     </button>
                                 </div>
                             )}
@@ -613,10 +614,10 @@ const PayrollPage: React.FC = () => {
                                 type="button"
                                 onClick={() => { setGenerateMonth(filterMonth); setIsGenerateModalOpen(true); }}
                                 className={TOOL_BUTTON}
-                                title="Make the month's payslips again"
+                                title={t("Make the month's payslips again")}
                             >
                                 <DocumentTextIcon className="h-3.5 w-3.5" />
-                                Generate Payslips
+                                {t("Generate Payslips")}
                             </button>
                         )}
 
@@ -625,10 +626,10 @@ const PayrollPage: React.FC = () => {
                             onClick={handlePrint}
                             className={TOOL_BUTTON}
                             disabled={salaries.length === 0}
-                            title="Print"
+                            title={t("Print")}
                         >
                             <PrinterIcon className="h-3.5 w-3.5" />
-                            Print
+                            {t("Print")}
                         </button>
 
                         {/* Payroll is run (with its uploads and review) on the Payroll Engine page */}
@@ -639,10 +640,10 @@ const PayrollPage: React.FC = () => {
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Total Records" value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
-                    <StatsCard label="Processed" value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
-                    <StatsCard label="Draft" value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
-                    <StatsCard label="Total Disbursement" value={formatMoney(totalDisbursement, { compact: true })} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchAll} />
+                    <StatsCard label={t("Total Records")} value={salaries.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Processed")} value={totalProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Draft")} value={totalDraft} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<ClockIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Total Disbursement")} value={formatMoney(totalDisbursement, { compact: true })} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={fetchAll} />
                 </div>
 
                 {/* Table */}
@@ -656,11 +657,11 @@ const PayrollPage: React.FC = () => {
                         defaultSortKey="month"
                         defaultSortOrder="desc"
                         rowDetailsTitle={(row) => `${row.employeeName || row.employee?.firstName || 'Employee'} - ${row.month} Payslip`}
-                        rowDetailsSubtitle="Salary breakdown and net disbursement status"
+                        rowDetailsSubtitle={t("Salary breakdown and net disbursement status")}
                         emptyState={
                             <div className="flex flex-col items-center">
                                 <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                <p className="text-gray-500 text-sm mb-2">No payroll records found</p>
+                                <p className="text-gray-500 text-sm mb-2">{t("No payroll records found")}</p>
                             </div>
                         }
                     />
@@ -669,19 +670,19 @@ const PayrollPage: React.FC = () => {
                 {/* Generate Payslips Modal */}
                 <PaginatedPopup
                     isOpen={isGenerateModalOpen}
-                    title="Generate Payslips"
+                    title={t("Generate Payslips")}
                     onClose={() => setIsGenerateModalOpen(false)}
                     onSubmit={(e) => {
                         e.preventDefault();
                         generatePayslips();
                     }}
-                    submitLabel="Generate"
-                    cancelLabel="Cancel"
+                    submitLabel={t("Generate")}
+                    cancelLabel={t("Cancel")}
                     maxWidthClassName="max-w-lg"
                     fields={[
                         <div key="select-month" className="col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Select Month
+                                {t("Select Month")}
                             </label>
                             <input
                                 type="month"
@@ -693,7 +694,7 @@ const PayrollPage: React.FC = () => {
                         </div>,
                         <div key="info-box" className="col-span-2 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
                             <p className="text-sm text-cyan-800">
-                                <strong>Info:</strong> Payslips are made when payroll runs. This makes them again for everyone paid in the month (e.g. after a payslip went missing).
+                                <strong>{t("Info:")}</strong> Payslips are made when payroll runs. This makes them again for everyone paid in the month (e.g. after a payslip went missing).
                             </p>
                         </div>
                     ]}
@@ -703,20 +704,20 @@ const PayrollPage: React.FC = () => {
                 {zipEmployee && (
                     <PaginatedPopup
                         isOpen={isZipModalOpen}
-                        title="Download Payslips (ZIP)"
+                        title={t("Download Payslips (ZIP)")}
                         subtitle={`Employee: ${zipEmployee.name}`}
                         onClose={() => setIsZipModalOpen(false)}
                         onSubmit={(e) => {
                             e.preventDefault();
                             downloadZipRange();
                         }}
-                        submitLabel="Download ZIP"
-                        cancelLabel="Cancel"
+                        submitLabel={t("Download ZIP")}
+                        cancelLabel={t("Cancel")}
                         maxWidthClassName="max-w-lg"
                         fields={[
                             <div key="from-month">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    From Month
+                                    {t("From Month")}
                                 </label>
                                 <input
                                     type="month"
@@ -728,7 +729,7 @@ const PayrollPage: React.FC = () => {
                             </div>,
                             <div key="to-month">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    To Month
+                                    {t("To Month")}
                                 </label>
                                 <input
                                     type="month"
@@ -740,7 +741,7 @@ const PayrollPage: React.FC = () => {
                             </div>,
                             <div key="info-box-zip" className="col-span-2 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
                                 <p className="text-sm text-cyan-800">
-                                    <strong>Info:</strong> This will download a single ZIP file containing the payslips for the selected range.
+                                    <strong>{t("Info:")}</strong> {t("This will download a single ZIP file containing the payslips for the selected range.")}
                                 </p>
                             </div>
                         ]}

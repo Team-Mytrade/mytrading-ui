@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 export type LineItem = {
   id?: number | string;
   productId: number | string;
@@ -216,9 +217,9 @@ export default function LineItemsEditor({
     <div className="rounded-xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-900">
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 dark:border-gray-800">
         <div>
-          <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Line Items</div>
+          <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">{t("Line Items")}</div>
           <div className="text-xs text-slate-500 dark:text-gray-400">
-            {items.length === 0 ? "No items added yet" : `${items.length} item${items.length === 1 ? "" : "s"}`}
+            {items.length === 0 ? t("No items added yet") : items.length === 1 ? t("1 item") : t("{count} items", { count: items.length })}
           </div>
         </div>
         <button
@@ -228,28 +229,28 @@ export default function LineItemsEditor({
           className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:opacity-50 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40"
         >
           <PlusIcon className="h-3.5 w-3.5" />
-          Add Item
+          {t("Add Item")}
         </button>
       </div>
 
       {items.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-slate-500 dark:text-gray-400">
-          Click <span className="font-medium text-slate-700 dark:text-gray-200">Add Item</span> to start building the list.
+          {t("Click")} <span className="font-medium text-slate-700 dark:text-gray-200">{t("Add Item")}</span> {t("to start building the list.")}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-gray-800 dark:text-gray-400">
               <tr>
-                <th className={`${headCell} min-w-[180px]`}>Product</th>
-                {categories.length > 0 && <th className={headCell}>Category</th>}
-                <th className={`${headCell} w-24 text-right`}>Qty</th>
-                {showUom && <th className={`${headCell} w-28`}>UOM</th>}
-                {showPricing && <th className={`${headCell} w-28 text-right`}>Unit Price ({code})</th>}
-                {showPricing && <th className={`${headCell} w-28 text-right`}>Discount ({code})</th>}
-                {showPricing && <th className={`${headCell} w-28 text-right`}>Tax ({code})</th>}
-                {showPricing && <th className={`${headCell} w-32 text-right`}>Line Total</th>}
-                <th className={headCell}>Remarks</th>
+                <th className={`${headCell} min-w-[180px]`}>{t("Product")}</th>
+                {categories.length > 0 && <th className={headCell}>{t("Category")}</th>}
+                <th className={`${headCell} w-24 text-right`}>{t("Qty")}</th>
+                {showUom && <th className={`${headCell} w-28`}>{t("UOM")}</th>}
+                {showPricing && <th className={`${headCell} w-28 text-right`}>{t("Unit Price ({currency})", { currency: code })}</th>}
+                {showPricing && <th className={`${headCell} w-28 text-right`}>{t("Discount ({currency})", { currency: code })}</th>}
+                {showPricing && <th className={`${headCell} w-28 text-right`}>{t("Tax ({currency})", { currency: code })}</th>}
+                {showPricing && <th className={`${headCell} w-32 text-right`}>{t("Line Total")}</th>}
+                <th className={headCell}>{t("Remarks")}</th>
                 <th className="w-10 px-3 py-2" />
               </tr>
             </thead>
@@ -277,10 +278,10 @@ export default function LineItemsEditor({
                           });
                         }}
                         disabled={disabled}
-                        aria-label="Product"
+                        aria-label={t("Product")}
                         className={`${cellInput} ${row.productId === "" ? "text-slate-400 dark:text-gray-500" : ""}`}
                       >
-                        <option value="">Select product</option>
+                        <option value="">{t("Select product")}</option>
                         {products.map((p) => (
                           <option key={p.id} value={p.id} disabled={usedElsewhere.has(String(p.id))}>
                             {p.productName}
@@ -295,7 +296,7 @@ export default function LineItemsEditor({
                           value={row.categoryId || ""}
                           onChange={(e) => updateRow(index, { categoryId: e.target.value })}
                           disabled={disabled}
-                          aria-label="Category"
+                          aria-label={t("Category")}
                           className={cellInput}
                         >
                           <option value="">—</option>
@@ -309,7 +310,7 @@ export default function LineItemsEditor({
                     )}
                     <td className="px-3 py-2">
                       <NumberCell
-                        label="Quantity"
+                        label={t("Quantity")}
                         value={row.quantity}
                         decimals={quantityDecimals}
                         onValue={(quantity) => updateRow(index, { quantity })}
@@ -330,7 +331,7 @@ export default function LineItemsEditor({
                             updateRow(index, { unitOfMeasure, quantity });
                           }}
                           disabled={disabled}
-                          aria-label="Unit of measure"
+                          aria-label={t("Unit of measure")}
                           className={cellInput}
                         >
                           {/* Keep the product's own UOM visible even if it isn't in the list. */}
@@ -351,7 +352,7 @@ export default function LineItemsEditor({
                           // Worked out from the product's GST %, so it can't be typed.
                           <td key={field} className="px-3 py-2 pt-3 text-right">
                             <div className="text-sm text-slate-800 dark:text-gray-100">{money(toNumber(row.taxAmount))}</div>
-                            <div className="text-[11px] text-slate-400 dark:text-gray-500">GST {rateOf(row)}%</div>
+                            <div className="text-[11px] text-slate-400 dark:text-gray-500">{t("GST")} {rateOf(row)}%</div>
                           </td>
                         ) : (
                         <td key={field} className="px-3 py-2">
@@ -378,8 +379,8 @@ export default function LineItemsEditor({
                         maxLength={250}
                         onChange={(e) => updateRow(index, { remarks: e.target.value })}
                         disabled={disabled}
-                        placeholder="Optional"
-                        aria-label="Remarks"
+                        placeholder={t("Optional")}
+                        aria-label={t("Remarks")}
                         className={cellInput}
                       />
                     </td>
@@ -389,8 +390,8 @@ export default function LineItemsEditor({
                         onClick={() => removeRow(index)}
                         disabled={disabled}
                         className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                        title="Remove this line"
-                        aria-label="Remove this line"
+                        title={t("Remove this line")}
+                        aria-label={t("Remove this line")}
                       >
                         <TrashIcon className="h-4 w-4" />
                       </button>
@@ -406,7 +407,7 @@ export default function LineItemsEditor({
                     colSpan={1 + (categories.length > 0 ? 1 : 0) + 1 + (showUom ? 1 : 0) + 3}
                     className="px-3 py-2.5 text-right text-sm font-semibold text-slate-600 dark:text-gray-300"
                   >
-                    Total
+                    {t("Total")}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm font-semibold text-slate-900 dark:text-gray-50">
                     {money(grandTotal)}

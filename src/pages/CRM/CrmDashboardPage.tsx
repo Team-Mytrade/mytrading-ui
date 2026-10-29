@@ -7,6 +7,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { DASH_CARD, DASH_TITLE, TONE_CYCLE, formatMoney, toneCard, toneLink } from "../Dashboard/dashboardKit";
 import { formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Live CRM overview. Every figure comes from the CRM service; nothing is hard-coded.
 
 interface CrmReport {
@@ -113,12 +114,12 @@ export default function CrmDashboardPage() {
 
   return (
     <div className="h-full overflow-y-auto px-1 pb-6 pt-1">
-      <PageMeta title="CRM Dashboard" description="Live overview of customers, leads, deals and activities" />
+      <PageMeta title={t("CRM Dashboard")} description="Live overview of customers, leads, deals and activities" />
       <PageBreadcrumb pageTitle="CRM Dashboard" />
 
       {failed.length > 0 && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Some figures could not be loaded ({failed.join(", ")}). They are shown as 0.
+          {t("Some figures could not be loaded ({list}). They are shown as 0.", { list: failed.join(", ") })}
         </div>
       )}
 
@@ -129,10 +130,10 @@ export default function CrmDashboardPage() {
           return (
             <Link key={kpi.label} to={kpi.to}
               className={`group flex flex-col justify-between space-y-1 p-3 ${toneCard(tone)}`}>
-              <p className="text-xs font-bold text-gray-900 dark:text-white">{kpi.label}</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-white">{t(kpi.label)}</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">{loading ? "…" : kpi.value}</p>
               <span className={`flex items-center gap-1 text-[11px] font-bold transition-all group-hover:translate-x-0.5 ${toneLink(tone)}`}>
-                Open <ArrowRight className="h-3 w-3" />
+                {t("Open")} <ArrowRight className="h-3 w-3" />
               </span>
             </Link>
           );
@@ -141,8 +142,8 @@ export default function CrmDashboardPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <section className={`p-5 ${DASH_CARD}`}>
-          <h2 className={`mb-3 ${DASH_TITLE}`}>Deal pipeline by stage</h2>
-          {stages.length === 0 && <p className="text-sm text-gray-500">{loading ? "Loading…" : "No deals yet."}</p>}
+          <h2 className={`mb-3 ${DASH_TITLE}`}>{t("Deal pipeline by stage")}</h2>
+          {stages.length === 0 && <p className="text-sm text-gray-500">{t(loading ? "Loading…" : "No deals yet.")}</p>}
           <ul className="space-y-2">
             {stages.map((s) => (
               <li key={s.stage}>
@@ -159,8 +160,8 @@ export default function CrmDashboardPage() {
         </section>
 
         <section className={`p-5 ${DASH_CARD}`}>
-          <h2 className={`mb-3 ${DASH_TITLE}`}>New leads per month</h2>
-          {monthly.length === 0 && <p className="text-sm text-gray-500">{loading ? "Loading…" : "No leads yet."}</p>}
+          <h2 className={`mb-3 ${DASH_TITLE}`}>{t("New leads per month")}</h2>
+          {monthly.length === 0 && <p className="text-sm text-gray-500">{t(loading ? "Loading…" : "No leads yet.")}</p>}
           <div className="flex h-40 items-end gap-2">
             {monthly.map((m) => (
               <div key={m.month} className="flex flex-1 flex-col items-center justify-end" title={`${m.month}: ${m.count}`}>
@@ -174,10 +175,10 @@ export default function CrmDashboardPage() {
 
         <section className={`p-5 ${DASH_CARD}`}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className={DASH_TITLE}>Upcoming activities</h2>
-            <Link to="/activities" className="text-xs text-cyan-600 hover:underline">All</Link>
+            <h2 className={DASH_TITLE}>{t("Upcoming activities")}</h2>
+            <Link to="/activities" className="text-xs text-cyan-600 hover:underline">{t("All")}</Link>
           </div>
-          {upcoming.length === 0 && <p className="text-sm text-gray-500">{loading ? "Loading…" : "Nothing pending."}</p>}
+          {upcoming.length === 0 && <p className="text-sm text-gray-500">{t(loading ? "Loading…" : "Nothing pending.")}</p>}
           <ul className="divide-y divide-gray-100 dark:divide-gray-800">
             {upcoming.map((a) => (
               <li key={a.id} className="py-2">

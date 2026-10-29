@@ -6,6 +6,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { getAccessibleDashboards, type DashboardEntry } from "./dashboardRegistry";
 import ModuleSnapshot from "./ModuleSnapshot";
 import AttentionPanel from "./AttentionPanel";
+import { t } from "../../i18n/i18n";
 import "../../styles/Home.css";
 
 const STORAGE_KEY = "cc-active-module";
@@ -76,14 +77,14 @@ export default function Home() {
 
   return (
     <>
-      <PageMeta title="Command Center" description="Unified dashboard for all modules" />
+      <PageMeta title={t("Command Center")} description="Unified dashboard for all modules" />
       <main className="cc-shell">
         <header className="cc-bar">
           <div className="cc-bar__title">
             <span className="cc-bar__logo"><LayoutGrid size={18} /></span>
             <div>
-              <h1>{greeting}, {user?.fullName || "there"}</h1>
-              <p>Pick a module to load its dashboard</p>
+              <h1>{t("{greeting}, {name}", { greeting: t(greeting), name: user?.fullName || t("there") })}</h1>
+              <p>{t("Pick a module to load its dashboard")}</p>
             </div>
           </div>
           <div ref={selectRef} className={`cc-select${open ? " is-open" : ""}`}>
@@ -91,11 +92,11 @@ export default function Home() {
               {active ? (
                 <>
                   <span className={`cc-select__dot cc-select__dot--${active.tone}`}><active.icon size={16} /></span>
-                  <span className="cc-select__label">{active.label} dashboard</span>
+                  <span className="cc-select__label">{t("{module} dashboard", { module: t(active.label) })}</span>
                   <ChevronDown size={16} className="cc-select__chevron" />
                 </>
               ) : (
-                <span className="cc-select__label">No module</span>
+                <span className="cc-select__label">{t("No module")}</span>
               )}
             </button>
             {open && (
@@ -103,7 +104,7 @@ export default function Home() {
                 {accessible.map((module) => (
                   <button type="button" key={module.key} role="option" aria-selected={module.key === active?.key} className={module.key === active?.key ? "is-selected" : ""} onClick={() => selectModule(module.key)}>
                     <span className={`cc-select__dot cc-select__dot--${module.tone}`}><module.icon size={15} /></span>
-                    <span className="cc-select__menu-name">{module.label}</span>
+                    <span className="cc-select__menu-name">{t(module.label)}</span>
                   </button>
                 ))}
               </div>
@@ -115,13 +116,13 @@ export default function Home() {
 
         <div className="cc-panel">
           {ActiveComponent ? (
-            <Suspense fallback={<div className="cc-loader"><span>Loading {active!.label} dashboard…</span></div>}>
+            <Suspense fallback={<div className="cc-loader"><span>{t("Loading {module} dashboard…", { module: t(active!.label) })}</span></div>}>
               <ActiveComponent />
             </Suspense>
           ) : active ? (
             <ModuleSnapshot module={active} />
           ) : (
-            <div className="cc-empty">No dashboards are available for your access.</div>
+            <div className="cc-empty">{t("No dashboards are available for your access.")}</div>
           )}
         </div>
       </main>

@@ -8,7 +8,6 @@ import {
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   EyeIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -25,6 +24,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber, formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ========================== ENUM OPTION TYPE ==========================
 interface EnumOption {
   id: string;
@@ -35,9 +35,6 @@ interface EnumOption {
 interface Product {
   id: number;
   productName: string;
-  serialTracking?: boolean;
-  batchTracking?: boolean;
-  expiryTracking?: boolean;
   productCode?: string;
   currentStock?: number;
 }
@@ -50,8 +47,7 @@ interface Warehouse {
   tenantId?: string;
   name: string;
   code?: string;
-  locationType?: string;
-  active?: boolean;
+  locationType?: "MAIN" | "SUB" | "STORE";
   location?: string;
   stockLevels?: any[];
   batches?: any[];
@@ -91,11 +87,8 @@ interface SerialNumber {
   warehouse?: Warehouse | null;
   batch?: Batch | null;
   inspections?: any[];
-  status?: string;
-  currentStatus?: string;
+  status?: "AVAILABLE" | "SOLD" | "DAMAGED";
 }
-
-const serialStatus = (sn?: SerialNumber | null) => sn?.currentStatus ?? sn?.status ?? "";
 
 enum AdjustmentType {
   POSITIVE = "POSITIVE",
@@ -180,8 +173,7 @@ function getBatchWarehouseId(batch?: Batch | null) {
 }
 
 function getBatchWarehouseName(batch?: Batch | null) {
-  if (!batch?.warehouse || typeof batch.warehouse === "string") return "";
-  return batch.warehouse.name || batch.warehouse.code || "";
+  return batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.name : "";
 }
 
 function getSerialBatchId(serial?: SerialNumber | null) {
@@ -194,20 +186,8 @@ function getSerialWarehouseId(serial?: SerialNumber | null) {
   );
 }
 
-
-// The API returns UTC timestamps without "Z"; mark them as UTC so they show in IST.
-const SERVER_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/;
-function toUtc(value?: string) {
-  return value && SERVER_TS.test(value) ? value.replace(/(\.\d{3})\d+$/, "$1") + "Z" : value;
-}
-
-// Reasons that can only mean stock going OUT (a Negative adjustment). Matched
-// by keyword so new codes like WRITE_OFF or THEFT are caught too. Any reason not
-// matched here (e.g. PHYSICAL_STOCK_COUNT) is allowed for both types.
-const STOCK_OUT_ONLY_REASON = /EXPIRED|DAMAGE|LOST|THEFT|STOLEN|SCRAP|WRITE_?OFF|DEFECT|SPOIL|WASTE/i;
-
-function reasonAllowedFor(reasonId: string, type: string) {
-  return type === "NEGATIVE" || !STOCK_OUT_ONLY_REASON.test(reasonId);
+function getSerialWarehouseName(serial?: SerialNumber | null) {
+  return serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.name : "";
 }
 
 // ========================== ENUM NORMALIZATION ==========================
@@ -445,16 +425,7 @@ const StockAdjustmentManager: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setForm((current) =>
-      name === "adjustmentType" && value !== current.adjustmentType
-        ? {
-            ...current,
-            adjustmentType: value as AdjustmentType,
-            serialNumberId: "",
-            reason: current.reason && reasonAllowedFor(current.reason, value) ? current.reason : "",
-          }
-        : { ...current, [name]: value }
-    );
+    setForm((current) => ({ ...current, [name]: value }));
   };
 
   // Batch and serial number are optional: a product without batches is adjusted without one
@@ -554,52 +525,6 @@ const StockAdjustmentManager: React.FC = () => {
       return;
     }
 
-    if (!reasonAllowedFor(form.reason, form.adjustmentType)) {
-      ToasterService.error(
-        "Reason doesn't match the type",
-        `"${getReasonLabel(form.reason)}" removes stock, so it can only be used with Stock Out.`
-      );
-      return;
-    }
-
-    const warehouse = warehouses.find((w) => w.id === Number(form.warehouseId));
-    if (warehouse?.active === false) {
-      ToasterService.error(
-        "Inactive warehouse",
-        `${warehouse.name || warehouse.code || "This warehouse"} is inactive. Choose an active warehouse.`
-      );
-      return;
-    }
-    const batch = batches.find((b) => b.id === Number(form.batchId));
-    if (batch && getBatchWarehouseId(batch) !== Number(form.warehouseId)) {
-      ToasterService.error("Invalid batch", "The selected batch is not in this warehouse.");
-      return;
-    }
-    const product = products.find((p) => p.id === Number(form.productId));
-    if (product?.batchTracking && !form.batchId) {
-      ToasterService.error("Batch required", `${product.productName} is tracked by batch. Select a batch.`);
-      return;
-    }
-    if (product?.serialTracking) {
-      if (!form.serialNumberId) {
-        ToasterService.error("Serial number required", `${product.productName} is tracked by serial number. Select the serial.`);
-        return;
-      }
-      if (quantity !== 1) {
-        ToasterService.error("Quantity must be 1", "One serial number is one unit. Adjust each serial separately.");
-        return;
-      }
-    }
-    const serial = serialNumbers.find((sn) => sn.id === Number(form.serialNumberId));
-    if (serial && getSerialWarehouseId(serial) !== Number(form.warehouseId)) {
-      ToasterService.error("Invalid serial number", "The selected serial is not in this warehouse.");
-      return;
-    }
-    if (serial && form.batchId && getSerialBatchId(serial) !== Number(form.batchId)) {
-      ToasterService.error("Invalid serial number", "The selected serial does not belong to the selected batch.");
-      return;
-    }
-
     try {
       setSubmitting(true);
       const payload = buildPayload();
@@ -640,20 +565,6 @@ const StockAdjustmentManager: React.FC = () => {
     setShowViewModal(true);
   };
 
-  const closeView = () => {
-    setShowViewModal(false);
-    setViewingAdjustment(null);
-  };
-
-  useEffect(() => {
-    if (!showViewModal) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeView();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showViewModal]);
-
   const closeForm = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -690,19 +601,13 @@ const StockAdjustmentManager: React.FC = () => {
   }, [products]);
 
   const warehouseOptions = useMemo(() => {
-    return warehouses
-      .filter((w) => w.active !== false || String(w.id) === form.warehouseId)
-      .map((warehouse) => ({
-        id: String(warehouse.id),
-        name:
-          warehouse.code && warehouse.name
-            ? `${warehouse.name} (${warehouse.code})`
-            : warehouse.name || warehouse.code || "--",
-      }));
-  }, [warehouses, form.warehouseId]);
+    return warehouses.map((warehouse) => ({
+      id: String(warehouse.id),
+      name: warehouse.code ? `${warehouse.name} (${warehouse.code})` : warehouse.name,
+    }));
+  }, [warehouses]);
 
   const batchOptions = useMemo(() => {
-    // Only batches that are in the selected warehouse can be adjusted there.
     const selectedWarehouseId = Number(form.warehouseId || 0);
     return filteredBatches.map((batch) => {
       const batchWarehouseId = getBatchWarehouseId(batch);
@@ -724,61 +629,30 @@ const StockAdjustmentManager: React.FC = () => {
 
       return { id: String(batch.id), name: label };
     });
-    return filteredBatches
-      .filter((batch) => !selectedWarehouseId || getBatchWarehouseId(batch) === selectedWarehouseId)
-      .map((batch) => {
-        let label = batch.batchNumber;
-        if (batch.expiryDate) {
-          label += ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`;
-        }
-        return { id: String(batch.id), name: label };
-      });
   }, [filteredBatches, form.warehouseId]);
 
   const serialOptions = useMemo(() => {
-    // Serials of this product in the selected warehouse. Stock Out only lists
-    // serials that are available (not issued or damaged). Creating a serial
-    // doesn't add stock, so a new serial is "Available" before its Stock In.
     const selectedWarehouseId = Number(form.warehouseId || 0);
-    const isPositive = form.adjustmentType === AdjustmentType.POSITIVE;
-    return filteredSerialNumbers
-      .filter(
-        (serial) =>
-          (!selectedWarehouseId || getSerialWarehouseId(serial) === selectedWarehouseId) &&
-          (isPositive || serialStatus(serial) === "AVAILABLE")
-      )
-      .map((serial) => ({
-        id: String(serial.id),
-        name: serialStatus(serial) ? `${serial.serial} (${serialStatus(serial)})` : serial.serial,
-      }));
-  }, [filteredSerialNumbers, form.warehouseId, form.adjustmentType]);
+    return filteredSerialNumbers.map((serial) => {
+      const serialWarehouseId = getSerialWarehouseId(serial);
+      const serialWarehouseName = getSerialWarehouseName(serial);
+      const mismatch =
+        selectedWarehouseId > 0 &&
+        serialWarehouseId > 0 &&
+        serialWarehouseId !== selectedWarehouseId;
+
+      let label = serial.status ? `${serial.serial} (${serial.status})` : serial.serial;
+      if (mismatch) {
+        label += ` — warehouse: ${
+          serialWarehouseName || `#${serialWarehouseId}`
+        } ⚠️ differs from selected warehouse`;
+      }
+
+      return { id: String(serial.id), name: label };
+    });
+  }, [filteredSerialNumbers, form.warehouseId]);
 
   const typeOptions = adjustmentTypeOptions;
-
-  // Explains an empty Batch / Serial list for tracked products, so the user
-  // knows what to create first instead of seeing a blank dropdown.
-  const trackingHints = () => {
-    const product = products.find((p) => p.id === Number(form.productId));
-    if (!product || !form.warehouseId) return [];
-    const hints: React.ReactNode[] = [];
-    if (product.batchTracking && batchOptions.length === 0) {
-      hints.push(
-        <p key="no-batch" className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400">
-          {product.productName} needs a batch, but it has no batch in this warehouse. Create one on
-          the Batches page first.
-        </p>
-      );
-    }
-    if (product.serialTracking && serialOptions.length === 0) {
-      hints.push(
-        <p key="no-serial" className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400">
-          {product.productName} needs a serial number, but none is available in this warehouse
-          {form.batchId ? " for this batch" : ""}. Create it on the Serial Numbers page first.
-        </p>
-      );
-    }
-    return hints;
-  };
 
   // ======================== ROW DETAILS RENDERER ========================
   const renderAdjustmentDetails = (adjustment: StockAdjustment) => {
@@ -813,12 +687,12 @@ const StockAdjustmentManager: React.FC = () => {
 
     return (
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Adjustment ID">#{adjustment.id}</Field>
-        <Field label="Date" full>
+        <Field label={t("Adjustment ID")}>#{adjustment.id}</Field>
+        <Field label={t("Date")}>
           {formatDate(adjustment.adjustmentDate)}
         </Field>
 
-        <Field label="Type" full>
+        <Field label={t("Type")} full>
           <span
             className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${getTypeBadge(
               adjustment.adjustmentType
@@ -829,7 +703,7 @@ const StockAdjustmentManager: React.FC = () => {
           </span>
         </Field>
 
-        <Field label="Product" full>
+        <Field label={t("Product")} full>
           {productId ? (
             <button
               type="button"
@@ -843,7 +717,7 @@ const StockAdjustmentManager: React.FC = () => {
           )}
         </Field>
 
-        <Field label="Quantity">
+        <Field label={t("Quantity")}>
           <span
             className={
               adjustment.adjustmentType === "POSITIVE"
@@ -855,9 +729,9 @@ const StockAdjustmentManager: React.FC = () => {
             {adjustment.quantity}
           </span>
         </Field>
-        <Field label="Reason">{getReasonLabel(adjustment.reason)}</Field>
+        <Field label={t("Reason")}>{getReasonLabel(adjustment.reason)}</Field>
 
-        <Field label="Warehouse">
+        <Field label={t("Warehouse")}>
           {adjustment.warehouse?.id ? (
             <button
               type="button"
@@ -867,10 +741,10 @@ const StockAdjustmentManager: React.FC = () => {
               {adjustment.warehouse.name || "N/A"}
             </button>
           ) : (
-            <span>N/A</span>
+            <span>{t("N/A")}</span>
           )}
         </Field>
-        <Field label="Batch">
+        <Field label={t("Batch")}>
           {adjustment.batch?.id ? (
             <button
               type="button"
@@ -880,11 +754,11 @@ const StockAdjustmentManager: React.FC = () => {
               {adjustment.batch.batchNumber || "N/A"}
             </button>
           ) : (
-            <span>N/A</span>
+            <span>{t("N/A")}</span>
           )}
         </Field>
 
-        <Field label="Serial Number" full>
+        <Field label={t("Serial Number")} full>
           {adjustment.serialNumber?.serial
             ? `${adjustment.serialNumber.serial}${
                 adjustment.serialNumber.status
@@ -895,9 +769,9 @@ const StockAdjustmentManager: React.FC = () => {
         </Field>
 
         {adjustment.createdBy && (
-          <Field label="Created By">{adjustment.createdBy}</Field>
+          <Field label={t("Created By")}>{adjustment.createdBy}</Field>
         )}
-        <Field label="Created At">{createdAt}</Field>
+        <Field label={t("Created At")}>{createdAt}</Field>
       </div>
     );
   };
@@ -930,7 +804,7 @@ const StockAdjustmentManager: React.FC = () => {
               goToProduct(productId);
             }}
             className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title="View product"
+            title={t("View product")}
           >
             {getProductDisplayName(adjustment)}
           </button>
@@ -952,7 +826,7 @@ const StockAdjustmentManager: React.FC = () => {
                 goToWarehouse(adjustment.warehouse);
               }}
               className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-              title="View warehouse"
+              title={t("View warehouse")}
             >
               {adjustment.warehouse.name}
             </button>
@@ -963,7 +837,7 @@ const StockAdjustmentManager: React.FC = () => {
             )}
           </div>
         ) : (
-          <p className="text-sm text-gray-900 dark:text-slate-200">N/A</p>
+          <p className="text-sm text-gray-900 dark:text-slate-200">{t("N/A")}</p>
         ),
     },
     {
@@ -980,12 +854,12 @@ const StockAdjustmentManager: React.FC = () => {
               goToBatch(adjustment.batch);
             }}
             className="text-left text-sm font-medium text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title="View batch"
+            title={t("View batch")}
           >
             {adjustment.batch.batchNumber}
           </button>
         ) : (
-          <span className="text-sm text-gray-900 dark:text-slate-200">N/A</span>
+          <span className="text-sm text-gray-900 dark:text-slate-200">{t("N/A")}</span>
         ),
     },
     {
@@ -1044,7 +918,7 @@ const StockAdjustmentManager: React.FC = () => {
             type="button"
             onClick={() => openView(adjustment)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
-            title="View Details"
+            title={t("View Details")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -1057,21 +931,21 @@ const StockAdjustmentManager: React.FC = () => {
   // ========================== RENDER ==========================
   return (
     <>
-      <PageMeta title="Stock Adjustment" description="Manage inventory stock adjustments" />
+      <PageMeta title={t("Stock Adjustment")} description="Manage inventory stock adjustments" />
       <PageBreadcrumb
         pageTitle="Stock Adjustment"
-        actions={<AddButton onClick={openCreate} label="Add Adjustment" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Adjustment")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Adjustments"
+            label={t("Total Adjustments")}
             value={stats.total}
             icon={<ClipboardDocumentCheckIcon />}
           />
           <StatsCard
-            label="Stock In"
+            label={t("Stock In")}
             value={stats.positive}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -1079,7 +953,7 @@ const StockAdjustmentManager: React.FC = () => {
             icon={<ArrowUpIcon />}
           />
           <StatsCard
-            label="Stock Out"
+            label={t("Stock Out")}
             value={stats.negative}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -1087,7 +961,7 @@ const StockAdjustmentManager: React.FC = () => {
             icon={<ArrowDownIcon />}
           />
           <StatsCard
-            label="Net Change"
+            label={t("Net Change")}
             value={`${netChange >= 0 ? "+" : ""}${formatNumber(netChange)}`}
             gradient="from-amber-50 to-orange-50"
             borderColor="border-amber-100"
@@ -1110,14 +984,14 @@ const StockAdjustmentManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ClipboardDocumentCheckIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No stock adjustments found
+                {t("No stock adjustments found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first adjustment
+                {t("Create your first adjustment")}
               </button>)}
             </div>
           }
@@ -1127,12 +1001,12 @@ const StockAdjustmentManager: React.FC = () => {
       {/* ---------- Form Modal ---------- */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Stock Adjustment" : "Add Stock Adjustment"}
-        subtitle="Enter stock adjustment details"
+        title={t(editingId ? "Edit Stock Adjustment" : "Add Stock Adjustment")}
+        subtitle={t("Enter stock adjustment details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Adjustment" : "Create Adjustment"}
+        submitLabel={t(editingId ? "Update Adjustment" : "Create Adjustment")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -1140,7 +1014,7 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="adjustmentDate"
-                label="Adjustment Date"
+                label={t("Adjustment Date")}
                 name="adjustmentDate"
                 type="date"
                 value={form.adjustmentDate}
@@ -1149,7 +1023,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="adjustmentType"
-                label="Adjustment Type"
+                label={t("Adjustment Type")}
                 name="adjustmentType"
                 value={form.adjustmentType}
                 onChange={handleChange}
@@ -1158,7 +1032,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label={t("Product")}
                 name="productId"
                 value={form.productId}
                 onChange={(e) => handleProductChange(e.target.value)}
@@ -1167,7 +1041,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="warehouseId"
-                label="Warehouse"
+                label={t("Warehouse")}
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={(e) => handleWarehouseChange(e.target.value)}
@@ -1176,7 +1050,7 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingInput
                 key="quantity"
-                label="Quantity"
+                label={t("Quantity")}
                 name="quantity"
                 type="number"
                 min={1}
@@ -1191,11 +1065,7 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="batchId"
-                label={
-                  products.find((p) => p.id === Number(form.productId))?.batchTracking
-                    ? "Batch"
-                    : "Batch (optional)"
-                }
+                label={t("Batch (optional)")}
                 name="batchId"
                 value={form.batchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
@@ -1204,25 +1074,20 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label={
-                  products.find((p) => p.id === Number(form.productId))?.serialTracking
-                    ? "Serial Number (quantity 1)"
-                    : "Serial Number (optional, quantity 1)"
-                }
+                label={t("Serial Number (optional, quantity 1)")}
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
                 options={serialOptions}
                 disabled={!form.productId}
               />,
-              ...trackingHints(),
               <FloatingSelect
                 key="reason"
-                label="Reason"
+                label={t("Reason")}
                 name="reason"
                 value={form.reason}
                 onChange={handleChange}
-                options={reasonOptions.filter((o) => reasonAllowedFor(o.id, form.adjustmentType))}
+                options={reasonOptions}
                 required
               />,
             ],
@@ -1230,48 +1095,34 @@ const StockAdjustmentManager: React.FC = () => {
         ]}
       />
 
-      {/* ---------- View details — read-only, Close only ---------- */}
-      {showViewModal && viewingAdjustment && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-          onClick={closeView}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="adjustment-view-title"
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl dark:bg-slate-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h2 id="adjustment-view-title" className="text-lg font-semibold text-slate-900 dark:text-white">
-                Adjustment Details
-              </h2>
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                aria-label="Close"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
-              {renderAdjustmentDetails(viewingAdjustment)}
-            </div>
-            <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ---------- View Modal — kept for the eye button; reuses the same renderer ---------- */}
+      <PaginatedPopup
+        isOpen={showViewModal && !!viewingAdjustment}
+        title={t("Adjustment Details")}
+        subtitle={
+          viewingAdjustment
+            ? `Adjustment #${viewingAdjustment.id}`
+            : "Stock adjustment details"
+        }
+        onClose={() => {
+          setShowViewModal(false);
+          setViewingAdjustment(null);
+        }}
+        submitting={false}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Details",
+            fields: [
+              viewingAdjustment && (
+                <div key="view-content" className="md:col-span-2">
+                  {renderAdjustmentDetails(viewingAdjustment)}
+                </div>
+              ),
+            ],
+          },
+        ]}
+      />
     </>
   );
 };

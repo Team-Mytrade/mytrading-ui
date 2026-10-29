@@ -46,6 +46,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { formatDate, companyCurrency, moneyDecimals } from "../../company/format";
 import { cellInput, NumberCell } from "../Purchase/LineItemsEditor";
 
+import { t } from "../../i18n/i18n";
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";
 const CUSTOMERS_API = "/v1/api/common/customers";
@@ -430,7 +431,7 @@ export default function Deals() {
               </div>
             )}
             {o.quotationNumber && (
-              <div className="text-xs text-cyan-700 truncate max-w-[150px]">Quotation {o.quotationNumber}</div>
+              <div className="text-xs text-cyan-700 truncate max-w-[150px]">{t("Quotation")} {o.quotationNumber}</div>
             )}
           </div>
         </div>
@@ -466,7 +467,7 @@ export default function Deals() {
       sortable: true,
       render: (o) => !canUpdate ? (
         <span className={`inline-flex w-[118px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
-          {stageOptions.find((option) => option.id === normalizeStage(o.stage))?.name ?? o.stage}
+          {t(String(stageOptions.find((option) => option.id === normalizeStage(o.stage))?.name ?? o.stage ?? ""))}
         </span>
       ) : (
         <div onClick={(e) => e.stopPropagation()}>
@@ -486,7 +487,7 @@ export default function Deals() {
           >
             {stageOptions.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.name}
+                {t(option.name)}
               </option>
             ))}
           </select>
@@ -501,13 +502,13 @@ export default function Deals() {
         // Won / Lost come from the stage; only an open deal can be made active or cancelled
         isClosedStage(normalizeStage(o.stage)) ? (
           <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
-            {DEAL_STATUS_LABELS[o.status] ?? o.status}
+            {t(DEAL_STATUS_LABELS[o.status] ?? o.status ?? "")}
           </span>
         ) : !canUpdate ? (
           <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${
             o.status === "ACTIVE" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"
           }`}>
-            {DEAL_STATUS_LABELS[o.status] ?? o.status}
+            {t(DEAL_STATUS_LABELS[o.status] ?? o.status ?? "")}
           </span>
         ) : (
         <div onClick={(e) => e.stopPropagation()}>
@@ -530,7 +531,7 @@ export default function Deals() {
             }`}
           >
             {OPEN_DEAL_STATUS_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.name}</option>
+              <option key={option.id} value={option.id}>{t(option.name)}</option>
             ))}
           </select>
         </div>
@@ -556,7 +557,7 @@ export default function Deals() {
                 setShowForm(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-              title="Edit"
+              title={t("Edit")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -577,7 +578,7 @@ export default function Deals() {
                 type="button"
                 onClick={() => createQuotation(o)}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-                title={o.customer ? "Create quotation" : "Create quotation (convert the lead to a customer first)"}
+                title={t(o.customer ? "Create quotation" : "Create quotation (convert the lead to a customer first)")}
               >
                 <DocumentTextIcon className="h-4 w-4" />
               </button>
@@ -593,7 +594,7 @@ export default function Deals() {
                 })
               }
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-              title="View Lead"
+              title={t("View Lead")}
             >
               <UsersIcon className="h-4 w-4" />
             </button>
@@ -606,7 +607,7 @@ export default function Deals() {
                 setShowForm(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-              title="Link a lead"
+              title={t("Link a lead")}
             >
               <PlusIcon className="h-4 w-4" />
             </button>
@@ -619,7 +620,7 @@ export default function Deals() {
                 navigate(`/crm-view/customers/${o.customer!.id}`, { state: { from: "opportunities" } })
               }
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-              title="View Customer"
+              title={t("View Customer")}
             >
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
@@ -632,7 +633,7 @@ export default function Deals() {
                 setShowForm(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-              title="Link a customer"
+              title={t("Link a customer")}
             >
               <BuildingOfficeIcon className="h-4 w-4" />
             </button>
@@ -646,7 +647,7 @@ export default function Deals() {
                 setShowDeletePopup(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-              title="Delete"
+              title={t("Delete")}
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -658,7 +659,7 @@ export default function Deals() {
 
   return (
     <>
-      <PageMeta title="Deals" description="Manage your sales opportunities" />
+      <PageMeta title={t("Deals")} description="Manage your sales opportunities" />
       <PageBreadcrumb
         pageTitle="Deals"
         className="crm-report-breadcrumb"
@@ -670,7 +671,7 @@ export default function Deals() {
                 setOwnerType("LEAD");
                 setShowForm(true);
               }}
-              label="Add Opportunity"
+              label={t("Add Opportunity")}
             />
           </>
         }
@@ -679,19 +680,19 @@ export default function Deals() {
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         <div className="mb-[17px]">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-            <StatsCard label="Total Deals" value={opportunities.length} />
+            <StatsCard label={t("Total Deals")} value={opportunities.length} />
             <StatsCard
-              label="Active Deals"
+              label={t("Active Deals")}
               value={opportunities.filter((o) => o.status === "ACTIVE").length}
             />
             <StatsCard
-              label="Total Value"
+              label={t("Total Value")}
               value={formatCurrency(
                 opportunities.reduce((a, o) => a + (o.amount || 0), 0)
               )}
             />
             <StatsCard
-              label="Average Deal Size"
+              label={t("Average Deal Size")}
               value={
                 opportunities.length
                   ? formatCurrency(
@@ -712,7 +713,7 @@ export default function Deals() {
           defaultSortOrder="asc"
           enableRowDetails={true}
           rowDetailsTitle={(o) => o.dealName || "Deal details"}
-          rowDetailsSubtitle="Opportunity details"
+          rowDetailsSubtitle={t("Opportunity details")}
            hiddenDetailKeys={[
              "id",
              "tenantId",
@@ -729,7 +730,7 @@ export default function Deals() {
             <div className="flex flex-col items-center justify-center py-12">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">
-                No opportunities found
+                {t("No opportunities found")}
               </p>
               {canCreate && (
                 <button
@@ -741,7 +742,7 @@ export default function Deals() {
                   }}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Add your first opportunity
+                  {t("Add your first opportunity")}
                 </button>
               )}
             </div>
@@ -749,15 +750,15 @@ export default function Deals() {
         />
         <PaginatedPopup
   isOpen={showForm}
-  title={form.id ? "Edit Opportunity" : "Create New Opportunity"}
-  subtitle={
+  title={t(form.id ? "Edit Opportunity" : "Create New Opportunity")}
+  subtitle={t(
     form.id
       ? "Update opportunity details"
       : "Add a new sales opportunity"
-  }
+  )}
   onClose={() => !isSaving && setShowForm(false)}
   onSubmit={handleSubmit}
-  submitLabel={form.id ? "Update Opportunity" : "Create Opportunity"}
+  submitLabel={t(form.id ? "Update Opportunity" : "Create Opportunity")}
   submitting={isSaving}
   maxWidthClassName="max-w-2xl"
   tabs={[
@@ -766,7 +767,7 @@ export default function Deals() {
       fields: [
         <FloatingInput
           key="dealName"
-          label="Deal Name"
+          label={t("Deal Name")}
           name="dealName"
           value={form.dealName || ""}
           onChange={handleChange}
@@ -774,7 +775,7 @@ export default function Deals() {
         />,
         <FloatingInput
           key="amount"
-          label="Amount (empty = total of the product lines)"
+          label={t("Amount (empty = total of the product lines)")}
           name="amount"
           type="number"
           value={form.amount ?? ""}
@@ -782,7 +783,7 @@ export default function Deals() {
         />,
         <FloatingDatePicker
           key="expectedCloseDate"
-          label="Expected Close Date"
+          label={t("Expected Close Date")}
           name="expectedCloseDate"
           value={
             form.expectedCloseDate
@@ -798,7 +799,7 @@ export default function Deals() {
         />,
         <FloatingSelect
           key="stage"
-          label="Stage"
+          label={t("Stage")}
           name="stage"
           value={form.stage || ""}
           onChange={handleChange}
@@ -806,7 +807,7 @@ export default function Deals() {
         />,
         <FloatingSelect
           key="status"
-          label="Status"
+          label={t("Status")}
           name="status"
           value={isClosedStage(normalizeStage(form.stage)) ? normalizeStage(form.stage) : form.status || "ACTIVE"}
           onChange={handleChange}
@@ -831,9 +832,9 @@ export default function Deals() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    <th className="px-1 py-1">Product</th>
-                    <th className="px-1 py-1 w-24">Quantity</th>
-                    <th className="px-1 py-1 w-32">Expected price</th>
+                    <th className="px-1 py-1">{t("Product")}</th>
+                    <th className="px-1 py-1 w-24">{t("Quantity")}</th>
+                    <th className="px-1 py-1 w-32">{t("Expected price")}</th>
                     <th className="px-1 py-1 w-8" />
                   </tr>
                 </thead>
@@ -848,7 +849,7 @@ export default function Deals() {
                             value={line.productId ? String(line.productId) : ""}
                             onChange={(e) => pickLineProduct(index, e.target.value)}
                           >
-                            <option value="">Not in the catalogue (type the name)</option>
+                            <option value="">{t("Not in the catalogue (type the name)")}</option>
                             {products.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.productCode ? `${p.productCode} - ${p.productName}` : p.productName}
@@ -860,7 +861,7 @@ export default function Deals() {
                           <input
                             aria-label={`Line ${index + 1} name`}
                             className={cellInput}
-                            placeholder="Product or service asked for"
+                            placeholder={t("Product or service asked for")}
                             maxLength={200}
                             value={line.productName}
                             onChange={(e) => updateLine(index, { productName: e.target.value })}
@@ -880,7 +881,7 @@ export default function Deals() {
                           type="button"
                           onClick={() => setLines((form.items || []).filter((_, i) => i !== index))}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                          title="Remove line"
+                          title={t("Remove line")}
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -896,7 +897,7 @@ export default function Deals() {
             onClick={() => setLines([...(form.items || []), { productId: null, productName: "", quantity: 1, expectedPrice: null }])}
             className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100"
           >
-            <PlusIcon className="h-4 w-4" /> Add product
+            <PlusIcon className="h-4 w-4" /> {t("Add product")}
           </button>
         </div>,
       ],
@@ -917,7 +918,7 @@ export default function Deals() {
                   setForm((f) => ({ ...f, customer: undefined }));
                 }}
               />
-              Lead
+              {t("Lead")}
             </label>
             <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
               <input
@@ -930,13 +931,13 @@ export default function Deals() {
                   setForm((f) => ({ ...f, lead: undefined }));
                 }}
               />
-              Customer
+              {t("Customer")}
             </label>
           </div>
 
           {ownerType === "LEAD" ? (
             <FloatingSelect
-              label="Lead *"
+              label={t("Lead *")}
               name="leadId"
               value={form.lead?.id || ""}
               onChange={(e) =>
@@ -957,7 +958,7 @@ export default function Deals() {
             />
           ) : (
             <FloatingSelect
-              label="Customer *"
+              label={t("Customer *")}
               name="customerId"
               value={form.customer?.id || ""}
               onChange={(e) =>
@@ -987,17 +988,17 @@ export default function Deals() {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Opportunity"
+        innerText={t("Delete Opportunity")}
         subText={
           deleteId
-            ? `Are you sure you want to delete "${
+            ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String((
                 opportunities.find((o) => o.id === deleteId)?.dealName ||
                 "this opportunity"
-              }"? This action cannot be undone.`
+              ) ?? "") })
             : "Are you sure you want to delete this opportunity?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteId(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

@@ -17,8 +17,9 @@ import StatsCard from '../../components/common/Statscard';
 import { ToasterService } from '../../Services/ToasterService';
 import { useNavigate } from 'react-router-dom';
 import { todayIso } from "../../utils/localDate";
-import { leadingDays, weekdayLabels, startOfCompanyWeek } from "../../company/format";
+import { leadingDays, weekdayLabels, startOfCompanyWeek, dateLocale } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const safeString = (val: any, fallback = ""): string => {
   if (val === null || val === undefined) return fallback;
   if (typeof val === "string") return val;
@@ -641,7 +642,7 @@ const LeaveDashboardPage: React.FC = () => {
         return (
           <div className="flex flex-col whitespace-nowrap">
             <span className="font-bold text-gray-900 text-xs">{empName}</span>
-            <span className="text-[10px] text-gray-500 font-mono">Emp ID: #{row.employeeId}</span>
+            <span className="text-[10px] text-gray-500 font-mono">{t("Emp ID: #")}{row.employeeId}</span>
           </div>
         );
       } 
@@ -701,7 +702,7 @@ const LeaveDashboardPage: React.FC = () => {
 
   return (
     <div className="w-full space-y-1">
-      <PageMeta title="Leave Dashboard & Transactions" description="View leave balances, pending/approved metrics, and transaction audit trails" />
+      <PageMeta title={t("Leave Dashboard & Transactions")} description="View leave balances, pending/approved metrics, and transaction audit trails" />
       <PageBreadcrumb pageTitle="Leave Dashboard & Transactions" />
 
       <div className="max-w-7xl mx-auto pb-1 space-y-1 animate-in fade-in duration-200">
@@ -734,7 +735,7 @@ const LeaveDashboardPage: React.FC = () => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <CalendarDays className="w-2.5 h-2.5" /> Month
+                <CalendarDays className="w-2.5 h-2.5" /> {t("Month")}
               </button>
               <button
                 type="button"
@@ -745,7 +746,7 @@ const LeaveDashboardPage: React.FC = () => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <Clock className="w-2.5 h-2.5" /> Week
+                <Clock className="w-2.5 h-2.5" /> {t("Week")}
               </button>
               <button
                 type="button"
@@ -756,7 +757,7 @@ const LeaveDashboardPage: React.FC = () => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <User className="w-2.5 h-2.5" /> Day
+                <User className="w-2.5 h-2.5" /> {t("Day")}
               </button>
             </div>
 
@@ -767,7 +768,7 @@ const LeaveDashboardPage: React.FC = () => {
               className={`px-2 py-0.5 rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95 ${ADD_BUTTON_COLORS}`}
             >
               <Plus className="w-2.5 h-2.5" />
-              <span>Add Event</span>
+              <span>{t("Add Event")}</span>
             </button>
 
             {/* Apply Leave Button */}
@@ -776,7 +777,7 @@ const LeaveDashboardPage: React.FC = () => {
               onClick={() => { window.location.href = appUrl('/att_leaveRequest'); }}
               className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-0.5 shrink-0 active:scale-95"
             >
-              <Plus className="w-2.5 h-2.5" /> Apply Leave
+              <Plus className="w-2.5 h-2.5" /> {t("Apply Leave")}
             </button>
 
             {/* Refresh */}
@@ -784,7 +785,7 @@ const LeaveDashboardPage: React.FC = () => {
               type="button"
               onClick={() => loadData()}
               className="p-0.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded transition-all"
-              title="Refresh Data"
+              title={t("Refresh Data")}
             >
               <RotateCw className={`w-2.5 h-2.5 ${loading ? 'animate-spin text-cyan-600' : ''}`} />
             </button>
@@ -803,22 +804,22 @@ const LeaveDashboardPage: React.FC = () => {
                 {/* Left: Compact Leave Quotas */}
                 <div className="flex items-center gap-1 flex-wrap">
                   <span className="text-[9.5px] font-extrabold text-gray-500 uppercase tracking-wider mr-0.5 flex items-center gap-0.5">
-                    <Palmtree className="w-2.5 h-2.5 text-cyan-600" /> Quotas:
+                    <Palmtree className="w-2.5 h-2.5 text-cyan-600" /> {t("Quotas:")}
                   </span>
                   <div className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-white border border-cyan-200 text-[10px]">
-                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-cyan-100 text-cyan-800">CL</span>
+                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-cyan-100 text-cyan-800">{t("CL")}</span>
                     <span className="font-mono font-bold text-gray-900">{employeeDashboard.leaveBalance?.casual ?? 5}</span>
-                    <span className="text-[9px] text-gray-500">/12d</span>
+                    <span className="text-[9px] text-gray-500">{t("/12d")}</span>
                   </div>
                   <div className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-white border border-emerald-200 text-[10px]">
-                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-emerald-100 text-emerald-800">SL</span>
+                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-emerald-100 text-emerald-800">{t("SL")}</span>
                     <span className="font-mono font-bold text-gray-900">{employeeDashboard.leaveBalance?.sick ?? 12}</span>
-                    <span className="text-[9px] text-gray-500">/12d</span>
+                    <span className="text-[9px] text-gray-500">{t("/12d")}</span>
                   </div>
                   <div className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-white border border-indigo-200 text-[10px]">
-                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-indigo-100 text-indigo-800">EL</span>
+                    <span className="px-0.5 py-0 rounded text-[8px] font-extrabold bg-indigo-100 text-indigo-800">{t("EL")}</span>
                     <span className="font-mono font-bold text-gray-900">{employeeDashboard.leaveBalance?.earned ?? 16}</span>
-                    <span className="text-[9px] text-gray-500">/18d</span>
+                    <span className="text-[9px] text-gray-500">{t("/18d")}</span>
                   </div>
                 </div>
 
@@ -832,7 +833,7 @@ const LeaveDashboardPage: React.FC = () => {
                         eventCategoryFilter === 'ALL' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      All ({eventsList.length})
+                      {t("All")} ({eventsList.length})
                     </button>
                     <button
                       type="button"
@@ -841,7 +842,7 @@ const LeaveDashboardPage: React.FC = () => {
                         eventCategoryFilter === 'LEAVE' ? 'bg-cyan-700 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      <Briefcase className="w-2.5 h-2.5" /> Leaves
+                      <Briefcase className="w-2.5 h-2.5" /> {t("Leaves")}
                     </button>
                     <button
                       type="button"
@@ -850,7 +851,7 @@ const LeaveDashboardPage: React.FC = () => {
                         eventCategoryFilter === 'HOLIDAY' ? 'bg-rose-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      <Gift className="w-2.5 h-2.5" /> Holidays
+                      <Gift className="w-2.5 h-2.5" /> {t("Holidays")}
                     </button>
                     <button
                       type="button"
@@ -859,14 +860,14 @@ const LeaveDashboardPage: React.FC = () => {
                         eventCategoryFilter === 'MEETING' ? 'bg-purple-600 text-white shadow-2xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      <Users className="w-2.5 h-2.5" /> Meets
+                      <Users className="w-2.5 h-2.5" /> {t("Meets")}
                     </button>
                   </div>
 
                   <div className="hidden sm:flex items-center gap-1.5 pl-1 border-l border-gray-300 text-[8.5px] font-bold text-gray-500">
-                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Leave</span>
-                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Holiday</span>
-                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Meet</span>
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> {t("Leave")}</span>
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> {t("Holiday")}</span>
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {t("Meet")}</span>
                   </div>
                 </div>
               </div>
@@ -881,7 +882,7 @@ const LeaveDashboardPage: React.FC = () => {
                   {(() => {
                     const currYear = calendarDate.getFullYear();
                     const currMonth = calendarDate.getMonth();
-                    const monthHeaderTitle = calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+                    const monthHeaderTitle = calendarDate.toLocaleString(dateLocale("en-US"), { month: 'long', year: 'numeric' }).toUpperCase();
                     
                     const daysInCurrentMonth = new Date(currYear, currMonth + 1, 0).getDate();
                     const firstDayIndex = leadingDays(currYear, currMonth);
@@ -903,7 +904,7 @@ const LeaveDashboardPage: React.FC = () => {
                             onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
                             className="p-0.5 rounded text-gray-600 hover:bg-gray-200/60 transition-colors text-[10px] font-bold flex items-center gap-0.5"
                           >
-                            <ChevronLeft className="w-3 h-3" /> Prev
+                            <ChevronLeft className="w-3 h-3" /> {t("Prev")}
                           </button>
                           <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-wider">
                             {monthHeaderTitle}
@@ -1008,7 +1009,7 @@ const LeaveDashboardPage: React.FC = () => {
                     const endOfWeek = new Date(startOfWeek);
                     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-                    const weekHeaderTitle = `Current Week: ${startOfWeek.toLocaleString('en-US', { month: 'short', day: 'numeric' })} – ${endOfWeek.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    const weekHeaderTitle = `Current Week: ${startOfWeek.toLocaleString(dateLocale("en-US"), { month: 'short', day: 'numeric' })} – ${endOfWeek.toLocaleString(dateLocale("en-US"), { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
                     const today = new Date();
 
@@ -1024,7 +1025,7 @@ const LeaveDashboardPage: React.FC = () => {
                       const isToday = today.getFullYear() === currYear && today.getMonth() === currMonth && today.getDate() === currDay;
 
                       return {
-                        dayName: d.toLocaleString('en-US', { weekday: 'short' }),
+                        dayName: d.toLocaleString(dateLocale("en-US"), { weekday: 'short' }),
                         dayNum: currDay,
                         dateStr: dayStr,
                         isToday: isToday
@@ -1035,7 +1036,7 @@ const LeaveDashboardPage: React.FC = () => {
                       <div className="p-3 space-y-3">
                         <div className="bg-blue-50/60 p-2.5 rounded-xl border border-blue-200/80 flex items-center justify-between text-xs text-blue-900 font-bold">
                           <span>{weekHeaderTitle}</span>
-                          <span className="text-[11px] font-normal text-blue-700">7 Days Schedule</span>
+                          <span className="text-[11px] font-normal text-blue-700">{t("7 Days Schedule")}</span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-7 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
@@ -1083,7 +1084,7 @@ const LeaveDashboardPage: React.FC = () => {
                                   ))}
 
                                   {colEvents.length === 0 && (
-                                    <div className="text-[10px] text-gray-400 text-center py-6 italic">No Events</div>
+                                    <div className="text-[10px] text-gray-400 text-center py-6 italic">{t("No Events")}</div>
                                   )}
                                 </div>
                               </div>
@@ -1092,7 +1093,7 @@ const LeaveDashboardPage: React.FC = () => {
                                 type="button"
                                 className="w-full mt-2 py-1 text-[10px] font-bold text-blue-600 hover:bg-blue-100/60 rounded border border-blue-200 text-center transition-colors"
                               >
-                                + Add Event
+                                {t("+ Add Event")}
                               </button>
                             </div>
                           );
@@ -1105,7 +1106,7 @@ const LeaveDashboardPage: React.FC = () => {
                   {/* ── MODE 3: DAY VIEW ─────────────────────────────────────────── */}
                   {calendarViewMode === 'day' && (() => {
                     const selectedDayStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(calendarDate.getDate()).padStart(2, '0')}`;
-                    const formattedDayTitle = calendarDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    const formattedDayTitle = calendarDate.toLocaleDateString(dateLocale("en-US"), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                     const dayEventsForDate = eventsList.filter(e => e.dateStr === selectedDayStr);
 
                     return (
@@ -1114,7 +1115,7 @@ const LeaveDashboardPage: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <Calendar className="w-5 h-5 text-amber-700" />
                             <div>
-                              <h4 className="text-xs font-bold text-amber-900">Schedule — {formattedDayTitle}</h4>
+                              <h4 className="text-xs font-bold text-amber-900">{t("Schedule —")} {formattedDayTitle}</h4>
                               <span className="text-[11px] text-amber-700 font-medium">Single Day Schedule View ({dayEventsForDate.length} events)</span>
                             </div>
                           </div>
@@ -1126,7 +1127,7 @@ const LeaveDashboardPage: React.FC = () => {
                             }}
                             className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Add Schedule Event
+                            <Plus className="w-3.5 h-3.5" /> {t("Add Schedule Event")}
                           </button>
                         </div>
 
@@ -1188,7 +1189,7 @@ const LeaveDashboardPage: React.FC = () => {
                                           <div className="text-[10px] font-normal opacity-80 mt-0.5">{matchedEvt.description} • 📍 {matchedEvt.location}</div>
                                         </div>
                                       </div>
-                                      <span className="px-2 py-0.5 bg-white text-blue-700 rounded border border-blue-200 text-[10px] font-mono">Scheduled</span>
+                                      <span className="px-2 py-0.5 bg-white text-blue-700 rounded border border-blue-200 text-[10px] font-mono">{t("Scheduled")}</span>
                                     </div>
                                   ) : (
                                     <span className="text-xs text-gray-600 font-medium">{slot.label}</span>
@@ -1213,8 +1214,8 @@ const LeaveDashboardPage: React.FC = () => {
                         <Calendar className="w-3 h-3" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-[11.5px] font-bold text-gray-900 whitespace-nowrap truncate">Upcoming Events</h3>
-                        <span className="text-[9.5px] text-gray-500 font-medium block truncate">Total: <strong className="text-gray-900">{eventsList.length}</strong></span>
+                        <h3 className="text-[11.5px] font-bold text-gray-900 whitespace-nowrap truncate">{t("Upcoming Events")}</h3>
+                        <span className="text-[9.5px] text-gray-500 font-medium block truncate">{t("Total:")} <strong className="text-gray-900">{eventsList.length}</strong></span>
                       </div>
                     </div>
 
@@ -1226,10 +1227,10 @@ const LeaveDashboardPage: React.FC = () => {
                           ? 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'
                           : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                       }`}
-                      title={showOnlyUpcoming ? "Click to show all events" : "Click to show upcoming events only"}
+                      title={t(showOnlyUpcoming ? "Click to show all events" : "Click to show upcoming events only")}
                     >
                       <Filter className={`w-2 h-2 shrink-0 ${showOnlyUpcoming ? 'text-cyan-600' : 'text-gray-500'}`} />
-                      <span>{showOnlyUpcoming ? "Upcoming" : "All"}</span>
+                      <span>{t(showOnlyUpcoming ? "Upcoming" : "All")}</span>
                     </button>
                   </div>
 
@@ -1318,9 +1319,9 @@ const LeaveDashboardPage: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                   <div className="flex items-center gap-2">
                     <PieChart className="w-4 h-4 text-cyan-600" />
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Leave Request Status</h3>
+                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">{t("Leave Request Status")}</h3>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-400 font-mono">Real-Time Distribution</span>
+                  <span className="text-[10px] font-bold text-gray-400 font-mono">{t("Real-Time Distribution")}</span>
                 </div>
 
                 <div className="pt-2">
@@ -1360,7 +1361,7 @@ const LeaveDashboardPage: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <div className="h-[230px] flex items-center justify-center text-xs text-gray-400 font-medium">Loading distribution...</div>
+                    <div className="h-[230px] flex items-center justify-center text-xs text-gray-400 font-medium">{t("Loading distribution...")}</div>
                   )}
                 </div>
               </div>
@@ -1370,9 +1371,9 @@ const LeaveDashboardPage: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-cyan-600" />
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Monthly Team Leave Trends</h3>
+                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">{t("Monthly Team Leave Trends")}</h3>
                   </div>
-                  <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 font-mono">FY 2026</span>
+                  <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 font-mono">{t("FY 2026")}</span>
                 </div>
 
                 <div className="pt-2">
@@ -1396,7 +1397,7 @@ const LeaveDashboardPage: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <div className="h-[230px] flex items-center justify-center text-xs text-gray-400 font-medium">Loading trends...</div>
+                    <div className="h-[230px] flex items-center justify-center text-xs text-gray-400 font-medium">{t("Loading trends...")}</div>
                   )}
                 </div>
               </div>
@@ -1411,8 +1412,8 @@ const LeaveDashboardPage: React.FC = () => {
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Pending Approval Queues</h3>
-                    <p className="text-xs text-gray-500">Review and action pending requests across all 3 attendance approval streams</p>
+                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">{t("Pending Approval Queues")}</h3>
+                    <p className="text-xs text-gray-500">{t("Review and action pending requests across all 3 attendance approval streams")}</p>
                   </div>
                 </div>
 
@@ -1422,7 +1423,7 @@ const LeaveDashboardPage: React.FC = () => {
                     onClick={() => setIsAdjustmentModalOpen(true)}
                     className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Post Adjustment
+                    <Plus className="w-3.5 h-3.5" /> {t("Post Adjustment")}
                   </button>
                 </div>
               </div>
@@ -1438,15 +1439,15 @@ const LeaveDashboardPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-emerald-700" />
-                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Leave Approvals</span>
+                      <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">{t("Leave Approvals")}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-2xs">
                       {pendingQueueCounts.leave} Pending
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-600">Employee leave applications & balances</p>
+                  <p className="text-[11px] text-gray-600">{t("Employee leave applications & balances")}</p>
                   <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform pt-1">
-                    <span>Manage Leave Queue</span>
+                    <span>{t("Manage Leave Queue")}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -1459,15 +1460,15 @@ const LeaveDashboardPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <FileCheck className="w-4 h-4 text-amber-700" />
-                      <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Regularization</span>
+                      <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">{t("Regularization")}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-600 text-white shadow-2xs">
                       {pendingQueueCounts.regularization} Pending
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-600">Punch corrections & missed time logs</p>
+                  <p className="text-[11px] text-gray-600">{t("Punch corrections & missed time logs")}</p>
                   <div className="flex items-center gap-1 text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform pt-1">
-                    <span>Manage Regularization Queue</span>
+                    <span>{t("Manage Regularization Queue")}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -1480,15 +1481,15 @@ const LeaveDashboardPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Briefcase className="w-4 h-4 text-cyan-700" />
-                      <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">On Duty Approvals</span>
+                      <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">{t("On Duty Approvals")}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-cyan-600 text-white shadow-2xs">
                       {pendingQueueCounts.onDuty} Pending
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-600">Business trip & client visit applications</p>
+                  <p className="text-[11px] text-gray-600">{t("Business trip & client visit applications")}</p>
                   <div className="flex items-center gap-1 text-xs font-bold text-cyan-700 group-hover:translate-x-0.5 transition-transform pt-1">
-                    <span>Manage On-Duty Queue</span>
+                    <span>{t("Manage On-Duty Queue")}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -1503,7 +1504,7 @@ const LeaveDashboardPage: React.FC = () => {
                 columns={adjustmentColumns}
                 loading={loading}
                 searchable={true}
-                searchPlaceholder="Search adjustments by leave category or remarks..."
+                searchPlaceholder={t("Search adjustments by leave category or remarks...")}
                 pageSize={5}
                 defaultSortKey="leaveType"
                 defaultSortOrder="asc"
@@ -1519,7 +1520,7 @@ const LeaveDashboardPage: React.FC = () => {
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-5 h-5 text-cyan-600" />
-                  <h3 className="text-sm font-bold text-gray-900 uppercase">Post Leave Adjustment</h3>
+                  <h3 className="text-sm font-bold text-gray-900 uppercase">{t("Post Leave Adjustment")}</h3>
                 </div>
                 <button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
@@ -1528,7 +1529,7 @@ const LeaveDashboardPage: React.FC = () => {
 
               <form onSubmit={handleAdjustmentSubmit} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Employee ID *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">{t("Employee ID *")}</label>
                   <input
                     type="number"
                     value={adjustmentForm.employeeId}
@@ -1539,15 +1540,15 @@ const LeaveDashboardPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Leave Category *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">{t("Leave Category *")}</label>
                   <select
                     value={adjustmentForm.leaveType}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, leaveType: e.target.value as any }))}
                     className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-800"
                   >
-                    <option value="CASUAL">CASUAL LEAVE</option>
-                    <option value="SICK">SICK LEAVE</option>
-                    <option value="EARNED">EARNED LEAVE</option>
+                    <option value="CASUAL">{t("CASUAL LEAVE")}</option>
+                    <option value="SICK">{t("SICK LEAVE")}</option>
+                    <option value="EARNED">{t("EARNED LEAVE")}</option>
                   </select>
                 </div>
 
@@ -1557,18 +1558,18 @@ const LeaveDashboardPage: React.FC = () => {
                     type="number"
                     value={adjustmentForm.adjustmentLeaves}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, adjustmentLeaves: Number(e.target.value) }))}
-                    placeholder="e.g. 2 or -1"
+                    placeholder={t("e.g. 2 or -1")}
                     className="w-full py-2 px-3 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold font-mono text-gray-800"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Remarks / Justification *</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">{t("Remarks / Justification *")}</label>
                   <textarea
                     value={adjustmentForm.remarks}
                     onChange={(e) => setAdjustmentForm(p => ({ ...p, remarks: e.target.value }))}
-                    placeholder="e.g. Added 2 additional leaves to compensate comp-offs"
+                    placeholder={t("e.g. Added 2 additional leaves to compensate comp-offs")}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-semibold text-gray-800 h-20 outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                     required
                   />
@@ -1579,14 +1580,14 @@ const LeaveDashboardPage: React.FC = () => {
                     onClick={() => setIsAdjustmentModalOpen(false)}
                     className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
                     className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
                   >
-                    {isSubmitting ? "Processing..." : "Submit Adjustment"}
+                    {t(isSubmitting ? "Processing..." : "Submit Adjustment")}
                   </button>
                 </div>
               </form>
@@ -1601,7 +1602,7 @@ const LeaveDashboardPage: React.FC = () => {
               <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-white" />
-                  <h3 className="text-sm font-extrabold text-white tracking-wide">Add Calendar Event</h3>
+                  <h3 className="text-sm font-extrabold text-white tracking-wide">{t("Add Calendar Event")}</h3>
                 </div>
                 <button
                   type="button"
@@ -1614,20 +1615,20 @@ const LeaveDashboardPage: React.FC = () => {
 
               <form onSubmit={handleCreateEvent} className="p-4 sm:p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1">Event Title *</label>
+                  <label className="block text-xs font-bold text-slate-900 mb-1">{t("Event Title *")}</label>
                   <input
                     type="text"
                     value={newEventForm.title}
                     onChange={(e) => setNewEventForm(p => ({ ...p, title: e.target.value }))}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none placeholder:text-slate-400 transition-all"
-                    placeholder="e.g. Quarterly Team Planning"
+                    placeholder={t("e.g. Quarterly Team Planning")}
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">Date *</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">{t("Date *")}</label>
                     <input
                       type="date"
                       value={newEventForm.dateStr}
@@ -1639,13 +1640,13 @@ const LeaveDashboardPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">Time *</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">{t("Time *")}</label>
                     <input
                       type="text"
                       value={newEventForm.time}
                       onChange={(e) => setNewEventForm(p => ({ ...p, time: e.target.value }))}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none font-mono placeholder:text-slate-400 transition-all"
-                      placeholder="05:30 AM"
+                      placeholder={t("05:30 AM")}
                       required
                     />
                   </div>
@@ -1653,39 +1654,39 @@ const LeaveDashboardPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">Location</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">{t("Location")}</label>
                     <input
                       type="text"
                       value={newEventForm.location}
                       onChange={(e) => setNewEventForm(p => ({ ...p, location: e.target.value }))}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none placeholder:text-slate-400 transition-all"
-                      placeholder="e.g. Conference Room B"
+                      placeholder={t("e.g. Conference Room B")}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">Color Tag</label>
+                    <label className="block text-xs font-bold text-slate-900 mb-1">{t("Color Tag")}</label>
                     <select
                       value={newEventForm.type}
                       onChange={(e) => setNewEventForm(p => ({ ...p, type: e.target.value }))}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all cursor-pointer"
                     >
-                      <option value="blue">Blue (Conference)</option>
-                      <option value="emerald">Green (Meeting)</option>
-                      <option value="amber">Amber (Workshop)</option>
-                      <option value="rose">Red (Product Launch)</option>
-                      <option value="purple">Purple (Client)</option>
+                      <option value="blue">{t("Blue (Conference)")}</option>
+                      <option value="emerald">{t("Green (Meeting)")}</option>
+                      <option value="amber">{t("Amber (Workshop)")}</option>
+                      <option value="rose">{t("Red (Product Launch)")}</option>
+                      <option value="purple">{t("Purple (Client)")}</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1">Description / Notes</label>
+                  <label className="block text-xs font-bold text-slate-900 mb-1">{t("Description / Notes")}</label>
                   <textarea
                     rows={3}
                     value={newEventForm.description}
                     onChange={(e) => setNewEventForm(p => ({ ...p, description: e.target.value }))}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-none resize-none placeholder:text-slate-400 transition-all"
-                    placeholder="Provide details about this event..."
+                    placeholder={t("Provide details about this event...")}
                   />
                 </div>
 
@@ -1695,13 +1696,13 @@ const LeaveDashboardPage: React.FC = () => {
                     onClick={() => setIsAddEventModalOpen(false)}
                     className="w-full sm:w-auto px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     type="submit"
                     className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all active:scale-95"
                   >
-                    Save Event
+                    {t("Save Event")}
                   </button>
                 </div>
               </form>
@@ -1741,7 +1742,7 @@ const LeaveDashboardPage: React.FC = () => {
                     return (
                       <>
                         <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                          <span className="text-gray-600 font-semibold">Application Category:</span>
+                          <span className="text-gray-600 font-semibold">{t("Application Category:")}</span>
                           <span className="font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 text-[11px] flex items-center gap-1">
                             <Briefcase className="w-3 h-3 text-cyan-600" /> {selectedEventDetails.title}
                           </span>
@@ -1755,7 +1756,7 @@ const LeaveDashboardPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                          <span className="text-gray-600 font-semibold">Applicant:</span>
+                          <span className="text-gray-600 font-semibold">{t("Applicant:")}</span>
                           <span className="font-bold text-gray-900 flex items-center gap-1">
                             <User className="w-3.5 h-3.5 text-cyan-600" />
                             {currentUser.name} (#{activeEmployeeId})
@@ -1763,7 +1764,7 @@ const LeaveDashboardPage: React.FC = () => {
                         </div>
 
                         <div>
-                          <span className="block text-xs font-bold text-gray-800 mb-1.5">Reason / Remarks:</span>
+                          <span className="block text-xs font-bold text-gray-800 mb-1.5">{t("Reason / Remarks:")}</span>
                           <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed font-medium">
                             {selectedEventDetails.description || "Personal Leave Application"}
                           </div>
@@ -1776,29 +1777,29 @@ const LeaveDashboardPage: React.FC = () => {
                     return (
                       <>
                         <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                          <span className="text-gray-600 font-semibold">Holiday Title:</span>
+                          <span className="text-gray-600 font-semibold">{t("Holiday Title:")}</span>
                           <span className="font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 text-[11px] flex items-center gap-1">
                             <Gift className="w-3 h-3 text-rose-600" /> {selectedEventDetails.title}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                          <span className="text-gray-600 font-semibold">Holiday Date:</span>
+                          <span className="text-gray-600 font-semibold">{t("Holiday Date:")}</span>
                           <span className="font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded text-[11px]">
                             {selectedEventDetails.dateStr}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                          <span className="text-gray-600 font-semibold">Applicability:</span>
+                          <span className="text-gray-600 font-semibold">{t("Applicability:")}</span>
                           <span className="font-bold text-rose-700 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-rose-600" />
-                            Organization-Wide Official Holiday
+                            {t("Organization-Wide Official Holiday")}
                           </span>
                         </div>
 
                         <div>
-                          <span className="block text-xs font-bold text-gray-800 mb-1.5">Holiday Description:</span>
+                          <span className="block text-xs font-bold text-gray-800 mb-1.5">{t("Holiday Description:")}</span>
                           <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed font-medium">
                             {selectedEventDetails.description || "Mandatory Organization Holiday"}
                           </div>
@@ -1811,14 +1812,14 @@ const LeaveDashboardPage: React.FC = () => {
                   return (
                     <>
                       <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                        <span className="text-gray-600 font-semibold">Scheduled Date:</span>
+                        <span className="text-gray-600 font-semibold">{t("Scheduled Date:")}</span>
                         <span className="font-bold text-gray-900 font-mono bg-gray-100 px-2 py-0.5 rounded text-[11px]">
                           {selectedEventDetails.dateStr} • {selectedEventDetails.time}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                        <span className="text-gray-600 font-semibold">Location / Venue:</span>
+                        <span className="text-gray-600 font-semibold">{t("Location / Venue:")}</span>
                         <span className="font-bold text-cyan-800 flex items-center gap-1">
                           <MapPin className="w-3.5 h-3.5 text-cyan-600" />
                           {selectedEventDetails.location}
@@ -1826,7 +1827,7 @@ const LeaveDashboardPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between text-xs border-b border-gray-100 pb-3">
-                        <span className="text-gray-600 font-semibold">Attendees / Capacity:</span>
+                        <span className="text-gray-600 font-semibold">{t("Attendees / Capacity:")}</span>
                         <span className="font-bold text-gray-900 flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-gray-500" />
                           {selectedEventDetails.attendees} Guest(s)
@@ -1880,7 +1881,7 @@ const LeaveDashboardPage: React.FC = () => {
                     onClick={() => setSelectedEventDetails(null)}
                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition-all border border-gray-200"
                   >
-                    Close
+                    {t("Close")}
                   </button>
                 </div>
               </div>

@@ -26,7 +26,8 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../componen
 import { CONTACT_ROLE_OPTIONS, apiError } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 
-const roleLabel = (role?: string) => CONTACT_ROLE_OPTIONS.find((o) => o.id === role)?.name ?? role ?? "";
+import { t } from "../../i18n/i18n";
+const roleLabel = (role?: string) => t(String(CONTACT_ROLE_OPTIONS.find((o) => o.id === role)?.name ?? role ?? ""));
 
 const ADD_DRAFT_STORAGE_KEY = "contactPerson:addDraft";
 const EDIT_DRAFT_STORAGE_KEY = "contactPerson:editDraft";
@@ -590,7 +591,7 @@ const handleEditContact = async (e: FormEvent) => {
           </span>
       ) : (
   <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full border border-gray-200 bg-gray-50 text-gray-500">
-    No role
+    {t("No role")}
   </span>
 )
     },
@@ -608,7 +609,7 @@ const handleEditContact = async (e: FormEvent) => {
             </span>
           </span>
         ) : (
-          <span className="text-xs text-gray-400 italic">No company</span>
+          <span className="text-xs text-gray-400 italic">{t("No company")}</span>
         ),
     },
     {
@@ -626,7 +627,7 @@ const handleEditContact = async (e: FormEvent) => {
                 setShowEditModal(true);
               }}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-              title="Edit Contact"
+              title={t("Edit Contact")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -640,7 +641,7 @@ const handleEditContact = async (e: FormEvent) => {
                 setShowAssignModal(true);
               }}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-              title="Add Customer"
+              title={t("Add Customer")}
             >
               <UserPlusIcon className="h-4 w-4" />
             </button>
@@ -649,7 +650,7 @@ const handleEditContact = async (e: FormEvent) => {
               type="button"
               onClick={() => navigate(`/crm-view/customers/${contact.customer?.id}`, { state: { from: "contacts" } })}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-              title="View Customer"
+              title={t("View Customer")}
             >
               <UsersIcon className="h-4 w-4" />
             </button>
@@ -660,7 +661,7 @@ const handleEditContact = async (e: FormEvent) => {
               type="button"
               onClick={() => handleDelete(contact.id)}
               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-              title="Delete Contact"
+              title={t("Delete Contact")}
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -672,7 +673,7 @@ const handleEditContact = async (e: FormEvent) => {
 
   return (
     <>
-      <PageMeta title="Contact Persons" description="Manage your contact persons" />
+      <PageMeta title={t("Contact Persons")} description="Manage your contact persons" />
       <PageBreadcrumb
         pageTitle="Contact Persons"
         actions={
@@ -682,7 +683,7 @@ const handleEditContact = async (e: FormEvent) => {
               if (scopedCustomerId) setNewContact((c) => ({ ...c, customerId: String(scopedCustomerId) }));
               setShowAddModal(true);
             }}
-            label="Add Contact Person"
+            label={t("Add Contact Person")}
           />
         }
       />
@@ -690,37 +691,37 @@ const handleEditContact = async (e: FormEvent) => {
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         {scopedCustomerId && (
           <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
-            <span>Showing contacts of <strong>{getCustomerDisplayName(scopedCustomer)}</strong></span>
+            <span>{t("Showing contacts of")} <strong>{getCustomerDisplayName(scopedCustomer)}</strong></span>
             <button type="button" onClick={() => navigate("/contactPerson")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
-              View all contacts
+              {t("View all contacts")}
             </button>
           </div>
         )}
         <div className="py-4 px-3">
         <div className=" grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
           <StatsCard
-            label="Total Contacts"
+            label={t("Total Contacts")}
             value={totalContacts}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="With Customers"
+            label={t("With Customers")}
             value={withCustomers}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Decision Makers"
+            label={t("Decision Makers")}
             value={decisionMakers}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
           />
           <StatsCard
-            label="Influencers"
+            label={t("Influencers")}
             value={influencers}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -743,7 +744,7 @@ const handleEditContact = async (e: FormEvent) => {
                rowDetailsTitle={(row: any) =>
                row.fullName || row.name || `Contact #${row.id}`
                  }
-             rowDetailsSubtitle="Contact details"
+             rowDetailsSubtitle={t("Contact details")}
              hiddenDetailKeys={[
                "id",
                "tenantId",
@@ -758,16 +759,16 @@ const handleEditContact = async (e: FormEvent) => {
               emptyState={
                 <div className="flex flex-col items-center justify-center">
                   <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
-                  <p className="text-gray-500 text-sm mb-2">No contacts found</p>
+                  <p className="text-gray-500 text-sm mb-2">{t("No contacts found")}</p>
                   {search || activeFilter !== "ALL" ? (
-                    <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                    <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
                   ) : canCreate && (
                     <button
                       type="button"
                       onClick={() => setShowAddModal(true)}
                       className="mt-2 text-cyan-600 hover:text-cyan-700 text-sm font-medium"
                     >
-                      Add your first contact
+                      {t("Add your first contact")}
                     </button>
                   )}
                 </div>
@@ -778,12 +779,12 @@ const handleEditContact = async (e: FormEvent) => {
      {/* Add / Edit Contact (PaginatedPopup) */}
 <PaginatedPopup
   isOpen={showAddModal || (showEditModal && !!editContact)}
-  title={showEditModal ? "Edit Contact" : "Add Contact Person"}
-  subtitle={
+  title={t(showEditModal ? "Edit Contact" : "Add Contact Person")}
+  subtitle={t(
     showEditModal
       ? "Update contact information"
       : "Add a new contact to your network"
-  }
+  )}
   onClose={() => {
     if (showEditModal) {
       setShowEditModal(false);
@@ -793,7 +794,7 @@ const handleEditContact = async (e: FormEvent) => {
     }
   }}
   onSubmit={showEditModal ? handleEditContact : handleAddContact}
-  submitLabel={showEditModal ? "Update Contact" : "Add Contact"}
+  submitLabel={t(showEditModal ? "Update Contact" : "Add Contact")}
   submitting={isSaving}
   fields={
     showEditModal && editContact
@@ -801,7 +802,7 @@ const handleEditContact = async (e: FormEvent) => {
           // ---- EDIT FIELDS ----
           <FloatingInput
             key="fullName"
-            label="Full Name"
+            label={t("Full Name")}
             name="fullName"
             value={editContact.fullName}
             onChange={(e) =>
@@ -811,7 +812,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingInput
             key="email"
-            label="Email"
+            label={t("Email")}
             name="email"
             value={editContact.email}
             onChange={(e) =>
@@ -821,7 +822,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingInput
             key="phone"
-            label="Phone"
+            label={t("Phone")}
             name="phone"
             value={editContact.phone}
             onChange={(e) =>
@@ -831,7 +832,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingInput
             key="designation"
-            label="Designation"
+            label={t("Designation")}
             name="designation"
             value={editContact.designation || ""}
             onChange={(e) =>
@@ -840,7 +841,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingSelect
             key="role"
-            label="Role"
+            label={t("Role")}
             name="role"
             value={editContact.role || ""}
             onChange={(e) =>
@@ -850,7 +851,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <div key="customer" className="md:col-span-2">
             <FloatingSelect
-              label="Company"
+              label={t("Company")}
               name="customerId"
               value={editContact.customer?.id || ""}
               onChange={(e) => {
@@ -871,7 +872,7 @@ const handleEditContact = async (e: FormEvent) => {
           // ---- ADD FIELDS ----
           <FloatingInput
             key="fullName"
-            label="Full Name"
+            label={t("Full Name")}
             name="fullName"
             value={newContact.fullName}
             onChange={(e) =>
@@ -881,7 +882,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingInput
             key="email"
-            label="Email"
+            label={t("Email")}
             name="email"
             value={newContact.email}
             onChange={(e) =>
@@ -891,7 +892,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingInput
             key="phone"
-            label="Phone"
+            label={t("Phone")}
             name="phone"
             value={newContact.phone}
             onChange={(e) =>
@@ -901,7 +902,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingInput
             key="designation"
-            label="Designation"
+            label={t("Designation")}
             name="designation"
             value={newContact.designation}
             onChange={(e) =>
@@ -910,7 +911,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <FloatingSelect
             key="role"
-            label="Role"
+            label={t("Role")}
             name="role"
             value={newContact.role}
             onChange={(e) =>
@@ -920,7 +921,7 @@ const handleEditContact = async (e: FormEvent) => {
           />,
           <div key="customerId" className="md:col-span-2">
             <FloatingSelect
-              label="Company"
+              label={t("Company")}
               required
               name="customerId"
               value={newContact.customerId}
@@ -944,10 +945,10 @@ const handleEditContact = async (e: FormEvent) => {
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">
-                    Assign Customer
+                    {t("Assign Customer")}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    Link a customer to this contact
+                    {t("Link a customer to this contact")}
                   </p>
                 </div>
                 <button
@@ -960,7 +961,7 @@ const handleEditContact = async (e: FormEvent) => {
 
               <div className="p-6">
                 <p className="text-sm text-gray-600 mb-6">
-                  Select a customer from the list to assign to this contact.
+                  {t("Select a customer from the list to assign to this contact.")}
                 </p>
 
                 <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-xl mb-4">
@@ -986,7 +987,7 @@ const handleEditContact = async (e: FormEvent) => {
                     ))
                   ) : (
                     <div className="p-6 text-center">
-                      <p className="text-sm text-gray-500">No customers available</p>
+                      <p className="text-sm text-gray-500">{t("No customers available")}</p>
                     </div>
                   )}
                 </div>
@@ -996,7 +997,7 @@ const handleEditContact = async (e: FormEvent) => {
                     onClick={() => setShowAssignModal(false)}
                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                   >
-                    Close
+                    {t("Close")}
                   </button>
                 </div>
               </div>
@@ -1009,14 +1010,14 @@ const handleEditContact = async (e: FormEvent) => {
           setIsPopupOpen={setShowDeletePopup}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Contact?"
+          innerText={t("Delete Contact?")}
           subText={
             contactToDelete
               ? `Are you sure you want to delete ${contactToDelete.fullName}? This action cannot be undone.`
               : "Are you sure you want to delete this contact?"
           }
-          confirmLabel="Delete Contact"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete Contact")}
+          cancelLabel={t("Cancel")}
           onConfirm={confirmDelete}
           onCancel={() => setContactToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

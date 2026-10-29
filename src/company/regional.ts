@@ -1,6 +1,7 @@
 // A company's regional settings (user-service /v1/api/user/company): what can be chosen, per-country
 // defaults, and preview formatting. Language, currency and time zone are independent settings.
 import { Country, type ICountry } from "country-state-city";
+import { language } from "../i18n/i18n";
 
 export interface RegionalSettings {
   currency: string;
@@ -46,7 +47,13 @@ export const NUMBER_LOCALES = [
 // Monday first, as the server sorts them
 export const WEEK_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 export const WEEK_STARTS = ["SATURDAY", "SUNDAY", "MONDAY"];
-export const dayLabel = (day: string) => day.charAt(0) + day.slice(1).toLowerCase();
+const DAY_LABELS_AR: Record<string, string> = {
+  SUNDAY: "الأحد", MONDAY: "الإثنين", TUESDAY: "الثلاثاء", WEDNESDAY: "الأربعاء", THURSDAY: "الخميس", FRIDAY: "الجمعة", SATURDAY: "السبت",
+};
+
+/** MONDAY → Monday (الإثنين when the screen is Arabic). */
+export const dayLabel = (day: string) =>
+  (language() === "ar" && DAY_LABELS_AR[day.toUpperCase()]) || day.charAt(0) + day.slice(1).toLowerCase();
 
 // Weekends and week starts that differ from Sat–Sun / Monday (others use those)
 const WEEK_BY_COUNTRY: Record<string, { weekendDays: string[]; weekStart: string }> = {
@@ -129,13 +136,13 @@ export const timeZones = (): string[] => {
   return zones.length ? zones : ["UTC", "Asia/Dubai", "Asia/Riyadh", "Asia/Qatar", "Asia/Kuwait", "Asia/Bahrain", "Asia/Muscat", "Asia/Kolkata", "Europe/London"];
 };
 
-/** ISO currencies with their English names, Gulf currencies and INR first. */
+/** ISO currencies named in the screen language, Gulf currencies and INR first. */
 export const currencies = (): { code: string; name: string }[] => {
   const first = ["AED", "SAR", "QAR", "KWD", "BHD", "OMR", "INR", "USD", "EUR", "GBP"];
   const codes = supportedValuesOf?.("currency") ?? first;
   let names: Intl.DisplayNames | null = null;
   try {
-    names = new Intl.DisplayNames(["en"], { type: "currency" });
+    names = new Intl.DisplayNames([language()], { type: "currency" });
   } catch {
     names = null;
   }
@@ -146,7 +153,7 @@ export const currencies = (): { code: string; name: string }[] => {
 /** A date in the given pattern and zone, e.g. ("dd MMM yyyy", "Asia/Dubai") → "28 Oct 2026". */
 export const formatDateIn = (date: Date, pattern: string, timeZone: string): string => {
   const parts = (opts: Intl.DateTimeFormatOptions) =>
-    Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone, ...opts }).formatToParts(date).map((p) => [p.type, p.value]));
+    Object.fromEntries(new Intl.DateTimeFormat(language() === "ar" ? "ar-AE-u-nu-latn" : "en-GB", { timeZone, ...opts }).formatToParts(date).map((p) => [p.type, p.value]));
   const numeric = parts({ year: "numeric", month: "2-digit", day: "2-digit" });
   const short = parts({ month: "short" });
   return pattern
@@ -162,4 +169,18 @@ export const formatTimeIn = (date: Date, timeFormat: string, timeZone: string): 
 export const formatMoneyIn = (amount: number, currency: string, decimals: number, numberLocale: string): string => {
   const number = new Intl.NumberFormat(numberLocale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(amount);
   return `${currency} ${number}`;
+};
+
+// A country's name in the screen language (from its ISO code), else the given English name
+const regionNames = new Map<string, Intl.DisplayNames | null>();
+export const countryLabel = (isoCode: string, fallback: string): string => {
+  const lang = language();
+  if (!regionNames.has(lang)) {
+    try {
+      regionNames.set(lang, new Intl.DisplayNames([lang], { type: "region" }));
+    } catch {
+      regionNames.set(lang, null);
+    }
+  }
+  return (isoCode && regionNames.get(lang)?.of(isoCode)) || fallback;
 };

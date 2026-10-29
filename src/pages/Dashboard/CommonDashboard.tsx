@@ -12,6 +12,7 @@ import {
 } from "./dashboardKit";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Master data shared by the modules (the common service): customers, vendors, product categories and products, plus tax set-up.
 
 interface Customer {
@@ -121,18 +122,18 @@ export default function CommonDashboard() {
       <ModuleTiles tiles={tiles} loading={loading} />
 
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Active Customers" value={data.customers ? formatNumber(active.length) : "—"}
+        <KpiCard label={t("Active Customers")} value={data.customers ? formatNumber(active.length) : "—"}
           hint={data.customers ? `${formatNumber(customers.length)} in total` : undefined} icon={UserCheck} tone="blue" loading={loading} />
-        <KpiCard label="On Hold or Blocked" value={data.customers ? formatNumber(onHold.length) : "—"} hint="Can't take new orders" icon={AlertTriangle} tone="red" loading={loading} />
-        <KpiCard label="Over Credit Limit" value={data.customers ? formatNumber(overLimit.length) : "—"}
+        <KpiCard label={t("On Hold or Blocked")} value={data.customers ? formatNumber(onHold.length) : "—"} hint={t("Can't take new orders")} icon={AlertTriangle} tone="red" loading={loading} />
+        <KpiCard label={t("Over Credit Limit")} value={data.customers ? formatNumber(overLimit.length) : "—"}
           hint={data.customers ? `${formatMoney(customers.reduce((t, c) => t + balanceOf(c), 0), currency, true)} outstanding` : undefined}
           icon={CreditCard} tone="amber" loading={loading} />
-        <KpiCard label="Incomplete Records" value={data.customers ? formatNumber(incomplete.length) : "—"} hint="Missing GSTIN, email, phone or address"
+        <KpiCard label={t("Incomplete Records")} value={data.customers ? formatNumber(incomplete.length) : "—"} hint={t("Missing GSTIN, email, phone or address")}
           icon={ClipboardX} tone="purple" loading={loading} />
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Customers by Status" subtitle="Where each customer stands" icon={Users} iconClass="text-blue-500">
+        <Panel title={t("Customers by Status")} subtitle={t("Where each customer stands")} icon={Users} iconClass="text-blue-500">
           {byStatus.length === 0 ? (
             <EmptyState loading={loading}>{noCustomers}</EmptyState>
           ) : (
@@ -148,7 +149,7 @@ export default function CommonDashboard() {
           )}
         </Panel>
 
-        <Panel title="Customers by Type" subtitle="Top 6 customer types" icon={UserCheck} iconClass="text-emerald-500">
+        <Panel title={t("Customers by Type")} subtitle={t("Top 6 customer types")} icon={UserCheck} iconClass="text-emerald-500">
           {byType.length === 0 ? (
             <EmptyState loading={loading}>{noCustomers}</EmptyState>
           ) : (
@@ -168,14 +169,14 @@ export default function CommonDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Highest Balances" subtitle="Customers with the most outstanding" bodyClass="overflow-x-auto">
+        <Panel title={t("Highest Balances")} subtitle={t("Customers with the most outstanding")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Customer</th>
-                <th className={TABLE_HEAD}>Outstanding</th>
-                <th className={TABLE_HEAD}>Credit limit</th>
-                <th className={TABLE_HEAD}>Used</th>
+                <th className={TABLE_HEAD}>{t("Customer")}</th>
+                <th className={TABLE_HEAD}>{t("Outstanding")}</th>
+                <th className={TABLE_HEAD}>{t("Credit limit")}</th>
+                <th className={TABLE_HEAD}>{t("Used")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -200,13 +201,13 @@ export default function CommonDashboard() {
           </table>
         </Panel>
 
-        <Panel title="Records to Complete" subtitle="Customers missing details needed on invoices" bodyClass="overflow-x-auto">
+        <Panel title={t("Records to Complete")} subtitle={t("Customers missing details needed on invoices")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Customer</th>
-                <th className={TABLE_HEAD}>Status</th>
-                <th className={TABLE_HEAD}>Missing</th>
+                <th className={TABLE_HEAD}>{t("Customer")}</th>
+                <th className={TABLE_HEAD}>{t("Status")}</th>
+                <th className={TABLE_HEAD}>{t("Missing")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">

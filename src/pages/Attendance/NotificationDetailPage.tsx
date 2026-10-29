@@ -58,6 +58,7 @@ const typeIcons: Record<AttendanceNotificationRecord["type"], React.ReactNode> =
 import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import { formatDateTime as companyFormatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const formatDateTime = (value: string) => companyFormatDateTime(value);
 
 const NotificationDetailPage: React.FC = () => {
@@ -88,7 +89,7 @@ const NotificationDetailPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Notification Details" description="View notification details" />
+      <PageMeta title={t("Notification Details")} description="View notification details" />
       <PageBreadcrumb pageTitle="Notification Details" />
 
       <div className="max-w-4xl mx-auto p-6">
@@ -99,7 +100,7 @@ const NotificationDetailPage: React.FC = () => {
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <ArrowLeftIcon className="h-4 w-4" />
-            Back to Notifications
+            {t("Back to Notifications")}
           </Link>
         </div>
 
@@ -109,16 +110,16 @@ const NotificationDetailPage: React.FC = () => {
             <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <BellIcon className="h-10 w-10 text-gray-400" />
             </div>
-            <h1 className="text-lg font-semibold text-gray-900">Notification not found</h1>
+            <h1 className="text-lg font-semibold text-gray-900">{t("Notification not found")}</h1>
             <p className="text-sm text-gray-500 mt-2">
-              This notification may have been removed or is no longer available.
+              {t("This notification may have been removed or is no longer available.")}
             </p>
             <Link
               to="/notifications"
               className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
             >
               <BellIcon className="h-4 w-4" />
-              View All Notifications
+              {t("View All Notifications")}
             </Link>
           </div>
         ) : (
@@ -142,12 +143,12 @@ const NotificationDetailPage: React.FC = () => {
                       {notification.isRead ? (
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                           <CheckCircleIcon className="h-3 w-3 inline mr-1" />
-                          Read
+                          {t("Read")}
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                           <BellIcon className="h-3 w-3 inline mr-1" />
-                          Unread
+                          {t("Unread")}
                         </span>
                       )}
                     </div>
@@ -165,7 +166,7 @@ const NotificationDetailPage: React.FC = () => {
                     <UserIcon className="h-4 w-4 text-gray-500" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Employee</p>
+                    <p className="text-xs text-gray-500">{t("Employee")}</p>
                     <p className="text-sm font-medium text-gray-900">{notification.employeeName}</p>
                   </div>
                 </div>
@@ -175,7 +176,7 @@ const NotificationDetailPage: React.FC = () => {
                     <ClockIcon className="h-4 w-4 text-gray-500" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Sent Date</p>
+                    <p className="text-xs text-gray-500">{t("Sent Date")}</p>
                     <p className="text-sm font-medium text-gray-900">{formatDateTime(notification.createdAt)}</p>
                   </div>
                 </div>
@@ -185,7 +186,7 @@ const NotificationDetailPage: React.FC = () => {
                     {channelIcons[notification.channel] || <EnvelopeIcon className="h-4 w-4 text-gray-500" />}
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Channel</p>
+                    <p className="text-xs text-gray-500">{t("Channel")}</p>
                     <p className="text-sm font-medium text-gray-900 capitalize">{notification.channel}</p>
                   </div>
                 </div>
@@ -195,7 +196,7 @@ const NotificationDetailPage: React.FC = () => {
                     <TagIcon className="h-4 w-4 text-gray-500" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Type</p>
+                    <p className="text-xs text-gray-500">{t("Type")}</p>
                     <p className="text-sm font-medium text-gray-900">{notification.type}</p>
                   </div>
                 </div>
@@ -206,7 +207,7 @@ const NotificationDetailPage: React.FC = () => {
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <DocumentTextIcon className="h-4 w-4" />
-                Message
+                {t("Message")}
               </h2>
               <div className="rounded-lg bg-gray-50 p-5 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap border border-gray-200">
                 {notification.message}
@@ -217,12 +218,12 @@ const NotificationDetailPage: React.FC = () => {
             <div className="p-6">
               <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <HashtagIcon className="h-4 w-4" />
-                Reference Information
+                {t("Reference Information")}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-lg border border-gray-200 p-4 bg-white">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Reference Type
+                    {t("Reference Type")}
                   </p>
                   <div className="flex items-center gap-2">
                     <TagIcon className="h-4 w-4 text-gray-400" />
@@ -233,7 +234,7 @@ const NotificationDetailPage: React.FC = () => {
                 </div>
                 <div className="rounded-lg border border-gray-200 p-4 bg-white">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Reference ID
+                    {t("Reference ID")}
                   </p>
                   <div className="flex items-center gap-2">
                     <HashtagIcon className="h-4 w-4 text-gray-400" />
@@ -252,7 +253,7 @@ const NotificationDetailPage: React.FC = () => {
                 className="px-4 py-2 bg-gray-600 !text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
               >
                 <ArrowLeftIcon className="h-4 w-4" />
-                Back to Inbox
+                {t("Back to Inbox")}
               </Link>
               {!notification.isRead && (
                 <button
@@ -264,7 +265,7 @@ const NotificationDetailPage: React.FC = () => {
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
                 >
                   <CheckCircleIcon className="h-4 w-4" />
-                  Mark as Read
+                  {t("Mark as Read")}
                 </button>
               )}
             </div>

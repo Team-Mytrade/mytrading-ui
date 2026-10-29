@@ -45,6 +45,7 @@ import QuotationItemsEditor, {
 } from "./QuotationItemsEditor";
 import { formatAmount, formatDate, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type Address = {
   id: number;
   customerId?: number;
@@ -1154,7 +1155,7 @@ const Quotations: React.FC = () => {
               );
             }}
             className="max-w-[220px] text-left"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             <div className="truncate text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300">
               {name}
@@ -1186,7 +1187,7 @@ const Quotations: React.FC = () => {
               );
             }}
             className="max-w-[180px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             {name}
           </button>
@@ -1265,7 +1266,7 @@ const Quotations: React.FC = () => {
             type="button"
             onClick={() => exportQuotationPdf(quotation)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
-            title="Export quotation as PDF"
+            title={t("Export quotation as PDF")}
           >
             <ArrowDownTrayIcon className="h-4 w-4" />
           </button>)}
@@ -1274,7 +1275,7 @@ const Quotations: React.FC = () => {
               type="button"
               onClick={() => setEmailing({ quotation, markSent: false })}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-              title="Email quotation to the customer"
+              title={t("Email quotation to the customer")}
             >
               <EnvelopeIcon className="h-4 w-4" />
             </button>
@@ -1284,7 +1285,7 @@ const Quotations: React.FC = () => {
               type="button"
               onClick={() => openEdit(quotation)}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-              title="Edit draft quotation"
+              title={t("Edit draft quotation")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -1303,7 +1304,7 @@ const Quotations: React.FC = () => {
             type="button"
             onClick={() => setDeleteQuotation(quotation)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -1317,7 +1318,7 @@ const Quotations: React.FC = () => {
     <div>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-semibold text-slate-600 dark:text-gray-300">
-          {prefix === "billing" ? "Billing" : "Shipping"}
+          {t(prefix === "billing" ? "Billing" : "Shipping")}
         </span>
         {prefix === "shipping" && (
           <button
@@ -1325,7 +1326,7 @@ const Quotations: React.FC = () => {
             onClick={copyBillingToShipping}
             className="text-xs font-medium text-cyan-700 hover:underline dark:text-cyan-400"
           >
-            Same as billing
+            {t("Same as billing")}
           </button>
         )}
       </div>
@@ -1347,11 +1348,11 @@ const Quotations: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Quotations" description="Manage sales quotations" />
+      <PageMeta title={t("Quotations")} description="Manage sales quotations" />
       <PageBreadcrumb
         className="mr-4"
         pageTitle="Quotations"
-        actions={canCreate ? <AddButton className="-mr-5" onClick={openCreate} label="Add Quotation" /> : undefined}
+        actions={canCreate ? <AddButton className="-mr-5" onClick={openCreate} label={t("Add Quotation")} /> : undefined}
       />
 
       <div className="w-full max-w-none px-0 py-8">
@@ -1368,13 +1369,13 @@ const Quotations: React.FC = () => {
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
-                <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">No quotations found</p>
+                <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">{t("No quotations found")}</p>
                 {canCreate && (<button
                   type="button"
                   onClick={openCreate}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
-                  Create your first quotation
+                  {t("Create your first quotation")}
                 </button>)}
               </div>
             }
@@ -1385,23 +1386,23 @@ const Quotations: React.FC = () => {
       {/* Create / edit in the standard side drawer: sections, floating fields, Cancel / Save at the bottom */}
       <Dragger
         isOpen={showForm}
-        title={editingId ? "Edit Quotation" : "Add Quotation"}
-        subtitle={editingId ? `Draft ${form.quoteNumber || ""}`.trim() : "Prepare a price quote for a customer."}
+        title={t(editingId ? "Edit Quotation" : "Add Quotation")}
+        subtitle={editingId ? `${t("Draft")} ${form.quoteNumber || ""}`.trim() : "Prepare a price quote for a customer."}
         onClose={closeForm}
         onSubmit={handleSubmit}
-        submitLabel={editingId ? "Update" : "Create"}
+        submitLabel={t(editingId ? "Update" : "Create")}
         submitting={submitting}
       >
         <div className="grid grid-cols-1 gap-x-3 md:grid-cols-2">
-          <h3 className={sectionTitle}>Quotation Details</h3>
+          <h3 className={sectionTitle}>{t("Quotation Details")}</h3>
           {form.dealId && (
             <p className="col-span-full -mt-1 mb-2 text-xs text-cyan-700 dark:text-cyan-300">
-              Made from CRM deal #{form.dealId}: accepting this quotation marks the deal as Won.
+              {t("Made from CRM deal #")}{form.dealId}: accepting this quotation marks the deal as Won.
             </p>
           )}
           <div className="mb-5">
             <SearchableSelect
-              label="Customer"
+              label={t("Customer")}
               required
               value={form.customerId}
               options={
@@ -1411,7 +1412,7 @@ const Quotations: React.FC = () => {
                   : customerOptions
               }
               onChange={(value) => setField("customerId", value)}
-              placeholder="Type a customer name or code"
+              placeholder={t("Type a customer name or code")}
             />
             {customers.length === 0 && canCreateCustomer && (
               <button
@@ -1419,12 +1420,12 @@ const Quotations: React.FC = () => {
                 onClick={() => navigate("/customers/new")}
                 className="mt-1 px-1 text-xs font-medium text-cyan-700 hover:underline dark:text-cyan-400"
               >
-                No customers yet: create one
+                {t("No customers yet: create one")}
               </button>
             )}
           </div>
           <FloatingSelect1
-            label="Sales Person"
+            label={t("Sales Person")}
             required
             name="salesPersonId"
             value={form.salesPersonId}
@@ -1436,14 +1437,14 @@ const Quotations: React.FC = () => {
             }
           />
           <FloatingDatePicker
-            label="Quote Date"
+            label={t("Quote Date")}
             required
             name="quoteDate"
             value={form.quoteDate}
             onChange={handleChange}
           />
           <FloatingDatePicker
-            label="Valid Until"
+            label={t("Valid Until")}
             required
             name="validUntil"
             value={form.validUntil}
@@ -1451,7 +1452,7 @@ const Quotations: React.FC = () => {
             minDate={form.quoteDate || undefined}
           />
           <FloatingSelect1
-            label="Quotation Type"
+            label={t("Quotation Type")}
             name="quotationType"
             value={form.quotationType}
             onChange={handleChange}
@@ -1459,7 +1460,7 @@ const Quotations: React.FC = () => {
             includeEmptyOption={false}
           />
           <FloatingInput
-            label="Currency (from the customer)"
+            label={t("Currency (from the customer)")}
             name="currencyCode"
             value={form.currencyCode}
             readOnly
@@ -1468,7 +1469,7 @@ const Quotations: React.FC = () => {
           />
           <div className="md:col-span-2">
             <FloatingInput
-              label="Subject (e.g. Quotation for Q3 office furniture)"
+              label={t("Subject (e.g. Quotation for Q3 office furniture)")}
               name="subject"
               value={form.subject}
               onChange={handleChange}
@@ -1476,7 +1477,7 @@ const Quotations: React.FC = () => {
             />
           </div>
 
-          <h3 className={sectionTitle}>Items</h3>
+          <h3 className={sectionTitle}>{t("Items")}</h3>
           <div className="mb-5 md:col-span-2">
             <QuotationItemsEditor
               currency={form.currencyCode}
@@ -1490,10 +1491,10 @@ const Quotations: React.FC = () => {
             />
           </div>
 
-          <h3 className={sectionTitle}>Terms &amp; Delivery</h3>
-          <FloatingInput label="Payment Terms" name="paymentTerms" value={form.paymentTerms} onChange={handleChange} maxLength={100} />
+          <h3 className={sectionTitle}>{t("Terms & Delivery")}</h3>
+          <FloatingInput label={t("Payment Terms")} name="paymentTerms" value={form.paymentTerms} onChange={handleChange} maxLength={100} />
           <FloatingInput
-            label="Credit Days"
+            label={t("Credit Days")}
             type="number"
             min={0}
             name="creditDays"
@@ -1502,20 +1503,20 @@ const Quotations: React.FC = () => {
             onKeyDown={(event) => ["-", "+", "e", "E", "."].includes(event.key) && event.preventDefault()}
             onWheel={(event) => event.currentTarget.blur()}
           />
-          <FloatingInput label="Delivery Terms" name="deliveryTerms" value={form.deliveryTerms} onChange={handleChange} maxLength={100} />
-          <FloatingInput label="Shipping Method" name="shippingMethod" value={form.shippingMethod} onChange={handleChange} maxLength={100} />
-          <FloatingInput label="Customer Reference (PO / enquiry no.)" name="customerReference" value={form.customerReference} onChange={handleChange} maxLength={100} />
-          <FloatingDatePicker label="Customer Reference Date" name="customerReferenceDate" value={form.customerReferenceDate} onChange={handleChange} />
+          <FloatingInput label={t("Delivery Terms")} name="deliveryTerms" value={form.deliveryTerms} onChange={handleChange} maxLength={100} />
+          <FloatingInput label={t("Shipping Method")} name="shippingMethod" value={form.shippingMethod} onChange={handleChange} maxLength={100} />
+          <FloatingInput label={t("Customer Reference (PO / enquiry no.)")} name="customerReference" value={form.customerReference} onChange={handleChange} maxLength={100} />
+          <FloatingDatePicker label={t("Customer Reference Date")} name="customerReferenceDate" value={form.customerReferenceDate} onChange={handleChange} />
 
-          <h3 className={sectionTitle}>Addresses</h3>
+          <h3 className={sectionTitle}>{t("Addresses")}</h3>
           {addressColumn("billing")}
           {addressColumn("shipping")}
 
-          <h3 className={sectionTitle}>Notes</h3>
-          <FloatingTextarea label="Customer Notes (on the quotation)" name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
-          <FloatingTextarea label="Terms and Conditions" name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
-          <FloatingTextarea label="Remarks" name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
-          <FloatingTextarea label="Internal Notes (not shown to the customer)" name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
+          <h3 className={sectionTitle}>{t("Notes")}</h3>
+          <FloatingTextarea label={t("Customer Notes (on the quotation)")} name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
+          <FloatingTextarea label={t("Terms and Conditions")} name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
+          <FloatingTextarea label={t("Remarks")} name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
+          <FloatingTextarea label={t("Internal Notes (not shown to the customer)")} name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
         </div>
       </Dragger>
 
@@ -1526,14 +1527,14 @@ const Quotations: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Quotation"
+        innerText={t("Delete Quotation")}
         subText={
           deleteQuotation
             ? `Are you sure you want to delete "${deleteQuotation.quoteNumber || "this quotation"}"?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteQuotation(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

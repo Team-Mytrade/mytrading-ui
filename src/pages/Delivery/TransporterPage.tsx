@@ -27,6 +27,7 @@ import { FloatingInput, FloatingTextarea, FloatingSelect1 as FloatingSelect } fr
 import { COUNTRIES, CountryOption } from "../../data/countries";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Transporter {
@@ -129,7 +130,7 @@ const CountryCodeCombobox: React.FC<CountryCodeComboboxProps> = ({ selected, onS
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search country, code, or dial code"
+                placeholder={t("Search country, code, or dial code")}
                 className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-2 text-sm outline-none focus:border-cyan-400"
               />
             </div>
@@ -422,14 +423,14 @@ useEffect(() => {
         <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
           {canUpdate && (<button
             onClick={() => handleEdit(row)}
-            title="Edit"
+            title={t("Edit")}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => promptDelete(row)}
-            title="Delete"
+            title={t("Delete")}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
           >
             <TrashIcon className="h-4 w-4" />
@@ -444,7 +445,7 @@ useEffect(() => {
   return (
     <>
       <PageMeta
-        title="Transporter "
+        title={t("Transporter ")}
         description="Manage transporters"
       />
       <PageBreadcrumb pageTitle="Transporter" />
@@ -453,27 +454,27 @@ useEffect(() => {
 
         {/* Header */}
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-          <AddButton label="Add Transporter" onClick={handleAddNew} />
+          <AddButton label={t("Add Transporter")} onClick={handleAddNew} />
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard
-            label="Total Transporters"
+            label={t("Total Transporters")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Active"
+            label={t("Active")}
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Inactive"
+            label={t("Inactive")}
             value={stats.inactive}
             gradient="from-gray-50 to-slate-50"
             borderColor="border-gray-200"
@@ -488,7 +489,7 @@ useEffect(() => {
       <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
       <input
         type="text"
-        placeholder="Search by name, contact, email, or GST..."
+        placeholder={t("Search by name, contact, email, or GST...")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -520,7 +521,7 @@ useEffect(() => {
 
     {showFilters && (
       <div className="absolute right-0 z-40 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-lg animate-slide-down">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{t("Status")}</p>
         <div className="flex flex-wrap gap-2">
           {(["ALL", "Active", "Inactive"] as const).map((opt) => (
             <button
@@ -542,7 +543,7 @@ useEffect(() => {
             onClick={() => setActiveFilter("ALL")}
             className="mt-3 text-xs font-medium text-red-600 hover:text-red-800"
           >
-            Clear filter
+            {t("Clear filter")}
           </button>
         )}
       </div>
@@ -561,15 +562,15 @@ useEffect(() => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <TruckIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No transporters found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No transporters found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   onClick={handleAddNew}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Add your first transporter →
+                  {t("Add your first transporter →")}
                 </button>
               )}
             </div>
@@ -592,10 +593,10 @@ useEffect(() => {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {form.id ? "Edit Transporter" : "Create New Transporter"}
+                        {t(form.id ? "Edit Transporter" : "Create New Transporter")}
                       </h3>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {form.id ? "Update this transporter's details" : "Add a new transporter or carrier"}
+                        {t(form.id ? "Update this transporter's details" : "Add a new transporter or carrier")}
                       </p>
                     </div>
                   </div>
@@ -610,7 +611,7 @@ useEffect(() => {
                 <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto px-6 py-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FloatingInput
-                      label="Transporter Name"
+                      label={t("Transporter Name")}
                       name="name"
                       value={form.name}
                       onChange={(e) => handleChange("name", e.target.value)}
@@ -618,7 +619,7 @@ useEffect(() => {
                     />
 
                     <FloatingInput
-                      label="Contact Person"
+                      label={t("Contact Person")}
                       name="contactPerson"
                       value={form.contactPerson}
                       onChange={(e) => handleChange("contactPerson", e.target.value)}
@@ -630,7 +631,7 @@ useEffect(() => {
                       <CountryCodeCombobox selected={selectedCountry} onSelect={setSelectedCountry} />
                       <div className="flex-1">
                         <FloatingInput
-                          label="Contact Number"
+                          label={t("Contact Number")}
                           name="contactNumber"
                           type="tel"
                           value={form.contactNumber}
@@ -641,7 +642,7 @@ useEffect(() => {
                     </div>
 
                     <FloatingInput
-                      label="Email"
+                      label={t("Email")}
                       name="email"
                       type="email"
                       value={form.email}
@@ -658,7 +659,7 @@ useEffect(() => {
                     />
 
                     <FloatingSelect
-                      label="Status"
+                      label={t("Status")}
                       name="status"
                       value={form.status}
                       onChange={(e) => handleChange("status", e.target.value)}
@@ -669,7 +670,7 @@ useEffect(() => {
 
                     <div className="md:col-span-2">
                       <FloatingTextarea
-                        label="Address"
+                        label={t("Address")}
                         name="address"
                         value={form.address}
                         onChange={(e) => handleChange("address", e.target.value)}
@@ -685,7 +686,7 @@ useEffect(() => {
                       onClick={resetForm}
                       className="px-4 py-2 !mb-0 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="submit"
@@ -708,14 +709,14 @@ useEffect(() => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Transporter"
+        innerText={t("Delete Transporter")}
         subText={
           deletingItem
             ? `Are you sure you want to delete "${deletingItem.name}"? This action cannot be undone.`
             : "Are you sure you want to delete this transporter?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeletingItem(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

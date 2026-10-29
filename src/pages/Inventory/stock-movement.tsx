@@ -1,6 +1,6 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRightIcon,
   ArrowsRightLeftIcon,
@@ -8,7 +8,6 @@ import {
   ClipboardDocumentListIcon,
   CubeIcon,
   EyeIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -25,6 +24,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber, formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // ======================== ENUM TYPE ========================
 interface EnumOption {
   id: string;
@@ -34,9 +34,6 @@ interface EnumOption {
 // ======================== DATA MODELS ========================
 type Product = {
   id: number;
-  serialTracking?: boolean;
-  batchTracking?: boolean;
-  expiryTracking?: boolean;
   productId?: number;
   name?: string;
   productName?: string;
@@ -70,7 +67,7 @@ type Batch = {
   manufacturingDate?: string;
   expiryDate?: string;
   productId?: number;
-  warehouse?: Warehouse | string | null;
+  warehouse?: string;
 };
 
 type SerialNumber = {
@@ -78,9 +75,8 @@ type SerialNumber = {
   serial?: string;
   productId?: number;
   productNumber?: string;
-  currentStatus?: string;
-  warehouse?: Warehouse | string | null;
-  batch?: Batch | string | null;
+  warehouse?: string;
+  batch?: Batch | string;
 };
 
 type StockLevel = {
@@ -174,24 +170,6 @@ function toNumber(value: string | number | undefined | null) {
   return Number(value || 0);
 }
 
-// Id of a nested reference ({ id } object or a plain id). Code/name strings
-// can't be matched to an id, so they return "".
-function refId(ref: unknown): string {
-  if (ref == null) return "";
-  if (typeof ref === "object") {
-    const id = (ref as { id?: unknown }).id;
-    return id != null ? String(id) : "";
-  }
-  return typeof ref === "number" ? String(ref) : "";
-}
-
-// The API returns UTC timestamps without "Z", so mark them as UTC before
-// formatting; otherwise they show 5:30 hours behind in IST.
-const SERVER_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/;
-function toUtc(value?: string) {
-  return value && SERVER_TS.test(value) ? value.replace(/(\.\d{3})\d+$/, "$1") + "Z" : value;
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -214,8 +192,8 @@ function getWarehouseValue(
   if (typeof warehouse === "string") return warehouse;
   if (warehouse.code || warehouse.name) return warehouse.code || warehouse.name || "";
   const match = warehouses.find((w) => w.id === warehouse.id);
-  if (match) return match.code || match.name || "";
-  return "";
+  if (match) return match.code || match.name || String(match.id);
+  return warehouse.id != null ? `Warehouse #${warehouse.id}` : "";
 }
 
 function getBatchValue(batch?: Batch | string | null, batches: Batch[] = []) {
@@ -223,8 +201,8 @@ function getBatchValue(batch?: Batch | string | null, batches: Batch[] = []) {
   if (typeof batch === "string") return batch;
   if (batch.batchNumber) return batch.batchNumber;
   const match = batches.find((b) => b.id === batch.id);
-  if (match) return match.batchNumber || "";
-  return "";
+  if (match) return match.batchNumber || `Batch #${match.id}`;
+  return batch.id != null ? `Batch #${batch.id}` : "";
 }
 
 function getSerialValue(
@@ -235,8 +213,8 @@ function getSerialValue(
   if (typeof serialNumber === "string") return serialNumber;
   if (serialNumber.serial) return serialNumber.serial;
   const match = serialNumbers.find((s) => s.id === serialNumber.id);
-  if (match) return match.serial || "";
-  return "";
+  if (match) return match.serial || `Serial #${match.id}`;
+  return serialNumber.id != null ? `Serial #${serialNumber.id}` : "";
 }
 
 function resolveWarehouseId(
@@ -283,12 +261,6 @@ const StockMovementsManager: React.FC = () => {
     ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
     : undefined;
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  // Set by the Inventory Stock page: "?action=receive" opens a receipt form;
-  // "?productId=..&warehouseId=.." (from an On Hand number) filters the list.
-  const filterProductId = searchParams.get("productId") || "";
-  const filterWarehouseId = searchParams.get("warehouseId") || "";
-  const isFiltered = Boolean(filterProductId || filterWarehouseId);
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -312,23 +284,6 @@ const StockMovementsManager: React.FC = () => {
     fetchMovementTypeOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (searchParams.get("action") !== "receive" || movementTypeOptions.length === 0) return;
-    const ids = movementTypeOptions.map((o) => o.id);
-    const receiptType =
-      ["PURCHASE_RECEIPT", "GRN"].find((t) => ids.includes(t)) ||
-      ids.find((t) => movementDirection(t) === "in") ||
-      "";
-    setEditingId(null);
-    setForm({ ...emptyForm, movementDate: todayIso(), movementType: receiptType });
-    setShowFormModal(true);
-    // Drop the flag so closing the form or refreshing doesn't reopen it.
-    const next = new URLSearchParams(searchParams);
-    next.delete("action");
-    setSearchParams(next, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, movementTypeOptions]);
 
   const fetchStockMovements = async () => {
     try {
@@ -429,18 +384,6 @@ const StockMovementsManager: React.FC = () => {
         next.fromWarehouseId = "";
         next.toWarehouseId = "";
       }
-      // A batch/serial picked for one warehouse or movement type may not be
-      // valid for another, so clear them when those change.
-      if (
-        (name === "fromWarehouseId" && value !== current.fromWarehouseId) ||
-        (name === "movementType" && value !== current.movementType)
-      ) {
-        next.batchId = "";
-        next.serialNumberId = "";
-      }
-      if (name === "batchId" && value !== current.batchId) {
-        next.serialNumberId = "";
-      }
       return next;
     });
   };
@@ -510,54 +453,6 @@ const StockMovementsManager: React.FC = () => {
       return;
     }
 
-    // Tracked products: a serial-tracked product moves one serial at a time, and
-    // a batch-tracked product needs its batch, so stock and serial/batch records
-    // stay in step. New receipts are exempt from the serial rule because their
-    // serials are created when the goods arrive.
-    const product = products.find((p) => String(p.id ?? p.productId) === form.productId);
-    const isNewReceipt = direction === "in" && form.movementType !== "RETURN" && form.movementType !== "CUSTOMER_RETURN";
-    if (product?.batchTracking && !form.batchId) {
-      ToasterService.error("Batch required", `${getProductName(product)} is tracked by batch. Select a batch.`);
-      return;
-    }
-    if (product?.serialTracking && !isNewReceipt) {
-      if (!form.serialNumberId) {
-        ToasterService.error("Serial number required", `${getProductName(product)} is tracked by serial number. Select the serial being moved.`);
-        return;
-      }
-      if (quantity !== 1) {
-        ToasterService.error("Quantity must be 1", "One serial number is one unit. Move each serial separately.");
-        return;
-      }
-    }
-
-    // Same rules as the dropdowns, checked again in case lookups changed.
-    const inactive = [needsFrom && form.fromWarehouseId, needsTo && form.toWarehouseId]
-      .filter(Boolean)
-      .map((id) => warehouses.find((w) => String(w.id) === id))
-      .find((w) => w && w.active === false);
-    if (inactive) {
-      ToasterService.error(
-        "Inactive warehouse",
-        `${inactive.name || inactive.code || "This warehouse"} is inactive. Choose an active warehouse.`
-      );
-      return;
-    }
-    const batch = batches.find((b) => String(b.id) === form.batchId);
-    const serial = serialNumbers.find((sn) => String(sn.id) === form.serialNumberId);
-    if (needsFrom && batch && refId(batch.warehouse) !== form.fromWarehouseId) {
-      ToasterService.error("Invalid batch", "The selected batch is not in the From warehouse.");
-      return;
-    }
-    if (serial && form.batchId && refId(serial.batch) !== form.batchId) {
-      ToasterService.error("Invalid serial number", "The selected serial does not belong to the selected batch.");
-      return;
-    }
-    if (needsFrom && serial && refId(serial.warehouse) !== form.fromWarehouseId) {
-      ToasterService.error("Invalid serial number", "The selected serial is not in the From warehouse.");
-      return;
-    }
-
     try {
       setSubmitting(true);
       const payload = buildPayload();
@@ -571,11 +466,7 @@ const StockMovementsManager: React.FC = () => {
       }
 
       closeForm();
-      // The POST response is not used (its batch/serial come back with only ids);
-      // reload the list and the lookups, since stock levels and serial
-      // status/warehouse change after a movement.
       fetchStockMovements();
-      fetchLookups();
     } catch (error) {
       ToasterService.error(
         "Failed to save stock movement",
@@ -600,20 +491,6 @@ const StockMovementsManager: React.FC = () => {
     setShowViewModal(true);
   };
 
-  const closeView = () => {
-    setShowViewModal(false);
-    setViewingMovement(null);
-  };
-
-  useEffect(() => {
-    if (!showViewModal) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeView();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showViewModal]);
-
   const closeForm = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -636,21 +513,6 @@ const StockMovementsManager: React.FC = () => {
       ).size,
     };
   }, [stockMovements, movementTypeOptions]);
-
-  const visibleMovements = useMemo(() => {
-    if (!isFiltered) return stockMovements;
-    const warehouse = warehouses.find((w) => String(w.id) === filterWarehouseId);
-    return stockMovements.filter((m) => {
-      const pid = String(m.productId ?? m.product?.id ?? "");
-      if (filterProductId && pid !== filterProductId) return false;
-      if (!filterWarehouseId) return true;
-      // A movement touches a warehouse as its main warehouse or as From / To
-      // (From / To come back as warehouse codes).
-      if (refId(m.warehouse) === filterWarehouseId) return true;
-      const code = warehouse?.code;
-      return !!code && (m.fromLocation === code || m.toLocation === code);
-    });
-  }, [stockMovements, warehouses, filterProductId, filterWarehouseId, isFiltered]);
 
   const productIdsWithStockLevel = useMemo(() => {
     const set = new Set<string>();
@@ -682,7 +544,7 @@ const StockMovementsManager: React.FC = () => {
       const id = product.id ?? product.productId;
       return {
         id: id != null ? String(id) : "",
-        name: getProductName(product) || "Unnamed product",
+        name: getProductName(product) || `Product #${id ?? "?"}`,
       };
     });
   }, [products, productIdsWithStockLevel, form.productId, direction]);
@@ -701,8 +563,8 @@ const StockMovementsManager: React.FC = () => {
   }, [stockLevels, warehouses]);
 
   const formatWarehouseLabel = (warehouse: Warehouse) => {
-    const namePart = warehouse.name || warehouse.code || "Unnamed warehouse";
-    const codePart = warehouse.code && warehouse.name ? ` (${warehouse.code})` : "";
+    const namePart = warehouse.name || `Warehouse #${warehouse.id}`;
+    const codePart = warehouse.code ? ` (${warehouse.code})` : "";
     const typePart = warehouse.locationType ? ` — ${warehouse.locationType}` : "";
     return `${namePart}${codePart}${typePart}`;
   };
@@ -712,9 +574,9 @@ const StockMovementsManager: React.FC = () => {
     const allowedIds = productId ? warehouseIdsByProduct.get(productId) : undefined;
     const hasRestriction = !!allowedIds && allowedIds.size > 0;
 
-    const list = (
-      hasRestriction ? warehouses.filter((w) => allowedIds!.has(String(w.id))) : warehouses
-    ).filter((w) => w.active !== false);
+    const list = hasRestriction
+      ? warehouses.filter((w) => allowedIds!.has(String(w.id)))
+      : warehouses;
 
     const alreadyIncluded = list.some((w) => String(w.id) === selectedId);
     const extra =
@@ -747,63 +609,25 @@ const StockMovementsManager: React.FC = () => {
   const productHasNoStockLevelAnywhere =
     !!form.productId && !warehouseIdsByProduct.get(form.productId)?.size;
 
-  // Stock leaving a warehouse (issue/transfer) can only use batches and serials
-  // that are in that warehouse. Receipts/returns come from outside, so only the
-  // product has to match.
   const batchOptions = useMemo(() => {
     const selectedProductId = toNumber(form.productId);
     return batches
       .filter((batch) => !selectedProductId || batch.productId === selectedProductId)
-      .filter((batch) => !needsFrom || refId(batch.warehouse) === form.fromWarehouseId)
       .map((batch) => ({
         id: String(batch.id),
         name: batch.batchNumber,
       }));
-  }, [batches, form.productId, form.fromWarehouseId, needsFrom]);
+  }, [batches, form.productId]);
 
   const serialOptions = useMemo(() => {
     const selectedProductId = toNumber(form.productId);
     return serialNumbers
       .filter((serial) => !selectedProductId || serial.productId === selectedProductId)
-      .filter((serial) => !form.batchId || refId(serial.batch) === form.batchId)
-      .filter(
-        (serial) =>
-          !needsFrom ||
-          (refId(serial.warehouse) === form.fromWarehouseId &&
-            (!serial.currentStatus || serial.currentStatus === "AVAILABLE"))
-      )
       .map((serial) => ({
         id: String(serial.id),
-        name: serial.serial || "Unnamed serial",
+        name: serial.serial || `Serial #${serial.id}`,
       }));
-  }, [serialNumbers, form.productId, form.batchId, form.fromWarehouseId, needsFrom]);
-
-  // Explains an empty Batch / Serial list for tracked products.
-  const movementTrackingHints = () => {
-    const product = products.find((p) => String(p.id ?? p.productId) === form.productId);
-    if (!product || (needsFrom && !form.fromWarehouseId)) return [];
-    const name = getProductName(product) || "This product";
-    const where = needsFrom ? " in the From warehouse" : "";
-    const isNewReceipt =
-      direction === "in" && form.movementType !== "RETURN" && form.movementType !== "CUSTOMER_RETURN";
-    const hints: React.ReactNode[] = [];
-    if (product.batchTracking && batchOptions.length === 0) {
-      hints.push(
-        <p key="no-batch" className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400">
-          {name} needs a batch, but it has no batch{where}. Create one on the Batches page first.
-        </p>
-      );
-    }
-    if (product.serialTracking && !isNewReceipt && serialOptions.length === 0) {
-      hints.push(
-        <p key="no-serial" className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400">
-          {name} needs a serial number, but none is available{where}
-          {form.batchId ? " for this batch" : ""}. Create it on the Serial Numbers page first.
-        </p>
-      );
-    }
-    return hints;
-  };
+  }, [serialNumbers, form.productId]);
 
   const getProductDisplayName = (movement: StockMovement) => {
     const productId = movement.productId ?? movement.product?.id;
@@ -846,12 +670,12 @@ const StockMovementsManager: React.FC = () => {
 
     return (
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Movement ID">#{movement.id}</Field>
-        <Field label="Date" full>
+        <Field label={t("Movement ID")}>#{movement.id}</Field>
+        <Field label={t("Date")}>
           {formatDate(movement.movementDate)}
         </Field>
 
-        <Field label="Type" full>
+        <Field label={t("Type")} full>
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementTypeBadge(
               movement.movementType
@@ -862,7 +686,7 @@ const StockMovementsManager: React.FC = () => {
           </span>
         </Field>
 
-        <Field label="Product" full>
+        <Field label={t("Product")} full>
           {productId ? (
             <button
               type="button"
@@ -876,30 +700,29 @@ const StockMovementsManager: React.FC = () => {
           )}
         </Field>
 
-        <Field label="Quantity">{movement.quantity}</Field>
-        <Field label="Reference">{movement.reference || "N/A"}</Field>
+        <Field label={t("Quantity")}>{movement.quantity}</Field>
+        <Field label={t("Reference")}>{movement.reference || "N/A"}</Field>
 
-        <Field label="From Location">{movement.fromLocation || "N/A"}</Field>
-        <Field label="To Location">{movement.toLocation || "N/A"}</Field>
+        <Field label={t("From Location")}>{movement.fromLocation || "N/A"}</Field>
+        <Field label={t("To Location")}>{movement.toLocation || "N/A"}</Field>
 
-        <Field label="Warehouse">
+        <Field label={t("Warehouse")}>
           {getWarehouseValue(movement.warehouse, warehouses) || "N/A"}
         </Field>
-        <Field label="Batch">
+        <Field label={t("Batch")}>
           {getBatchValue(movement.batch, batches) || "N/A"}
         </Field>
 
-        <Field label="Serial Number" full>
+        <Field label={t("Serial Number")} full>
           {getSerialValue(movement.serialNumber, serialNumbers) || "N/A"}
         </Field>
 
         {movement.createdBy && (
-          <Field label="Created By">{movement.createdBy}</Field>
+          <Field label={t("Created By")}>{movement.createdBy}</Field>
         )}
         {movement.createdDate && (
-          <Field label="Created At">
+          <Field label={t("Created At")}>
             {formatDateTime(movement.createdDate)}
-            {new Date(toUtc(movement.createdDate)!).toLocaleString()}
           </Field>
         )}
       </div>
@@ -958,7 +781,7 @@ const StockMovementsManager: React.FC = () => {
                   goToProduct(productId);
                 }}
                 className="truncate text-left text-sm font-semibold text-cyan-600 hover:text-cyan-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-                title="View product"
+                title={t("View product")}
               >
                 {getProductDisplayName(movement)}
               </button>
@@ -1018,7 +841,7 @@ const StockMovementsManager: React.FC = () => {
             type="button"
             onClick={() => openView(movement)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
-            title="View Details"
+            title={t("View Details")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -1030,16 +853,16 @@ const StockMovementsManager: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Stock Movements" description="Track and manage inventory stock movements" />
+      <PageMeta title={t("Stock Movements")} description="Track and manage inventory stock movements" />
       <PageBreadcrumb
         pageTitle="Stock Movements"
-        actions={<AddButton onClick={openCreate} label="Add Stock Movement" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Stock Movement")} />}
       />
 
       <div className="w-full max-w-none space-y-6 px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Movements"
+            label={t("Total Movements")}
             value={stats.total}
             gradient="from-slate-50 to-gray-50"
             borderColor="border-slate-100"
@@ -1047,7 +870,7 @@ const StockMovementsManager: React.FC = () => {
             icon={<ArrowsRightLeftIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Total Quantity"
+            label={t("Total Quantity")}
             value={formatNumber(stats.totalQuantity)}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -1055,7 +878,7 @@ const StockMovementsManager: React.FC = () => {
             icon={<CubeIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Transfers"
+            label={t("Transfers")}
             value={stats.transfers}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
@@ -1063,7 +886,7 @@ const StockMovementsManager: React.FC = () => {
             icon={<ArrowRightIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Products Moved"
+            label={t("Products Moved")}
             value={stats.uniqueProducts}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -1074,39 +897,8 @@ const StockMovementsManager: React.FC = () => {
 
         {/* ✅ Row click now EXPANDS inline details (like other pages).
              The eye icon in Actions still opens the modal. */}
-        {isFiltered && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200">
-            <span>
-              Showing movements
-              {filterProductId && (
-                <>
-                  {" "}for <strong>{getProductName(products.find((p) => String(p.id ?? p.productId) === filterProductId)) || "this product"}</strong>
-                </>
-              )}
-              {filterWarehouseId && (
-                <>
-                  {" "}in{" "}
-                  <strong>
-                    {(() => {
-                      const w = warehouses.find((x) => String(x.id) === filterWarehouseId);
-                      return w?.name || w?.code || "this warehouse";
-                    })()}
-                  </strong>
-                </>
-              )}
-            </span>
-            <button
-              type="button"
-              onClick={() => setSearchParams({}, { replace: true })}
-              className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            >
-              Show all movements
-            </button>
-          </div>
-        )}
-
         <ReusableTable
-          data={visibleMovements}
+          data={stockMovements}
           columns={columns}
           loading={loading}
           pageSize={PAGE_SIZE}
@@ -1118,14 +910,14 @@ const StockMovementsManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ArrowsRightLeftIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No stock movements found
+                {t("No stock movements found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first stock movement
+                {t("Create your first stock movement")}
               </button>)}
             </div>
           }
@@ -1135,12 +927,12 @@ const StockMovementsManager: React.FC = () => {
       {/* Form Modal */}
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Stock Movement" : "Add Stock Movement"}
-        subtitle="Enter stock movement details"
+        title={t(editingId ? "Edit Stock Movement" : "Add Stock Movement")}
+        subtitle={t("Enter stock movement details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Movement" : "Create Movement"}
+        submitLabel={t(editingId ? "Update Movement" : "Create Movement")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -1148,7 +940,7 @@ const StockMovementsManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="movementDate"
-                label="Movement Date"
+                label={t("Movement Date")}
                 name="movementDate"
                 type="date"
                 value={form.movementDate}
@@ -1157,7 +949,7 @@ const StockMovementsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="movementType"
-                label="Movement Type"
+                label={t("Movement Type")}
                 name="movementType"
                 value={form.movementType}
                 onChange={handleChange}
@@ -1166,7 +958,7 @@ const StockMovementsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label={t("Product")}
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -1178,13 +970,12 @@ const StockMovementsManager: React.FC = () => {
                   key="product-hint"
                   className="text-xs text-gray-500 dark:text-slate-400"
                 >
-                  Only products that are in stock are shown for issues and
-                  transfers. Receive a product first to move it.
+                  {t("Only products that are in stock are shown for issues and transfers. Receive a product first to move it.")}
                 </p>
               ),
               <FloatingInput
                 key="quantity"
-                label="Quantity"
+                label={t("Quantity")}
                 name="quantity"
                 type="number"
                 min={1}
@@ -1195,7 +986,7 @@ const StockMovementsManager: React.FC = () => {
               needsFrom && (
                 <FloatingSelect
                   key="fromWarehouseId"
-                  label="From Warehouse"
+                  label={t("From Warehouse")}
                   name="fromWarehouseId"
                   value={form.fromWarehouseId}
                   onChange={handleChange}
@@ -1206,7 +997,7 @@ const StockMovementsManager: React.FC = () => {
               needsTo && (
                 <FloatingSelect
                   key="toWarehouseId"
-                  label="To Warehouse"
+                  label={t("To Warehouse")}
                   name="toWarehouseId"
                   value={form.toWarehouseId}
                   onChange={handleChange}
@@ -1219,9 +1010,7 @@ const StockMovementsManager: React.FC = () => {
                   key="no-stock-warning"
                   className="text-xs text-amber-600 dark:text-amber-400"
                 >
-                  ⚠ This product has no stock level at any warehouse yet, so
-                  every warehouse is shown. Creating this movement may fail —
-                  set up a stock level for this product first.
+                  {t("⚠ This product has no stock level at any warehouse yet, so every warehouse is shown. Creating this movement may fail — set up a stock level for this product first.")}
                 </p>
               ),
             ].filter(Boolean),
@@ -1231,14 +1020,14 @@ const StockMovementsManager: React.FC = () => {
             fields: [
               <FloatingInput
                 key="reference"
-                label="Reference"
+                label={t("Reference")}
                 name="reference"
                 value={form.reference}
                 onChange={handleChange}
               />,
               <FloatingSelect
                 key="batchId"
-                label="Batch"
+                label={t("Batch")}
                 name="batchId"
                 value={form.batchId}
                 onChange={handleChange}
@@ -1247,64 +1036,44 @@ const StockMovementsManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label="Serial Number"
+                label={t("Serial Number")}
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
                 options={serialOptions}
                 disabled={!form.productId}
               />,
-              ...movementTrackingHints(),
             ],
           },
         ]}
       />
 
-      {/* View details — read-only, so it only has a Close button */}
-      {showViewModal && viewingMovement && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-          onClick={closeView}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="movement-view-title"
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl dark:bg-slate-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h2
-                id="movement-view-title"
-                className="text-lg font-semibold text-slate-900 dark:text-white"
-              >
-                Movement Details
-              </h2>
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                aria-label="Close"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
-              {renderMovementDetails(viewingMovement)}
-            </div>
-            <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={closeView}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* View Details Modal — kept for the eye button; reuses the same renderer */}
+      <PaginatedPopup
+        isOpen={showViewModal && !!viewingMovement}
+        title={t("Movement Details")}
+        subtitle={
+          viewingMovement ? `Stock movement #${viewingMovement.id}` : "Stock movement"
+        }
+        onClose={() => {
+          setShowViewModal(false);
+          setViewingMovement(null);
+        }}
+        submitting={false}
+        maxWidthClassName="max-w-2xl"
+        tabs={[
+          {
+            label: "Details",
+            fields: [
+              viewingMovement && (
+                <div key="view-content" className="md:col-span-2">
+                  {renderMovementDetails(viewingMovement)}
+                </div>
+              ),
+            ],
+          },
+        ]}
+      />
     </>
   );
 };

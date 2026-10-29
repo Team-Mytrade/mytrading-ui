@@ -1,3 +1,4 @@
+import { t } from "../../i18n/i18n";
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -88,22 +89,22 @@ const PerformanceManagementPage: React.FC = () => {
 
     return (
         <div className="performance-mgmt-page p-6 space-y-8 bg-[#F8FAFC] min-h-screen font-sans">
-            <PageMeta title="Performance Hub" description="Track goals, KPIs and professional appraisals" />
+            <PageMeta title={t("Performance Hub")} description="Track goals, KPIs and professional appraisals" />
 
             <div className="flex justify-between items-end">
                 <PageBreadcrumb pageTitle="Performance Hub" />
                 <button className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-sm text-sm">
                     <Download size={16} />
-                    Export Report
+                    {t("Export Report")}
                 </button>
             </div>
 
             {/* Rating & Velocity Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <InsightCard label="Aggregate Rating" value="4.8" icon={<Star size={20} />} color="amber" trend="up" />
-                <InsightCard label="Goals Reached" value="12/15" icon={<Target size={20} />} color="indigo" trend="up" />
-                <InsightCard label="Active Sprint" value="PROD-04" icon={<Zap size={20} />} color="emerald" trend="stable" />
-                <InsightCard label="Skill Quotient" value="94%" icon={<Award size={20} />} color="rose" trend="up" />
+                <InsightCard label={t("Aggregate Rating")} value="4.8" icon={<Star size={20} />} color="amber" trend="up" />
+                <InsightCard label={t("Goals Reached")} value="12/15" icon={<Target size={20} />} color="indigo" trend="up" />
+                <InsightCard label={t("Active Sprint")} value="PROD-04" icon={<Zap size={20} />} color="emerald" trend="stable" />
+                <InsightCard label={t("Skill Quotient")} value="94%" icon={<Award size={20} />} color="rose" trend="up" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -113,8 +114,8 @@ const PerformanceManagementPage: React.FC = () => {
                     <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-8">
                         <div className="flex justify-between items-center">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900">Goal Navigator</h3>
-                                <p className="text-sm text-gray-500 mt-1">Real-time tracking of individual key performance indicators</p>
+                                <h3 className="text-lg font-bold text-gray-900">{t("Goal Navigator")}</h3>
+                                <p className="text-sm text-gray-500 mt-1">{t("Real-time tracking of individual key performance indicators")}</p>
                             </div>
                             <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
                                 <Filter size={18} />
@@ -131,7 +132,7 @@ const PerformanceManagementPage: React.FC = () => {
                     {/* Performance Trend */}
                     <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-900">Growth Trajectory</h3>
+                            <h3 className="text-lg font-bold text-gray-900">{t("Growth Trajectory")}</h3>
                             <button className="text-gray-400 hover:text-indigo-600 transition-colors">
                                 <TrendingUp size={18} />
                             </button>
@@ -176,7 +177,7 @@ const PerformanceManagementPage: React.FC = () => {
                 <div className="lg:col-span-4 space-y-8">
                     <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full">
                         <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-lg font-bold text-gray-900">Appraisal Log</h3>
+                            <h3 className="text-lg font-bold text-gray-900">{t("Appraisal Log")}</h3>
                             <Clock size={18} className="text-gray-400" />
                         </div>
 
@@ -195,7 +196,7 @@ const PerformanceManagementPage: React.FC = () => {
                                     <h4 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{app.period}</h4>
                                     <p className="text-sm text-gray-500 leading-relaxed">"{app.feedback}"</p>
                                     <div className="flex items-center gap-2 text-xs font-medium text-gray-400 mt-2">
-                                        <ShieldCheck size={12} /> Verified by {app.manager}
+                                        <ShieldCheck size={12} /> {t("Verified by")} {app.manager}
                                     </div>
                                 </motion.div>
                             ))}
@@ -206,10 +207,10 @@ const PerformanceManagementPage: React.FC = () => {
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <Award size={64} />
                                 </div>
-                                <h4 className="text-lg font-semibold">Senior Path 80%</h4>
-                                <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-medium">Next Milestone: Q4 Review</p>
+                                <h4 className="text-lg font-semibold">{t("Senior Path 80%")}</h4>
+                                <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-medium">{t("Next Milestone: Q4 Review")}</p>
                                 <button className="mt-6 w-full py-2.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
-                                    View Roadmap <ArrowRight size={14} />
+                                    {t("View Roadmap")} <ArrowRight size={14} />
                                 </button>
                             </div>
                         </div>
@@ -262,7 +263,7 @@ const KPITracker: React.FC<{ kpi: KPI, idx: number }> = ({ kpi, idx }) => (
             </div>
             <div className="text-right">
                 <span className="text-lg font-bold text-gray-900 leading-none tabular-nums">{kpi.progress}%</span>
-                <span className="text-xs font-medium text-gray-400 block mt-0.5">Target {kpi.target}</span>
+                <span className="text-xs font-medium text-gray-400 block mt-0.5">{t("Target")} {kpi.target}</span>
             </div>
         </div>
         <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">

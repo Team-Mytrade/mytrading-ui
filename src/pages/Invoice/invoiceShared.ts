@@ -1,6 +1,6 @@
 // Shared by the Invoice (finance) pages. Values follow the invoice service's enums; labels are what users see.
 import { formatEnumLabel } from "./invoiceEnums";
-import { formatMoney, formatDate } from "../../company/format";
+import { formatMoney, formatDate, dateLocale } from "../../company/format";
 import { t } from "../../i18n/i18n";
 
 export { apiError, apiFieldErrors } from "../../utils/apiError";
@@ -38,7 +38,7 @@ export const labelOf = (code?: string | null): string => (code ? t(formatEnumLab
 export const monthLabel = (key: string): string => {
   const [year, month] = key.split("-").map(Number);
   if (!year || !month) return key;
-  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+  return new Date(year, month - 1, 1).toLocaleDateString(dateLocale("en-IN"), { month: "short", year: "numeric" });
 };
 
 /* ================= Sales invoices ================= */

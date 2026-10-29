@@ -21,7 +21,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
-import { formatDateTime } from "../../company/format";
+import { formatDateTime, dateLocale } from "../../company/format";
+import { t } from "../../i18n/i18n";
 const BASE_URL = "/v1/api/crm";
 
 // System fields to hide from display
@@ -109,7 +110,7 @@ export default function CrmViewPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(dateLocale("en-US"), {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -176,7 +177,7 @@ export default function CrmViewPage() {
     if (value === null || value === "")
       return (
         <span className="text-gray-400 dark:text-gray-500 italic">
-          Not provided
+          {t("Not provided")}
         </span>
       );
 
@@ -245,7 +246,7 @@ export default function CrmViewPage() {
       if (value.length === 0)
         return (
           <span className="text-gray-400 dark:text-gray-500 italic">
-            No items
+            {t("No items")}
           </span>
         );
 
@@ -382,7 +383,7 @@ export default function CrmViewPage() {
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-12 text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Error Loading Data
+              {t("Error Loading Data")}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
             <button
@@ -390,7 +391,7 @@ export default function CrmViewPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
             >
               <ArrowLeftIcon className="h-4 w-4" />
-              Go Back
+              {t("Go Back")}
             </button>
           </div>
         </div>
@@ -411,17 +412,17 @@ export default function CrmViewPage() {
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-12 text-center">
             <DocumentTextIcon className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              No Data Available
+              {t("No Data Available")}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">
-              The requested information could not be found.
+              {t("The requested information could not be found.")}
             </p>
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
             >
               <ArrowLeftIcon className="h-4 w-4" />
-              Go Back
+              {t("Go Back")}
             </button>
           </div>
         </div>
@@ -537,7 +538,7 @@ export default function CrmViewPage() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-cyan-700 shadow-md transition-all hover:bg-cyan-50 active:scale-95 sm:w-auto dark:text-white/80"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
-                  Edit {requestFrom?.replace(/s$/, "")}
+                  {t("Edit")} {requestFrom?.replace(/s$/, "")}
                 </button>
               </div>}
             </div>
@@ -554,7 +555,7 @@ export default function CrmViewPage() {
                     : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 }`}
               >
-                Details
+                {t("Details")}
               </button>
               <button
                 onClick={() => setActiveTab("related")}
@@ -564,7 +565,7 @@ export default function CrmViewPage() {
                     : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 }`}
               >
-                Related Items
+                {t("Related Items")}
               </button>
             </div>
           </div>
@@ -603,7 +604,7 @@ export default function CrmViewPage() {
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <DocumentTextIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                        General Information
+                        {t("General Information")}
                       </h3>
 
                       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3">
@@ -640,7 +641,7 @@ export default function CrmViewPage() {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                       <MapPinIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                      Address Information
+                      {t("Address Information")}
                     </h3>
 
                     <div className="rounded-xl border border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 sm:p-6">
@@ -684,7 +685,7 @@ export default function CrmViewPage() {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                       <DocumentTextIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                      Notes
+                      {t("Notes")}
                     </h3>
 
                     <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
@@ -695,11 +696,10 @@ export default function CrmViewPage() {
                   </div>
                 )}
               </div>
-            ) : (
-              // Related Items Tab
+            ) : ( // Related Items Tab
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Related Items
+                  {t("Related Items")}
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -722,13 +722,13 @@ export default function CrmViewPage() {
                           <EnvelopeIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                         </div>
                         <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                          Communications
+                          {t("Communications")}
                         </h4>
                       </div>
                       <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      View all communications related to this {requestFrom}
+                      {t("View all communications related to this")} {requestFrom}
                     </p>
                   </div>
                   )}
@@ -745,13 +745,13 @@ export default function CrmViewPage() {
                             <UserIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                           </div>
                           <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                            Contacts
+                            {t("Contacts")}
                           </h4>
                         </div>
                         <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        View all contacts associated with this {requestFrom}
+                        {t("View all contacts associated with this")} {requestFrom}
                       </p>
                     </div>
                   )}
@@ -776,13 +776,13 @@ export default function CrmViewPage() {
                             <BuildingOfficeIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                           </div>
                           <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                            Customers
+                            {t("Customers")}
                           </h4>
                         </div>
                         <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        View the customers in this segment
+                        {t("View the customers in this segment")}
                       </p>
                     </div>
                   )}
@@ -801,13 +801,13 @@ export default function CrmViewPage() {
                             <TagIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
                           </div>
                           <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                            Segments
+                            {t("Segments")}
                           </h4>
                         </div>
                         <ChevronRightIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        View customer segments and groupings
+                        {t("View customer segments and groupings")}
                       </p>
                     </div>
                   )}

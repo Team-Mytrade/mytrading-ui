@@ -9,6 +9,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { getSelectedTenant, hasModule, hasPermission, type AccessInfo } from "../../access/access";
 import { DASH_CARD, formatMoney, getList, parseDate } from "./dashboardKit";
 
+import { t } from "../../i18n/i18n";
 /**
  * "Needs your attention": one strip across the modules with the work waiting for the signed-in user.
  * Only queues the user can act on are checked (module enabled + permission); a queue that fails to
@@ -143,19 +144,19 @@ export default function AttentionPanel() {
   };
 
   return (
-    <section className={`mb-3 flex-none px-4 py-3 ${DASH_CARD}`} aria-label="Needs your attention">
+    <section className={`mb-3 flex-none px-4 py-3 ${DASH_CARD}`} aria-label={t("Needs your attention")}>
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={toggle} className="flex min-w-0 items-center gap-2 text-left" aria-expanded={!collapsed}>
           <span className={`grid h-7 w-7 flex-none place-items-center rounded-lg ${waiting.length ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}>
             {waiting.length ? <BellRing size={15} /> : <CheckCircle2 size={15} />}
           </span>
-          <span className="text-sm font-semibold text-gray-900 dark:text-white">Needs your attention</span>
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">{t("Needs your attention")}</span>
           <span className="truncate text-xs text-gray-500">
-            {loading ? "Checking…" : waiting.length ? `${total} item${total === 1 ? "" : "s"} in ${waiting.length} queue${waiting.length === 1 ? "" : "s"}` : "All clear"}
+            {loading ? t("Checking…") : waiting.length ? t("{items} item(s) in {queues} queue(s)", { items: total, queues: waiting.length }) : t("All clear")}
           </span>
           <ChevronDown size={15} className={`flex-none text-gray-400 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
         </button>
-        <button type="button" onClick={load} disabled={loading} title="Check again"
+        <button type="button" onClick={load} disabled={loading} title={t("Check again")}
           className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-50 hover:text-cyan-600 disabled:opacity-50 dark:hover:bg-gray-800">
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
         </button>
@@ -170,7 +171,7 @@ export default function AttentionPanel() {
                 className="group flex items-center gap-2 rounded-lg border border-[#d9eef2] bg-white px-2.5 py-1.5 text-left transition hover:border-[#4dd0e1] hover:shadow-[0_4px_10px_rgba(0,151,167,0.10)] dark:border-gray-800 dark:bg-gray-900">
                 <span className={`grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-xs font-bold ${TONES[item.tone]}`}>{r.count}</span>
                 <item.icon size={14} className="flex-none text-slate-400 group-hover:text-[#0097a7]" />
-                <span className="text-xs font-medium text-slate-700 group-hover:text-[#006f7a] dark:text-gray-200">{item.label}</span>
+                <span className="text-xs font-medium text-slate-700 group-hover:text-[#006f7a] dark:text-gray-200">{t(item.label)}</span>
                 {r.amount ? <span className="text-[11px] text-gray-400">{formatMoney(r.amount, null, true)}</span> : null}
               </button>
             );

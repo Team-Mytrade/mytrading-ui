@@ -329,7 +329,7 @@ const PaymentTerms: React.FC = () => {
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first payment term
+                  {t("Create your first payment term")}
                 </button>
               )}
             </div>
@@ -338,12 +338,12 @@ const PaymentTerms: React.FC = () => {
 
         <PaginatedPopup
           isOpen={showFormModal}
-          title={editingId !== null ? "Edit Payment Term" : "Create New Payment Term"}
-          subtitle={editingId !== null ? "Update your payment term" : "Add a new payment term"}
+          title={t(editingId !== null ? "Edit Payment Term" : "Create New Payment Term")}
+          subtitle={t(editingId !== null ? "Update your payment term" : "Add a new payment term")}
           onClose={closeModal}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId !== null ? "Update Payment Term" : "Create Payment Term"}
+          submitLabel={t(editingId !== null ? "Update Payment Term" : "Create Payment Term")}
           maxWidthClassName="max-w-2xl"
           tabs={[
             {

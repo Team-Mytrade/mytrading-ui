@@ -4,6 +4,7 @@ import { FileText, X, Eye, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
 
+import { t } from "../../i18n/i18n";
 interface MyPayslipsTabProps {
     employeeId: number;
 }
@@ -74,7 +75,7 @@ const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText size={20} className="text-cyan-600" /> My Payslips
+                    <FileText size={20} className="text-cyan-600" /> {t("My Payslips")}
                 </h2>
             </div>
 
@@ -86,7 +87,7 @@ const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
                 ) : availableMonths.length === 0 ? (
                     <div className="text-center py-12">
                         <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                        <p className="text-gray-500 font-medium">No payslips available yet.</p>
+                        <p className="text-gray-500 font-medium">{t("No payslips available yet.")}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -104,7 +105,7 @@ const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
                                     </div>
                                     <div>
                                         <p className="text-lg font-semibold text-gray-900">{item.payrollMonth}</p>
-                                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Generated Payslip</p>
+                                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{t("Generated Payslip")}</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 mt-auto">
@@ -112,13 +113,13 @@ const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
                                         onClick={() => handlePreview(item.payrollMonth)}
                                         className="w-full py-2 bg-white border border-cyan-200 hover:bg-cyan-50 text-cyan-700 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5"
                                     >
-                                        <Eye size={16} /> Preview
+                                        <Eye size={16} /> {t("Preview")}
                                     </button>
                                     <button
                                         onClick={() => handleDownload(item.payrollMonth)}
                                         className="w-full py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                     >
-                                        <Download size={16} /> PDF
+                                        <Download size={16} /> {t("PDF")}
                                     </button>
                                 </div>
                             </motion.div>

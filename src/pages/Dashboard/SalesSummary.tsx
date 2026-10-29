@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { formatMoney } from "../../company/format";
+import { t } from "../../i18n/i18n";
 // -------------------------
 // Types
 // -------------------------
@@ -81,35 +82,35 @@ const SalesSummary: React.FC = () => {
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-6 py-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Sales Summary
+        {t("Sales Summary")}
       </h2>
       <ul className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
         <li className="flex justify-between">
-          <span>Total Deals:</span>
+          <span>{t("Total Deals:")}</span>
           <span>{summary.totalDeals}</span>
         </li>
         <li className="flex justify-between">
-          <span>Total Revenue:</span>
+          <span>{t("Total Revenue:")}</span>
           <span>{formatMoney(summary.totalRevenue)}</span>
         </li>
         <li className="flex justify-between">
-          <span>Won Deals:</span>
+          <span>{t("Won Deals:")}</span>
           <span>{summary.wonDeals}</span>
         </li>
         <li className="flex justify-between">
-          <span>Lost Deals:</span>
+          <span>{t("Lost Deals:")}</span>
           <span>{summary.lostDeals}</span>
         </li>
         <li className="flex justify-between">
-          <span>Open Deals:</span>
+          <span>{t("Open Deals:")}</span>
           <span>{summary.openDeals}</span>
         </li>
         <li className="flex justify-between">
-          <span>Avg Deal Size:</span>
+          <span>{t("Avg Deal Size:")}</span>
           <span>${summary.averageDealSize.toFixed(2)}</span>
         </li>
         <li className="flex justify-between">
-          <span>Win Rate:</span>
+          <span>{t("Win Rate:")}</span>
           <span>{summary.winRate.toFixed(1)}%</span>
         </li>
       </ul>

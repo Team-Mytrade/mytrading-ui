@@ -297,7 +297,7 @@ const VendorPayments: React.FC = () => {
 
       <PaginatedPopup
         isOpen={formOpen}
-        title={editing ? "Edit vendor payment" : "Pay a bill"}
+        title={t(editing ? "Edit vendor payment" : "Pay a bill")}
         subtitle={t("The payment settles the bill's payable")}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-2xl"
@@ -341,7 +341,7 @@ const VendorPayments: React.FC = () => {
               <FloatingInput label={t("Paid by")} name="paidBy" value={form.paidBy}
                 onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value }))} />
             </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record payment"} busy={busy} />
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Record payment")} busy={busy} />
           </form>
         }
       />
