@@ -445,7 +445,7 @@ const LeavePolicyPage: React.FC = () => {
             onClick={() => {
               const raw = (row as any)._raw || row;
               setAssigningPolicy(raw);
-              setSelectedEmployeeIds([12]);
+              setSelectedEmployeeIds([]); // Reset selected employees
             }}
             className="px-2 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-purple-200 dark:border-transparent text-purple-700 dark:text-gray-300 dark:hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-2xs"
             title="Assign Policy to Employees"
