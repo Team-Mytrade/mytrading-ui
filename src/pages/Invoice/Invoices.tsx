@@ -30,6 +30,7 @@ import {
   INVOICE_API,
   INVOICE_STATUS_TONES,
   Invoice,
+  UAE_STATUS_LABELS,
   apiError,
   dateLabel,
   isOpenInvoice,
@@ -110,6 +111,28 @@ const ZATCA_STATUS_TONE: Record<string, string> = {
   REJECTED: "text-rose-700",
 };
 
+/** A UAE (PINT AE) e-invoice of an issued invoice or credit note. */
+interface UaeEInvoice {
+  id: number;
+  documentType: string;
+  documentNumber: string;
+  status: string;
+  problems: string[];
+  attempts?: number | null;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  ftaReportedAt?: string | null;
+  aspResponse?: string | null;
+}
+
+const UAE_STATUS_TONE: Record<string, string> = {
+  INCOMPLETE: "text-amber-700",
+  READY: "text-amber-700",
+  SENT: "text-cyan-700",
+  DELIVERED: "text-emerald-700",
+  REJECTED: "text-rose-700",
+};
+
 type Dialog = "generate" | "edit" | "cancel" | "creditNote" | "applyCredit" | null;
 
 const Invoices: React.FC = () => {
@@ -138,6 +161,7 @@ const Invoices: React.FC = () => {
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [documents, setDocuments] = useState<InvoiceDocument[]>([]);
   const [zatcaDocs, setZatcaDocs] = useState<ZatcaDocument[]>([]);
+  const [uaeDocs, setUaeDocs] = useState<UaeEInvoice[]>([]);
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -173,15 +197,43 @@ const Invoices: React.FC = () => {
     setCreditNotes([]);
     setDocuments([]);
     setZatcaDocs([]);
+    setUaeDocs([]);
     if (invoice.status === "DRAFT") return;
-    const [notes, docs, zatca] = await Promise.allSettled([
+    const [notes, docs, zatca, uae] = await Promise.allSettled([
       axios.get<CreditNote[]>(`${INVOICE_API}/credit-notes`, { params: { invoiceId: invoice.id } }),
       canExport ? axios.get<InvoiceDocument[]>(`${API_URL}/${invoice.id}/documents`) : Promise.resolve({ data: [] as InvoiceDocument[] }),
       axios.get<ZatcaDocument[]>(`${INVOICE_API}/zatca/documents`, { params: { invoiceId: invoice.id } }),
+      axios.get<UaeEInvoice[]>(`${INVOICE_API}/uae-einvoices`, { params: { invoiceId: invoice.id } }),
     ]);
     if (notes.status === "fulfilled") setCreditNotes(Array.isArray(notes.value.data) ? notes.value.data : []);
     if (docs.status === "fulfilled") setDocuments(Array.isArray(docs.value.data) ? docs.value.data : []);
     if (zatca.status === "fulfilled") setZatcaDocs(Array.isArray(zatca.value.data) ? zatca.value.data : []);
+    if (uae.status === "fulfilled") setUaeDocs(Array.isArray(uae.value.data) ? uae.value.data : []);
+  };
+
+  /** UAE e-invoice actions: "rebuild" checks it again after a fix; "send" sends a ready one or checks a sent one. */
+  const uaeAction = async (doc: UaeEInvoice, action: "rebuild" | "send") => {
+    setBusy(true);
+    try {
+      const res = await axios.post<UaeEInvoice>(`${INVOICE_API}/uae-einvoices/${doc.id}/${action}`);
+      setUaeDocs((list) => list.map((item) => (item.id === doc.id ? res.data : item)));
+      const label = t(UAE_STATUS_LABELS[res.data.status] ?? res.data.status);
+      if (res.data.status === "INCOMPLETE" || res.data.status === "REJECTED") ToasterService.error(label);
+      else ToasterService.success(label);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not update the e-invoice"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadUaeXml = async (doc: UaeEInvoice) => {
+    try {
+      const file = await axios.get(`${INVOICE_API}/uae-einvoices/${doc.id}/xml`, { responseType: "blob" });
+      saveBlob(file.data, `${doc.documentNumber}.xml`);
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not download the XML"));
+    }
   };
 
   /** Sends a document ZATCA hasn't accepted yet now, instead of waiting for the automatic retry. */
@@ -691,6 +743,50 @@ const Invoices: React.FC = () => {
                       )}
                       {doc.status === "SIGNED" && doc.signedWith === "LOCAL_TEST" && (
                         <p className="text-xs text-slate-500">{t("Signed with a local test certificate, so it isn't sent to ZATCA.")}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {uaeDocs.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("UAE e-invoice")}</div>
+                <ul className="mt-1 space-y-2">
+                  {uaeDocs.map((doc) => (
+                    <li key={doc.id} className="text-slate-700">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {doc.documentNumber} ·{" "}
+                          <span className={`font-medium ${UAE_STATUS_TONE[doc.status] ?? ""}`}>{t(UAE_STATUS_LABELS[doc.status] ?? doc.status)}</span>
+                          {doc.deliveredAt ? ` · ${dateLabel(doc.deliveredAt)}` : doc.sentAt ? ` · ${dateLabel(doc.sentAt)}` : ""}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {(doc.status === "INCOMPLETE" || doc.status === "REJECTED") && (
+                            <button type="button" onClick={() => uaeAction(doc, "rebuild")} disabled={busy}
+                              className="text-xs font-medium text-cyan-700 hover:underline disabled:opacity-50">{t("Check again")}</button>
+                          )}
+                          {doc.status === "READY" && (
+                            <button type="button" onClick={() => uaeAction(doc, "send")} disabled={busy}
+                              className="text-xs font-medium text-cyan-700 hover:underline disabled:opacity-50">{t("Send now")}</button>
+                          )}
+                          {doc.status === "SENT" && (
+                            <button type="button" onClick={() => uaeAction(doc, "send")} disabled={busy}
+                              className="text-xs font-medium text-cyan-700 hover:underline disabled:opacity-50">{t("Check delivery")}</button>
+                          )}
+                          {canExport && (
+                            <button type="button" onClick={() => downloadUaeXml(doc)} className="text-xs font-medium text-cyan-700 hover:underline">{t("XML")}</button>
+                          )}
+                        </span>
+                      </div>
+                      {doc.problems.length > 0 && (
+                        <ul className="mt-0.5 list-disc ps-4 text-xs text-amber-700">
+                          {doc.problems.map((problem) => <li key={problem}>{problem}</li>)}
+                        </ul>
+                      )}
+                      {doc.ftaReportedAt && <p className="text-xs text-emerald-700">{t("Reported to the FTA")} · {dateLabel(doc.ftaReportedAt)}</p>}
+                      {doc.aspResponse && (
+                        <p className={`whitespace-pre-line text-xs ${doc.status === "REJECTED" ? "text-rose-700" : "text-slate-500"}`}>{doc.aspResponse}</p>
                       )}
                     </li>
                   ))}

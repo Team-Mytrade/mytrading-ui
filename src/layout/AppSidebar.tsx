@@ -256,6 +256,7 @@ export const navItems: NavItem[] = [
       { name: "Posting Accounts", path: "/postingAccounts", icon: BookmarkCheck, section: "Set-up" },
       { name: "Exchange Rates", path: "/exchangeRates", icon: Coins, section: "Set-up" },
           { name: "ZATCA e-invoicing", path: "/zatca", icon: ShieldCheck, section: "Set-up" },
+      { name: "UAE e-invoicing", path: "/uae-einvoicing", icon: ShieldCheck, section: "Set-up" },
     ],
   },
 

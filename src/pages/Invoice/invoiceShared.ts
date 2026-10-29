@@ -239,3 +239,12 @@ export const saveBlob = (blob: Blob, fileName: string) => {
   link.remove();
   URL.revokeObjectURL(url);
 };
+
+/** UAE e-invoice statuses, as people read them. */
+export const UAE_STATUS_LABELS: Record<string, string> = {
+  INCOMPLETE: "Needs details",
+  READY: "Waiting to be sent",
+  SENT: "Sent to the service provider",
+  DELIVERED: "Delivered to the buyer",
+  REJECTED: "Rejected",
+};
