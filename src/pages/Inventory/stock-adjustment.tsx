@@ -179,6 +179,11 @@ function getBatchWarehouseId(batch?: Batch | null) {
   return Number(batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.id : 0);
 }
 
+function getBatchWarehouseName(batch?: Batch | null) {
+  if (!batch?.warehouse || typeof batch.warehouse === "string") return "";
+  return batch.warehouse.name || batch.warehouse.code || "";
+}
+
 function getSerialBatchId(serial?: SerialNumber | null) {
   return Number(serial?.batch?.id ?? serial?.batchId ?? 0);
 }
@@ -779,7 +784,6 @@ const StockAdjustmentManager: React.FC = () => {
   const renderAdjustmentDetails = (adjustment: StockAdjustment) => {
     const createdAt = adjustment.createdDate
       ? formatDateTime(adjustment.createdDate)
-      ? new Date(toUtc(adjustment.createdDate)!).toLocaleString()
       : "--";
 
     const Field = ({
@@ -810,10 +814,8 @@ const StockAdjustmentManager: React.FC = () => {
     return (
       <div className="grid grid-cols-2 gap-3">
         <Field label="Adjustment ID">#{adjustment.id}</Field>
-        <Field label="Date">
-          {formatDate(adjustment.adjustmentDate)}
         <Field label="Date" full>
-          {new Date(adjustment.adjustmentDate).toLocaleDateString()}
+          {formatDate(adjustment.adjustmentDate)}
         </Field>
 
         <Field label="Type" full>

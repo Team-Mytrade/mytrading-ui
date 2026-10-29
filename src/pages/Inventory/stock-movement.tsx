@@ -847,10 +847,8 @@ const StockMovementsManager: React.FC = () => {
     return (
       <div className="grid grid-cols-2 gap-3">
         <Field label="Movement ID">#{movement.id}</Field>
-        <Field label="Date">
-          {formatDate(movement.movementDate)}
         <Field label="Date" full>
-          {new Date(movement.movementDate).toLocaleDateString()}
+          {formatDate(movement.movementDate)}
         </Field>
 
         <Field label="Type" full>

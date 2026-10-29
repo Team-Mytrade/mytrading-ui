@@ -284,6 +284,18 @@ function getLocalSupplierName(id: number): string {
   return loadSupplierMap()[id] || "";
 }
 
+function saveSupplierName(id: number, supplierName: string): void {
+  try {
+    const suppliers = loadSupplierMap();
+    const value = supplierName.trim();
+    if (value) suppliers[id] = value;
+    else delete suppliers[id];
+    localStorage.setItem(SUPPLIER_STORAGE_KEY, JSON.stringify(suppliers));
+  } catch {
+    // Supplier storage is only a legacy fallback; a storage failure must not block saving a batch.
+  }
+}
+
 const supplierOf = (batch: { id: number; supplierName?: string | null }) => batch.supplierName || getLocalSupplierName(batch.id);
 
 // ============ COMPONENT ============
@@ -347,7 +359,6 @@ const BatchManagement: React.FC = () => {
           reserved: stock.reserved || 0,
           available: stock.available || 0,
           supplierName: supplierOf(batch),
-          supplierName: getLocalSupplierName(batch.id),
           daysUntilExpiry: getDaysUntilExpiry(batch),
           fifoPriority: 0,
           fefoPriority: 0,
