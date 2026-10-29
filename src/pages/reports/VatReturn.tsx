@@ -149,10 +149,11 @@ const VatReturn: React.FC = () => {
             <Link to="/company-settings" className="font-semibold underline">Company Settings</Link>.
           </p>
         )}
-        {data && data.currencies.length > 1 && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            This period has documents in {data.currencies.join(", ")}. They are added at face value; file foreign-currency
-            documents at the exchange rate of their date.
+        {data && data.currencies.some((c) => c !== company?.currency) && (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            This period has documents in {data.currencies.join(", ")}. Each counts in {company?.currency ?? "the company's currency"} at
+            the rate it was booked at (a credit note at its invoice's); documents from before exchange rates were kept count at face value.
+            Rates are set in <Link to="/exchangeRates" className="font-semibold underline">Exchange Rates</Link>.
           </p>
         )}
 

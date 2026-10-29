@@ -25,7 +25,9 @@ export interface BankAccount {
   openingBalance?: number | null;
   active: boolean;
   defaultAccount: boolean;
+  // In the company's currency (the ledger), and in the account's own
   bookBalance: number;
+  balanceInCurrency?: number;
 }
 
 export interface BookLine {

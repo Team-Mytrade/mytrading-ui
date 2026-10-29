@@ -184,6 +184,7 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/postingAccounts", "INVOICE"],
   ["/financialStatements", "INVOICE"],
   ["/bankAccounts", "INVOICE"],
+  ["/exchangeRates", "INVOICE"],
   ["/expenseRevenue", "INVOICE"],
   ["/accountsReceivable", "INVOICE"],
   ["/taxReport", "INVOICE"],

@@ -178,6 +178,7 @@ const PostingAccounts = lazy(() => import("./pages/Invoice/PostingAccounts"));
 const FinancialStatements = lazy(() => import("./pages/Invoice/FinancialStatements"));
 const BankAccounts = lazy(() => import("./pages/Invoice/BankAccounts"));
 const BankReconciliation = lazy(() => import("./pages/Invoice/BankReconciliation"));
+const ExchangeRates = lazy(() => import("./pages/Invoice/ExchangeRates"));
 const ExpenseRevenue = lazy(() => import("./pages/Invoice/ExpenseRevenue"));
 const AccountsReceivable = lazy(() => import("./pages/Invoice/AccountsReceivable"));
 const TaxReport = lazy(() => import("./pages/reports/TaxReport"));
@@ -304,6 +305,7 @@ export default function AppRouter() {
           <Route path="/financialStatements" element={<FinancialStatements />} />
           <Route path="/bankAccounts" element={<BankAccounts />} />
           <Route path="/bankAccounts/:id/reconcile" element={<BankReconciliation />} />
+          <Route path="/exchangeRates" element={<ExchangeRates />} />
           <Route path="/expenseRevenue" element={<ExpenseRevenue />} />
           <Route path="/accountsReceivable" element={<AccountsReceivable />} />
           <Route path="/taxReport" element={<TaxReport />} />

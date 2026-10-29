@@ -26,6 +26,7 @@ import {
 import { ActionButton, DialogFooter, StatusBadge } from "./invoiceUi";
 import { bankAccountName, defaultBankAccountId, useBankAccounts } from "./bankShared";
 import BankAccountField from "./BankAccountField";
+import { companyCurrency } from "../../company/format";
 
 const API_URL = `${INVOICE_API}/receipts`;
 const PAGE_SIZE = 10;
@@ -56,6 +57,9 @@ interface Receipt {
   referenceNumber?: string;
   // Bank account / cash box it went into (none on older receipts)
   bankAccountId?: number | null;
+  // The money's currency (its invoices'), and the company-currency rate on the payment date
+  currency?: string | null;
+  exchangeRate?: number | null;
   receivedBy?: string;
   notes?: string;
   allocations?: Allocation[];
@@ -70,6 +74,8 @@ const emptyForm = () => ({
   amount: "",
   paymentMethod: "BANK_TRANSFER",
   bankAccountId: "",
+  // The customer's open invoices decide it; an advance can be in any currency
+  currency: companyCurrency(),
   referenceNumber: "",
   notes: "",
 });
@@ -127,6 +133,9 @@ const PaymentReceipts: React.FC = () => {
         .filter((invoice) => isOpenInvoice(invoice.status) && Number(invoice.balanceAmount || 0) > 0)
         .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
       setOutstanding(open);
+      // Paying invoices in another currency: the receipt is in theirs
+      const currencies = [...new Set(open.map((invoice) => invoice.currencyCode).filter(Boolean))];
+      if (currencies.length === 1) setForm((current) => ({ ...current, currency: currencies[0] as string }));
       const preselected = open.find((invoice) => invoice.id === preselectInvoiceId);
       if (preselected) {
         setAllocations({ [preselected.id]: String(preselected.balanceAmount) });
@@ -189,6 +198,8 @@ const PaymentReceipts: React.FC = () => {
         totalAmountReceived: amountReceived,
         paymentMethod: form.paymentMethod,
         bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
+        // Only an advance (no invoices) takes it; otherwise it must be the invoices' own
+        currency: form.currency.trim().toUpperCase() || null,
         referenceNumber: form.referenceNumber.trim() || null,
         notes: form.notes.trim() || null,
         allocations: Object.entries(allocations)
@@ -271,7 +282,7 @@ const PaymentReceipts: React.FC = () => {
       sortable: true,
       headerClassName: "text-right",
       className: "text-right",
-      render: (receipt) => <span className="text-sm font-medium text-slate-800">{money(receipt.totalAmountReceived)}</span>,
+      render: (receipt) => <span className="text-sm font-medium text-slate-800">{money(receipt.totalAmountReceived, receipt.currency)}</span>,
     },
     {
       key: "unallocatedAmount",
@@ -279,7 +290,7 @@ const PaymentReceipts: React.FC = () => {
       sortable: true,
       headerClassName: "text-right",
       className: "text-right",
-      render: (receipt) => <span className="text-sm text-slate-600">{Number(receipt.unallocatedAmount) > 0 ? money(receipt.unallocatedAmount) : "—"}</span>,
+      render: (receipt) => <span className="text-sm text-slate-600">{Number(receipt.unallocatedAmount) > 0 ? money(receipt.unallocatedAmount, receipt.currency) : "—"}</span>,
     },
     {
       key: "status",
@@ -356,8 +367,10 @@ const PaymentReceipts: React.FC = () => {
                     loadOutstanding(event.target.value);
                   }}
                 />
-                <FloatingInput label="Amount received" name="amount" type="number" required value={form.amount}
+                <FloatingInput label={`Amount received (${form.currency || companyCurrency()})`} name="amount" type="number" required value={form.amount}
                   onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
+                <FloatingInput label="Currency" name="currency" value={form.currency}
+                  onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value.toUpperCase().slice(0, 3) }))} />
                 <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
                   onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
                 <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}

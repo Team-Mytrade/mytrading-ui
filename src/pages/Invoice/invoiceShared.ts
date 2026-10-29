@@ -77,6 +77,8 @@ export interface Invoice {
   customerTaxNumber?: string;
   customerEmail?: string;
   currencyCode?: string;
+  // Company currency per unit of the invoice's, fixed when issued
+  exchangeRate?: number | null;
   paymentTerms?: string;
   customerReference?: string;
   subTotal?: number;
@@ -164,6 +166,8 @@ export interface JournalLine {
   debit: number;
   credit: number;
   narration?: string;
+  // The line in the entry's (document's) currency, debit positive
+  currencyAmount?: number | null;
 }
 
 export interface JournalEntry {
@@ -179,6 +183,9 @@ export interface JournalEntry {
   postingKey?: string | null;
   // The entry this one reverses (cancelled invoice, reversed receipt, corrected bill)
   reversalOf?: number | null;
+  // The document's currency and rate (amounts are in the company's currency)
+  currency?: string | null;
+  exchangeRate?: number | null;
 }
 
 export const ACCOUNT_TYPE_OPTIONS: Option[] = [
