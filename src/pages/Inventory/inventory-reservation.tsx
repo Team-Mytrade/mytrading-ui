@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,78 +7,37 @@ import {
   CheckCircleIcon,
   ClockIcon,
   CubeIcon,
-  PencilIcon,
+  PencilSquareIcon as PencilIcon,
   ShoppingBagIcon,
   TrashIcon,
   UserIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
-import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import { ListingPdfExportButton } from "../../components/common/export";
-import {
-  FloatingInput,
-  FloatingSelect1 as FloatingSelect,
-} from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
-import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate } from "../../company/format";
 
 /**
- * =====================================================================================
- * WHY "Unknown customer" APPEARS — checked against the confirmed schema:
- *
- *   GET/POST /inventory-reservations returns: { id, reservationNo,
- *   salesOrderId, warehouseId, status, reservationDate, items }. There is NO
- *   customerId field on the Reservation entity at all. Customer name can only
- *   be resolved indirectly: salesOrderId -> look up that Sales Order in the
- *   separately-fetched sales orders list -> read ITS customerId -> look up
- *   the Customer. If salesOrderId doesn't match anything in the fetched
- *   sales orders list (stale id, order in a different tenant, sales orders
- *   endpoint not returning everything, etc.), none of that resolves and the
- *   fallback "Unknown customer" is shown — which is why every "Unknown
- *   customer" row also shows the generic "Sales Order" placeholder instead of
- *   a real order number. This is a real functional gap (not a display bug):
- *   ask backend whether reservations should carry customerId directly, since
- *   right now customer attribution silently fails whenever the sales-order
- *   link can't be resolved.
- *
- * CORRECTIONS MADE:
- *   1. Added PDF export (ListingPdfExportButton) — missing entirely before,
- *      unlike every sibling module.
- *   2. Added `DRAFT` and `PARTIALLY_RESERVED` to the status type, color map,
- *      and icon map. The confirmed schema example shows "status": "DRAFT",
- *      and PARTIALLY_RESERVED appears in real data — neither was handled
- *      before, which is why they rendered as plain, uncolored badges.
- *   3. No createdBy/tenantId added — unlike every other inventory module,
- *      this confirmed schema genuinely has no such fields, so nothing to add.
- *
- * ⚠️ STILL NEEDS BACKEND CONFIRMATION:
- *   - `PUT .../update` (used here for editing a reservation) does NOT appear
- *     in the confirmed endpoint list — only PUT .../{id}/release,
- *     PUT .../{id}/consume, GET, POST, and GET/{id} were shown. Left as-is
- *     since it may simply not have been included in what was shared, but
- *     worth confirming the real update endpoint shape with backend.
- *   - DELETE was also not shown in the confirmed list — same caveat applies.
- * =====================================================================================
+ * Inventory Reservations
+ * Reservations are created automatically when a sales order is created, so this
+ * page has no Add or Edit. The only actions are Release, Consume and Delete.
  */
 
 type ReservationItem = {
   id?: number;
   productId: number;
   reservedQty: number;
+  requestedQty?: number;
+  consumedQty?: number;
   productName?: string;
   productCategory?: string;
 };
 
-// CORRECTED: added DRAFT and PARTIALLY_RESERVED, confirmed present in real
-// schema/data but previously unhandled.
 type ReservationStatus =
   | "DRAFT"
   | "RESERVED"
@@ -91,8 +50,13 @@ type ReservationStatus =
 type InventoryReservation = {
   id?: number;
   reservationNo: string;
+  referenceType?: string;
+  referenceNumber?: string;
   salesOrderId: number;
   warehouseId: number;
+  warehouse?: string;
+  releasedAt?: string | null;
+  reservedQty?: number;
   status: ReservationStatus;
   reservationDate: string;
   items: ReservationItem[];
@@ -127,15 +91,9 @@ type SalesOrder = {
   id: number;
   customerId: number;
   orderNumber?: string;
-};
-
-type InventoryForm = {
-  salesOrderId: string;
-  warehouseId: string;
-  status: string;
-  reservationDate: string;
-  productId: string;
-  reservedQty: string;
+  salesOrderNumber?: string;
+  orderNo?: string;
+  soNumber?: string;
 };
 
 const API_URL = "/v1/api/inventory/inventory-reservations";
@@ -144,37 +102,12 @@ const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/common/products";
 const CUSTOMER_API_URL = "/v1/api/common/customers";
 const SALES_ORDER_API_URL = "/v1/api/sales/sales-orders";
-const ENUM_API_URL = "/v1/api/inventory/enums";
 const PAGE_SIZE = 10;
 
 const PRODUCT_ROUTE = "/purchase-products";
 const WAREHOUSE_ROUTE = "/warehouse";
 const CUSTOMERS_PAGE_PATH = "/customer-management";
 const SALES_ORDERS_ROUTE = "/sales-orders";
-
-// CORRECTED: DRAFT and PARTIALLY_RESERVED added to the user-selectable
-// fallback set (used only if the live enum fetch fails).
-const USER_SELECTABLE_STATUSES = [
-  "DRAFT",
-  "RESERVED",
-  "PARTIALLY_RESERVED",
-  "RELEASED",
-  "CONSUMED",
-  "CANCELLED",
-];
-
-const emptyForm: InventoryForm = {
-  salesOrderId: "",
-  warehouseId: "",
-  status: "",
-  reservationDate: todayIso(),
-  productId: "",
-  reservedQty: "",
-};
-
-function toNumber(value: string | number | undefined | null): number {
-  return Number(value || 0);
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -183,6 +116,23 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return data?.message || data?.detail || data?.error || fallback;
   }
   return fallback;
+}
+
+// The API returns UTC timestamps without "Z", so mark them as UTC; otherwise
+// "Released At" shows 5:30 hours behind in IST.
+const SERVER_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/;
+function toUtc(value?: string | null) {
+  return value && SERVER_TS.test(value) ? value.replace(/(\.\d{3})\d+$/, "$1") + "Z" : value;
+}
+
+function getProductLabel(product?: Product) {
+  return product?.productName || product?.name || "";
+}
+
+function getOrderNumber(order?: SalesOrder) {
+  return (
+    order?.orderNumber || order?.salesOrderNumber || order?.orderNo || order?.soNumber || ""
+  ).trim();
 }
 
 function getCustomerName(customer: Customer | undefined): string {
@@ -203,81 +153,25 @@ const InventoryReservationManager: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
-  const [form, setForm] = useState<InventoryForm>(emptyForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
   const [actionType, setActionType] = useState<"release" | "consume" | null>(null);
 
-  const [statusOptions, setStatusOptions] = useState<string[]>(USER_SELECTABLE_STATUSES);
-  const [enumLoading, setEnumLoading] = useState(false);
-
   useEffect(() => {
-    fetchEnums();
     fetchReservations();
     fetchDropdowns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // =====================================================================
-  // DISPLAY HELPERS — no raw IDs shown anywhere in sales-order context.
-  // Underlying value submitted to the backend is still the real id.
-  // =====================================================================
-  const getSalesOrderLabel = (order: SalesOrder, index: number) => {
-    const num = (order.orderNumber || "").trim();
-    if (num) return num;
-    // Positional display label only — the underlying value is still the real id.
-    return `Sales Order #${index + 1}`;
-  };
-
+  // Sales order number for display. Never shows the raw id or a made-up number.
   const getSalesOrderDisplayById = (orderId?: number | null) => {
-    if (!orderId) return "Sales Order";
-    const index = salesOrders.findIndex((o) => Number(o.id) === Number(orderId));
-    if (index >= 0) return getSalesOrderLabel(salesOrders[index], index);
-    // Never fall back to the raw id.
-    return "Sales Order";
+    if (!orderId) return "--";
+    const order = salesOrders.find((o) => Number(o.id) === Number(orderId));
+    return getOrderNumber(order) || "Sales Order";
   };
 
-  const fetchEnums = async (): Promise<void> => {
-    try {
-      setEnumLoading(true);
-      const response = await axios.get(`${ENUM_API_URL}?type=RESERVATION_STATUS`, { headers });
-      const data = Array.isArray(response.data) ? response.data : [];
-
-      const codes = data
-        .map((item: any) => {
-          if (typeof item === "string") return item;
-          return item.id ?? item.value ?? item.code ?? item.key ?? item.name ?? null;
-        })
-        .filter(Boolean) as string[];
-
-      const userSelectable = codes.filter((code) => code !== "EXPIRED");
-      setStatusOptions(userSelectable.length > 0 ? userSelectable : USER_SELECTABLE_STATUSES);
-
-      setForm((prev) => ({
-        ...prev,
-        status: userSelectable.length > 0 ? userSelectable[0] : USER_SELECTABLE_STATUSES[0],
-      }));
-    } catch (error) {
-      console.warn("Failed to fetch reservation status, using fallback");
-      setStatusOptions(USER_SELECTABLE_STATUSES);
-    } finally {
-      setEnumLoading(false);
-    }
-  };
-
-  // CORRECTED: previously this only checked `Array.isArray(res.data)` and
-  // silently fell back to `[]` otherwise — if any of these endpoints are
-  // paginated (a Page<T> wrapper), the dropdown/lookup list would end up
-  // completely empty with no error shown. This is the most likely reason
-  // "Unknown customer" was appearing for so many rows: if salesOrders came
-  // back empty due to this, NO reservation could ever resolve a customer via
-  // the salesOrderId -> SalesOrder -> Customer chain, regardless of whether
-  // the data actually existed on the backend. Now unwraps `.content`/`.data`
-  // the same way every other module in this app already does.
   const fetchDropdowns = async (): Promise<void> => {
     try {
       const [warehouseRes, productRes, customerRes, salesOrderRes] = await Promise.all([
@@ -320,118 +214,13 @@ const InventoryReservationManager: React.FC = () => {
         ? response.data
         : (response.data as any)?.content || (response.data as any)?.data || [];
 
-      // Customer / order resolution done at RENDER time — see the getReservation* helpers.
-      const enrichedData = data.map((reservation: InventoryReservation) => {
-        const firstItem = reservation.items?.[0];
-        return {
-          ...reservation,
-          productId: firstItem?.productId || 0,
-          productName: firstItem?.productName || `Product #${firstItem?.productId || "Unknown"}`,
-          productCategory: firstItem?.productCategory || "",
-          reservedQty: reservation.items?.[0]?.reservedQty || 0,
-        };
-      });
-
-      setReservations(enrichedData);
+      // Names are filled in by `rows` below, once products/warehouses/orders load.
+      setReservations(data);
     } catch (error) {
       setReservations([]);
       ToasterService.error("Failed to load reservations", getErrorMessage(error, "Please try again."));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const openCreate = (): void => {
-    setEditingId(null);
-    setForm({ ...emptyForm, status: statusOptions[0] || "RESERVED" });
-    setShowFormModal(true);
-  };
-
-  const closeForm = (): void => {
-    setEditingId(null);
-    setForm(emptyForm);
-    setShowFormModal(false);
-  };
-
-  const openEdit = (reservation: InventoryReservation): void => {
-    setEditingId(reservation.id || null);
-    setForm({
-      salesOrderId: String(reservation.salesOrderId || ""),
-      warehouseId: String(reservation.warehouseId || ""),
-      status: reservation.status || statusOptions[0] || "RESERVED",
-      reservationDate: reservation.reservationDate || emptyForm.reservationDate,
-      productId: String(reservation.items?.[0]?.productId || ""),
-      reservedQty: String(reservation.items?.[0]?.reservedQty || ""),
-    });
-    setShowFormModal(true);
-  };
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
-    const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const buildCreatePayload = () => ({
-    salesOrderId: toNumber(form.salesOrderId),
-    warehouseId: toNumber(form.warehouseId),
-    status: form.status,
-    reservationDate: form.reservationDate,
-    items: [
-      { productId: toNumber(form.productId), reservedQty: toNumber(form.reservedQty) },
-    ],
-  });
-
-  const buildUpdatePayload = () => ({
-    id: editingId || 0,
-    salesOrderId: toNumber(form.salesOrderId),
-    warehouseId: toNumber(form.warehouseId),
-    status: form.status,
-    reservationDate: form.reservationDate,
-    items: [
-      { id: 0, productId: toNumber(form.productId), reservedQty: toNumber(form.reservedQty) },
-    ],
-  });
-
-  const handleSubmit = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-
-    if (!form.salesOrderId || toNumber(form.salesOrderId) <= 0) {
-      ToasterService.error("Please select a sales order");
-      return;
-    }
-    if (!form.warehouseId || toNumber(form.warehouseId) <= 0) {
-      ToasterService.error("Please select a warehouse");
-      return;
-    }
-    if (!form.productId || toNumber(form.productId) <= 0) {
-      ToasterService.error("Please select a product");
-      return;
-    }
-    if (!form.reservedQty || toNumber(form.reservedQty) <= 0) {
-      ToasterService.error("Reserved quantity is required");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const payload = editingId ? buildUpdatePayload() : buildCreatePayload();
-
-      if (editingId) {
-        // NOTE: `/update` is not in the confirmed endpoint list — see the
-        // top-of-file comment. Left as-is; confirm with backend.
-        await axios.put(`${API_URL}/update`, payload, { headers });
-        ToasterService.success("Reservation updated successfully");
-      } else {
-        await axios.post(API_URL, payload, { headers });
-        ToasterService.success("Reservation created successfully");
-      }
-
-      closeForm();
-      await fetchReservations();
-    } catch (error) {
-      ToasterService.error("Failed to save reservation", getErrorMessage(error, "Please try again."));
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -483,6 +272,42 @@ const InventoryReservationManager: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  // The items only carry productId, and the reservation only carries
+  // warehouseId / salesOrderId, so resolve readable values here. This runs again
+  // when the lookups finish loading, so names never get stuck as ids.
+  const rows = useMemo(
+    () =>
+      reservations.map((reservation) => {
+        const firstItem = reservation.items?.[0];
+        const warehouse = warehouses.find((w) => Number(w.id) === Number(reservation.warehouseId));
+        const order = salesOrders.find((o) => Number(o.id) === Number(reservation.salesOrderId));
+        const items = (reservation.items || []).map((item) => {
+          const itemProduct = products.find(
+            (p) => Number(p.id) === Number(item.productId) || Number(p.productId) === Number(item.productId)
+          );
+          return {
+            ...item,
+            productName: getProductLabel(itemProduct) || item.productName || "Unknown product",
+            productCategory: itemProduct?.categoryName || item.productCategory || "",
+          };
+        });
+        return {
+          ...reservation,
+          items,
+          productId: firstItem?.productId || 0,
+          productName: items[0]?.productName || "Unknown product",
+          productCategory: items[0]?.productCategory || "",
+          reservedQty: Number(firstItem?.reservedQty ?? 0),
+          warehouse: warehouse ? warehouse.name || warehouse.code : "--",
+          // Newer reservations store the sales order id ("3") here; show the
+          // order number instead when we can find the order.
+          referenceNumber: getOrderNumber(order) || reservation.referenceNumber || "--",
+          releasedAt: toUtc(reservation.releasedAt) ?? reservation.releasedAt,
+        };
+      }),
+    [reservations, products, warehouses, salesOrders]
+  );
 
   const stats = useMemo(
     () => ({
@@ -576,7 +401,7 @@ const InventoryReservationManager: React.FC = () => {
     if (!productId) return;
     navigate(
       `${PRODUCT_ROUTE}?productId=${productId}&productName=${encodeURIComponent(
-        productName || `Product #${productId}`
+        productName || ""
       )}`
     );
   };
@@ -585,7 +410,7 @@ const InventoryReservationManager: React.FC = () => {
     if (!warehouseId) return;
     navigate(
       `${WAREHOUSE_ROUTE}?warehouseId=${warehouseId}&warehouseName=${encodeURIComponent(
-        warehouseName || `Warehouse #${warehouseId}`
+        warehouseName || ""
       )}`
     );
   };
@@ -676,7 +501,7 @@ const InventoryReservationManager: React.FC = () => {
                 onClick={() => goToWarehouse(reservation.warehouseId, warehouse?.name)}
                 className="text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                {warehouse?.name || `Warehouse #${reservation.warehouseId}`}
+                {warehouse?.name || warehouse?.code || "--"}
               </button>
             ) : (
               <span>—</span>
@@ -716,10 +541,10 @@ const InventoryReservationManager: React.FC = () => {
                     onClick={() => goToProduct(item.productId, item.productName)}
                     className="text-left text-sm font-medium text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
                   >
-                    {item.productName || `Product #${item.productId}`}
+                    {item.productName || "Unknown product"}
                   </button>
                   <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Qty: {item.reservedQty}
+                    Qty: {Number(item.reservedQty ?? 0)}
                   </span>
                 </div>
               ))}
@@ -741,7 +566,7 @@ const InventoryReservationManager: React.FC = () => {
             <ClockIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            <p className="whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white">
               {reservation.reservationNo}
             </p>
           </div>
@@ -759,15 +584,15 @@ const InventoryReservationManager: React.FC = () => {
         return (
           <button
             type="button"
-            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-300 dark:hover:text-cyan-400"
+            className="flex max-w-[180px] items-center gap-2 text-left text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-300 dark:hover:text-cyan-400"
             onClick={(e) => {
               e.stopPropagation();
               if (customerId) goToCustomer(reservation);
             }}
             title={customerId ? `View ${customerName}` : customerName}
           >
-            <UserIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            <span>{customerName}</span>
+            <UserIcon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+            <span className="truncate">{customerName}</span>
           </button>
         );
       },
@@ -779,19 +604,20 @@ const InventoryReservationManager: React.FC = () => {
       render: (reservation) => (
         <button
           type="button"
-          className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-300 dark:hover:text-cyan-400"
+          className="flex max-w-[200px] items-center gap-2 text-left text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-300 dark:hover:text-cyan-400"
           onClick={(e) => {
             e.stopPropagation();
             goToProduct(reservation.productId, reservation.productName);
           }}
+          title={reservation.productName}
         >
-          <CubeIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-          <div className="text-left">
-            <p className="text-sm text-slate-700 dark:text-slate-300">
+          <CubeIcon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+          <div className="min-w-0 text-left">
+            <p className="truncate text-sm text-slate-700 dark:text-slate-300">
               {reservation.productName || "--"}
             </p>
             {reservation.productCategory && reservation.productCategory !== "--" && (
-              <p className="text-xs text-slate-400 dark:text-slate-500">
+              <p className="truncate text-xs text-slate-400 dark:text-slate-500">
                 {reservation.productCategory}
               </p>
             )}
@@ -807,17 +633,21 @@ const InventoryReservationManager: React.FC = () => {
       render: (reservation) => {
         const orderId = reservation.salesOrderId;
         const label = getSalesOrderDisplayById(orderId);
+        if (!orderId) {
+          return <span className="text-sm text-slate-400 dark:text-slate-500">--</span>;
+        }
         return (
           <button
             type="button"
-            className="flex items-center gap-2 text-sm text-cyan-600 transition-colors hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
+            className="flex max-w-[220px] items-center gap-2 text-left text-sm text-cyan-600 transition-colors hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             onClick={(e) => {
               e.stopPropagation();
               goToSalesOrder(orderId);
             }}
+            title={label}
           >
-            <ShoppingBagIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            <span>{label}</span>
+            <ShoppingBagIcon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+            <span className="truncate">{label}</span>
           </button>
         );
       },
@@ -834,14 +664,15 @@ const InventoryReservationManager: React.FC = () => {
         return (
           <button
             type="button"
-            className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-300 dark:hover:text-cyan-400"
+            className="flex max-w-[200px] items-center gap-2 text-left text-sm text-slate-700 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-300 dark:hover:text-cyan-400"
             onClick={(e) => {
               e.stopPropagation();
               goToWarehouse(warehouseId, warehouse?.name);
             }}
+            title={warehouse?.name}
           >
-            <BuildingOffice2Icon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            <span>{warehouse?.name || "—"}</span>
+            <BuildingOffice2Icon className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+            <span className="truncate">{warehouse?.name || warehouse?.code || "--"}</span>
           </button>
         );
       },
@@ -852,7 +683,7 @@ const InventoryReservationManager: React.FC = () => {
       sortable: true,
       render: (reservation) => (
         <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
+          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
             reservation.status
           )}`}
         >
@@ -867,7 +698,7 @@ const InventoryReservationManager: React.FC = () => {
       sortable: true,
       render: (reservation) => (
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          {reservation.items?.[0]?.reservedQty || 0}
+          {Number(reservation.items?.[0]?.reservedQty ?? 0)}
         </span>
       ),
     },
@@ -937,10 +768,7 @@ const InventoryReservationManager: React.FC = () => {
   return (
     <>
       <PageMeta title="Inventory Reservations" description="Manage inventory reservations" />
-      <PageBreadcrumb
-        pageTitle="Inventory Reservations"
-        actions={<AddButton onClick={openCreate} label="Add Reservation" />}
-      />
+      <PageBreadcrumb pageTitle="Inventory Reservations" />
 
       <div className="w-full max-w-none space-y-6 px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1025,9 +853,9 @@ const InventoryReservationManager: React.FC = () => {
         </div>
 
         <ReusableTable
-          data={reservations}
+          data={rows}
           columns={columns}
-          loading={loading || enumLoading}
+          loading={loading}
           pageSize={PAGE_SIZE}
           defaultSortKey="id"
           defaultSortOrder="desc"
@@ -1051,88 +879,6 @@ const InventoryReservationManager: React.FC = () => {
           }
         />
       </div>
-
-      <PaginatedPopup
-        isOpen={showFormModal}
-        title={editingId ? "Edit Reservation" : "Create Reservation"}
-        subtitle="Reserve stock for a customer order"
-        onClose={closeForm}
-        onSubmit={handleSubmit}
-        submitting={submitting}
-        submitLabel={editingId ? "Update Reservation" : "Create Reservation"}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Reservation Details",
-            fields: [
-              <FloatingSelect
-                key="salesOrderId"
-                label="Sales Order"
-                name="salesOrderId"
-                value={form.salesOrderId}
-                onChange={handleChange}
-                options={salesOrders.map((order, index) => ({
-                  id: String(order.id),
-                  name: getSalesOrderLabel(order, index),
-                }))}
-                required
-              />,
-              <FloatingSelect
-                key="warehouseId"
-                label="Warehouse"
-                name="warehouseId"
-                value={form.warehouseId}
-                onChange={handleChange}
-                options={warehouses.map((w) => ({
-                  id: String(w.id),
-                  name: w.name || w.code || `Warehouse #${w.id}`,
-                }))}
-                required
-              />,
-              <FloatingSelect
-                key="status"
-                label="Status"
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={statusOptions.map((status) => ({ id: status, name: status }))}
-              />,
-              <FloatingInput
-                key="reservationDate"
-                label="Reservation Date"
-                name="reservationDate"
-                type="date"
-                value={form.reservationDate}
-                onChange={handleChange}
-                required
-              />,
-              <FloatingSelect
-                key="productId"
-                label="Product"
-                name="productId"
-                value={form.productId}
-                onChange={handleChange}
-                options={products.map((p) => ({
-                  id: String(p.id),
-                  name: p.productName || p.name || `Product #${p.id}`,
-                }))}
-                required
-              />,
-              <FloatingInput
-                key="reservedQty"
-                label="Reserved Quantity"
-                name="reservedQty"
-                type="number"
-                min={1}
-                value={form.reservedQty}
-                onChange={handleChange}
-                required
-              />,
-            ],
-          },
-        ]}
-      />
 
       <DynamicPopup
         isPopupOpen={!!actionId}
@@ -1163,6 +909,10 @@ const InventoryReservationManager: React.FC = () => {
         confirmLabel={actionType === "consume" ? "Consume" : "Release"}
         cancelLabel="Cancel"
         onConfirm={actionType === "consume" ? handleConsume : handleRelease}
+        onCancel={() => {
+          setActionId(null);
+          setActionType(null);
+        }}
         confirmBtnClass={
           actionType === "consume"
             ? "bg-purple-600 hover:bg-purple-700 text-white"

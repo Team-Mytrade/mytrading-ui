@@ -8,6 +8,7 @@ import {
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   EyeIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -34,6 +35,9 @@ interface EnumOption {
 interface Product {
   id: number;
   productName: string;
+  serialTracking?: boolean;
+  batchTracking?: boolean;
+  expiryTracking?: boolean;
   productCode?: string;
   currentStock?: number;
 }
@@ -46,7 +50,8 @@ interface Warehouse {
   tenantId?: string;
   name: string;
   code?: string;
-  locationType?: "MAIN" | "SUB" | "STORE";
+  locationType?: string;
+  active?: boolean;
   location?: string;
   stockLevels?: any[];
   batches?: any[];
@@ -86,8 +91,11 @@ interface SerialNumber {
   warehouse?: Warehouse | null;
   batch?: Batch | null;
   inspections?: any[];
-  status?: "AVAILABLE" | "SOLD" | "DAMAGED";
+  status?: string;
+  currentStatus?: string;
 }
+
+const serialStatus = (sn?: SerialNumber | null) => sn?.currentStatus ?? sn?.status ?? "";
 
 enum AdjustmentType {
   POSITIVE = "POSITIVE",
@@ -171,10 +179,6 @@ function getBatchWarehouseId(batch?: Batch | null) {
   return Number(batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.id : 0);
 }
 
-function getBatchWarehouseName(batch?: Batch | null) {
-  return batch?.warehouse && typeof batch.warehouse !== "string" ? batch.warehouse.name : "";
-}
-
 function getSerialBatchId(serial?: SerialNumber | null) {
   return Number(serial?.batch?.id ?? serial?.batchId ?? 0);
 }
@@ -185,8 +189,20 @@ function getSerialWarehouseId(serial?: SerialNumber | null) {
   );
 }
 
-function getSerialWarehouseName(serial?: SerialNumber | null) {
-  return serial?.warehouse && typeof serial.warehouse !== "string" ? serial.warehouse.name : "";
+
+// The API returns UTC timestamps without "Z"; mark them as UTC so they show in IST.
+const SERVER_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/;
+function toUtc(value?: string) {
+  return value && SERVER_TS.test(value) ? value.replace(/(\.\d{3})\d+$/, "$1") + "Z" : value;
+}
+
+// Reasons that can only mean stock going OUT (a Negative adjustment). Matched
+// by keyword so new codes like WRITE_OFF or THEFT are caught too. Any reason not
+// matched here (e.g. PHYSICAL_STOCK_COUNT) is allowed for both types.
+const STOCK_OUT_ONLY_REASON = /EXPIRED|DAMAGE|LOST|THEFT|STOLEN|SCRAP|WRITE_?OFF|DEFECT|SPOIL|WASTE/i;
+
+function reasonAllowedFor(reasonId: string, type: string) {
+  return type === "NEGATIVE" || !STOCK_OUT_ONLY_REASON.test(reasonId);
 }
 
 // ========================== ENUM NORMALIZATION ==========================
@@ -424,7 +440,16 @@ const StockAdjustmentManager: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) =>
+      name === "adjustmentType" && value !== current.adjustmentType
+        ? {
+            ...current,
+            adjustmentType: value as AdjustmentType,
+            serialNumberId: "",
+            reason: current.reason && reasonAllowedFor(current.reason, value) ? current.reason : "",
+          }
+        : { ...current, [name]: value }
+    );
   };
 
   // Batch and serial number are optional: a product without batches is adjusted without one
@@ -524,6 +549,52 @@ const StockAdjustmentManager: React.FC = () => {
       return;
     }
 
+    if (!reasonAllowedFor(form.reason, form.adjustmentType)) {
+      ToasterService.error(
+        "Reason doesn't match the type",
+        `"${getReasonLabel(form.reason)}" removes stock, so it can only be used with Stock Out.`
+      );
+      return;
+    }
+
+    const warehouse = warehouses.find((w) => w.id === Number(form.warehouseId));
+    if (warehouse?.active === false) {
+      ToasterService.error(
+        "Inactive warehouse",
+        `${warehouse.name || warehouse.code || "This warehouse"} is inactive. Choose an active warehouse.`
+      );
+      return;
+    }
+    const batch = batches.find((b) => b.id === Number(form.batchId));
+    if (batch && getBatchWarehouseId(batch) !== Number(form.warehouseId)) {
+      ToasterService.error("Invalid batch", "The selected batch is not in this warehouse.");
+      return;
+    }
+    const product = products.find((p) => p.id === Number(form.productId));
+    if (product?.batchTracking && !form.batchId) {
+      ToasterService.error("Batch required", `${product.productName} is tracked by batch. Select a batch.`);
+      return;
+    }
+    if (product?.serialTracking) {
+      if (!form.serialNumberId) {
+        ToasterService.error("Serial number required", `${product.productName} is tracked by serial number. Select the serial.`);
+        return;
+      }
+      if (quantity !== 1) {
+        ToasterService.error("Quantity must be 1", "One serial number is one unit. Adjust each serial separately.");
+        return;
+      }
+    }
+    const serial = serialNumbers.find((sn) => sn.id === Number(form.serialNumberId));
+    if (serial && getSerialWarehouseId(serial) !== Number(form.warehouseId)) {
+      ToasterService.error("Invalid serial number", "The selected serial is not in this warehouse.");
+      return;
+    }
+    if (serial && form.batchId && getSerialBatchId(serial) !== Number(form.batchId)) {
+      ToasterService.error("Invalid serial number", "The selected serial does not belong to the selected batch.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       const payload = buildPayload();
@@ -564,6 +635,20 @@ const StockAdjustmentManager: React.FC = () => {
     setShowViewModal(true);
   };
 
+  const closeView = () => {
+    setShowViewModal(false);
+    setViewingAdjustment(null);
+  };
+
+  useEffect(() => {
+    if (!showViewModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeView();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showViewModal]);
+
   const closeForm = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -600,13 +685,19 @@ const StockAdjustmentManager: React.FC = () => {
   }, [products]);
 
   const warehouseOptions = useMemo(() => {
-    return warehouses.map((warehouse) => ({
-      id: String(warehouse.id),
-      name: warehouse.code ? `${warehouse.name} (${warehouse.code})` : warehouse.name,
-    }));
-  }, [warehouses]);
+    return warehouses
+      .filter((w) => w.active !== false || String(w.id) === form.warehouseId)
+      .map((warehouse) => ({
+        id: String(warehouse.id),
+        name:
+          warehouse.code && warehouse.name
+            ? `${warehouse.name} (${warehouse.code})`
+            : warehouse.name || warehouse.code || "--",
+      }));
+  }, [warehouses, form.warehouseId]);
 
   const batchOptions = useMemo(() => {
+    // Only batches that are in the selected warehouse can be adjusted there.
     const selectedWarehouseId = Number(form.warehouseId || 0);
     return filteredBatches.map((batch) => {
       const batchWarehouseId = getBatchWarehouseId(batch);
@@ -628,35 +719,67 @@ const StockAdjustmentManager: React.FC = () => {
 
       return { id: String(batch.id), name: label };
     });
+    return filteredBatches
+      .filter((batch) => !selectedWarehouseId || getBatchWarehouseId(batch) === selectedWarehouseId)
+      .map((batch) => {
+        let label = batch.batchNumber;
+        if (batch.expiryDate) {
+          label += ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})`;
+        }
+        return { id: String(batch.id), name: label };
+      });
   }, [filteredBatches, form.warehouseId]);
 
   const serialOptions = useMemo(() => {
+    // Serials of this product in the selected warehouse. Stock Out only lists
+    // serials that are available (not issued or damaged). Creating a serial
+    // doesn't add stock, so a new serial is "Available" before its Stock In.
     const selectedWarehouseId = Number(form.warehouseId || 0);
-    return filteredSerialNumbers.map((serial) => {
-      const serialWarehouseId = getSerialWarehouseId(serial);
-      const serialWarehouseName = getSerialWarehouseName(serial);
-      const mismatch =
-        selectedWarehouseId > 0 &&
-        serialWarehouseId > 0 &&
-        serialWarehouseId !== selectedWarehouseId;
-
-      let label = serial.status ? `${serial.serial} (${serial.status})` : serial.serial;
-      if (mismatch) {
-        label += ` — warehouse: ${
-          serialWarehouseName || `#${serialWarehouseId}`
-        } ⚠️ differs from selected warehouse`;
-      }
-
-      return { id: String(serial.id), name: label };
-    });
-  }, [filteredSerialNumbers, form.warehouseId]);
+    const isPositive = form.adjustmentType === AdjustmentType.POSITIVE;
+    return filteredSerialNumbers
+      .filter(
+        (serial) =>
+          (!selectedWarehouseId || getSerialWarehouseId(serial) === selectedWarehouseId) &&
+          (isPositive || serialStatus(serial) === "AVAILABLE")
+      )
+      .map((serial) => ({
+        id: String(serial.id),
+        name: serialStatus(serial) ? `${serial.serial} (${serialStatus(serial)})` : serial.serial,
+      }));
+  }, [filteredSerialNumbers, form.warehouseId, form.adjustmentType]);
 
   const typeOptions = adjustmentTypeOptions;
+
+  // Explains an empty Batch / Serial list for tracked products, so the user
+  // knows what to create first instead of seeing a blank dropdown.
+  const trackingHints = () => {
+    const product = products.find((p) => p.id === Number(form.productId));
+    if (!product || !form.warehouseId) return [];
+    const hints: React.ReactNode[] = [];
+    if (product.batchTracking && batchOptions.length === 0) {
+      hints.push(
+        <p key="no-batch" className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400">
+          {product.productName} needs a batch, but it has no batch in this warehouse. Create one on
+          the Batches page first.
+        </p>
+      );
+    }
+    if (product.serialTracking && serialOptions.length === 0) {
+      hints.push(
+        <p key="no-serial" className="md:col-span-2 text-xs text-amber-600 dark:text-amber-400">
+          {product.productName} needs a serial number, but none is available in this warehouse
+          {form.batchId ? " for this batch" : ""}. Create it on the Serial Numbers page first.
+        </p>
+      );
+    }
+    return hints;
+  };
 
   // ======================== ROW DETAILS RENDERER ========================
   const renderAdjustmentDetails = (adjustment: StockAdjustment) => {
     const createdAt = adjustment.createdDate
       ? formatDateTime(adjustment.createdDate)
+      ? new Date(toUtc(adjustment.createdDate)!).toLocaleString()
       : "--";
 
     const Field = ({
@@ -689,6 +812,8 @@ const StockAdjustmentManager: React.FC = () => {
         <Field label="Adjustment ID">#{adjustment.id}</Field>
         <Field label="Date">
           {formatDate(adjustment.adjustmentDate)}
+        <Field label="Date" full>
+          {new Date(adjustment.adjustmentDate).toLocaleDateString()}
         </Field>
 
         <Field label="Type" full>
@@ -1064,7 +1189,11 @@ const StockAdjustmentManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="batchId"
-                label="Batch (optional)"
+                label={
+                  products.find((p) => p.id === Number(form.productId))?.batchTracking
+                    ? "Batch"
+                    : "Batch (optional)"
+                }
                 name="batchId"
                 value={form.batchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
@@ -1073,20 +1202,25 @@ const StockAdjustmentManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="serialNumberId"
-                label="Serial Number (optional, quantity 1)"
+                label={
+                  products.find((p) => p.id === Number(form.productId))?.serialTracking
+                    ? "Serial Number (quantity 1)"
+                    : "Serial Number (optional, quantity 1)"
+                }
                 name="serialNumberId"
                 value={form.serialNumberId}
                 onChange={handleChange}
                 options={serialOptions}
                 disabled={!form.productId}
               />,
+              ...trackingHints(),
               <FloatingSelect
                 key="reason"
                 label="Reason"
                 name="reason"
                 value={form.reason}
                 onChange={handleChange}
-                options={reasonOptions}
+                options={reasonOptions.filter((o) => reasonAllowedFor(o.id, form.adjustmentType))}
                 required
               />,
             ],
@@ -1094,34 +1228,48 @@ const StockAdjustmentManager: React.FC = () => {
         ]}
       />
 
-      {/* ---------- View Modal — kept for the eye button; reuses the same renderer ---------- */}
-      <PaginatedPopup
-        isOpen={showViewModal && !!viewingAdjustment}
-        title="Adjustment Details"
-        subtitle={
-          viewingAdjustment
-            ? `Adjustment #${viewingAdjustment.id}`
-            : "Stock adjustment details"
-        }
-        onClose={() => {
-          setShowViewModal(false);
-          setViewingAdjustment(null);
-        }}
-        submitting={false}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Details",
-            fields: [
-              viewingAdjustment && (
-                <div key="view-content" className="md:col-span-2">
-                  {renderAdjustmentDetails(viewingAdjustment)}
-                </div>
-              ),
-            ],
-          },
-        ]}
-      />
+      {/* ---------- View details — read-only, Close only ---------- */}
+      {showViewModal && viewingAdjustment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={closeView}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="adjustment-view-title"
+            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <h2 id="adjustment-view-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+                Adjustment Details
+              </h2>
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+              {renderAdjustmentDetails(viewingAdjustment)}
+            </div>
+            <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -2,7 +2,6 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowPathIcon,
   BuildingStorefrontIcon,
   CheckCircleIcon,
   CubeIcon,
@@ -11,6 +10,7 @@ import {
   QrCodeIcon,
   TrashIcon,
   XCircleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -30,6 +30,9 @@ import { usePermissions } from "../../access/usePermissions";
 interface Product {
   id: number;
   productName: string;
+  serialTracking?: boolean;
+  batchTracking?: boolean;
+  expiryTracking?: boolean;
   productCode?: string;
   categoryName?: string;
   brand?: string;
@@ -48,6 +51,7 @@ interface WarehouseRef {
   code?: string;
   name: string;
   locationType?: string;
+  active?: boolean;
 }
 
 interface BatchRef {
@@ -55,6 +59,8 @@ interface BatchRef {
   batchNumber: string;
   manufacturingDate?: string;
   expiryDate?: string;
+  productId?: number;
+  warehouse?: { id: number } | null;
 }
 
 interface Inspection {
@@ -76,6 +82,10 @@ interface SerialNumber {
   serial: string;
   warrantyStart: string;
   warrantyEnd: string;
+  // The API spells this field "purchasDate" (backend typo). The page uses the
+  // correct name; fromApi()/buildPayload() translate at the API boundary.
+  purchaseDate?: string | null;
+  issuedAt?: string | null;
   productId: number;
   productNumber?: string;
   warehouse?: WarehouseRef;
@@ -125,6 +135,49 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+// API -> UI: read the misspelt "purchasDate" (and "purchaseDate" once the
+// backend is fixed) into purchaseDate, and drop the misspelt key so it never
+// reaches a generic details view as a "Purchas Date" label.
+// The API returns UTC timestamps without "Z"; mark them as UTC so they show in
+// IST. Date-only values (warranty, manufacturing, expiry) don't match and stay.
+const SERVER_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/;
+function toUtc(value: any) {
+  return typeof value === "string" && SERVER_TS.test(value)
+    ? value.replace(/(\.\d{3})\d+$/, "$1") + "Z"
+    : value;
+}
+
+function withUtcDates(obj: any): any {
+  if (!obj || typeof obj !== "object") return obj;
+  return {
+    ...obj,
+    createdDate: toUtc(obj.createdDate),
+    updatedDate: toUtc(obj.updatedDate),
+    ...(obj.warehouse && typeof obj.warehouse === "object"
+      ? { warehouse: withUtcDates(obj.warehouse) }
+      : {}),
+  };
+}
+
+function fromApi(raw: any): SerialNumber {
+  if (!raw || typeof raw !== "object") return raw;
+  const { purchasDate, ...rest } = raw;
+  return {
+    ...withUtcDates(rest),
+    issuedAt: toUtc(rest.issuedAt),
+    batch: rest.batch && typeof rest.batch === "object" ? withUtcDates(rest.batch) : rest.batch,
+    purchaseDate: rest.purchaseDate ?? purchasDate ?? null,
+  };
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "--";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 function isWarrantyActive(warrantyEnd: string) {
   if (!warrantyEnd) return false;
   const end = new Date(warrantyEnd);
@@ -153,10 +206,6 @@ function getInspections(
   if (inspections.length === 0) return "N/A";
   const results = inspections.map((i) => i.result).join(", ");
   return `${inspections.length} (${results})`;
-}
-
-function getWarrantyStatus(sn: SerialNumber) {
-  return isWarrantyActive(sn.warrantyEnd) ? "In Warranty" : "Expired";
 }
 
 function formatEnumResponse(raw: unknown): EnumOption[] {
@@ -244,7 +293,7 @@ const SerialNumberManager: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get<SerialNumber[]>(`${API_URL}/serial-numbers`, { headers });
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = Array.isArray(res.data) ? res.data.map(fromApi) : [];
       setSerialNumbers(data);
       if (data.length === 0) ToasterService.noData("No serial numbers found");
     } catch (error) {
@@ -351,8 +400,30 @@ const SerialNumberManager: React.FC = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setForm((current) => {
+      const next = { ...current, [name]: value };
+      // A batch belongs to one product and one warehouse, so picking a
+      // different product or warehouse clears it.
+      if ((name === "productId" || name === "warehouseId") && value !== current[name]) {
+        next.batchId = "";
+      }
+      return next;
+    });
   };
+
+  // Only batches of the selected product in the selected warehouse, shown once
+  // both are chosen. When editing, the serial's current batch stays listed.
+  const batchOptions = useMemo(() => {
+    if (!form.productId || !form.warehouseId) return [];
+    return batches
+      .filter(
+        (b) =>
+          String(b.id) === form.batchId ||
+          (String(b.productId) === form.productId &&
+            String(b.warehouse?.id ?? "") === form.warehouseId)
+      )
+      .map((b) => ({ id: String(b.id), name: b.batchNumber }));
+  }, [batches, form.productId, form.warehouseId, form.batchId]);
 
   const buildPayload = () => {
     const productId = Number(form.productId) || 0;
@@ -360,9 +431,13 @@ const SerialNumberManager: React.FC = () => {
     const batchId = Number(form.batchId) || 0;
     const product = products.find((item) => item.id === productId);
     const productNumber = product?.productCode ?? product?.productName ?? "";
+    const existing = editingId ? serialNumbers.find((sn) => sn.id === editingId) : undefined;
 
     return {
       id: editingId || 0,
+      // Backend field name is "purchasDate" (typo). Send the current value back
+      // on edit so a PUT doesn't clear it. Rename here once the backend fixes it.
+      purchasDate: existing?.purchaseDate ?? null,
       warrantyStart: form.warrantyStart,
       warrantyEnd: form.warrantyEnd,
       productId,
@@ -388,6 +463,26 @@ const SerialNumberManager: React.FC = () => {
       ToasterService.error(
         "Required fields missing",
         "Warranty start and end dates are required."
+      );
+      return;
+    }
+    const product = products.find((p) => String(p.id) === form.productId);
+    if (product?.serialTracking === false) {
+      ToasterService.error(
+        "No serial tracking",
+        `${product.productName} doesn't use serial numbers, so serials can't be created for it.`
+      );
+      return;
+    }
+    const batch = batches.find((b) => String(b.id) === form.batchId);
+    if (
+      batch &&
+      (String(batch.productId) !== form.productId ||
+        String(batch.warehouse?.id ?? "") !== form.warehouseId)
+    ) {
+      ToasterService.error(
+        "Invalid batch",
+        "The selected batch is for a different product or warehouse."
       );
       return;
     }
@@ -467,7 +562,7 @@ const SerialNumberManager: React.FC = () => {
       setViewLoading(true);
       const res = await axios.get<SerialNumber>(`${API_URL}/serial-numbers/${sn.id}`, { headers });
       if (res.data) {
-        setViewingSerial(res.data);
+        setViewingSerial(fromApi(res.data));
       }
     } catch (error) {
       ToasterService.error(
@@ -482,6 +577,15 @@ const SerialNumberManager: React.FC = () => {
   const closeView = () => {
     setViewingSerial(null);
   };
+
+  useEffect(() => {
+    if (!viewingSerial) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeView();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewingSerial]);
 
   // ---------- Navigation ----------
   const goToWarehouse = (warehouse?: WarehouseRef) => {
@@ -549,9 +653,6 @@ const SerialNumberManager: React.FC = () => {
             >
               {sn.serial || "N/A"}
             </button>
-            <div className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-              ID: {sn.id}
-            </div>
           </div>
         </div>
       ),
@@ -760,10 +861,14 @@ const SerialNumberManager: React.FC = () => {
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
-                options={products.map((product) => ({
-                  id: String(product.id),
-                  name: product.productName,
-                }))}
+                options={products
+                  // Serial numbers only exist for products with serial tracking.
+                  // When editing, keep the serial's current product listed.
+                  .filter((p) => p.serialTracking !== false || String(p.id) === form.productId)
+                  .map((product) => ({
+                    id: String(product.id),
+                    name: product.productName,
+                  }))}
                 required
               />,
               <FloatingSelect
@@ -772,10 +877,12 @@ const SerialNumberManager: React.FC = () => {
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={handleChange}
-                options={warehouses.map((warehouse) => ({
-                  id: String(warehouse.id),
-                  name: warehouse.name,
-                }))}
+                options={warehouses
+                  .filter((w) => w.active !== false || String(w.id) === form.warehouseId)
+                  .map((warehouse) => ({
+                    id: String(warehouse.id),
+                    name: warehouse.name,
+                  }))}
                 required
               />,
               <FloatingSelect
@@ -784,13 +891,17 @@ const SerialNumberManager: React.FC = () => {
                 name="batchId"
                 value={form.batchId}
                 onChange={handleChange}
-                options={batches.map((batch) => ({
-                  id: String(batch.id),
-                  name: batch.batchNumber,
-                }))}
+                options={batchOptions}
+                disabled={!form.productId || !form.warehouseId}
                 required
               />,
-            ],
+              form.productId && form.warehouseId && batchOptions.length === 0 ? (
+                <p key="no-batch" className="text-xs text-amber-600 dark:text-amber-400">
+                  No batch of this product in this warehouse. Create the batch first on the
+                  Batches page.
+                </p>
+              ) : null,
+            ].filter(Boolean),
           },
           {
             label: "Status",
@@ -832,26 +943,50 @@ const SerialNumberManager: React.FC = () => {
         ]}
       />
 
-      {/* Detail View Modal — batch now clickable */}
-      <PaginatedPopup
-        isOpen={!!viewingSerial}
-        title="Serial Number Details"
-        subtitle={viewingSerial ? `Serial ${viewingSerial.serial || `#${viewingSerial.id}`}` : ""}
-        onClose={closeView}
-        submitting={false}
-        maxWidthClassName="max-w-lg"
-        tabs={[
-          {
-            label: "Details",
-            fields: [
-              viewingSerial && (
-                <div key="view-content" className="space-y-3 text-sm">
-                  {viewLoading && (
-                    <div className="mb-3 text-xs text-slate-400 dark:text-slate-500">
-                      Refreshing latest details…
-                    </div>
-                  )}
+      {/* Detail view — read-only, so it only has a Close button */}
+      {viewingSerial && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={closeView}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="serial-view-title"
+            className="w-full max-w-lg rounded-2xl bg-white shadow-xl dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div>
+                <h2
+                  id="serial-view-title"
+                  className="text-lg font-semibold text-slate-900 dark:text-white"
+                >
+                  Serial Number Details
+                </h2>
+                {viewingSerial.serial && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Serial {viewingSerial.serial}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
 
+            <div className="max-h-[70vh] space-y-3 overflow-y-auto px-6 py-4 text-sm">
+              {viewLoading && (
+                <div className="text-xs text-slate-400 dark:text-slate-500">
+                  Refreshing latest details…
+                </div>
+              )}
                   <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                       <CubeIcon className="h-4 w-4" /> Product
@@ -930,12 +1065,44 @@ const SerialNumberManager: React.FC = () => {
                       {getInspections(viewingSerial, inspectionsBySerial)}
                     </span>
                   </div>
-                </div>
-              ),
-            ],
-          },
-        ]}
-      />
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Product Number</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {viewingSerial.productNumber || "--"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Warranty Start</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {formatDate(viewingSerial.warrantyStart)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Warranty End</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {formatDate(viewingSerial.warrantyEnd)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Purchase Date</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {formatDate(viewingSerial.purchaseDate)}
+                    </span>
+                  </div>
+            </div>
+
+            <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DynamicPopup
         isPopupOpen={!!deletingSerial}
@@ -948,7 +1115,7 @@ const SerialNumberManager: React.FC = () => {
         subText={
           deletingSerial
             ? `Are you sure you want to delete serial number "${
-                deletingSerial.serial || deletingSerial.id
+                deletingSerial.serial || "this serial number"
               }"? This action cannot be undone.`
             : "Are you sure you want to delete this serial number?"
         }

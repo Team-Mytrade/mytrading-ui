@@ -11,6 +11,7 @@ import {
   TrashIcon,
   UserIcon,
   XCircleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -130,9 +131,9 @@ const QualityInspectionManager: React.FC = () => {
   const getInspectionTypeLabel = (type?: string) => inspectionTypeOptions.find((t) => t.id === type)?.name || type || "N/A";
   const getProductDisplayName = (record: QualityInspection) => {
     const product = products.find((p) => p.id === record.productId);
-    if (product) return product.productName || product.sku || product.code || `Product #${product.id}`;
+    if (product) return product.productName || product.sku || product.code || "Unknown product";
     if (record.productName) return record.productName;
-    return record.productId ? `Product #${record.productId}` : "N/A";
+    return record.productId ? "Unknown product" : "N/A";
   };
   const getProductSku = (record: QualityInspection) => {
     const product = products.find((p) => p.id === record.productId);
@@ -145,7 +146,9 @@ const QualityInspectionManager: React.FC = () => {
 
   const normalizeInspection = (record: any): QualityInspection => {
     const rawResult = String(record?.result || "PASS").toUpperCase();
-    const result: ResultCode = DEFAULT_RESULT_OPTIONS.some((r) => r.id === rawResult) ? (rawResult as ResultCode) : "PASS";
+    // Keep the real value even if it's not one of the defaults (the result list
+    // comes from the API); previously anything unknown was shown as "Pass".
+    const result = rawResult as ResultCode;
     const rawType = record?.inspectionType ? String(record.inspectionType).toUpperCase() : undefined;
     const inspectionType: InspectionTypeCode | undefined = DEFAULT_INSPECTION_TYPE_OPTIONS.some((t) => t.id === rawType)
       ? (rawType as InspectionTypeCode) : undefined;
@@ -220,7 +223,7 @@ const QualityInspectionManager: React.FC = () => {
       inspector: formData.inspectorName || formData.inspector || "",
       result: String(formData.result).toUpperCase(),
       inspectionType: formData.inspectionType || null,
-      remarks: formData.remarks || "",
+      remarks: (formData.remarks || "").trim(),
       productId,
     };
     if (editingId) payload.id = editingId;
@@ -284,6 +287,20 @@ const QualityInspectionManager: React.FC = () => {
     setSelectedRecord(detail);
     setViewModalOpen(true);
   };
+
+  const closeView = () => {
+    setViewModalOpen(false);
+    setSelectedRecord(null);
+  };
+
+  useEffect(() => {
+    if (!viewModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeView();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewModalOpen]);
 
   const confirmDelete = async () => {
     if (!deletingRecord) return;
@@ -441,23 +458,38 @@ const QualityInspectionManager: React.FC = () => {
         />
       </div>
 
-      <PaginatedPopup
-        isOpen={viewModalOpen}
-        title="Inspection Details"
-        subtitle={selectedRecord ? `Inspection record #${selectedRecord.id}` : "Inspection record details"}
-        onClose={() => setViewModalOpen(false)}
-        submitting={false}
-        maxWidthClassName="max-w-2xl"
-        tabs={[{ label: "Details", fields: [
-          selectedRecord && (
-            <div key="view-content" className="md:col-span-2 grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Record ID</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">#{selectedRecord.id}</div>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+      {/* Inspection details — read-only, so it only has a Close button */}
+      {viewModalOpen && selectedRecord && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={closeView}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inspection-view-title"
+            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <h2 id="inspection-view-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+                Inspection Details
+              </h2>
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Product</div>
-                <button type="button" onClick={() => goToProduct(selectedRecord.productId)}
+                <button type="button" onClick={() => { closeView(); goToProduct(selectedRecord.productId); }}
                   className="mt-1 text-left text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300">
                   {getProductDisplayName(selectedRecord)}
                 </button>
@@ -499,9 +531,19 @@ const QualityInspectionManager: React.FC = () => {
                 </div>
               )}
             </div>
-          ),
-        ]}]}
-      />
+            </div>
+            <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={closeView}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PaginatedPopup
         isOpen={showForm}
