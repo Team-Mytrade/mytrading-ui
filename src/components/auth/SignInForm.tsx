@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { clearSessionExpiredRedirect, getSessionExpiredRedirect } from "../../utils/sessionRecovery";
+import { t } from "../../i18n/i18n";
 import '../../styles/Login.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
@@ -58,10 +59,10 @@ const SignInForm: React.FC = () => {
         {/* Header Section */}
         <div className="space-y-1.5 pb-4 border-b border-gray-100 dark:border-gray-800">
           <h1 className="text-3xl font-black text-gray-900 dark:text-white text-center tracking-tight">
-            My Trading
+            {t("My Trading")}
           </h1>
           <p className="text-center text-sm font-semibold text-cyan-700 dark:text-cyan-400">
-            Welcome Back!
+            {t("Welcome Back!")}
           </p>
         </div>
 
@@ -69,7 +70,7 @@ const SignInForm: React.FC = () => {
         {apiError && (
           <div className="bg-red-50/90 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-2">
             <i className="fas fa-exclamation-circle"></i>
-            {apiError}
+            {t(apiError)}
           </div>
         )}
 
@@ -77,7 +78,7 @@ const SignInForm: React.FC = () => {
           {/* Email or Username Field */}
           <div className="space-y-1.5">
             <label htmlFor="email" className="text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1">
-              Email or Username <span className="text-red-500">*</span>
+              {t("Email or Username")} <span className="text-red-500">*</span>
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-cyan-600 dark:group-focus-within:text-cyan-400 transition-colors">
@@ -86,7 +87,7 @@ const SignInForm: React.FC = () => {
               <input
                 id="email"
                 type="text"
-                placeholder="you@example.com or username"
+                placeholder={t("you@example.com or username")}
                 autoComplete="username"
                 disabled={isLoading}
                 aria-invalid={errors.email ? "true" : "false"}
@@ -107,7 +108,7 @@ const SignInForm: React.FC = () => {
             </div>
             {errors.email && (
               <p id="email-error" className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
-                <i className="fas fa-info-circle text-xs"></i> {errors.email.message}
+                <i className="fas fa-info-circle text-xs"></i> {t(String(errors.email.message ?? ""))}
               </p>
             )}
           </div>
@@ -115,7 +116,7 @@ const SignInForm: React.FC = () => {
           {/* Password Field */}
           <div className="space-y-1.5">
             <label htmlFor="password" className="text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1">
-              Password <span className="text-red-500">*</span>
+              {t("Password")} <span className="text-red-500">*</span>
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-cyan-600 dark:group-focus-within:text-cyan-400 transition-colors">
@@ -124,7 +125,7 @@ const SignInForm: React.FC = () => {
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Your Password"
+                placeholder={t("Your Password")}
                 autoComplete="current-password"
                 disabled={isLoading}
                 aria-invalid={errors.password ? "true" : "false"}
@@ -142,7 +143,7 @@ const SignInForm: React.FC = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={t(showPassword ? "Hide password" : "Show password")}
                 aria-pressed={showPassword}
                 className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-cyan-600 dark:text-gray-400 dark:hover:text-cyan-400 focus:outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
@@ -151,7 +152,7 @@ const SignInForm: React.FC = () => {
             </div>
             {errors.password && (
               <p id="password-error" className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
-                <i className="fas fa-info-circle text-xs"></i> {errors.password.message}
+                <i className="fas fa-info-circle text-xs"></i> {t(String(errors.password.message ?? ""))}
               </p>
             )}
           </div>
@@ -171,14 +172,14 @@ const SignInForm: React.FC = () => {
                 <i className="fas fa-check absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[11px] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity duration-200" aria-hidden="true"></i>
               </div>
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                Keep me logged in
+                {t("Keep me logged in")}
               </span>
             </label>
             <Link
               to="/forgetpassword"
               className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 transition-colors"
             >
-              Forgot Password?
+              {t("Forgot Password?")}
             </Link>
           </div>
 
@@ -189,7 +190,7 @@ const SignInForm: React.FC = () => {
             className={`w-full py-2.5 mt-1 h-[46px] bg-gradient-to-r from-cyan-500 via-cyan-600 to-sky-600 hover:from-cyan-600 hover:via-cyan-700 hover:to-sky-700 text-white !text-white font-extrabold rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-600/40 transform hover:-translate-y-0.5 transition-all duration-300 group relative flex items-center justify-center ${isLoading ? 'opacity-70 cursor-not-allowed transform-none' : ''}`}
           >
             <span className="text-white !text-white tracking-wider uppercase text-xs font-extrabold text-center">
-              {isLoading ? "Signing In..." : "Sign In"}
+              {t(isLoading ? "Signing In..." : "Sign In")}
             </span>
             {isLoading ? (
               <i className="fas fa-circle-notch fa-spin text-white !text-white absolute left-4 text-xs"></i>
@@ -206,7 +207,7 @@ const SignInForm: React.FC = () => {
               to="/termsandconditions"
               className="font-semibold text-cyan-600 dark:text-cyan-400 underline underline-offset-2 hover:text-cyan-800 dark:hover:text-cyan-300 transition-colors"
             >
-              Terms & Conditions
+              {t("Terms & Conditions")}
             </Link>
           </p>
         </div>

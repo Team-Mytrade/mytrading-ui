@@ -6,6 +6,7 @@ import { formatDateTime } from "../../company/format";
 import { INVOICE_API, apiError, dateLabel, todayInput } from "./invoiceShared";
 import { CARD, CARD_TITLE } from "../Payroll/hrmsUi";
 
+import { t } from "../../i18n/i18n";
 interface LockChange {
   lockDate?: string | null;
   previousLockDate?: string | null;
@@ -90,14 +91,14 @@ export default function PeriodLockCard({ editable }: { editable: boolean }) {
       {editable && (
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-500">
-            Lock up to
+            {t("Lock up to")}
             <input type="date" className={`${INPUT} mt-1 block`} value={date} max={yesterday()} onChange={(e) => setDate(e.target.value)} />
           </label>
           {reopening && (
             <label className="min-w-[240px] flex-1 text-xs text-slate-500">
-              Why open the period again?
+              {t("Why open the period again?")}
               <input className={`${INPUT} mt-1 block w-full`} value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. correcting a bill entered in the wrong month" />
+                placeholder={t("e.g. correcting a bill entered in the wrong month")} />
             </label>
           )}
           <button type="button" disabled={saving || !date || date === current}
@@ -108,7 +109,7 @@ export default function PeriodLockCard({ editable }: { editable: boolean }) {
           {current && (
             <button type="button" disabled={saving} onClick={() => { setDate(""); void save(null); }}
               className="h-[38px] rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-              Open all periods
+              {t("Open all periods")}
             </button>
           )}
         </div>

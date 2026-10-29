@@ -3,6 +3,7 @@ import {
   ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import "../../styles/Statscard.css";
+import { t } from "../../i18n/i18n";
 import TableToolbar from "./TableToolbar";
 
 interface StatsCardProps {
@@ -115,7 +116,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
             <span className="stats-card__icon" aria-hidden="true">
               {icon || <ChartBarIcon />}
             </span>
-            <p className="stats-card__label">{label}</p>
+            <p className="stats-card__label">{t(label)}</p>
             <p className="stats-card__value">{value}</p>
           </div>
         )}

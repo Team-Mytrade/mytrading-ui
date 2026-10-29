@@ -30,8 +30,8 @@ export const DEFAULT_REGIONAL: RegionalSettings = {
 
 export const LANGUAGES = [
   { value: "en", label: "English" },
-  // Stored now; the screens follow when they are translated
-  { value: "ar", label: "العربية Arabic (screens coming soon)" },
+  // Menus, common screens and controls are translated; the rest of the pages follow module by module
+  { value: "ar", label: "العربية Arabic" },
 ];
 
 export const DATE_FORMATS = ["dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "dd.MM.yyyy", "dd MMM yyyy"];

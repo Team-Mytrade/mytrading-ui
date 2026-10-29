@@ -25,6 +25,7 @@ import { ActionButton, DialogFooter } from "./invoiceUi";
 import BillFromGrnDialog from "./BillFromGrnDialog";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface PurchaseInvoice {
   id: number;
   invoiceNumber?: string;
@@ -313,7 +314,7 @@ const PurchaseInvoices: React.FC = () => {
           <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
             {invoice.invoiceNumber || "N/A"}
             {invoice.grnNumber && (
-              <span className="block text-xs font-normal text-slate-400">from {invoice.grnNumber}{invoice.poNumber ? ` · ${invoice.poNumber}` : ""}</span>
+              <span className="block text-xs font-normal text-slate-400">{t("from")} {invoice.grnNumber}{invoice.poNumber ? ` · ${invoice.poNumber}` : ""}</span>
             )}
           </span>
         </div>
@@ -404,7 +405,7 @@ const PurchaseInvoices: React.FC = () => {
               type="button"
               onClick={() => openDebitNote(invoice)}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600"
-              title="Debit note"
+              title={t("Debit note")}
             >
               <ReceiptRefundIcon className="h-4 w-4" />
             </button>
@@ -413,7 +414,7 @@ const PurchaseInvoices: React.FC = () => {
             type="button"
             onClick={() => handleEdit(invoice)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Purchase Invoice"
+            title={t("Edit Purchase Invoice")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -421,7 +422,7 @@ const PurchaseInvoices: React.FC = () => {
             type="button"
             onClick={() => handleDelete(invoice)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Purchase Invoice"
+            title={t("Delete Purchase Invoice")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -432,42 +433,42 @@ const PurchaseInvoices: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Purchase Invoices" description="Manage purchase invoices" />
+      <PageMeta title={t("Purchase Invoices")} description="Manage purchase invoices" />
       <PageBreadcrumb pageTitle="Purchase Invoices" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           {canCreate && (
             <div className="flex flex-wrap items-center gap-2">
-              <ActionButton icon={TruckIcon} label="Bill from GRN" onClick={() => setBillingFromGrn(true)} />
-              <AddButton onClick={openCreate} label="Add Purchase Invoice" />
+              <ActionButton icon={TruckIcon} label={t("Bill from GRN")} onClick={() => setBillingFromGrn(true)} />
+              <AddButton onClick={openCreate} label={t("Add Purchase Invoice")} />
             </div>
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Invoices"
+            label={t("Total Invoices")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Paid"
+            label={t("Paid")}
             value={stats.paid}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Open"
+            label={t("Open")}
             value={stats.open}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-600"
           />
           <StatsCard
-            label="Total Amount"
+            label={t("Total Amount")}
             value={money(stats.totalAmount)}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -481,7 +482,7 @@ const PurchaseInvoices: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by number, vendor, reference or status..."
+                placeholder={t("Search by number, vendor, reference or status...")}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); }}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -499,9 +500,9 @@ const PurchaseInvoices: React.FC = () => {
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
-              title="Filter Purchase Invoices"
+              title={t("Filter Purchase Invoices")}
               buttonLabel="Filters"
-              label="Filter by Status"
+              label={t("Filter by Status")}
               value={activeFilter}
               options={[
                 { label: "All Invoices", value: "ALL" },
@@ -526,9 +527,9 @@ const PurchaseInvoices: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No purchase invoices found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No purchase invoices found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   type="button"
@@ -557,7 +558,7 @@ const PurchaseInvoices: React.FC = () => {
               fields: [
                 <FloatingSelect
                   key="vendorId"
-                  label="Vendor"
+                  label={t("Vendor")}
                   name="vendorId"
                   value={form.vendorId || ""}
                   onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
@@ -567,13 +568,13 @@ const PurchaseInvoices: React.FC = () => {
                 ...(vendors.length === 0
                   ? [
                       <p key="noVendors" className="text-xs text-amber-700">
-                        No vendors yet. Add them under Common → Vendors first.
+                        {t("No vendors yet. Add them under Common → Vendors first.")}
                       </p>,
                     ]
                   : []),
                 <FloatingInput
                   key="invoiceNumber"
-                  label="Vendor's invoice number"
+                  label={t("Vendor's invoice number")}
                   name="invoiceNumber"
                   value={form.invoiceNumber || ""}
                   onChange={handleChange}
@@ -581,7 +582,7 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="invoiceDate"
-                  label="Invoice Date"
+                  label={t("Invoice Date")}
                   name="invoiceDate"
                   type="date"
                   value={form.invoiceDate || ""}
@@ -589,7 +590,7 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="dueDate"
-                  label="Due Date"
+                  label={t("Due Date")}
                   name="dueDate"
                   type="date"
                   value={form.dueDate || ""}
@@ -625,7 +626,7 @@ const PurchaseInvoices: React.FC = () => {
                 </label>,
                 <FloatingInput
                   key="currency"
-                  label="Currency"
+                  label={t("Currency")}
                   name="currency"
                   value={form.currency || ""}
                   onChange={handleChange}
@@ -633,14 +634,14 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="referenceNumber"
-                  label="Reference Number"
+                  label={t("Reference Number")}
                   name="referenceNumber"
                   value={form.referenceNumber || ""}
                   onChange={handleChange}
                 />,
                 <FloatingInput
                   key="notes"
-                  label="Notes"
+                  label={t("Notes")}
                   name="notes"
                   value={form.notes || ""}
                   onChange={handleChange}
@@ -665,16 +666,16 @@ const PurchaseInvoices: React.FC = () => {
           content={
             <form onSubmit={saveDebitNote} className="flex flex-col">
               <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-                <FloatingInput label="Amount" name="amount" type="number" required value={debitForm.amount}
+                <FloatingInput label={t("Amount")} name="amount" type="number" required value={debitForm.amount}
                   onChange={(event) => setDebitForm((current) => ({ ...current, amount: event.target.value }))} />
-                <FloatingInput label="Date" name="noteDate" type="date" value={debitForm.noteDate}
+                <FloatingInput label={t("Date")} name="noteDate" type="date" value={debitForm.noteDate}
                   onChange={(event) => setDebitForm((current) => ({ ...current, noteDate: event.target.value }))} />
                 <div className="sm:col-span-2">
-                  <FloatingInput label="Reason (price difference, short supply…)" name="reason" required value={debitForm.reason}
+                  <FloatingInput label={t("Reason (price difference, short supply…)")} name="reason" required value={debitForm.reason}
                     onChange={(event) => setDebitForm((current) => ({ ...current, reason: event.target.value }))} />
                 </div>
               </div>
-              <DialogFooter onCancel={() => setDebitFor(null)} submitLabel="Save debit note" busy={debitBusy} />
+              <DialogFooter onCancel={() => setDebitFor(null)} submitLabel={t("Save debit note")} busy={debitBusy} />
             </form>
           }
         />
@@ -684,14 +685,14 @@ const PurchaseInvoices: React.FC = () => {
           setIsPopupOpen={setShowDeletePopup}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Purchase Invoice"
+          innerText={t("Delete Purchase Invoice")}
           subText={
             invoiceToDelete
               ? `Are you sure you want to delete "${invoiceToDelete.invoiceNumber}"? This action cannot be undone.`
               : "Are you sure you want to delete this purchase invoice?"
           }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete")}
+          cancelLabel={t("Cancel")}
           onConfirm={confirmDelete}
           onCancel={() => setInvoiceToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

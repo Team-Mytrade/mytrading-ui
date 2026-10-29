@@ -12,6 +12,7 @@ import { useCompany } from "../../company/companyApi";
 import { formatDate, formatMoney, todayIso } from "../../company/format";
 import { INVOICE_API, apiError, labelOf } from "./invoiceShared";
 
+import { t } from "../../i18n/i18n";
 interface StatementLine {
   accountId: number;
   accountCode: string;
@@ -223,7 +224,7 @@ const FinancialStatements: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Financial Statements" description="Profit and loss, balance sheet and trial balance" />
+      <PageMeta title={t("Financial Statements")} description="Profit and loss, balance sheet and trial balance" />
       <PageBreadcrumb pageTitle="Financial Statements" />
 
       <div className="w-full max-w-none space-y-4 py-4">
@@ -245,7 +246,7 @@ const FinancialStatements: React.FC = () => {
               disabled={!hasData || loading}
               className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <ArrowDownTrayIcon className="h-4 w-4" /> PDF
+              <ArrowDownTrayIcon className="h-4 w-4" /> {t("PDF")}
             </button>
           )}
         </div>
@@ -264,7 +265,7 @@ const FinancialStatements: React.FC = () => {
               <span className="flex items-center gap-1.5 text-xs text-slate-500">
                 {statement !== "BS" && (
                   <>
-                    <input type="date" className={INPUT} value={from} onChange={(e) => setRange([e.target.value, to])} aria-label="From" />
+                    <input type="date" className={INPUT} value={from} onChange={(e) => setRange([e.target.value, to])} aria-label={t("From")} />
                     to
                   </>
                 )}
@@ -279,13 +280,13 @@ const FinancialStatements: React.FC = () => {
           </div>
         </div>
 
-        {loading && !hasData && <p className="text-sm text-slate-500">Working it out…</p>}
+        {loading && !hasData && <p className="text-sm text-slate-500">{t("Working it out…")}</p>}
 
         {statement === "PNL" && pnl && (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <StatsCard label="Revenue" value={money(pnl.totalRevenue)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-              <StatsCard label="Gross profit" value={money(pnl.grossProfit)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+              <StatsCard label={t("Revenue")} value={money(pnl.totalRevenue)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+              <StatsCard label={t("Gross profit")} value={money(pnl.grossProfit)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
               <StatsCard
                 label={pnl.netProfit < 0 ? "Net loss" : "Net profit"}
                 value={money(Math.abs(pnl.netProfit))}
@@ -295,10 +296,10 @@ const FinancialStatements: React.FC = () => {
               />
             </div>
             <StatementTable>
-              <Section title="Revenue" lines={pnl.revenue} totalLabel="Total revenue" total={pnl.totalRevenue} onOpen={openLedger} money={money} />
-              <Section title="Cost of sales" lines={pnl.costOfSales} totalLabel="Total cost of sales" total={pnl.totalCostOfSales} onOpen={openLedger} money={money} />
-              <ResultRow label="Gross profit" amount={money(pnl.grossProfit)} />
-              <Section title="Expenses" lines={pnl.expenses} totalLabel="Total expenses" total={pnl.totalExpenses} onOpen={openLedger} money={money} />
+              <Section title={t("Revenue")} lines={pnl.revenue} totalLabel="Total revenue" total={pnl.totalRevenue} onOpen={openLedger} money={money} />
+              <Section title={t("Cost of sales")} lines={pnl.costOfSales} totalLabel="Total cost of sales" total={pnl.totalCostOfSales} onOpen={openLedger} money={money} />
+              <ResultRow label={t("Gross profit")} amount={money(pnl.grossProfit)} />
+              <Section title={t("Expenses")} lines={pnl.expenses} totalLabel="Total expenses" total={pnl.totalExpenses} onOpen={openLedger} money={money} />
               <ResultRow label={pnl.netProfit < 0 ? "Net loss" : "Net profit"} amount={money(Math.abs(pnl.netProfit))} strong />
             </StatementTable>
           </>
@@ -308,32 +309,32 @@ const FinancialStatements: React.FC = () => {
           <>
             {!near(sheet.difference) && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Assets and liabilities plus equity differ by {money(Math.abs(sheet.difference))}. Journal entries always balance,
-                so check the accounts' opening balances in the <Link to="/generalAccounts" className="font-semibold underline">Chart of Accounts</Link>
+                {t("Assets and liabilities plus equity differ by")} {money(Math.abs(sheet.difference))}. Journal entries always balance,
+                so check the accounts' opening balances in the <Link to="/generalAccounts" className="font-semibold underline">{t("Chart of Accounts")}</Link>
                 {sheet.unclassified.length > 0 ? " and give the accounts below a type" : ""}.
               </p>
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <StatsCard label="Assets" value={money(sheet.totalAssets)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-              <StatsCard label="Liabilities" value={money(sheet.totalLiabilities)} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-              <StatsCard label="Equity" value={money(sheet.totalEquity)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+              <StatsCard label={t("Assets")} value={money(sheet.totalAssets)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+              <StatsCard label={t("Liabilities")} value={money(sheet.totalLiabilities)} gradient="from-orange-50 to-yellow-50" borderColor="border-orange-100" labelColor="text-orange-600" />
+              <StatsCard label={t("Equity")} value={money(sheet.totalEquity)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
             </div>
             <StatementTable>
-              <Section title="Assets" lines={sheet.assets} totalLabel="Total assets" total={sheet.totalAssets} onOpen={openLedger} money={money} />
-              <Section title="Liabilities" lines={sheet.liabilities} totalLabel="Total liabilities" total={sheet.totalLiabilities} onOpen={openLedger} money={money} />
-              <Section title="Equity" lines={sheet.equity} totalLabel="Total equity" total={sheet.totalEquity} onOpen={openLedger} money={money}
+              <Section title={t("Assets")} lines={sheet.assets} totalLabel="Total assets" total={sheet.totalAssets} onOpen={openLedger} money={money} />
+              <Section title={t("Liabilities")} lines={sheet.liabilities} totalLabel="Total liabilities" total={sheet.totalLiabilities} onOpen={openLedger} money={money} />
+              <Section title={t("Equity")} lines={sheet.equity} totalLabel="Total equity" total={sheet.totalEquity} onOpen={openLedger} money={money}
                 extra={
                   <tr className="border-t border-slate-100 dark:border-gray-800">
                     <td className="px-4 py-2 pl-8 text-slate-700 dark:text-gray-200">
-                      Profit to date
-                      <span className="block text-[11px] text-slate-400">Income less expenses so far, until closed into retained earnings</span>
+                      {t("Profit to date")}
+                      <span className="block text-[11px] text-slate-400">{t("Income less expenses so far, until closed into retained earnings")}</span>
                     </td>
                     <td className="px-4 py-2 text-right text-slate-700 dark:text-gray-200">{money(sheet.profitToDate)}</td>
                   </tr>
                 } />
-              <ResultRow label="Liabilities and equity" amount={money(sheet.totalLiabilities + sheet.totalEquity)} strong />
+              <ResultRow label={t("Liabilities and equity")} amount={money(sheet.totalLiabilities + sheet.totalEquity)} strong />
               {sheet.unclassified.length > 0 && (
-                <Section title="Accounts without a statement type" lines={sheet.unclassified} totalLabel="Total (debit)"
+                <Section title={t("Accounts without a statement type")} lines={sheet.unclassified} totalLabel="Total (debit)"
                   total={sheet.unclassified.reduce((sum, line) => sum + Number(line.amount), 0)} onOpen={openLedger} money={money} />
               )}
             </StatementTable>
@@ -343,22 +344,22 @@ const FinancialStatements: React.FC = () => {
         {statement === "TB" && trial && (
           <>
             {trial.balanced ? (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Closing debits equal credits.</p>
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{t("Closing debits equal credits.")}</p>
             ) : (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Closing debits and credits differ by {money(Math.abs(trial.totalDebit - trial.totalCredit))}. Journal entries always
-                balance, so check the accounts' opening balances in the <Link to="/generalAccounts" className="font-semibold underline">Chart of Accounts</Link>.
+                {t("Closing debits and credits differ by")} {money(Math.abs(trial.totalDebit - trial.totalCredit))}. Journal entries always
+                balance, so check the accounts' opening balances in the <Link to="/generalAccounts" className="font-semibold underline">{t("Chart of Accounts")}</Link>.
               </p>
             )}
             <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-gray-800 dark:bg-[#191919]">
               <table className="w-full min-w-[880px] text-sm">
                 <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-[#222] dark:text-gray-400">
                   <tr>
-                    <th className="px-3 py-2" rowSpan={2}>Account</th>
-                    <th className="px-3 py-2" rowSpan={2}>Type</th>
-                    <th className="px-3 pt-2 text-center" colSpan={2}>Opening</th>
-                    <th className="px-3 pt-2 text-center" colSpan={2}>Period</th>
-                    <th className="px-3 pt-2 text-center" colSpan={2}>Closing</th>
+                    <th className="px-3 py-2" rowSpan={2}>{t("Account")}</th>
+                    <th className="px-3 py-2" rowSpan={2}>{t("Type")}</th>
+                    <th className="px-3 pt-2 text-center" colSpan={2}>{t("Opening")}</th>
+                    <th className="px-3 pt-2 text-center" colSpan={2}>{t("Period")}</th>
+                    <th className="px-3 pt-2 text-center" colSpan={2}>{t("Closing")}</th>
                   </tr>
                   <tr>
                     {["Debit", "Credit", "Debit", "Credit", "Debit", "Credit"].map((h, i) => (
@@ -368,7 +369,7 @@ const FinancialStatements: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                   {trial.lines.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">No balances or postings yet</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{t("No balances or postings yet")}</td></tr>
                   )}
                   {trial.lines.map((line) => (
                     <tr key={line.accountId} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-[#222]" onClick={() => openLedger(line.accountId)}>
@@ -384,7 +385,7 @@ const FinancialStatements: React.FC = () => {
                 </tbody>
                 <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-semibold dark:border-gray-700 dark:bg-[#222]">
                   <tr>
-                    <td className="px-3 py-2" colSpan={2}>Total</td>
+                    <td className="px-3 py-2" colSpan={2}>{t("Total")}</td>
                     {[trialTotals.openingDebit, trialTotals.openingCredit, trialTotals.periodDebit, trialTotals.periodCredit, trial.totalDebit, trial.totalCredit].map((value, i) => (
                       <td key={i} className="px-3 py-2 text-right">{money(value)}</td>
                     ))}
@@ -396,9 +397,9 @@ const FinancialStatements: React.FC = () => {
         )}
 
         <p className="text-xs text-slate-500">
-          From the ledger: postings made by invoices, receipts, bills, payments, credit and debit notes and stock, plus{" "}
-          <Link to="/journalEntries" className="text-cyan-700 hover:underline">journal entries</Link> and the accounts' opening balances.
-          Click an account to see its ledger; <Link to="/postingAccounts" className="text-cyan-700 hover:underline">Posting Accounts</Link> sets
+          {t("From the ledger: postings made by invoices, receipts, bills, payments, credit and debit notes and stock, plus")}{" "}
+          <Link to="/journalEntries" className="text-cyan-700 hover:underline">{t("journal entries")}</Link> and the accounts' opening balances.
+          Click an account to see its ledger; <Link to="/postingAccounts" className="text-cyan-700 hover:underline">{t("Posting Accounts")}</Link> sets
           which accounts documents post to.
         </p>
       </div>
@@ -411,8 +412,8 @@ const StatementTable: React.FC<{ children: React.ReactNode }> = ({ children }) =
     <table className="w-full min-w-[480px] text-sm">
       <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-[#222] dark:text-gray-400">
         <tr>
-          <th className="px-4 py-2">Account</th>
-          <th className="px-4 py-2 text-right">Amount</th>
+          <th className="px-4 py-2">{t("Account")}</th>
+          <th className="px-4 py-2 text-right">{t("Amount")}</th>
         </tr>
       </thead>
       <tbody>{children}</tbody>
@@ -437,7 +438,7 @@ const Section: React.FC<{
     </tr>
     {lines.length === 0 && !extra && (
       <tr className="border-t border-slate-100 dark:border-gray-800">
-        <td colSpan={2} className="px-4 py-2 pl-8 text-slate-400">Nothing posted</td>
+        <td colSpan={2} className="px-4 py-2 pl-8 text-slate-400">{t("Nothing posted")}</td>
       </tr>
     )}
     {lines.map((line) => (

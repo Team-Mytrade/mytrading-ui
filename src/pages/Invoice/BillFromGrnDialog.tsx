@@ -6,6 +6,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { INVOICE_API, apiError, dateLabel, money, todayInput } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
 
+import { t } from "../../i18n/i18n";
 interface GrnSummary {
   id: number;
   receiptNumber: string;
@@ -129,15 +130,15 @@ const BillFromGrnDialog: React.FC<{
   return (
     <PaginatedPopup
       isOpen={isOpen}
-      title="Bill from goods receipt"
-      subtitle="The amount comes from what was accepted, at the purchase order prices"
+      title={t("Bill from goods receipt")}
+      subtitle={t("The amount comes from what was accepted, at the purchase order prices")}
       onClose={onClose}
       maxWidthClassName="max-w-3xl"
       content={
         <form onSubmit={submit} className="flex flex-col">
           <div className="space-y-4 px-4 py-4 sm:px-5">
             <FloatingSelect1
-              label="Goods receipt"
+              label={t("Goods receipt")}
               name="grnId"
               value={grnId}
               onChange={(event) => chooseGrn(event.target.value)}
@@ -147,8 +148,8 @@ const BillFromGrnDialog: React.FC<{
               }))}
               required
             />
-            {grns.length === 0 && <p className="text-xs text-slate-500">Every accepted goods receipt already has a bill.</p>}
-            {loading && <p className="text-sm text-slate-500">Loading…</p>}
+            {grns.length === 0 && <p className="text-xs text-slate-500">{t("Every accepted goods receipt already has a bill.")}</p>}
+            {loading && <p className="text-sm text-slate-500">{t("Loading…")}</p>}
 
             {source && (
               <>
@@ -156,13 +157,13 @@ const BillFromGrnDialog: React.FC<{
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                       <tr>
-                        <th className="px-3 py-2 text-left">Item</th>
-                        <th className="px-3 py-2 text-right">Accepted</th>
-                        <th className="px-3 py-2 text-right">Returned</th>
-                        <th className="px-3 py-2 text-right">Billed</th>
-                        <th className="px-3 py-2 text-right">Price</th>
-                        <th className="px-3 py-2 text-right">Tax</th>
-                        <th className="px-3 py-2 text-right">Total</th>
+                        <th className="px-3 py-2 text-left">{t("Item")}</th>
+                        <th className="px-3 py-2 text-right">{t("Accepted")}</th>
+                        <th className="px-3 py-2 text-right">{t("Returned")}</th>
+                        <th className="px-3 py-2 text-right">{t("Billed")}</th>
+                        <th className="px-3 py-2 text-right">{t("Price")}</th>
+                        <th className="px-3 py-2 text-right">{t("Tax")}</th>
+                        <th className="px-3 py-2 text-right">{t("Total")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -184,7 +185,7 @@ const BillFromGrnDialog: React.FC<{
                     <tfoot className="bg-slate-50 text-sm">
                       <tr>
                         <td colSpan={6} className="px-3 py-2 text-right text-slate-500">
-                          Subtotal {money(source.subtotal, source.currency)} · Discount {money(source.discountAmount, source.currency)} · Tax {money(source.taxAmount, source.currency)}
+                          {t("Subtotal")} {money(source.subtotal, source.currency)} · Discount {money(source.discountAmount, source.currency)} · Tax {money(source.taxAmount, source.currency)}
                         </td>
                         <td className="px-3 py-2 text-right font-bold text-slate-900">{money(source.totalAmount, source.currency)}</td>
                       </tr>
@@ -193,23 +194,23 @@ const BillFromGrnDialog: React.FC<{
                 </div>
                 {source.nettedReturnNumbers && source.nettedReturnNumbers.length > 0 && (
                   <p className="text-xs text-amber-700">
-                    Goods returned on {source.nettedReturnNumbers.join(", ")} are left out of this bill, so their debit notes are not applied again.
+                    {t("Goods returned on")} {source.nettedReturnNumbers.join(", ")} are left out of this bill, so their debit notes are not applied again.
                   </p>
                 )}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   {/* Purchase and Finance share the vendor list, so the bill is from the PO's vendor */}
-                  <FloatingInput label="Vendor (from the purchase order)" name="vendorName" value={source.vendorName ?? ""} disabled readOnly />
-                  <FloatingInput label="Vendor's invoice number" name="invoiceNumber" value={form.invoiceNumber} onChange={set("invoiceNumber")} required />
-                  <FloatingInput label="Invoice date" name="invoiceDate" type="date" value={form.invoiceDate} onChange={set("invoiceDate")} />
+                  <FloatingInput label={t("Vendor (from the purchase order)")} name="vendorName" value={source.vendorName ?? ""} disabled readOnly />
+                  <FloatingInput label={t("Vendor's invoice number")} name="invoiceNumber" value={form.invoiceNumber} onChange={set("invoiceNumber")} required />
+                  <FloatingInput label={t("Invoice date")} name="invoiceDate" type="date" value={form.invoiceDate} onChange={set("invoiceDate")} />
                   <FloatingInput label={`Due date${source.paymentTerms ? ` (${source.paymentTerms})` : ""}`} name="dueDate" type="date" value={form.dueDate} onChange={set("dueDate")} />
-                  <FloatingInput label="Vendor's invoice total (to check)" name="vendorInvoiceAmount" type="number" value={form.vendorInvoiceAmount} onChange={set("vendorInvoiceAmount")} />
-                  <FloatingInput label="Notes" name="notes" value={form.notes} onChange={set("notes")} />
+                  <FloatingInput label={t("Vendor's invoice total (to check)")} name="vendorInvoiceAmount" type="number" value={form.vendorInvoiceAmount} onChange={set("vendorInvoiceAmount")} />
+                  <FloatingInput label={t("Notes")} name="notes" value={form.notes} onChange={set("notes")} />
                 </div>
               </>
             )}
           </div>
-          <DialogFooter onCancel={onClose} submitLabel="Record bill" busy={busy} disabled={!source} />
+          <DialogFooter onCancel={onClose} submitLabel={t("Record bill")} busy={busy} disabled={!source} />
         </form>
       }
     />

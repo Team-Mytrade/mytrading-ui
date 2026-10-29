@@ -1,6 +1,7 @@
 import React from "react";
 import { dateLabel, labelOf, money } from "./invoiceShared";
 
+import { t } from "../../i18n/i18n";
 export interface AgingBucket {
   bucket: string;
   invoiceCount: number;
@@ -63,8 +64,8 @@ export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) =>
     <div className="grid gap-4 xl:grid-cols-3">
       <section className="rounded-2xl border border-slate-200 bg-white p-4 xl:col-span-2">
         <div className="mb-3 flex items-baseline justify-between">
-          <h3 className="text-sm font-semibold text-slate-800">Aging by days past due</h3>
-          <span className="text-xs text-slate-400">as of {dateLabel(aging.asOfDate)}</span>
+          <h3 className="text-sm font-semibold text-slate-800">{t("Aging by days past due")}</h3>
+          <span className="text-xs text-slate-400">{t("as of")} {dateLabel(aging.asOfDate)}</span>
         </div>
         {total > 0 && (
           <div className="mb-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -90,13 +91,13 @@ export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) =>
             <table className="min-w-full text-sm">
               <thead className="text-xs uppercase text-slate-500">
                 <tr className="border-b border-slate-100">
-                  <th className="py-2 pr-3 text-left">Vendor</th>
-                  <th className="px-2 py-2 text-right">Not due</th>
+                  <th className="py-2 pr-3 text-left">{t("Vendor")}</th>
+                  <th className="px-2 py-2 text-right">{t("Not due")}</th>
                   <th className="px-2 py-2 text-right">1-30</th>
                   <th className="px-2 py-2 text-right">31-60</th>
                   <th className="px-2 py-2 text-right">61-90</th>
                   <th className="px-2 py-2 text-right">90+</th>
-                  <th className="py-2 pl-2 text-right">Total</th>
+                  <th className="py-2 pl-2 text-right">{t("Total")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -115,24 +116,24 @@ export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) =>
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Nothing is owed to vendors.</p>
+          <p className="text-sm text-slate-500">{t("Nothing is owed to vendors.")}</p>
         )}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-baseline justify-between">
-          <h3 className="text-sm font-semibold text-slate-800">Due in the next 7 days</h3>
+          <h3 className="text-sm font-semibold text-slate-800">{t("Due in the next 7 days")}</h3>
           <span className="text-sm font-semibold text-amber-700">{money(aging.dueThisWeekAmount)}</span>
         </div>
         {aging.dueThisWeek.length === 0 ? (
-          <p className="text-sm text-slate-500">No bills fall due this week.</p>
+          <p className="text-sm text-slate-500">{t("No bills fall due this week.")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {aging.dueThisWeek.map((bill) => (
               <li key={bill.payableId} className="flex items-center justify-between py-2">
                 <div>
                   <div className="text-sm font-medium text-slate-800">{bill.vendorName}</div>
-                  <div className="text-xs text-slate-400">Bill {bill.invoiceNumber ?? "—"} · due {dateLabel(bill.dueDate)}</div>
+                  <div className="text-xs text-slate-400">{t("Bill")} {bill.invoiceNumber ?? "—"} · due {dateLabel(bill.dueDate)}</div>
                 </div>
                 <span className="text-sm font-semibold text-slate-900">{money(bill.balance)}</span>
               </li>
@@ -146,24 +147,24 @@ export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) =>
 
 export const DebitNotesList: React.FC<{ notes: DebitNote[] }> = ({ notes }) => (
   <section className="rounded-2xl border border-slate-200 bg-white p-4">
-    <h3 className="mb-1 text-sm font-semibold text-slate-800">Debit notes</h3>
+    <h3 className="mb-1 text-sm font-semibold text-slate-800">{t("Debit notes")}</h3>
     <p className="mb-3 text-xs text-slate-400">
       Goods returned to vendors (from Purchase Returns) and corrections raised on a bill. They reduce what is owed, like payments.
     </p>
     {notes.length === 0 ? (
-      <p className="text-sm text-slate-500">No debit notes yet.</p>
+      <p className="text-sm text-slate-500">{t("No debit notes yet.")}</p>
     ) : (
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="text-xs uppercase text-slate-500">
             <tr className="border-b border-slate-100">
-              <th className="py-2 pr-3 text-left">Debit note</th>
-              <th className="px-2 py-2 text-left">Vendor</th>
-              <th className="px-2 py-2 text-left">Against</th>
-              <th className="px-2 py-2 text-left">Reason</th>
-              <th className="px-2 py-2 text-right">Amount</th>
-              <th className="px-2 py-2 text-right">Applied</th>
-              <th className="py-2 pl-2 text-left">Status</th>
+              <th className="py-2 pr-3 text-left">{t("Debit note")}</th>
+              <th className="px-2 py-2 text-left">{t("Vendor")}</th>
+              <th className="px-2 py-2 text-left">{t("Against")}</th>
+              <th className="px-2 py-2 text-left">{t("Reason")}</th>
+              <th className="px-2 py-2 text-right">{t("Amount")}</th>
+              <th className="px-2 py-2 text-right">{t("Applied")}</th>
+              <th className="py-2 pl-2 text-left">{t("Status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">

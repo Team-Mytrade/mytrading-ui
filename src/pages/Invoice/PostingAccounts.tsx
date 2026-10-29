@@ -10,6 +10,7 @@ import { GeneralAccount, INVOICE_API, accountLabel, apiError } from "./invoiceSh
 import { CARD, CARD_TITLE, PAGE_BODY, TOOL_BUTTON } from "../Payroll/hrmsUi";
 import PeriodLockCard from "./PeriodLockCard";
 
+import { t } from "../../i18n/i18n";
 interface PostingAccountView {
   role: string;
   label: string;
@@ -127,7 +128,7 @@ export default function PostingAccounts() {
 
   return (
     <>
-      <PageMeta title="Posting Accounts" description="Accounts used by automatic journal postings" />
+      <PageMeta title={t("Posting Accounts")} description="Accounts used by automatic journal postings" />
       <PageBreadcrumb
         pageTitle="Posting Accounts"
         actions={editable ? (
@@ -140,7 +141,7 @@ export default function PostingAccounts() {
         <PeriodLockCard editable={editable} />
         <section className={`${CARD} p-5`}>
           <h3 className={`${CARD_TITLE} mb-2 flex items-center gap-2`}>
-            <BookOpenIcon className="h-4 w-4 text-cyan-600" /> Automatic postings
+            <BookOpenIcon className="h-4 w-4 text-cyan-600" /> {t("Automatic postings")}
           </h3>
           <p className="mb-4 text-xs text-slate-600 dark:text-gray-300">
             Invoices, receipts, credit and debit notes, bills, vendor payments and stock movements post balanced journal
@@ -148,7 +149,7 @@ export default function PostingAccounts() {
             {!editable && " Only a finance administrator can change them."}
           </p>
           {loading ? (
-            <p className="text-sm text-slate-400">Loading...</p>
+            <p className="text-sm text-slate-400">{t("Loading...")}</p>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-gray-800">
               {roles.map((role) => (

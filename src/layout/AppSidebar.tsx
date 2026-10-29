@@ -87,6 +87,7 @@ import { AuthContext } from "../context/AuthContext";
 import { AccessInfo, canAccessPath, hasPermission } from "../access/access";
 import "../styles/AppSidebar.css";
 import { publicAsset } from "../utils/assets";
+import { isRightToLeft, t, useLanguage } from "../i18n/i18n";
 
 // Items are shown only when the user can reach their module (see access.ts) and,
 // if set, holds `permission`. The backend enforces the same rules.
@@ -398,6 +399,9 @@ const AppSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { user, access, loading: authLoading, profileImage: sharedProfileImage, hasProfileImage } = useContext(AuthContext);
   const visibleNavItems = useMemo(() => filterNavItems(navItems, access), [access]);
+  // Names are translated as they are drawn; Arabic also puts the sidebar on the right
+  useLanguage();
+  const rightToLeft = isRightToLeft();
   const isSidebarManuallyToggledRef = useRef(false);
 
   const [openSubSubmenu, setOpenSubSubmenu] = useState<string | null>(null);
@@ -446,7 +450,9 @@ const AppSidebar: React.FC = () => {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(220, Math.min(300, e.clientX));
+      // Measured from the sidebar's edge of the window (the right one in Arabic)
+      const fromEdge = isRightToLeft() ? window.innerWidth - e.clientX : e.clientX;
+      const newWidth = Math.max(220, Math.min(300, fromEdge));
       setSidebarWidth(newWidth);
     };
 
@@ -556,7 +562,8 @@ const AppSidebar: React.FC = () => {
 
   const handleRailTooltip = (nav: NavItem, event: React.MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    setRailTooltip({ name: nav.name, top: rect.top + rect.height / 2, left: rect.right + 12 });
+    // Beside the rail, towards the page (rtl.css shifts it by its own width in Arabic)
+    setRailTooltip({ name: t(nav.name), top: rect.top + rect.height / 2, left: isRightToLeft() ? rect.left - 12 : rect.right + 12 });
   };
 
   const closeMobileDrawer = () => {
@@ -574,7 +581,7 @@ const AppSidebar: React.FC = () => {
         className={`app-nav__link${nested ? " app-nav__link--nested" : ""}${active ? " is-active" : ""}`}
       >
         {icon && <span className="app-nav__icon" aria-hidden="true">{icon}</span>}
-        <span className="app-nav__label">{name}</span>
+        <span className="app-nav__label">{t(name)}</span>
       </Link>
     );
   };
@@ -591,8 +598,8 @@ const AppSidebar: React.FC = () => {
         <div className="app-nav__header">
           <span className="app-nav__header-icon" aria-hidden="true">{nav.icon}</span>
           <div className="app-nav__header-text">
-            <span className="app-nav__title">{nav.name}</span>
-            <span className="app-nav__meta">{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
+            <span className="app-nav__title">{t(nav.name)}</span>
+            <span className="app-nav__meta">{pageCount === 1 ? t("1 page") : t("{count} pages", { count: pageCount })}</span>
           </div>
         </div>
 
@@ -617,7 +624,7 @@ const AppSidebar: React.FC = () => {
                     className={`app-nav__link app-nav__toggle${childActive ? " has-active" : ""}`}
                   >
                     {SubIcon && <span className="app-nav__icon" aria-hidden="true"><SubIcon /></span>}
-                    <span className="app-nav__label">{sub.name}</span>
+                    <span className="app-nav__label">{t(sub.name)}</span>
                     <ChevronDown className={`app-nav__chevron${open ? " is-open" : ""}`} aria-hidden="true" />
                   </button>
                   <div className={`app-nav__children${open ? " is-open" : ""}`}>
@@ -636,7 +643,7 @@ const AppSidebar: React.FC = () => {
 
             return (
               <Fragment key={sub.name}>
-                {heading && <p className="app-nav__section">{heading}</p>}
+                {heading && <p className="app-nav__section">{t(heading)}</p>}
                 {entry}
               </Fragment>
             );
@@ -658,7 +665,7 @@ const AppSidebar: React.FC = () => {
           app-sidebar ${isExpanded || isMobileOpen ? "app-sidebar--expanded" : "app-sidebar--collapsed"} fixed top-0 left-0 h-screen bg-white border-r border-gray-200
           shadow-lg z-[50] flex flex-col
           ${isResizing ? "transition-none select-none" : "transition-all duration-300 ease-in-out"}
-          ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
+          ${isMobileOpen ? "translate-x-0" : rightToLeft ? "translate-x-full" : "-translate-x-full"}
           lg:translate-x-0
         `}
         onMouseEnter={handleSidebarMouseEnter}
@@ -668,12 +675,13 @@ const AppSidebar: React.FC = () => {
           type="button"
           className="app-sidebar__collapse"
           onClick={handlePanelToggle}
-          aria-label={isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar"}
-          title={isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={t(isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar")}
+          title={t(isExpanded || isMobileOpen ? "Collapse sidebar" : "Expand sidebar")}
         >
-          {isExpanded || isMobileOpen ? <ChevronsLeft size={17} /> : <ChevronsRight size={17} />}
+          {/* Points the way the panel moves: towards the sidebar's edge to collapse */}
+          {(isExpanded || isMobileOpen) !== rightToLeft ? <ChevronsLeft size={17} /> : <ChevronsRight size={17} />}
         </button>
-        <nav className="app-sidebar__rail" aria-label="Primary modules">
+        <nav className="app-sidebar__rail" aria-label={t("Primary modules")}>
           <Link to="/" className="app-sidebar__rail-brand" aria-label="Go to dashboard">
             <img src={publicAsset("images/logo/logo-icon.png")} alt="" width={30} height={30} />
           </Link>
@@ -688,7 +696,7 @@ const AppSidebar: React.FC = () => {
                   onClick={() => handleRailNavigation(nav, index)}
                   onMouseEnter={(event) => handleRailTooltip(nav, event)}
                   onMouseLeave={() => setRailTooltip(null)}
-                  aria-label={nav.name}
+                  aria-label={t(nav.name)}
                 >
                   {nav.icon}
                 </button>
@@ -716,7 +724,7 @@ const AppSidebar: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="app-sidebar__navigation flex-1 overflow-y-auto" aria-label="Module pages">
+        <nav className="app-sidebar__navigation flex-1 overflow-y-auto" aria-label={t("Module pages")}>
           {visibleNavItems[selectedModuleIndex] && renderModulePanel(visibleNavItems[selectedModuleIndex], selectedModuleIndex)}
         </nav>
 
@@ -744,7 +752,7 @@ const AppSidebar: React.FC = () => {
             {(isExpanded || isMobileOpen) && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {loadingProfile ? "Loading..." : userName}
+                  {loadingProfile ? t("Loading...") : userName}
                 </p>
                 <p className="text-xs text-gray-500 truncate">{userRole || "—"}</p>
               </div>

@@ -8,6 +8,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, apiError, dateLabel, todayInput } from "./invoiceShared";
 
+import { t } from "../../i18n/i18n";
 interface Rate {
   id: number;
   currency: string;
@@ -96,14 +97,14 @@ const ExchangeRates: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Exchange Rates" description="Rates into the company's currency" />
+      <PageMeta title={t("Exchange Rates")} description="Rates into the company's currency" />
       <PageBreadcrumb pageTitle="Exchange Rates" />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <p className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-gray-800 dark:bg-[#191919] dark:text-gray-300">
-          The company's currency is <b>{base || "not known yet"}</b>. Invoices, bills, receipts and payments in another currency take
+          {t("The company's currency is")} <b>{base || "not known yet"}</b>. Invoices, bills, receipts and payments in another currency take
           the latest rate on or before their own date and keep it; the ledger and the statements are in {base || "the company's currency"}.
-          Paying at a different rate than the invoice or bill was booked at puts the difference in <i>Exchange gains and losses</i>.
+          Paying at a different rate than the invoice or bill was booked at puts the difference in <i>{t("Exchange gains and losses")}</i>.
         </p>
 
         {latest.length > 0 && (
@@ -112,7 +113,7 @@ const ExchangeRates: React.FC = () => {
               <button key={r.currency} type="button" onClick={() => setFilter(filter === r.currency ? "" : r.currency)}
                 className={`rounded-lg border px-3 py-2 text-left text-xs ${filter === r.currency ? "border-cyan-400 bg-cyan-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
                 <span className="block font-semibold text-slate-800">1 {r.currency} = {rateText(r.rate)} {base}</span>
-                <span className="text-slate-500">since {dateLabel(r.rateDate)}</span>
+                <span className="text-slate-500">{t("since")} {dateLabel(r.rateDate)}</span>
               </button>
             ))}
           </div>
@@ -120,12 +121,12 @@ const ExchangeRates: React.FC = () => {
 
         {canCreate && (
           <form onSubmit={save} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-5 dark:border-gray-800 dark:bg-[#191919]">
-            <FloatingInput label="Currency (e.g. USD)" name="currency" value={form.currency} required
+            <FloatingInput label={t("Currency (e.g. USD)")} name="currency" value={form.currency} required
               onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0, 3) }))} />
-            <FloatingInput label="From" name="rateDate" type="date" value={form.rateDate} onChange={(e) => setForm((f) => ({ ...f, rateDate: e.target.value }))} />
+            <FloatingInput label={t("From")} name="rateDate" type="date" value={form.rateDate} onChange={(e) => setForm((f) => ({ ...f, rateDate: e.target.value }))} />
             <FloatingInput label={`1 ${form.currency || "…"} = ? ${base}`} name="rate" type="number" required value={form.rate}
               onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))} />
-            <FloatingInput label="Source (optional)" name="source" value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
+            <FloatingInput label={t("Source (optional)")} name="source" value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
             <div className="flex items-end">
               <button type="submit" disabled={saving} className="h-10 w-full rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">
                 {saving ? "Saving..." : "Save rate"}
@@ -138,10 +139,10 @@ const ExchangeRates: React.FC = () => {
           <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-[#222] dark:text-gray-400">
               <tr>
-                <th className="px-4 py-2">Currency</th>
-                <th className="px-4 py-2">From</th>
-                <th className="px-4 py-2 text-right">Rate</th>
-                <th className="px-4 py-2">Source</th>
+                <th className="px-4 py-2">{t("Currency")}</th>
+                <th className="px-4 py-2">{t("From")}</th>
+                <th className="px-4 py-2 text-right">{t("Rate")}</th>
+                <th className="px-4 py-2">{t("Source")}</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -162,7 +163,7 @@ const ExchangeRates: React.FC = () => {
                   <td className="px-4 py-2 text-slate-500">{r.source || "—"}</td>
                   <td className="px-4 py-2 text-right">
                     {canDelete && (
-                      <button type="button" onClick={() => remove(r)} className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Remove">
+                      <button type="button" onClick={() => remove(r)} className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title={t("Remove")}>
                         <TrashIcon className="h-4 w-4" />
                       </button>
                     )}

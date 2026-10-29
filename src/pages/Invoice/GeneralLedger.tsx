@@ -22,6 +22,7 @@ import {
 } from "./invoiceShared";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type View = "LEDGER" | "TRIAL";
 
 interface LedgerRow {
@@ -133,7 +134,7 @@ const GeneralLedger: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="General Ledger" description="Account postings and trial balance" />
+      <PageMeta title={t("General Ledger")} description="Account postings and trial balance" />
       <PageBreadcrumb pageTitle="General Ledger" />
 
       <div className="w-full max-w-none space-y-4 py-4">
@@ -149,33 +150,33 @@ const GeneralLedger: React.FC = () => {
             </button>
           ))}
           <span className="ml-auto text-xs text-slate-500">
-            Postings come from{" "}
-            <button type="button" className="text-cyan-700 hover:underline" onClick={() => navigate("/journalEntries")}>journal entries</button>.
+            {t("Postings come from")}{" "}
+            <button type="button" className="text-cyan-700 hover:underline" onClick={() => navigate("/journalEntries")}>{t("journal entries")}</button>.
           </span>
         </div>
 
         <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
           {view === "LEDGER" && (
             <FloatingSelect1
-              label="Account"
+              label={t("Account")}
               name="accountId"
               value={accountId}
               options={accounts.map((item) => ({ id: String(item.id), name: accountLabel(item) }))}
               onChange={(event) => setAccountId(event.target.value)}
             />
           )}
-          {view === "LEDGER" && <FloatingInput label="From" name="from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />}
+          {view === "LEDGER" && <FloatingInput label={t("From")} name="from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />}
           <FloatingInput label={view === "LEDGER" ? "To" : "As at"} name="to" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
         </div>
 
-        {loading && <p className="text-sm text-slate-500">Loading…</p>}
+        {loading && <p className="text-sm text-slate-500">{t("Loading…")}</p>}
 
         {!loading && accounts.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-10">
             <BookOpenIcon className="mb-3 h-12 w-12 text-gray-400" />
-            <p className="text-sm text-gray-500">No accounts yet</p>
+            <p className="text-sm text-gray-500">{t("No accounts yet")}</p>
             <button type="button" className="mt-1 text-xs font-medium text-cyan-700 hover:underline" onClick={() => navigate("/generalAccounts")}>
-              Set up the chart of accounts
+              {t("Set up the chart of accounts")}
             </button>
           </div>
         )}
@@ -183,10 +184,10 @@ const GeneralLedger: React.FC = () => {
         {!loading && view === "LEDGER" && ledger && account && (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatsCard label="Opening" value={money(ledger.opening, currency)} gradient="from-slate-50 to-slate-100" borderColor="border-slate-200" labelColor="text-slate-600" />
-              <StatsCard label="Debits" value={money(ledger.totalDebit, currency)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-              <StatsCard label="Credits" value={money(ledger.totalCredit, currency)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
-              <StatsCard label="Closing" value={money(ledger.closing, currency)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+              <StatsCard label={t("Opening")} value={money(ledger.opening, currency)} gradient="from-slate-50 to-slate-100" borderColor="border-slate-200" labelColor="text-slate-600" />
+              <StatsCard label={t("Debits")} value={money(ledger.totalDebit, currency)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+              <StatsCard label={t("Credits")} value={money(ledger.totalCredit, currency)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+              <StatsCard label={t("Closing")} value={money(ledger.closing, currency)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
             </div>
             <p className="text-xs text-slate-500">
               {labelOf(account.accountType)} account: the balance grows with {ledger.sign > 0 ? "debits" : "credits"}.
@@ -195,22 +196,22 @@ const GeneralLedger: React.FC = () => {
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left">Date</th>
-                    <th className="px-3 py-2 text-left">Entry</th>
-                    <th className="px-3 py-2 text-left">Details</th>
-                    <th className="px-3 py-2 text-right">Debit</th>
-                    <th className="px-3 py-2 text-right">Credit</th>
-                    <th className="px-3 py-2 text-right">Balance</th>
+                    <th className="px-3 py-2 text-left">{t("Date")}</th>
+                    <th className="px-3 py-2 text-left">{t("Entry")}</th>
+                    <th className="px-3 py-2 text-left">{t("Details")}</th>
+                    <th className="px-3 py-2 text-right">{t("Debit")}</th>
+                    <th className="px-3 py-2 text-right">{t("Credit")}</th>
+                    <th className="px-3 py-2 text-right">{t("Balance")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   <tr className="bg-slate-50/50">
-                    <td className="px-3 py-2" colSpan={5}>Opening balance{from ? ` on ${dateLabel(from)}` : ""}</td>
+                    <td className="px-3 py-2" colSpan={5}>{t("Opening balance")}{from ? ` on ${dateLabel(from)}` : ""}</td>
                     <td className="px-3 py-2 text-right font-medium">{money(ledger.opening, currency)}</td>
                   </tr>
                   {ledger.rows.length === 0 && (
                     <tr>
-                      <td className="px-3 py-6 text-center text-slate-400" colSpan={6}>No postings in this period</td>
+                      <td className="px-3 py-6 text-center text-slate-400" colSpan={6}>{t("No postings in this period")}</td>
                     </tr>
                   )}
                   {ledger.rows.map((row) => {
@@ -233,7 +234,7 @@ const GeneralLedger: React.FC = () => {
                     );
                   })}
                   <tr className="bg-slate-50 font-semibold">
-                    <td className="px-3 py-2" colSpan={3}>Closing balance{to ? ` on ${dateLabel(to)}` : ""}</td>
+                    <td className="px-3 py-2" colSpan={3}>{t("Closing balance")}{to ? ` on ${dateLabel(to)}` : ""}</td>
                     <td className="px-3 py-2 text-right">{money(ledger.totalDebit, currency)}</td>
                     <td className="px-3 py-2 text-right">{money(ledger.totalCredit, currency)}</td>
                     <td className="px-3 py-2 text-right">{money(ledger.closing, currency)}</td>
@@ -248,25 +249,25 @@ const GeneralLedger: React.FC = () => {
           <>
             {Math.abs(trial.totalDebit - trial.totalCredit) > 0.005 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Debits and credits differ by {money(Math.abs(trial.totalDebit - trial.totalCredit))}. Journal entries always balance, so check the accounts' opening balances.
+                {t("Debits and credits differ by")} {money(Math.abs(trial.totalDebit - trial.totalCredit))}. Journal entries always balance, so check the accounts' opening balances.
               </p>
             ) : (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Debits equal credits.</p>
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{t("Debits equal credits.")}</p>
             )}
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table className="w-full min-w-[560px] text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left">Account</th>
-                    <th className="px-3 py-2 text-left">Type</th>
-                    <th className="px-3 py-2 text-right">Debit</th>
-                    <th className="px-3 py-2 text-right">Credit</th>
+                    <th className="px-3 py-2 text-left">{t("Account")}</th>
+                    <th className="px-3 py-2 text-left">{t("Type")}</th>
+                    <th className="px-3 py-2 text-right">{t("Debit")}</th>
+                    <th className="px-3 py-2 text-right">{t("Credit")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {trial.rows.length === 0 && (
                     <tr>
-                      <td className="px-3 py-6 text-center text-slate-400" colSpan={4}>No balances yet</td>
+                      <td className="px-3 py-6 text-center text-slate-400" colSpan={4}>{t("No balances yet")}</td>
                     </tr>
                   )}
                   {trial.rows.map((row) => (
@@ -285,7 +286,7 @@ const GeneralLedger: React.FC = () => {
                     </tr>
                   ))}
                   <tr className="bg-slate-50 font-semibold">
-                    <td className="px-3 py-2" colSpan={2}>Total</td>
+                    <td className="px-3 py-2" colSpan={2}>{t("Total")}</td>
                     <td className="px-3 py-2 text-right">{money(trial.totalDebit)}</td>
                     <td className="px-3 py-2 text-right">{money(trial.totalCredit)}</td>
                   </tr>

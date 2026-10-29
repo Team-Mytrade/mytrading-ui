@@ -2,6 +2,7 @@
 // dates and times. Plain functions, so tables, exports and PDFs use them as well as pages.
 // The settings are set when the company profile loads (companyApi); until then today's defaults apply.
 import { DEFAULT_REGIONAL, RegionalSettings, currencyDigits } from "./regional";
+import { setCompanyLanguage } from "../i18n/i18n";
 
 let regional: RegionalSettings = DEFAULT_REGIONAL;
 
@@ -16,6 +17,8 @@ export const setRegional = (settings: Partial<RegionalSettings> | null) => {
       if (value !== null && value !== undefined && value !== "") (next as unknown as Record<string, unknown>)[key] = value;
     });
   }
+  // The screens' language follows the company's unless the user picked one
+  setCompanyLanguage(next.language);
   if (JSON.stringify(next) === JSON.stringify(regional)) return;
   regional = next;
   numberFormats.clear();

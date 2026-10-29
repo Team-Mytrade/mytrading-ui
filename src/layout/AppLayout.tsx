@@ -10,6 +10,7 @@ import { canAccessPath } from "../access/access";
 import NoAccess from "../access/NoAccess";
 import TenantBanner from "../access/TenantBanner";
 import { useRegionalVersion } from "../company/companyApi";
+import { useLanguage } from "../i18n/i18n";
 
 
 import { useState, useEffect, Suspense } from "react";
@@ -22,6 +23,7 @@ const LayoutContent: React.FC = () => {
   const { access, isLoggedIn } = useContext(AuthContext);
   // Dates, times and money follow the company's regional settings
   const regional = useRegionalVersion(isLoggedIn);
+  const lang = useLanguage();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
   const isSalesModule = [
     "/sales-dashboard", "/sales-targets", "/sales-persons", "/sales-orders",
@@ -46,7 +48,8 @@ const LayoutContent: React.FC = () => {
       </div>
       <div
         style={{
-          marginLeft: isLargeScreen
+          // Start side: the sidebar is on the right in Arabic
+          marginInlineStart: isLargeScreen
             ? (isExpanded || isHovered ? `${sidebarWidth}px` : "60px")
             : "0px",
           width: isLargeScreen
@@ -65,8 +68,9 @@ const LayoutContent: React.FC = () => {
           {!regional.ready && isLoggedIn ? (
             <PageLoading />
           ) : canAccessPath(access, location.pathname) ? (
-            // Pages are loaded on demand; header and sidebar stay while one loads
-            <Suspense key={regional.version} fallback={<PageLoading />}>
+            // Pages are loaded on demand; header and sidebar stay while one loads. A new language or regional
+            // setting draws the page again.
+            <Suspense key={`${regional.version}-${lang}`} fallback={<PageLoading />}>
               <Outlet />
             </Suspense>
           ) : (

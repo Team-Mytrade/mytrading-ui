@@ -27,6 +27,7 @@ import {
 import { DialogFooter } from "./invoiceUi";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/journal-entries`;
 const PAGE_SIZE = 10;
 
@@ -232,7 +233,7 @@ const JournalEntries: React.FC = () => {
         <span className="text-sm text-slate-600">
           {labelOf(row.sourceModule ?? "OTHER")}
           {row.automatic && (
-            <span className="ml-1.5 rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700" title="Posted automatically from the document">
+            <span className="ml-1.5 rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700" title={t("Posted automatically from the document")}>
               {row.reversalOf ? "Auto · reversal" : "Auto"}
             </span>
           )}
@@ -258,17 +259,17 @@ const JournalEntries: React.FC = () => {
       render: (row) => (
         <div className="flex justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
           {row.automatic && (
-            <span className="p-1.5 text-slate-300" title="Posted automatically: correct or cancel the document instead">
+            <span className="p-1.5 text-slate-300" title={t("Posted automatically: correct or cancel the document instead")}>
               <LockClosedIcon className="h-4 w-4" />
             </span>
           )}
           {canUpdate && !row.automatic && (
-            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit entry">
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit entry")}>
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
           {canDelete && !row.automatic && (
-            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete entry">
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("Delete entry")}>
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -279,16 +280,16 @@ const JournalEntries: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Journal Entries" description="Double-entry postings to the general ledger" />
-      <PageBreadcrumb pageTitle="Journal Entries" actions={canCreate ? <AddButton onClick={openCreate} label="New journal entry" /> : undefined} />
+      <PageMeta title={t("Journal Entries")} description="Double-entry postings to the general ledger" />
+      <PageBreadcrumb pageTitle="Journal Entries" actions={canCreate ? <AddButton onClick={openCreate} label={t("New journal entry")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Entries" value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="This month" value={stats.thisMonth} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Posted this month" value={money(stats.postedThisMonth)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-          <StatsCard label="Active accounts" value={stats.accounts} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label={t("Entries")} value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("This month")} value={stats.thisMonth} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Posted this month")} value={money(stats.postedThisMonth)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
+          <StatsCard label={t("Active accounts")} value={stats.accounts} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -313,8 +314,8 @@ const JournalEntries: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-sm text-gray-500">No journal entries yet</p>
-              {accounts.length === 0 && <p className="text-xs text-gray-400">Set up the chart of accounts under General Accounts first.</p>}
+              <p className="text-sm text-gray-500">{t("No journal entries yet")}</p>
+              {accounts.length === 0 && <p className="text-xs text-gray-400">{t("Set up the chart of accounts under General Accounts first.")}</p>}
             </div>
           }
         />
@@ -332,18 +333,17 @@ const JournalEntries: React.FC = () => {
               {viewing.description && <p className="text-sm text-slate-700">{viewing.description}</p>}
               {foreign && (
                 <p className="text-xs text-slate-500">
-                  A {viewing.currency} document booked at 1 {viewing.currency} = {Number(viewing.exchangeRate)} {companyCurrency()};
-                  amounts are in {companyCurrency()}, the document's own under each line.
+                  {t("A {currency} document booked at 1 {currency} = {rate} {company}; amounts are in {company}, the document's own under each line.", { currency: viewing.currency ?? "", rate: Number(viewing.exchangeRate), company: companyCurrency() })}
                 </p>
               )}
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full min-w-[560px] text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 text-left">Account</th>
-                      <th className="px-3 py-2 text-left">Narration</th>
-                      <th className="px-3 py-2 text-right">Debit</th>
-                      <th className="px-3 py-2 text-right">Credit</th>
+                      <th className="px-3 py-2 text-left">{t("Account")}</th>
+                      <th className="px-3 py-2 text-left">{t("Narration")}</th>
+                      <th className="px-3 py-2 text-right">{t("Debit")}</th>
+                      <th className="px-3 py-2 text-right">{t("Credit")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -361,7 +361,7 @@ const JournalEntries: React.FC = () => {
                       </tr>
                     ))}
                     <tr className="bg-slate-50 font-semibold">
-                      <td className="px-3 py-2" colSpan={2}>Total</td>
+                      <td className="px-3 py-2" colSpan={2}>{t("Total")}</td>
                       <td className="px-3 py-2 text-right">{money(totalOf(viewing))}</td>
                       <td className="px-3 py-2 text-right">{money((viewing.entries ?? []).reduce((sum, line) => sum + Number(line.credit || 0), 0))}</td>
                     </tr>
@@ -370,19 +370,19 @@ const JournalEntries: React.FC = () => {
               </div>
               {viewing.automatic && (
                 <p className="rounded-lg bg-cyan-50 px-3 py-2 text-xs text-cyan-800">
-                  Posted automatically{viewing.reversalOf ? " to reverse an earlier entry" : ""}. It follows its document: to change
+                  {t("Posted automatically")}{viewing.reversalOf ? " to reverse an earlier entry" : ""}. It follows its document: to change
                   it, correct, cancel or reverse the document.
                 </p>
               )}
               <div className="flex justify-end gap-2">
                 {canDelete && !viewing.automatic && (
                   <button type="button" onClick={() => setDeleting(viewing)} className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
-                    Delete
+                    {t("Delete")}
                   </button>
                 )}
                 {canUpdate && !viewing.automatic && (
                   <button type="button" onClick={() => openEdit(viewing)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700">
-                    Edit
+                    {t("Edit")}
                   </button>
                 )}
               </div>
@@ -401,40 +401,40 @@ const JournalEntries: React.FC = () => {
           <form onSubmit={save} className="flex flex-col">
             <div className="space-y-4 px-4 py-4 sm:px-5">
               <div className="grid gap-3 sm:grid-cols-3">
-                <FloatingInput label="Date" name="entryDate" type="date" value={form.entryDate}
+                <FloatingInput label={t("Date")} name="entryDate" type="date" value={form.entryDate}
                   onChange={(event) => setForm((current) => ({ ...current, entryDate: event.target.value }))} />
-                <FloatingSelect1 label="Source" name="sourceModule" value={form.sourceModule} options={SOURCE_MODULE_OPTIONS} includeEmptyOption={false}
+                <FloatingSelect1 label={t("Source")} name="sourceModule" value={form.sourceModule} options={SOURCE_MODULE_OPTIONS} includeEmptyOption={false}
                   onChange={(event) => setForm((current) => ({ ...current, sourceModule: event.target.value }))} />
-                <FloatingInput label="Source document id (optional)" name="sourceId" type="number" value={form.sourceId}
+                <FloatingInput label={t("Source document id (optional)")} name="sourceId" type="number" value={form.sourceId}
                   onChange={(event) => setForm((current) => ({ ...current, sourceId: event.target.value }))} />
               </div>
-              <FloatingTextarea label="Description" name="description" rows={2} value={form.description}
+              <FloatingTextarea label={t("Description")} name="description" rows={2} value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
 
               <div className="space-y-2">
                 <div className="hidden grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 px-1 text-xs font-medium uppercase tracking-wide text-slate-500 sm:grid">
-                  <span>Account</span>
-                  <span className="text-right">Debit</span>
-                  <span className="text-right">Credit</span>
-                  <span>Narration</span>
+                  <span>{t("Account")}</span>
+                  <span className="text-right">{t("Debit")}</span>
+                  <span className="text-right">{t("Credit")}</span>
+                  <span>{t("Narration")}</span>
                   <span className="w-7" />
                 </div>
                 {lines.map((line, index) => (
                   <div key={index} className="grid gap-2 rounded-lg border border-slate-100 p-2 sm:grid-cols-[2fr_1fr_1fr_2fr_auto] sm:border-0 sm:p-0">
-                    <FloatingSelect1 label="Account" name={`account_${index}`} value={line.generalAccountId} options={accountOptions}
+                    <FloatingSelect1 label={t("Account")} name={`account_${index}`} value={line.generalAccountId} options={accountOptions}
                       onChange={(event) => updateLine(index, { generalAccountId: event.target.value })} />
-                    <FloatingInput label="Debit" name={`debit_${index}`} type="number" value={line.debit}
+                    <FloatingInput label={t("Debit")} name={`debit_${index}`} type="number" value={line.debit}
                       onChange={(event) => updateLine(index, { debit: event.target.value, credit: event.target.value ? "" : line.credit })} />
-                    <FloatingInput label="Credit" name={`credit_${index}`} type="number" value={line.credit}
+                    <FloatingInput label={t("Credit")} name={`credit_${index}`} type="number" value={line.credit}
                       onChange={(event) => updateLine(index, { credit: event.target.value, debit: event.target.value ? "" : line.debit })} />
-                    <FloatingInput label="Narration" name={`narration_${index}`} value={line.narration}
+                    <FloatingInput label={t("Narration")} name={`narration_${index}`} value={line.narration}
                       onChange={(event) => updateLine(index, { narration: event.target.value })} />
                     <button
                       type="button"
                       disabled={lines.length <= 2}
                       onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
                       className="self-center rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
-                      title="Remove line"
+                      title={t("Remove line")}
                     >
                       <XMarkIcon className="h-4 w-4" />
                     </button>
@@ -442,10 +442,10 @@ const JournalEntries: React.FC = () => {
                 ))}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
                   <button type="button" onClick={() => setLines((current) => [...current, blankLine()])} className="inline-flex items-center gap-1 text-xs font-medium text-cyan-700 hover:underline">
-                    <PlusIcon className="h-3.5 w-3.5" /> Add line
+                    <PlusIcon className="h-3.5 w-3.5" /> {t("Add line")}
                   </button>
                   <span className={`text-sm font-medium ${totals.difference === 0 ? "text-emerald-700" : "text-amber-700"}`}>
-                    Debit {money(totals.debit)} · Credit {money(totals.credit)}
+                    {t("Debit")} {money(totals.debit)} · Credit {money(totals.credit)}
                     {totals.difference !== 0 && ` · off by ${money(Math.abs(totals.difference))}`}
                   </span>
                 </div>
@@ -458,9 +458,9 @@ const JournalEntries: React.FC = () => {
 
       <ConfirmDialog
         isOpen={Boolean(deleting)}
-        title="Delete journal entry"
+        title={t("Delete journal entry")}
         message={`Delete ${deleting?.entryNumber ?? "this entry"} (${money(deleting ? totalOf(deleting) : 0)})? Its postings leave the ledger.`}
-        confirmLabel="Delete"
+        confirmLabel={t("Delete")}
         variant="danger"
         onConfirm={remove}
         onCancel={() => setDeleting(null)}

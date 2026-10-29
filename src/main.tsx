@@ -1,6 +1,9 @@
 import React, { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/index.css";
+import "./styles/rtl.css";
+// Sets the page's language and direction before the first render
+import "./i18n/i18n";
 import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
 import App from "./App.tsx";

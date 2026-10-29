@@ -17,6 +17,7 @@ import { GeneralAccount, INVOICE_API, accountLabel, apiError, dateLabel, money, 
 import { DialogFooter } from "./invoiceUi";
 import { BANK_API, BankAccount, BankAccountKind } from "./bankShared";
 
+import { t } from "../../i18n/i18n";
 const KIND_OPTIONS = [
   { id: "BANK", name: "Bank account" },
   { id: "CASH", name: "Cash box / petty cash" },
@@ -146,11 +147,11 @@ const BankAccounts: React.FC = () => {
       render: (a) => (
         <span className="text-sm">
           <span className="font-semibold text-slate-900">{a.accountName}</span>
-          {a.defaultAccount && <span className="ml-2 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-medium text-cyan-700">Default</span>}
+          {a.defaultAccount && <span className="ml-2 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-medium text-cyan-700">{t("Default")}</span>}
           {(a.bankName || a.accountNumber) && (
             <span className="block text-xs text-slate-500">{[a.bankName, a.accountNumber && `A/c ${a.accountNumber}`].filter(Boolean).join(" · ")}</span>
           )}
-          {a.iban && <span className="block text-xs text-slate-400">IBAN {a.iban}</span>}
+          {a.iban && <span className="block text-xs text-slate-400">{t("IBAN")} {a.iban}</span>}
         </span>
       ),
     },
@@ -195,11 +196,11 @@ const BankAccounts: React.FC = () => {
       className: "text-right",
       render: (a) => (
         <div className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => navigate(`/bankAccounts/${a.id}/reconcile`)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Reconcile with the bank statement">
+          <button type="button" onClick={() => navigate(`/bankAccounts/${a.id}/reconcile`)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Reconcile with the bank statement")}>
             <ScaleIcon className="h-4 w-4" />
           </button>
           {canSetUp && (
-            <button type="button" onClick={() => openForm(a)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+            <button type="button" onClick={() => openForm(a)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit")}>
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
@@ -214,14 +215,14 @@ const BankAccounts: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Bank & Cash" description="Bank accounts and cash boxes, and their reconciliation" />
-      <PageBreadcrumb pageTitle="Bank & Cash" actions={canSetUp ? <AddButton onClick={() => openForm()} label="Add account" /> : undefined} />
+      <PageMeta title={t("Bank & Cash")} description="Bank accounts and cash boxes, and their reconciliation" />
+      <PageBreadcrumb pageTitle="Bank & Cash" actions={canSetUp ? <AddButton onClick={() => openForm()} label={t("Add account")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatsCard label="In the bank" value={money(stats.bank)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Cash in hand" value={money(stats.cash)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Active accounts" value={stats.count} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
+          <StatsCard label={t("In the bank")} value={money(stats.bank)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Cash in hand")} value={money(stats.cash)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Active accounts")} value={stats.count} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 
         <ReusableTable
@@ -229,16 +230,16 @@ const BankAccounts: React.FC = () => {
           columns={columns}
           pageSize={10}
           searchable
-          searchPlaceholder="Search accounts…"
+          searchPlaceholder={t("Search accounts…")}
           searchFields={["accountName", "bankName", "accountNumber", "iban"]}
           onRowClick={(a) => navigate(`/bankAccounts/${a.id}/reconcile`)}
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <BuildingLibraryIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-sm text-gray-500">No bank accounts or cash boxes yet</p>
+              <p className="text-sm text-gray-500">{t("No bank accounts or cash boxes yet")}</p>
               <p className="mt-1 max-w-md text-center text-xs text-gray-400">
-                Until you add one, receipts and payments post to the Cash or Bank posting account by their method.
+                {t("Until you add one, receipts and payments post to the Cash or Bank posting account by their method.")}
               </p>
             </div>
           }
@@ -248,29 +249,29 @@ const BankAccounts: React.FC = () => {
       <PaginatedPopup
         isOpen={showForm}
         title={editing ? `Edit ${editing.accountName}` : "Add bank account or cash box"}
-        subtitle="Receipts and payments choose it; its money is kept in one asset account of the chart, and its statement is reconciled against that account."
+        subtitle={t("Receipts and payments choose it; its money is kept in one asset account of the chart, and its statement is reconciled against that account.")}
         onClose={() => setShowForm(false)}
         maxWidthClassName="max-w-2xl"
         content={
           <form onSubmit={save} className="flex flex-col">
             <div className="max-h-[65dvh] space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
               <div className="grid gap-3 sm:grid-cols-2">
-                <FloatingInput label="Name" name="accountName" required value={form.accountName} onChange={(e) => set("accountName", e.target.value)} />
-                <FloatingSelect1 label="Kind" name="kind" value={form.kind} options={KIND_OPTIONS} includeEmptyOption={false}
+                <FloatingInput label={t("Name")} name="accountName" required value={form.accountName} onChange={(e) => set("accountName", e.target.value)} />
+                <FloatingSelect1 label={t("Kind")} name="kind" value={form.kind} options={KIND_OPTIONS} includeEmptyOption={false}
                   onChange={(e) => set("kind", e.target.value as BankAccountKind)} />
                 {isBank && (
                   <>
-                    <FloatingInput label="Bank" name="bankName" value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
-                    <FloatingInput label="Account number" name="accountNumber" value={form.accountNumber} onChange={(e) => set("accountNumber", e.target.value)} />
-                    <FloatingInput label="IBAN" name="iban" value={form.iban} onChange={(e) => set("iban", e.target.value)} />
-                    <FloatingInput label="SWIFT / BIC" name="swiftCode" value={form.swiftCode} onChange={(e) => set("swiftCode", e.target.value)} />
+                    <FloatingInput label={t("Bank")} name="bankName" value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
+                    <FloatingInput label={t("Account number")} name="accountNumber" value={form.accountNumber} onChange={(e) => set("accountNumber", e.target.value)} />
+                    <FloatingInput label={t("IBAN")} name="iban" value={form.iban} onChange={(e) => set("iban", e.target.value)} />
+                    <FloatingInput label={t("SWIFT / BIC")} name="swiftCode" value={form.swiftCode} onChange={(e) => set("swiftCode", e.target.value)} />
                   </>
                 )}
-                <FloatingInput label="Currency" name="currency" value={form.currency} onChange={(e) => set("currency", e.target.value.toUpperCase().slice(0, 3))} />
-                <FloatingSelect1 label="Ledger account" name="generalAccountId" value={form.generalAccountId} options={ledgerOptions}
+                <FloatingInput label={t("Currency")} name="currency" value={form.currency} onChange={(e) => set("currency", e.target.value.toUpperCase().slice(0, 3))} />
+                <FloatingSelect1 label={t("Ledger account")} name="generalAccountId" value={form.generalAccountId} options={ledgerOptions}
                   includeEmptyOption={false} disabled={!!editing} onChange={(e) => set("generalAccountId", e.target.value)} />
-                <FloatingInput label="Opening date" name="openingDate" type="date" value={form.openingDate} onChange={(e) => set("openingDate", e.target.value)} />
-                <FloatingInput label="Balance on the opening date" name="openingBalance" type="number" value={form.openingBalance}
+                <FloatingInput label={t("Opening date")} name="openingDate" type="date" value={form.openingDate} onChange={(e) => set("openingDate", e.target.value)} />
+                <FloatingInput label={t("Balance on the opening date")} name="openingBalance" type="number" value={form.openingBalance}
                   onChange={(e) => set("openingBalance", e.target.value)} />
               </div>
               <p className="text-xs text-slate-500">
@@ -280,14 +281,14 @@ const BankAccounts: React.FC = () => {
               <div className="flex flex-wrap gap-4 text-sm text-slate-700">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={form.defaultAccount} onChange={(e) => set("defaultAccount", e.target.checked)} />
-                  Default for {isBank ? "bank transfers, cheques and cards" : "cash"}
+                  {t("Default for")} {isBank ? "bank transfers, cheques and cards" : "cash"}
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} />
                   Active (closed accounts can't take new receipts or payments)
                 </label>
               </div>
-              {editing && <p className="text-xs text-slate-400">Opened {dateLabel(editing.openingDate)} · ledger account {editing.generalAccountCode}</p>}
+              {editing && <p className="text-xs text-slate-400">{t("Opened")} {dateLabel(editing.openingDate)} · ledger account {editing.generalAccountCode}</p>}
             </div>
             <DialogFooter onCancel={() => setShowForm(false)} submitLabel={editing ? "Save" : "Add account"} busy={busy} />
           </form>
