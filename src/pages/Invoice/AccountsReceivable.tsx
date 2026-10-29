@@ -11,6 +11,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { CUSTOMER_FINANCIAL_API, INVOICE_API, apiError, dateLabel, daysOverdue, labelOf, money } from "./invoiceShared";
 import { ArStatusBadge } from "./invoiceUi";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/accounts-receivable`;
 const PAGE_SIZE = 10;
 
@@ -160,7 +161,7 @@ const AccountsReceivable: React.FC = () => {
       className: "text-right",
       render: (row) => (
         <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => openStatement(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Customer statement">
+          <button type="button" onClick={() => openStatement(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Customer statement")}>
             <DocumentChartBarIcon className="h-4 w-4" />
           </button>
         </div>
@@ -170,13 +171,13 @@ const AccountsReceivable: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Accounts Receivable" description="What customers owe, by invoice and age" />
+      <PageMeta title={t("Accounts Receivable")} description="What customers owe, by invoice and age" />
       <PageBreadcrumb pageTitle="Accounts Receivable" />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <div className="rounded-xl border border-cyan-100 bg-gradient-to-br from-cyan-50 to-blue-50 p-3">
-            <div className="text-xs font-medium text-cyan-700">Total outstanding</div>
+            <div className="text-xs font-medium text-cyan-700">{t("Total outstanding")}</div>
             <div className="mt-1 text-lg font-semibold text-slate-900">{money(aging?.totalOutstanding)}</div>
           </div>
           {(aging?.buckets ?? []).map((bucket) => (
@@ -206,14 +207,14 @@ const AccountsReceivable: React.FC = () => {
           columns={columns}
           pageSize={PAGE_SIZE}
           searchable
-          searchPlaceholder="Search by invoice or customer…"
+          searchPlaceholder={t("Search by invoice or customer…")}
           searchFields={["invoiceNumber", "customerName"]}
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-1 text-sm text-gray-500">Nothing to collect here</p>
-              <p className="text-xs text-gray-400">Receivables appear when invoices are issued.</p>
+              <p className="mb-1 text-sm text-gray-500">{t("Nothing to collect here")}</p>
+              <p className="text-xs text-gray-400">{t("Receivables appear when invoices are issued.")}</p>
             </div>
           }
         />
@@ -222,7 +223,7 @@ const AccountsReceivable: React.FC = () => {
       <PaginatedPopup
         isOpen={Boolean(statementFor)}
         title={`Statement · ${statementFor?.customerName ?? ""}`}
-        subtitle="Invoices, payments and credits in the period, with the running balance"
+        subtitle={t("Invoices, payments and credits in the period, with the running balance")}
         onClose={() => setStatementFor(null)}
         maxWidthClassName="max-w-4xl"
         content={
@@ -230,10 +231,10 @@ const AccountsReceivable: React.FC = () => {
             <div className="max-h-[75dvh] space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
               {summary && (
                 <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm sm:grid-cols-4">
-                  <div><dt className="text-xs text-slate-500">Outstanding</dt><dd className="font-semibold text-slate-900">{money(summary.totalOutstanding)}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Unused credit</dt><dd className="font-semibold text-slate-900">{money(summary.availableCustomerCredit)}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Open invoices</dt><dd className="font-semibold text-slate-900">{summary.openInvoiceCount}</dd></div>
-                  <div><dt className="text-xs text-slate-500">Overdue invoices</dt><dd className="font-semibold text-red-600">{summary.overdueInvoiceCount}</dd></div>
+                  <div><dt className="text-xs text-slate-500">{t("Outstanding")}</dt><dd className="font-semibold text-slate-900">{money(summary.totalOutstanding)}</dd></div>
+                  <div><dt className="text-xs text-slate-500">{t("Unused credit")}</dt><dd className="font-semibold text-slate-900">{money(summary.availableCustomerCredit)}</dd></div>
+                  <div><dt className="text-xs text-slate-500">{t("Open invoices")}</dt><dd className="font-semibold text-slate-900">{summary.openInvoiceCount}</dd></div>
+                  <div><dt className="text-xs text-slate-500">{t("Overdue invoices")}</dt><dd className="font-semibold text-red-600">{summary.overdueInvoiceCount}</dd></div>
                 </dl>
               )}
               <form
@@ -243,12 +244,12 @@ const AccountsReceivable: React.FC = () => {
                   loadStatement(statementFor.customerId, range.fromDate, range.toDate);
                 }}
               >
-                <div className="w-44"><FloatingInput label="From" name="fromDate" type="date" value={range.fromDate} onChange={(event) => setRange((r) => ({ ...r, fromDate: event.target.value }))} /></div>
-                <div className="w-44"><FloatingInput label="To" name="toDate" type="date" value={range.toDate} onChange={(event) => setRange((r) => ({ ...r, toDate: event.target.value }))} /></div>
-                <button type="submit" className="mb-1 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700">Show</button>
+                <div className="w-44"><FloatingInput label={t("From")} name="fromDate" type="date" value={range.fromDate} onChange={(event) => setRange((r) => ({ ...r, fromDate: event.target.value }))} /></div>
+                <div className="w-44"><FloatingInput label={t("To")} name="toDate" type="date" value={range.toDate} onChange={(event) => setRange((r) => ({ ...r, toDate: event.target.value }))} /></div>
+                <button type="submit" className="mb-1 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700">{t("Show")}</button>
               </form>
               {!statement ? (
-                <p className="text-sm text-slate-500">Loading…</p>
+                <p className="text-sm text-slate-500">{t("Loading…")}</p>
               ) : (
                 <StatementTable statement={statement} />
               )}
@@ -267,17 +268,17 @@ const StatementTable = ({ statement }: { statement: Statement }) => {
       <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="px-3 py-2 text-left">Date</th>
-            <th className="px-3 py-2 text-left">Document</th>
-            <th className="px-3 py-2 text-left">Details</th>
-            <th className="px-3 py-2 text-right">Debit</th>
-            <th className="px-3 py-2 text-right">Credit</th>
-            <th className="px-3 py-2 text-right">Balance</th>
+            <th className="px-3 py-2 text-left">{t("Date")}</th>
+            <th className="px-3 py-2 text-left">{t("Document")}</th>
+            <th className="px-3 py-2 text-left">{t("Details")}</th>
+            <th className="px-3 py-2 text-right">{t("Debit")}</th>
+            <th className="px-3 py-2 text-right">{t("Credit")}</th>
+            <th className="px-3 py-2 text-right">{t("Balance")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           <tr className="bg-slate-50/50">
-            <td className="px-3 py-2" colSpan={5}>Opening balance</td>
+            <td className="px-3 py-2" colSpan={5}>{t("Opening balance")}</td>
             <td className="px-3 py-2 text-right font-medium">{money(statement.openingBalance)}</td>
           </tr>
           {statement.entries.map((entry, index) => {
@@ -292,7 +293,7 @@ const StatementTable = ({ statement }: { statement: Statement }) => {
                 <td className="px-3 py-2">
                   {entry.description}
                   {entry.referenceNumber && <span className="block text-xs text-slate-500">{entry.referenceNumber}</span>}
-                  {!entry.affectsBalance && <span className="block text-xs">For information: already counted when the money was received</span>}
+                  {!entry.affectsBalance && <span className="block text-xs">{t("For information: already counted when the money was received")}</span>}
                 </td>
                 <td className="px-3 py-2 text-right">{Number(entry.debit) ? money(entry.debit) : ""}</td>
                 <td className="px-3 py-2 text-right">{Number(entry.credit) ? money(entry.credit) : ""}</td>
@@ -301,7 +302,7 @@ const StatementTable = ({ statement }: { statement: Statement }) => {
             );
           })}
           <tr className="bg-slate-50 font-semibold">
-            <td className="px-3 py-2" colSpan={3}>Closing balance</td>
+            <td className="px-3 py-2" colSpan={3}>{t("Closing balance")}</td>
             <td className="px-3 py-2 text-right">{money(statement.totalDebit)}</td>
             <td className="px-3 py-2 text-right">{money(statement.totalCredit)}</td>
             <td className="px-3 py-2 text-right">{money(statement.closingBalance)}</td>

@@ -22,6 +22,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatNumber, formatDate, formatDateTime } from "../../company/format";
 
 // ======================== ENUM TYPE ========================
 interface EnumOption {
@@ -670,7 +671,7 @@ const StockMovementsManager: React.FC = () => {
       <div className="grid grid-cols-2 gap-3">
         <Field label="Movement ID">#{movement.id}</Field>
         <Field label="Date">
-          {new Date(movement.movementDate).toLocaleDateString()}
+          {formatDate(movement.movementDate)}
         </Field>
 
         <Field label="Type" full>
@@ -720,7 +721,7 @@ const StockMovementsManager: React.FC = () => {
         )}
         {movement.createdDate && (
           <Field label="Created At">
-            {new Date(movement.createdDate).toLocaleString()}
+            {formatDateTime(movement.createdDate)}
           </Field>
         )}
       </div>
@@ -737,7 +738,7 @@ const StockMovementsManager: React.FC = () => {
         <div className="flex items-center gap-2">
           <CalendarIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {new Date(movement.movementDate).toLocaleDateString()}
+            {formatDate(movement.movementDate)}
           </span>
         </div>
       ),
@@ -869,7 +870,7 @@ const StockMovementsManager: React.FC = () => {
           />
           <StatsCard
             label="Total Quantity"
-            value={stats.totalQuantity.toLocaleString()}
+            value={formatNumber(stats.totalQuantity)}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"

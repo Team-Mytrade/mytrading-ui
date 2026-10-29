@@ -25,6 +25,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatAmount, formatMoney, formatNumber } from "../../company/format";
 
 // ---------- Type Definitions ----------
 interface Product {
@@ -51,6 +52,8 @@ interface StockLevel {
   reserved: number;
   available: number;
   productId?: number;
+  // Weighted-average cost of one unit (from purchase receipts); null until a cost is known
+  averageCost?: number | null;
   warehouse?: Warehouse;
   createdDate?: string;
   updatedDate?: string;
@@ -70,6 +73,8 @@ type StockLevelForm = {
   warehouseId: string;
   operationType: StockOperation;
   quantity: string;
+  // Opening stock only: what one unit cost
+  unitCost: string;
 };
 
 const API_URL = "/v1/api/inventory";
@@ -85,6 +90,7 @@ const emptyForm: StockLevelForm = {
   warehouseId: "",
   operationType: "add-stock",
   quantity: "",
+  unitCost: "",
 };
 
 const STOCK_OPERATIONS: Record<
@@ -305,6 +311,11 @@ const StockLevelsManager: React.FC = () => {
       ToasterService.error("Invalid quantity", "Quantity must be greater than 0.");
       return;
     }
+    const unitCost = form.unitCost.trim() === "" ? null : Number(form.unitCost);
+    if (!editingStock && unitCost !== null && (!Number.isFinite(unitCost) || unitCost < 0)) {
+      ToasterService.error("Invalid unit cost", "Enter what one unit cost, or leave it empty.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -319,6 +330,8 @@ const StockLevelsManager: React.FC = () => {
           available: quantity,
           productId: Number(form.productId),
           warehouse: { id: Number(form.warehouseId) },
+          // Opening stock at its cost starts the weighted average
+          averageCost: unitCost,
         };
         await axios.post(`${API_URL}/stock-levels`, payload, { headers });
         ToasterService.success("Stock level created successfully");
@@ -361,6 +374,7 @@ const StockLevelsManager: React.FC = () => {
       warehouseId: String(getWarehouseId(stock) ?? ""),
       operationType: "add-stock",
       quantity: "",
+      unitCost: "",
     });
     setShowFormModal(true);
   };
@@ -515,6 +529,32 @@ const StockLevelsManager: React.FC = () => {
       ),
     },
     {
+      key: "averageCost",
+      label: "Avg Cost",
+      sortable: true,
+      sortValueGetter: (stock) => Number(stock.averageCost ?? -1),
+      detailFormatter: (stock) => (stock.averageCost == null ? "Not known yet" : formatAmount(stock.averageCost)),
+      render: (stock) =>
+        stock.averageCost == null ? (
+          <span className="text-xs text-slate-400" title="No purchase cost recorded for this stock yet">—</span>
+        ) : (
+          <span className="text-sm text-slate-700 dark:text-slate-200">{formatAmount(stock.averageCost)}</span>
+        ),
+    },
+    {
+      key: "stockValue",
+      label: "Value",
+      sortable: true,
+      sortValueGetter: (stock) => (stock.averageCost == null ? -1 : stock.quantity * Number(stock.averageCost)),
+      detailFormatter: (stock) => (stock.averageCost == null ? "—" : formatMoney(stock.quantity * Number(stock.averageCost))),
+      render: (stock) =>
+        stock.averageCost == null ? (
+          <span className="text-xs text-slate-400">—</span>
+        ) : (
+          <span className="text-sm font-medium text-slate-900 dark:text-white">{formatMoney(stock.quantity * Number(stock.averageCost))}</span>
+        ),
+    },
+    {
       key: "status",
       label: "Status",
       sortable: true,
@@ -576,12 +616,12 @@ const StockLevelsManager: React.FC = () => {
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             label="Total Stock"
-            value={stats.totalStock.toLocaleString()}
+            value={formatNumber(stats.totalStock)}
             icon={<CubeIcon />}
           />
           <StatsCard
             label="Available Stock"
-            value={stats.totalAvailable.toLocaleString()}
+            value={formatNumber(stats.totalAvailable)}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
@@ -589,7 +629,7 @@ const StockLevelsManager: React.FC = () => {
           />
           <StatsCard
             label="Reserved Stock"
-            value={stats.totalReserved.toLocaleString()}
+            value={formatNumber(stats.totalReserved)}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-700"
@@ -729,9 +769,20 @@ const StockLevelsManager: React.FC = () => {
                     onChange={handleChange}
                     required
                   />,
+                  <FloatingInput
+                    key="unitCost"
+                    label="Unit cost (optional)"
+                    name="unitCost"
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={form.unitCost}
+                    onChange={handleChange}
+                  />,
                   <p key="operation-hint" className="text-xs text-gray-500 dark:text-slate-400">
                     This creates a new stock level record for this product/warehouse
-                    with the given quantity as initial stock.
+                    with the given quantity as initial stock. The unit cost starts the average cost used to value
+                    it; purchase receipts then update it.
                   </p>,
                 ],
           },

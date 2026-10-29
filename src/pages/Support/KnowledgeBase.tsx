@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { formatDate } from "../../company/format";
 
 interface Article {
   id: number;
@@ -157,7 +158,7 @@ const KnowledgeBase: React.FC = () => {
                 <tr key={article.id} className="border-t hover:bg-gray-50 dark:hover:bg-meta-3">
                   <td className="px-4 py-2">{article.title}</td>
                   <td className="px-4 py-2">{article.category}</td>
-                  <td className="px-4 py-2">{new Date(article.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-2">{formatDate(article.createdAt)}</td>
                   <td className="px-4 py-2 flex gap-2">
                     <button
                       onClick={() => handleEdit(article)}

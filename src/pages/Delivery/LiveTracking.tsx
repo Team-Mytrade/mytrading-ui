@@ -20,6 +20,7 @@ import { todayIso } from "../../utils/localDate";
 import { DELIVERY_API, apiError } from "./deliveryShared";
 import { RoutePoint, TRACKING_API, TRIP_STATE_STYLE, Trip, mapUrl, timeAgo, tripState } from "./trackingApi";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, formatTime, formatDateTime } from "../../company/format";
 
 // Live map of vehicles whose drivers are on a trip (Driver Mode on their phone), plus past trips' routes.
 // Map tiles: OpenStreetMap (free; for heavy use switch to a commercial tile provider).
@@ -187,12 +188,12 @@ const LiveTracking: React.FC = () => {
     const points = route.map((p) => [p.latitude, p.longitude] as L.LatLngTuple);
     L.polyline(points, { color: "#0891b2", weight: 4, opacity: 0.85 }).addTo(layer);
     L.circleMarker(points[0], { radius: 7, color: "#fff", weight: 2, fillColor: "#16a34a", fillOpacity: 1 })
-      .bindTooltip(`Start · ${new Date(route[0].recordedAt).toLocaleTimeString()}`)
+      .bindTooltip(`Start · ${formatTime(route[0].recordedAt)}`)
       .addTo(layer);
     if (tab === "history") {
       const last = route[route.length - 1];
       L.circleMarker(points[points.length - 1], { radius: 7, color: "#fff", weight: 2, fillColor: "#dc2626", fillOpacity: 1 })
-        .bindTooltip(`End · ${new Date(last.recordedAt).toLocaleTimeString()}`)
+        .bindTooltip(`End · ${formatTime(last.recordedAt)}`)
         .addTo(layer);
     }
     if (fittedRouteRef.current !== selectedId) {
@@ -313,7 +314,7 @@ const LiveTracking: React.FC = () => {
           {/* List */}
           <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold dark:border-gray-800">
-              {tab === "live" ? "Vehicles on a trip" : `Trips on ${new Date(historyDate).toLocaleDateString()}`}
+              {tab === "live" ? "Vehicles on a trip" : `Trips on ${formatDate(historyDate)}`}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {tab === "live" && loadingLive ? (
@@ -361,7 +362,7 @@ const LiveTracking: React.FC = () => {
                             {t.status === "ACTIVE" ? (
                               <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3" />{timeAgo(t.lastSeenAt)}</span>
                             ) : (
-                              <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3" />{new Date(t.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {durationLabel(t.startedAt, t.endedAt)}</span>
+                              <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3" />{formatTime(t.startedAt)} · {durationLabel(t.startedAt, t.endedAt)}</span>
                             )}
                             {t.openDeliveries != null && <span>{t.openDeliveries} open deliver{t.openDeliveries === 1 ? "y" : "ies"}</span>}
                           </div>
@@ -378,7 +379,7 @@ const LiveTracking: React.FC = () => {
               <div className="border-t border-slate-100 p-4 text-sm dark:border-gray-800">
                 <p className="font-semibold text-slate-800 dark:text-gray-100">{selected.vehiclePlate} · {selected.driverName}</p>
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-gray-300">
-                  <dt className="text-slate-400">Started</dt><dd>{new Date(selected.startedAt).toLocaleString()}</dd>
+                  <dt className="text-slate-400">Started</dt><dd>{formatDateTime(selected.startedAt)}</dd>
                   <dt className="text-slate-400">Duration</dt><dd>{durationLabel(selected.startedAt, selected.endedAt)}</dd>
                   <dt className="text-slate-400">Distance</dt><dd>{selected.distanceKm.toFixed(2)} km</dd>
                   <dt className="text-slate-400">GPS fixes</dt><dd>{selected.pointCount}</dd>

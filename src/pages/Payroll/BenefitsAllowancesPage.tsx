@@ -36,6 +36,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
+import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
 type Allowance = {
     id: number;
@@ -143,7 +144,7 @@ const BenefitsAllowancesPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text("Benefits & Allowances Report", 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Allowances: ${filtered.length}`, 14, 28);
         
         autoTable(doc, {
@@ -152,7 +153,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                 a.code,
                 a.description,
                 a.category,
-                a.taxLimit ? `₹${a.taxLimit.toLocaleString()}/yr` : "No Limit"
+                a.taxLimit ? `${formatMoney(a.taxLimit)}/yr` : "No Limit"
             ]),
             startY: 35,
             styles: { fontSize: 8 },
@@ -167,8 +168,8 @@ const BenefitsAllowancesPage: React.FC = () => {
             'Code': a.code,
             'Description': a.description,
             'Category': a.category,
-            'Annual Threshold': a.taxLimit ? `₹${a.taxLimit.toLocaleString()}/yr` : "No Limit",
-            'Created At': a.createdAt ? new Date(a.createdAt).toLocaleDateString() : "",
+            'Annual Threshold': a.taxLimit ? `${formatMoney(a.taxLimit)}/yr` : "No Limit",
+            'Created At': a.createdAt ? formatDate(a.createdAt) : "",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Allowances");
@@ -482,7 +483,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-600">
-                                                {allowance.taxLimit ? `₹${allowance.taxLimit.toLocaleString()}/yr` : "No Limit"}
+                                                {allowance.taxLimit ? `${formatMoney(allowance.taxLimit)}/yr` : "No Limit"}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right relative">
@@ -681,13 +682,13 @@ const BenefitsAllowancesPage: React.FC = () => {
                                                     {selectedAllowance.taxLimit && (
                                                         <div>
                                                             <p className="text-xs text-gray-500">Annual Threshold</p>
-                                                            <p className="text-sm font-medium text-cyan-600">₹{selectedAllowance.taxLimit.toLocaleString()}/yr</p>
+                                                            <p className="text-sm font-medium text-cyan-600">{formatMoney(selectedAllowance.taxLimit)}/yr</p>
                                                         </div>
                                                     )}
                                                     {selectedAllowance.createdAt && (
                                                         <div>
                                                             <p className="text-xs text-gray-500">Created At</p>
-                                                            <p className="text-sm text-gray-600">{new Date(selectedAllowance.createdAt).toLocaleDateString()}</p>
+                                                            <p className="text-sm text-gray-600">{formatDate(selectedAllowance.createdAt)}</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -698,7 +699,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                                     <strong>Tax Note:</strong> {selectedAllowance.category === "Taxable" 
                                                         ? "This allowance is fully taxable and will be included in gross income calculation."
                                                         : selectedAllowance.category === "Partially Taxable"
-                                                        ? `This allowance has a tax exemption up to ₹${selectedAllowance.taxLimit?.toLocaleString()}/yr. Amounts exceeding this limit are taxable.`
+                                                        ? `This allowance has a tax exemption up to ${formatMoney(selectedAllowance.taxLimit)}/yr. Amounts exceeding this limit are taxable.`
                                                         : "This allowance is fully exempt from tax under applicable sections."}
                                                 </p>
                                             </div>
@@ -782,7 +783,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                                 </div>
                                                 {form.category === 'Partially Taxable' && (
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Annual Exemption Threshold (₹)</label>
+                                                        <label className="block text-sm font-medium text-gray-700">Annual Exemption Threshold ({companyCurrency()})</label>
                                                         <input
                                                             type="number"
                                                             value={form.taxLimit || ''}

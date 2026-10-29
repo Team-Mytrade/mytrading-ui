@@ -9,7 +9,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  CurrencyRupeeIcon,
+  BanknotesIcon,
   ArrowPathIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -265,7 +265,7 @@ const LeaveTypePage: React.FC = () => {
       key: "encashmentAllowed", label: "Encashment", sortable: true,
       render: (_: LeaveType, v: unknown) => (
         <div className="flex items-center gap-1">
-          <CurrencyRupeeIcon className="h-3.5 w-3.5 text-gray-400" />
+          <BanknotesIcon className="h-3.5 w-3.5 text-gray-400" />
           <BoolBadge value={Boolean(v)} />
         </div>
       ),
@@ -310,7 +310,7 @@ const LeaveTypePage: React.FC = () => {
           <StatsCard label="Total Types" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-6 w-6" />} />
           <StatsCard label="Paid Leaves" value={totalPaid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
           <StatsCard label="Carry Forward" value={totalCarryForward} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowPathIcon className="h-6 w-6" />} />
-          <StatsCard label="Encashment" value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<CurrencyRupeeIcon className="h-6 w-6" />} />
+          <StatsCard label="Encashment" value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<BanknotesIcon className="h-6 w-6" />} />
         </div>
 
         {/* Reusable Table */}

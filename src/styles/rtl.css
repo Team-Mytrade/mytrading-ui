@@ -1,0 +1,32 @@
+/* Right-to-left pages (Arabic, <html dir="rtl">). Tailwind's left/right utilities already flip (tailwind.logical.js);
+   this covers what they don't: hand-written CSS with physical sides, Tailwind's gap helpers and form controls. */
+
+/* Nunito has no Arabic letters: a font made for them first, Nunito for Latin text and digits */
+[dir="rtl"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", "Noto Naskh Arabic", Nunito, sans-serif; }
+
+/* space-x-* and divide-x-* put their gap and line on the other side */
+[dir="rtl"] [class*="space-x-"] > :not([hidden]) ~ :not([hidden]) { --tw-space-x-reverse: 1; }
+[dir="rtl"] [class*="divide-x"] > :not([hidden]) ~ :not([hidden]) { --tw-divide-x-reverse: 1; }
+
+/* Drop-down arrow on the left, text from the right */
+[dir="rtl"] select:not([multiple]):not([size]) { background-position: left 0.5rem center; padding-left: 2.5rem; padding-right: 0.75rem; }
+
+/* Sidebar (AppSidebar.css): the rail and its panel hang from the right edge */
+[dir="rtl"] .app-sidebar.app-sidebar.bg-white { border-right: 0; border-left: 1px solid var(--line); box-shadow: -4px 0 16px rgba(15, 23, 42, .08); }
+[dir="rtl"] .app-sidebar__rail { inset: 0 0 0 auto; border-right: 0; border-left: 1px solid var(--line); }
+[dir="rtl"] .app-sidebar__collapse { right: auto; left: -14px; box-shadow: -2px 2px 8px rgba(15, 23, 42, .08); }
+[dir="rtl"] .app-sidebar > .app-sidebar__brand, [dir="rtl"] .app-sidebar > .app-sidebar__navigation, [dir="rtl"] .app-sidebar > .app-sidebar__profile { margin-left: 0; margin-right: 60px; }
+[dir="rtl"] .app-sidebar--collapsed > .app-sidebar__brand, [dir="rtl"] .app-sidebar--collapsed > .app-sidebar__navigation, [dir="rtl"] .app-sidebar--collapsed > .app-sidebar__profile { transform: translateX(12px); }
+[dir="rtl"] .app-sidebar__rail-button.is-active::before { left: auto; right: -11px; border-radius: 3px 0 0 3px; }
+[dir="rtl"] .app-nav__link { text-align: right; }
+[dir="rtl"] .app-nav__link.is-active::before { left: auto; right: 0; border-radius: 3px 0 0 3px; }
+[dir="rtl"] .app-nav__children-inner { margin-left: 0; margin-right: 19px; padding-left: 0; padding-right: 10px; border-left: 0; border-right: 1px solid var(--line); }
+[dir="rtl"] .app-nav__link--nested.is-active::before { left: auto; right: -10px; }
+[dir="rtl"] .app-nav__section { letter-spacing: 0; }
+[dir="rtl"] .app-sidebar__rail-tooltip { transform: translate(-100%, -50%); }
+[dir="rtl"] .app-sidebar__rail-tooltip::before { left: auto; right: -4px; }
+.dark[dir="rtl"] .app-sidebar.app-sidebar.bg-white { border-left-color: #292929; box-shadow: -8px 0 24px rgba(0, 0, 0, .32); }
+@media (max-width: 1023px) { [dir="rtl"] .app-sidebar.bg-white { box-shadow: -18px 0 45px rgba(17, 24, 39, .18); } }
+
+/* Arabic is not written in capitals and needs no letter spacing */
+[dir="rtl"] .uppercase { letter-spacing: 0; }

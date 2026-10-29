@@ -20,6 +20,7 @@ import FilterPopover from "../../components/common/filter";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
+import { formatNumber } from "../../company/format";
 
 interface TaxDetail {
   id: number;
@@ -213,7 +214,7 @@ const TaxDetails: React.FC = () => {
       sortValueGetter: (taxDetail) => Number(taxDetail.taxAmount || 0),
       render: (taxDetail) => (
         <span className="text-sm font-semibold text-slate-700">
-          {Number(taxDetail.taxAmount || 0).toLocaleString()}
+          {formatNumber(Number(taxDetail.taxAmount || 0))}
         </span>
       ),
     },
@@ -291,7 +292,7 @@ const TaxDetails: React.FC = () => {
           />
           <StatsCard
             label="Total Tax Amount"
-            value={stats.totalTax.toLocaleString()}
+            value={formatNumber(stats.totalTax)}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"

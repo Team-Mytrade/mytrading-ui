@@ -899,7 +899,7 @@ const stats = getStats();
               <div className="grid grid-cols-2 gap-4">
                 {/* A new address opened from the menu: choose whose it is */}
                 {!editingId && !customerId && (
-                  <div className="col-span-2">
+                  <div className={lookups.customers.length > 0 ? "" : "col-span-2"}>
                     {lookups.customers.length > 0 ? (
                       <>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
@@ -949,7 +949,7 @@ const stats = getStats();
                 </div>
 
                 {/* Address Type */}
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Address Type
                   </label>

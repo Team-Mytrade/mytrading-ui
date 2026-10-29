@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { formatDate } from "../../company/format";
 
 interface Ticket {
   id: number;
@@ -203,7 +204,7 @@ const TicketSupport: React.FC = () => {
                   <td className="px-4 py-2">{ticket.priority}</td>
                   <td className="px-4 py-2">{ticket.assignedTo}</td>
                   <td className="px-4 py-2">
-                    {new Date(ticket.createdAt).toLocaleDateString()}
+                    {formatDate(ticket.createdAt)}
                   </td>
                   <td className="px-4 py-2 flex gap-2">
                     <button

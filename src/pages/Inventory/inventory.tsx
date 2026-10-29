@@ -22,6 +22,7 @@ import { ListingPdfExportButton } from "../../components/common/export";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatNumber } from "../../company/format";
 
 /**
  * Inventory Stock: the real stock per product and warehouse (the same records sales reservations, purchase
@@ -390,7 +391,7 @@ const InventoryStockManager: React.FC = () => {
           />
           <StatsCard
             label="On Hand"
-            value={stats.onHand.toLocaleString()}
+            value={formatNumber(stats.onHand)}
             gradient="from-emerald-50 to-green-50"
             borderColor="border-emerald-100"
             labelColor="text-emerald-600"
@@ -398,7 +399,7 @@ const InventoryStockManager: React.FC = () => {
           />
           <StatsCard
             label="Reserved"
-            value={stats.reserved.toLocaleString()}
+            value={formatNumber(stats.reserved)}
             gradient="from-yellow-50 to-orange-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-700"

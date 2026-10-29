@@ -2,6 +2,7 @@ import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, useE
 import DatePicker from 'react-datepicker';
 import { format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
+import { t } from '../../i18n/i18n';
 
 interface BaseFloatingProps {
   label: string;
@@ -50,21 +51,11 @@ interface FloatingDateRangePickerProps extends BaseFloatingProps {
 
 const floatingStyles = `
   .floating-input:focus {
-    border-color: #2563eb;
+    border-color: #26c6da;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25);
   }
-  
-  .floating-input:focus + .floating-label,
-  .floating-input:not(:placeholder-shown) + .floating-label {
-    top: 0 !important;
-    font-size: 12px !important;
-    color: #2563eb !important;
-    font-weight: 500 !important;
-    background-color: white !important;
-    transform: translateY(-50%) !important;
-  }
-  
+
   .floating-input::placeholder {
     color: transparent !important;
   }
@@ -105,17 +96,10 @@ const floatingStyles = `
     background-color: #eff6ff;
   }
 
-  /* Textarea specific styles */
-  textarea.floating-input:focus,
-  textarea.floating-input:not(:placeholder-shown) {
-    padding-top: 24px !important;
-    padding-bottom: 8px !important;
-  }
-
   .floating-select:focus {
-    border-color: #2563eb !important;
+    border-color: #26c6da !important;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25);
   }
 
   .dark .floating-input,
@@ -149,8 +133,8 @@ const floatingStyles = `
   }
 
   .dark .floating-label {
-    background-color: #111827 !important;
-    color: #94a3b8 !important;
+    background-color: transparent !important;
+    color: #cbd5e1 !important;
   }
 
   .dark .floating-input:focus + .floating-label,
@@ -205,14 +189,14 @@ const floatingStyles = `
 
   .floating-range-trigger {
     width: 100%;
-    font-size: 16px;
+    font-size: 12px;
     color: #1f2937;
-    padding: 14px 40px 4px 12px;
+    padding: 0 34px 0 10px;
     border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border-radius: 8px;
     background-color: white;
     transition: all 0.2s ease-in-out;
-    height: 46px;
+    height: 32px;
     text-align: left;
     cursor: pointer;
   }
@@ -225,9 +209,9 @@ const floatingStyles = `
   }
 
   .floating-range-trigger:focus {
-    border-color: #2563eb;
+    border-color: #26c6da;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25);
   }
 
   .floating-range-trigger.error {
@@ -475,9 +459,57 @@ const floatingStyles = `
   }
 `;
 
+// In the screen language; a trailing "*" written into the label is kept outside the translation
 function getFloatingLabel(label: string, required: boolean) {
-  return `${label}${required && !label.includes("*") ? " *" : ""}`;
+  const bare = label.replace(/\s*\*\s*$/, "");
+  const starred = required || bare !== label;
+  return `${t(bare)}${starred ? " *" : ""}`;
 }
+
+/*
+ * These fields used to float the label inside a 52px box. They now match the Create Employee form:
+ * the label sits above a 32px field with 12px text (same names and props, so callers are unchanged).
+ */
+const FIELD_GROUP = { position: 'relative' as const, marginBottom: '12px', width: '100%' };
+const FIELD_LABEL: React.CSSProperties = {
+  display: 'block',
+  marginBottom: '2px',
+  fontSize: '12px',
+  fontWeight: 600,
+  lineHeight: 1.4,
+  color: '#374151',
+};
+const fieldBox = (error?: string, extra: React.CSSProperties = {}): React.CSSProperties => ({
+  width: '100%',
+  height: '32px',
+  fontSize: '12px',
+  color: '#1f2937',
+  padding: '0 10px',
+  border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
+  borderRadius: '8px',
+  backgroundColor: 'white',
+  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  ...extra,
+});
+const CHEVRON =
+  "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")";
+const selectBox = (error?: string, disabled?: boolean): React.CSSProperties =>
+  fieldBox(error, {
+    padding: '0 32px 0 10px',
+    appearance: 'none',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    backgroundColor: disabled ? '#f3f4f6' : 'white',
+    backgroundImage: CHEVRON,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 10px center',
+    backgroundSize: '14px',
+  });
+
+const FieldLabel: React.FC<{ htmlFor?: string; label: string; required: boolean; error?: string }> = ({ htmlFor, label, required, error }) => (
+  <label htmlFor={htmlFor} className="floating-label" style={{ ...FIELD_LABEL, color: error ? '#dc2626' : FIELD_LABEL.color }}>
+    {getFloatingLabel(label, required)}
+  </label>
+);
 
 function createNumberInputEvent(
   event: React.ChangeEvent<HTMLInputElement>,
@@ -506,40 +538,6 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
   className = '',
   ...props
 }) => {
-  const styles = {
-    formGroup: {
-      position: 'relative' as const,
-      marginBottom: '20px',
-      width: '100%',
-    },
-    formInput: {
-      width: '100%',
-      fontSize: '16px',
-      color: '#1f2937',
-      padding: '16px 12px 4px 12px',
-      border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
-      borderRadius: '6px',
-      backgroundColor: 'white',
-      transition: 'all 0.2s ease-in-out',
-      height: '52px'
-    },
-    formLabel: {
-      position: 'absolute' as const,
-      top: '50%',
-      left: '12px',
-      fontSize: '16px',
-      margin: 0,
-      padding: '0 4px',
-      backgroundColor: 'transparent',
-      transition: 'all 0.2s ease-in-out',
-      color: error ? '#dc2626' : '#6b7280',
-      pointerEvents: 'none' as const,
-      zIndex: 2,
-      lineHeight: '1',
-      transform: 'translateY(-50%)',
-    }
-  };
-
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (
       type === "number" &&
@@ -556,26 +554,21 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
   };
 
   return (
-    <div style={styles.formGroup}>
+    <div style={FIELD_GROUP}>
       <style>{floatingStyles}</style>
+      <FieldLabel htmlFor={name} label={label} required={required} error={error} />
       <input
         type={type}
         value={value}
         onChange={handleInputChange}
-        style={styles.formInput}
+        style={fieldBox(error)}
         className={`floating-input ${type === 'date' ? 'floating-datepicker' : ''} ${error ? 'error' : ''} ${className}`}
         required={required}
         placeholder=" "
         name={name}
+        id={props.id ?? name}
         {...props}
       />
-      <label 
-        style={styles.formLabel}
-        className="floating-label"
-        htmlFor={name}
-      >
-        {getFloatingLabel(label, required)}
-      </label>
       {error && <span className="error-text">{error}</span>}
     </div>
   );
@@ -592,62 +585,22 @@ export const FloatingTextarea: React.FC<FloatingTextareaProps> = ({
   rows = 4,
   ...props
 }) => {
-  const styles = {
-    formGroup: {
-      position: 'relative' as const,
-      marginBottom: '20px',
-      width: '100%',
-    },
-    textareaInput: {
-      width: '100%',
-      fontSize: '16px',
-      color: '#1f2937',
-      padding: '24px 12px 8px 12px',
-      border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
-      borderRadius: '6px',
-      backgroundColor: 'white',
-      transition: 'all 0.2s ease-in-out',
-      resize: 'vertical' as const,
-      minHeight: '52px',
-      fontFamily: 'inherit',
-    },
-    formLabel: {
-      position: 'absolute' as const,
-      top: '16px',
-      left: '12px',
-      fontSize: '16px',
-      margin: 0,
-      padding: '0 4px',
-      backgroundColor: 'transparent',
-      transition: 'all 0.2s ease-in-out',
-      color: error ? '#dc2626' : '#6b7280',
-      pointerEvents: 'none' as const,
-      zIndex: 2,
-      lineHeight: '1',
-    }
-  };
-
   return (
-    <div style={styles.formGroup}>
+    <div style={FIELD_GROUP}>
       <style>{floatingStyles}</style>
+      <FieldLabel htmlFor={name} label={label} required={required} error={error} />
       <textarea
         value={value}
         onChange={onChange}
-        style={styles.textareaInput}
+        style={fieldBox(error, { height: 'auto', minHeight: '60px', padding: '6px 10px', lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit' })}
         className={`floating-input ${error ? 'error' : ''} ${className}`}
         required={required}
         placeholder=" "
         name={name}
-        rows={rows}
+        id={props.id ?? name}
+        rows={Math.min(rows, 3)}
         {...props}
       />
-      <label 
-        style={styles.formLabel}
-        className="floating-label"
-        htmlFor={name}
-      >
-        {getFloatingLabel(label, required)}
-      </label>
       {error && <span className="error-text">{error}</span>}
     </div>
   );
@@ -683,9 +636,8 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
   dateFormat = 'dd MMM yyyy',
   disabled,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [, setOpen] = useState(false);
   const selected = parseIsoDate(value);
-  const labelActive = open || Boolean(selected);
 
   const emit = (date: Date | null) => {
     const nextValue = toIsoDate(date);
@@ -693,8 +645,10 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '20px', width: '100%' }} className={className}>
+    <div style={FIELD_GROUP} className={className}>
       <style>{floatingStyles}</style>
+      <FieldLabel htmlFor={name} label={label} required={required} error={error} />
+      <div style={{ position: 'relative' }}>
       <DatePicker
         selected={selected}
         onChange={(date: Date | null) => emit(date)}
@@ -718,47 +672,13 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         wrapperClassName="floating-datepicker-wrapper"
         className={`floating-input floating-datepicker ${error ? 'error' : ''}`}
         customInput={
-          <input
-            style={{
-              width: '100%',
-              fontSize: '16px',
-              color: '#1f2937',
-              padding: '16px 40px 4px 12px',
-              border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
-              borderRadius: '6px',
-              backgroundColor: 'white',
-              height: '52px',
-              cursor: 'pointer',
-            }}
-          />
+          <input id={name} style={fieldBox(error, { padding: '0 34px 0 10px', cursor: 'pointer' })} />
         }
       />
-      <label
-        className={labelActive ? 'floating-label floating-label-active' : 'floating-label'}
-        htmlFor={name}
-        style={{
-          position: 'absolute',
-          top: labelActive ? '0' : '50%',
-          left: '12px',
-          fontSize: labelActive ? '12px' : '16px',
-          margin: 0,
-          padding: '0 4px',
-          backgroundColor: labelActive ? 'var(--floating-label-bg, white)' : 'transparent',
-          transition: 'all 0.2s ease-in-out',
-          color: error ? '#dc2626' : labelActive ? '#2563eb' : '#6b7280',
-          pointerEvents: 'none',
-          zIndex: 2,
-          lineHeight: '1',
-          transform: 'translateY(-50%)',
-          fontWeight: labelActive ? 500 : 400,
-        }}
-      >
-        {getFloatingLabel(label, required)}
-      </label>
       <svg
-        style={{ position: 'absolute', right: '12px', top: '26px', transform: 'translateY(-50%)', color: '#6b7280', pointerEvents: 'none', zIndex: 2 }}
-        width="20"
-        height="20"
+        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280', pointerEvents: 'none', zIndex: 2 }}
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -770,6 +690,7 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         <line x1="8" y1="2" x2="8" y2="6"></line>
         <line x1="3" y1="10" x2="21" y2="10"></line>
       </svg>
+      </div>
       {error && <span className="error-text">{error}</span>}
     </div>
   );
@@ -801,7 +722,6 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
   const [open, setOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const hasValue = Boolean(startDate || endDate);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -837,8 +757,6 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
       : startDate
         ? `${format(startDate, dateFormat)} -`
         : placeholder;
-
-  const labelActive = open || hasValue;
 
   const normalizeDate = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
@@ -876,10 +794,12 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
   return (
     <div
       ref={wrapperRef}
-      style={{ position: "relative", marginBottom: "20px", width: "100%" }}
+      style={FIELD_GROUP}
       className={className}
     >
       <style>{floatingStyles}</style>
+      <FieldLabel label={label} required={required} error={error} />
+      <div style={{ position: "relative" }}>
       <button
         type="button"
         disabled={disabled}
@@ -888,43 +808,18 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
       >
         <span className="floating-range-value">{displayValue}</span>
       </button>
-      <label
-        className={labelActive ? "floating-label floating-label-active" : "floating-label"}
-        style={{
-          position: "absolute",
-          top: labelActive ? "0" : "50%",
-          left: "12px",
-          fontSize: labelActive ? "12px" : "16px",
-          margin: 0,
-          padding: "0 4px",
-          // ✅ FIX: use "var(--label-bg)" driven by CSS class, or simply
-          // pass transparent here and let the CSS classes handle the bg.
-          // We use an inline conditional so light/dark both work via the
-          // floating-label / floating-label-active CSS rules defined above.
-          backgroundColor: labelActive ? "var(--floating-label-bg, white)" : "transparent",
-          transition: "all 0.2s ease-in-out",
-          color: error ? "#dc2626" : (labelActive ? "#2563eb" : "#6b7280"),
-          pointerEvents: "none",
-          zIndex: 2,
-          lineHeight: "1",
-          transform: "translateY(-50%)",
-          fontWeight: labelActive ? 500 : 400,
-        }}
-      >
-        {getFloatingLabel(label, required)}
-      </label>
       <svg
         style={{
           position: "absolute",
-          right: "12px",
+          right: "10px",
           top: "50%",
           transform: "translateY(-50%)",
           color: "#6b7280",
           pointerEvents: "none",
           zIndex: 2,
         }}
-        width="20"
-        height="20"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -935,6 +830,7 @@ export const FloatingDateRangePicker: React.FC<FloatingDateRangePickerProps> = (
         <line x1="8" y1="2" x2="8" y2="6"></line>
         <line x1="3" y1="10" x2="21" y2="10"></line>
       </svg>
+      </div>
 
       {open && !disabled && (
         <div className={`floating-range-popover ${openUpward ? "upward" : ""}`}>
@@ -1002,76 +898,25 @@ export const FloatingSelect: React.FC<FloatingSelectProps> = ({
   className = '',
   ...props
 }) => {
-  const [focused, setFocused] = useState(false);
-  const isActive = focused || (value && value !== "");
-
-  const styles = {
-    formGroup: {
-      position: 'relative' as const,
-      marginBottom: '20px',
-      width: '100%',
-    },
-    selectInput: {
-      width: '100%',
-      fontSize: '16px',
-      color: '#1f2937',
-      padding: '16px 12px 4px 12px',
-      border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
-      borderRadius: '6px',
-      backgroundColor: 'white',
-      transition: 'all 0.2s ease-in-out',
-      appearance: 'none' as const,
-      cursor: 'pointer' as const,
-      height: '52px',
-      backgroundImage: "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")",
-      backgroundRepeat: 'no-repeat',
-      backgroundPosition: 'right 12px center',
-      backgroundSize: '16px',
-    },
-    formLabel: {
-      position: 'absolute' as const,
-      top: isActive ? '0' : '50%',
-      left: '12px',
-      fontSize: isActive ? '12px' : '16px',
-      margin: 0,
-      padding: '0 4px',
-      // ✅ FIX: CSS var so dark mode can override
-      backgroundColor: isActive ? 'var(--floating-label-bg, white)' : 'transparent',
-      transition: 'all 0.2s ease-in-out',
-      color: error ? '#dc2626' : (isActive ? '#2563eb' : '#6b7280'),
-      pointerEvents: 'none' as const,
-      zIndex: 2,
-      lineHeight: '1',
-      transform: isActive ? 'translateY(-50%)' : 'translateY(-50%)',
-      fontWeight: isActive ? '500' : '400',
-    }
-  };
-
   return (
-    <div style={styles.formGroup}>
+    <div style={FIELD_GROUP}>
+      <style>{floatingStyles}</style>
+      <FieldLabel htmlFor={name} label={label} required={required} error={error} />
       <select
         value={value}
         onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={styles.selectInput}
+        style={selectBox(error, props.disabled)}
         className={`floating-select ${error ? 'error' : ''} ${className}`}
         required={required}
         name={name}
+        id={props.id ?? name}
         {...props}
       >
-        <option value=""></option>
+        <option value="">Select</option>
         {options.map(opt => (
           <option key={opt} value={opt}>{opt}</option>
         ))}
       </select>
-      <label
-        style={styles.formLabel}
-        className={isActive ? "floating-label floating-label-active" : "floating-label"}
-        htmlFor={name}
-      >
-        {getFloatingLabel(label, required)}
-      </label>
       {error && <span className="error-text">{error}</span>}
     </div>
   );
@@ -1108,69 +953,27 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
   includeEmptyOption = true,
   emptyOptionLabel,
 }) => {
-  const [focused, setFocused] = useState(false);
-  const isActive = focused || (value !== "" && value !== undefined && value !== null);
-
   return (
-    <div style={{ position: "relative", marginBottom: "20px", width: "100%" }} className={className}>
+    <div style={FIELD_GROUP} className={className}>
       <style>{floatingStyles}</style>
+      <FieldLabel htmlFor={name} label={label} required={required} />
       <select
         value={value}
         onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         required={required}
         name={name}
+        id={name}
         disabled={disabled}
         className="floating-select"
-        style={{
-          width: "100%",
-          fontSize: "16px",
-          color: "#1f2937",
-          padding: "16px 40px 4px 12px",
-          border: "1px solid #d1d5db",
-          borderRadius: "6px",
-          backgroundColor: disabled ? "#f3f4f6" : "white",
-          transition: "all 0.2s ease-in-out",
-          appearance: "none",
-          cursor: disabled ? "not-allowed" : "pointer",
-          height: "52px",
-          backgroundImage: "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "right 12px center",
-          backgroundSize: "16px",
-        }}
+        style={selectBox(undefined, disabled)}
       >
-        {includeEmptyOption && <option value="">{emptyOptionLabel ?? ""}</option>}
+        {includeEmptyOption && <option value="">{t(emptyOptionLabel ?? "Select")}</option>}
         {options.map((opt) => (
           <option key={opt.id} value={opt.id}>
             {opt.name}
           </option>
         ))}
       </select>
-      <label
-        htmlFor={name}
-        className={isActive ? "floating-label floating-label-active" : "floating-label"}
-        style={{
-          position: "absolute",
-          top: isActive ? "0" : "50%",
-          left: "12px",
-          fontSize: isActive ? "12px" : "16px",
-          margin: 0,
-          padding: "0 4px",
-          // ✅ FIX: CSS var so dark mode can override
-          backgroundColor: isActive ? "var(--floating-label-bg, white)" : "transparent",
-          transition: "all 0.2s ease-in-out",
-          color: isActive ? "#2563eb" : "#6b7280",
-          pointerEvents: "none",
-          zIndex: 2,
-          lineHeight: "1",
-          transform: "translateY(-50%)",
-          fontWeight: isActive ? 500 : 400,
-        }}
-      >
-        {getFloatingLabel(label, required)}
-      </label>
     </div>
   );
 };

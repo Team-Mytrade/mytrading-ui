@@ -1,10 +1,13 @@
 import defaultTheme from "tailwindcss/defaultTheme";
 import forms from "@tailwindcss/forms";
 import autoprefixer from "autoprefixer";
+import logical from "./tailwind.logical.js";
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
+  // Emitted as start/end by tailwind.logical.js so pages mirror in Arabic
+  corePlugins: { margin: false, padding: false, inset: false, textAlign: false },
   theme: {
     fontFamily: {
       sans: ["Nunito", "sans-serif"],
@@ -190,5 +193,5 @@ export default {
       },
     },
   },
-  plugins: [forms, autoprefixer],
+  plugins: [forms, autoprefixer, logical],
 };

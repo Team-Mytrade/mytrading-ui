@@ -7,8 +7,8 @@ export const APP_ROUTES = {
   vendors: "/common/vendors",
   productCategories: "/common/categories",
   products: "/common/products",
-  purchaseRequisitions: "/purchase-service/purchase-requisitions",
-  purchaseOrders: "/purchase-service/purchase-orders",
+  purchaseRequisitions: "/purchase-service/requisitions",
+  purchaseOrders: "/purchase-service/orders",
   goodsReceiptNotes: "/purchase-service/goods-receipt-notes",
 } as const;
 

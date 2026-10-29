@@ -13,6 +13,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "./attendanceApi";
+import { leadingDays, weekdayLabels } from "../../company/format";
 
 // Base relative API endpoints (routing via Vite dev proxy)
 const BASE_CALENDAR_URL = '/v1/api/attendance/holiday-calendars';
@@ -118,8 +119,9 @@ const HolidayCalendarPage: React.FC = () => {
   const availableYears = useMemo(() => {
     const years = new Set<string>();
     calendars.forEach(c => { if (c.calendarYear) years.add(String(c.calendarYear)); });
-    years.add('2026');
-    years.add('2027');
+    // This year and next are always offered
+    years.add(String(new Date().getFullYear()));
+    years.add(String(new Date().getFullYear() + 1));
     return Array.from(years).sort().reverse();
   }, [calendars]);
 
@@ -152,7 +154,7 @@ const HolidayCalendarPage: React.FC = () => {
   // ── One-Click Duplicate Calendar for Next Year ────────────────────────────
   const handleDuplicateCalendar = async (cal: HolidayCalendarModel) => {
     if (!cal.id) return;
-    const nextYear = (cal.calendarYear || 2026) + 1;
+    const nextYear = (cal.calendarYear || new Date().getFullYear()) + 1;
     const codeBase = cal.calendarCode.includes('_') ? cal.calendarCode.substring(0, cal.calendarCode.lastIndexOf('_')) : cal.calendarCode;
     const newCode = `${codeBase}_${nextYear}`;
 
@@ -248,7 +250,7 @@ const HolidayCalendarPage: React.FC = () => {
           calendarCode: calendarForm.calendarCode.trim(),
           calendarName: calendarForm.calendarName.trim(),
           description: calendarForm.description || "Holidays",
-          calendarYear: Number(calendarForm.calendarYear) || 2026,
+          calendarYear: Number(calendarForm.calendarYear) || new Date().getFullYear(),
           active: Boolean(calendarForm.active)
         };
 
@@ -259,7 +261,7 @@ const HolidayCalendarPage: React.FC = () => {
           calendarCode: calendarForm.calendarCode.trim(),
           calendarName: calendarForm.calendarName.trim(),
           description: calendarForm.description || "Holidays",
-          calendarYear: Number(calendarForm.calendarYear) || 2026,
+          calendarYear: Number(calendarForm.calendarYear) || new Date().getFullYear(),
           active: Boolean(calendarForm.active)
         };
 
@@ -468,7 +470,7 @@ const HolidayCalendarPage: React.FC = () => {
     setHolidaysList(prev => [
       ...prev,
       {
-        holidayDate: selectedDateStr || '2026-08-27',
+        holidayDate: selectedDateStr || todayIso(),
         holidayName: '',
         holidayType: 'NATIONAL',
         optionalHoliday: false,
@@ -593,8 +595,8 @@ const HolidayCalendarPage: React.FC = () => {
   ];
 
   // Selected Date & Mini Calendar Month State
-  const [miniCalendarDate, setMiniCalendarDate] = useState<Date>(new Date(2026, 7, 1)); // August 2026
-  const [selectedDateStr, setSelectedDateStr] = useState<string>('2026-08-27');
+  const [miniCalendarDate, setMiniCalendarDate] = useState<Date>(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); }); // opens on the current month
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(() => todayIso());
   const [selectedCalendarCodeId, setSelectedCalendarCodeId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'manager' | 'table'>('manager');
 
@@ -626,7 +628,7 @@ const HolidayCalendarPage: React.FC = () => {
     const year = miniCalendarDate.getFullYear();
     const month = miniCalendarDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayIndex = new Date(year, month, 1).getDay();
+    const firstDayIndex = leadingDays(year, month);
     const prevMonthDays = new Date(year, month, 0).getDate();
 
     const cells = [];
@@ -641,7 +643,7 @@ const HolidayCalendarPage: React.FC = () => {
     }
 
     // Current Month Days
-    const todayStr = '2026-08-27';
+    const todayStr = todayIso();
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const isToday = dateStr === todayStr;
@@ -748,7 +750,7 @@ const HolidayCalendarPage: React.FC = () => {
 
                 {/* Weekday Headers */}
                 <div className="grid grid-cols-7 gap-1 text-center text-[9.5px] font-bold text-gray-400 dark:text-gray-500 mb-1">
-                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                  {weekdayLabels("min").map((d) => <span key={d}>{d}</span>)}
                 </div>
 
                 {/* Days Matrix */}

@@ -21,6 +21,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { LEAD_STATUS_LABELS } from "./crmShared";
 import { formatMoney } from "../Dashboard/dashboardKit";
 import { usePermissions } from "../../access/usePermissions";
+import { formatTime } from "../../company/format";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -75,7 +76,7 @@ const safeNumber = (v: unknown, fallback = 0): number =>
   typeof v === "number" && !isNaN(v) ? v : fallback;
 
 // Rupees in compact form (₹2.5L, ₹1.2Cr), like the other dashboards
-const formatCurrency = (amount: number) => formatMoney(amount, "INR", true);
+const formatCurrency = (amount: number) => formatMoney(amount, null, true);
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -732,7 +733,7 @@ const Reports: React.FC = () => {
             </div>
             {lastUpdated && (
               <span className="text-[10px] text-slate-400 shrink-0 ml-2">
-                Updated {lastUpdated.toLocaleTimeString()}
+                Updated {formatTime(lastUpdated)}
               </span>
             )}
           </div>

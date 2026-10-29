@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { t } from "../../i18n/i18n";
 import {
     ExclamationTriangleIcon,
     TrashIcon,
@@ -115,7 +116,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 <button
                     onClick={onCancel}
                     className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                    aria-label="Close dialog"
+                    aria-label={t("Close dialog")}
                 >
                     <XMarkIcon className="h-5 w-5" />
                 </button>
@@ -133,10 +134,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                                 id="confirm-dialog-title"
                                 className="text-lg font-semibold text-gray-900"
                             >
-                                {title || defaultTitle}
+                                {t(title || defaultTitle)}
                             </h3>
                             <p className="mt-1 text-sm text-gray-600 leading-relaxed">
-                                {message}
+                                {t(message)}
                             </p>
                         </div>
                     </div>
@@ -150,14 +151,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                         onClick={onCancel}
                         className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-colors"
                     >
-                        {cancelLabel}
+                        {t(cancelLabel)}
                     </button>
                     <button
                         type="button"
                         onClick={onConfirm}
                         className={`px-4 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${config.confirmBtn}`}
                     >
-                        {confirmLabel}
+                        {t(confirmLabel)}
                     </button>
                 </div>
             </div>

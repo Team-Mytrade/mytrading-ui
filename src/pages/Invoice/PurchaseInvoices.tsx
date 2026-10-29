@@ -23,13 +23,19 @@ import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, apiError, dateLabel, labelOf, money, todayInput } from "./invoiceShared";
 import { ActionButton, DialogFooter } from "./invoiceUi";
 import BillFromGrnDialog from "./BillFromGrnDialog";
+import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface PurchaseInvoice {
   id: number;
   invoiceNumber?: string;
   invoiceDate?: string;
   dueDate?: string;
   totalAmount?: number;
+  // Input VAT: part of the total, or for reverse charge self-assessed on top of it
+  taxableAmount?: number | null;
+  taxAmount?: number | null;
+  reverseCharge?: boolean | null;
   purchaseInvoiceStatus?: string;
   currency?: string;
   referenceNumber?: string;
@@ -51,6 +57,8 @@ interface PurchaseInvoicePayload {
   invoiceDate?: string;
   dueDate?: string;
   totalAmount: number;
+  taxAmount: number;
+  reverseCharge: boolean;
   currency: string;
   referenceNumber?: string;
   notes?: string;
@@ -179,12 +187,24 @@ const PurchaseInvoices: React.FC = () => {
       return;
     }
 
+    const taxAmount = Number(form.taxAmount ?? 0);
+    if (!Number.isFinite(taxAmount) || taxAmount < 0) {
+      ToasterService.error("VAT cannot be negative");
+      return;
+    }
+    if (!form.reverseCharge && taxAmount >= totalAmount) {
+      ToasterService.error("The VAT must be less than the bill amount, which includes it");
+      return;
+    }
+
     const payload: PurchaseInvoicePayload = {
       invoiceNumber: form.invoiceNumber.trim(),
       invoiceDate: form.invoiceDate || undefined,
       dueDate: form.dueDate || undefined,
       totalAmount,
-      currency: form.currency?.trim() || "INR",
+      taxAmount,
+      reverseCharge: Boolean(form.reverseCharge),
+      currency: form.currency?.trim() || companyCurrency(),
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
       vendor: { id: Number(form.vendorId) },
@@ -218,7 +238,7 @@ const PurchaseInvoices: React.FC = () => {
 
   const openCreate = () => {
     setShowFormModal(true);
-    setForm({ currency: "INR", vendorId: "" });
+    setForm({ currency: companyCurrency(), vendorId: "" });
     setEditingId(null);
   };
 
@@ -284,8 +304,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "invoiceNumber",
       label: "Invoice Number",
       sortable: true,
-      headerClassName: "w-[18%] text-left",
-      className: "w-[18%]",
+      headerClassName: "w-[15%] text-left",
+      className: "w-[15%]",
       render: (invoice) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -294,7 +314,7 @@ const PurchaseInvoices: React.FC = () => {
           <span className="text-sm font-semibold text-slate-900 truncate leading-snug">
             {invoice.invoiceNumber || "N/A"}
             {invoice.grnNumber && (
-              <span className="block text-xs font-normal text-slate-400">from {invoice.grnNumber}{invoice.poNumber ? ` · ${invoice.poNumber}` : ""}</span>
+              <span className="block text-xs font-normal text-slate-400">{t("from")} {invoice.grnNumber}{invoice.poNumber ? ` · ${invoice.poNumber}` : ""}</span>
             )}
           </span>
         </div>
@@ -304,8 +324,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "vendor",
       label: "Vendor",
       sortable: true,
-      headerClassName: "w-[16%] text-left",
-      className: "w-[16%]",
+      headerClassName: "w-[14%] text-left",
+      className: "w-[14%]",
       sortValueGetter: (invoice) => invoice.vendor?.name ?? "",
       render: (invoice) => <span className="text-sm text-slate-700">{invoice.vendor?.name ?? "—"}</span>,
     },
@@ -313,8 +333,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "invoiceDate",
       label: "Invoice Date",
       sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
       render: (invoice) => (
         <span className="text-sm text-slate-600">
           {dateLabel(invoice.invoiceDate)}
@@ -325,8 +345,8 @@ const PurchaseInvoices: React.FC = () => {
       key: "dueDate",
       label: "Due Date",
       sortable: true,
-      headerClassName: "w-[12%] text-left",
-      className: "w-[12%]",
+      headerClassName: "w-[10%] text-left",
+      className: "w-[10%]",
       render: (invoice) => (
         <span className="text-sm text-slate-600">
           {dateLabel(invoice.dueDate)}
@@ -337,12 +357,26 @@ const PurchaseInvoices: React.FC = () => {
       key: "totalAmount",
       label: "Total Amount",
       sortable: true,
-      headerClassName: "w-[15%] text-right",
-      className: "w-[15%] text-right",
+      headerClassName: "w-[13%] text-right",
+      className: "w-[13%] text-right",
       sortValueGetter: (invoice) => Number(invoice.totalAmount || 0),
       render: (invoice) => (
         <span className="text-sm font-semibold text-slate-700">
           {money(invoice.totalAmount, invoice.currency)}
+        </span>
+      ),
+    },
+    {
+      key: "taxAmount",
+      label: "VAT",
+      sortable: true,
+      headerClassName: "w-[10%] text-right",
+      className: "w-[10%] text-right",
+      sortValueGetter: (invoice) => Number(invoice.taxAmount || 0),
+      render: (invoice) => (
+        <span className="text-sm text-slate-600" title={invoice.reverseCharge ? "Reverse charge: self-assessed, not paid to the vendor" : undefined}>
+          {invoice.taxAmount ? money(invoice.taxAmount, invoice.currency) : "—"}
+          {invoice.reverseCharge ? " (RC)" : ""}
         </span>
       ),
     },
@@ -371,7 +405,7 @@ const PurchaseInvoices: React.FC = () => {
               type="button"
               onClick={() => openDebitNote(invoice)}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600"
-              title="Debit note"
+              title={t("Debit note")}
             >
               <ReceiptRefundIcon className="h-4 w-4" />
             </button>
@@ -380,7 +414,7 @@ const PurchaseInvoices: React.FC = () => {
             type="button"
             onClick={() => handleEdit(invoice)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Purchase Invoice"
+            title={t("Edit Purchase Invoice")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -388,7 +422,7 @@ const PurchaseInvoices: React.FC = () => {
             type="button"
             onClick={() => handleDelete(invoice)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Purchase Invoice"
+            title={t("Delete Purchase Invoice")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -399,42 +433,42 @@ const PurchaseInvoices: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Purchase Invoices" description="Manage purchase invoices" />
+      <PageMeta title={t("Purchase Invoices")} description="Manage purchase invoices" />
       <PageBreadcrumb pageTitle="Purchase Invoices" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
         <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
           {canCreate && (
             <div className="flex flex-wrap items-center gap-2">
-              <ActionButton icon={TruckIcon} label="Bill from GRN" onClick={() => setBillingFromGrn(true)} />
-              <AddButton onClick={openCreate} label="Add Purchase Invoice" />
+              <ActionButton icon={TruckIcon} label={t("Bill from GRN")} onClick={() => setBillingFromGrn(true)} />
+              <AddButton onClick={openCreate} label={t("Add Purchase Invoice")} />
             </div>
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Invoices"
+            label={t("Total Invoices")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Paid"
+            label={t("Paid")}
             value={stats.paid}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Open"
+            label={t("Open")}
             value={stats.open}
             gradient="from-yellow-50 to-amber-50"
             borderColor="border-yellow-100"
             labelColor="text-yellow-600"
           />
           <StatsCard
-            label="Total Amount"
+            label={t("Total Amount")}
             value={money(stats.totalAmount)}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -448,7 +482,7 @@ const PurchaseInvoices: React.FC = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by number, vendor, reference or status..."
+                placeholder={t("Search by number, vendor, reference or status...")}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); }}
                 className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -466,9 +500,9 @@ const PurchaseInvoices: React.FC = () => {
 
           <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
             <FilterPopover
-              title="Filter Purchase Invoices"
+              title={t("Filter Purchase Invoices")}
               buttonLabel="Filters"
-              label="Filter by Status"
+              label={t("Filter by Status")}
               value={activeFilter}
               options={[
                 { label: "All Invoices", value: "ALL" },
@@ -493,9 +527,9 @@ const PurchaseInvoices: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <DocumentTextIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No purchase invoices found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No purchase invoices found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   type="button"
@@ -524,7 +558,7 @@ const PurchaseInvoices: React.FC = () => {
               fields: [
                 <FloatingSelect
                   key="vendorId"
-                  label="Vendor"
+                  label={t("Vendor")}
                   name="vendorId"
                   value={form.vendorId || ""}
                   onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
@@ -534,13 +568,13 @@ const PurchaseInvoices: React.FC = () => {
                 ...(vendors.length === 0
                   ? [
                       <p key="noVendors" className="text-xs text-amber-700">
-                        No vendors yet. Add them under Common → Vendors first.
+                        {t("No vendors yet. Add them under Common → Vendors first.")}
                       </p>,
                     ]
                   : []),
                 <FloatingInput
                   key="invoiceNumber"
-                  label="Vendor's invoice number"
+                  label={t("Vendor's invoice number")}
                   name="invoiceNumber"
                   value={form.invoiceNumber || ""}
                   onChange={handleChange}
@@ -548,7 +582,7 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="invoiceDate"
-                  label="Invoice Date"
+                  label={t("Invoice Date")}
                   name="invoiceDate"
                   type="date"
                   value={form.invoiceDate || ""}
@@ -556,7 +590,7 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="dueDate"
-                  label="Due Date"
+                  label={t("Due Date")}
                   name="dueDate"
                   type="date"
                   value={form.dueDate || ""}
@@ -573,8 +607,26 @@ const PurchaseInvoices: React.FC = () => {
                   required
                 />,
                 <FloatingInput
+                  key="taxAmount"
+                  label={form.reverseCharge ? "VAT you account for (reverse charge)" : "VAT on the bill (input VAT)"}
+                  name="taxAmount"
+                  type="number"
+                  value={form.taxAmount ?? ""}
+                  onChange={handleChange}
+                  disabled={Boolean(form.grnId)}
+                />,
+                <label key="reverseCharge" className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.reverseCharge)}
+                    disabled={Boolean(form.grnId)}
+                    onChange={(e) => setForm({ ...form, reverseCharge: e.target.checked })}
+                  />
+                  Reverse charge (imported service: the vendor charged no VAT; you account for it)
+                </label>,
+                <FloatingInput
                   key="currency"
-                  label="Currency"
+                  label={t("Currency")}
                   name="currency"
                   value={form.currency || ""}
                   onChange={handleChange}
@@ -582,14 +634,14 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="referenceNumber"
-                  label="Reference Number"
+                  label={t("Reference Number")}
                   name="referenceNumber"
                   value={form.referenceNumber || ""}
                   onChange={handleChange}
                 />,
                 <FloatingInput
                   key="notes"
-                  label="Notes"
+                  label={t("Notes")}
                   name="notes"
                   value={form.notes || ""}
                   onChange={handleChange}
@@ -614,16 +666,16 @@ const PurchaseInvoices: React.FC = () => {
           content={
             <form onSubmit={saveDebitNote} className="flex flex-col">
               <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-                <FloatingInput label="Amount" name="amount" type="number" required value={debitForm.amount}
+                <FloatingInput label={t("Amount")} name="amount" type="number" required value={debitForm.amount}
                   onChange={(event) => setDebitForm((current) => ({ ...current, amount: event.target.value }))} />
-                <FloatingInput label="Date" name="noteDate" type="date" value={debitForm.noteDate}
+                <FloatingInput label={t("Date")} name="noteDate" type="date" value={debitForm.noteDate}
                   onChange={(event) => setDebitForm((current) => ({ ...current, noteDate: event.target.value }))} />
                 <div className="sm:col-span-2">
-                  <FloatingInput label="Reason (price difference, short supply…)" name="reason" required value={debitForm.reason}
+                  <FloatingInput label={t("Reason (price difference, short supply…)")} name="reason" required value={debitForm.reason}
                     onChange={(event) => setDebitForm((current) => ({ ...current, reason: event.target.value }))} />
                 </div>
               </div>
-              <DialogFooter onCancel={() => setDebitFor(null)} submitLabel="Save debit note" busy={debitBusy} />
+              <DialogFooter onCancel={() => setDebitFor(null)} submitLabel={t("Save debit note")} busy={debitBusy} />
             </form>
           }
         />
@@ -633,14 +685,14 @@ const PurchaseInvoices: React.FC = () => {
           setIsPopupOpen={setShowDeletePopup}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Purchase Invoice"
+          innerText={t("Delete Purchase Invoice")}
           subText={
             invoiceToDelete
               ? `Are you sure you want to delete "${invoiceToDelete.invoiceNumber}"? This action cannot be undone.`
               : "Are you sure you want to delete this purchase invoice?"
           }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete")}
+          cancelLabel={t("Cancel")}
           onConfirm={confirmDelete}
           onCancel={() => setInvoiceToDelete(null)}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

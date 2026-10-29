@@ -35,6 +35,7 @@ import {
 import { todayIso } from "../../utils/localDate";
 import { apiError, useDeliveryLookups } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, formatDateTime } from "../../company/format";
 
 // ================= TYPES =================
 
@@ -406,7 +407,7 @@ const Shipment: React.FC = () => {
 
     for (const item of form.items) {
       if (!item.productId || item.productId <= 0) {
-        toast.warning("Please enter a valid Product ID for all items!");
+        toast.warning("Please choose a product for every item.");
         return;
       }
       if (!item.shippedQty || item.shippedQty <= 0) {
@@ -544,7 +545,7 @@ const Shipment: React.FC = () => {
       className: "w-[12%]",
       render: (row) => (
         <div className="text-sm text-slate-600">
-          {row.shipmentDate ? new Date(row.shipmentDate).toLocaleDateString() : "-"}
+          {row.shipmentDate ? formatDate(row.shipmentDate) : "-"}
         </div>
       ),
     },
@@ -983,7 +984,7 @@ const Shipment: React.FC = () => {
                 <div>
                   <label className="text-xs text-gray-500">Shipment Date</label>
                   <p className="font-medium">
-                    {selectedShipment.shipmentDate ? new Date(selectedShipment.shipmentDate).toLocaleDateString() : "-"}
+                    {selectedShipment.shipmentDate ? formatDate(selectedShipment.shipmentDate) : "-"}
                   </p>
                 </div>
                 <div>
@@ -1060,7 +1061,7 @@ const Shipment: React.FC = () => {
 
               {selectedShipment.createdDate && (
                 <div className="mt-4 border-t pt-4 text-xs text-gray-400">
-                  <p>Created: {new Date(selectedShipment.createdDate).toLocaleString()}</p>
+                  <p>Created: {formatDateTime(selectedShipment.createdDate)}</p>
                 </div>
               )}
             </div>

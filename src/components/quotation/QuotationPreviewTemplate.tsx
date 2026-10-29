@@ -1,5 +1,6 @@
 import React from "react";
 import "../../styles/QuotationPreviewTemplate.css";
+import { formatMoney as companyFormatMoney, formatNumber, formatDate as companyFormatDate, companyCurrency } from "../../company/format";
 
 type Address = {
   customerName?: string;
@@ -92,19 +93,10 @@ const formatDate = (value?: string) => {
   if (!value) return "--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return companyFormatDate(date);
 };
 
-const formatMoney = (value?: number, currencyCode?: string) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: currencyCode || "INR",
-    maximumFractionDigits: 2,
-  }).format(Number(value || 0));
+const formatMoney = (value?: number, currencyCode?: string) => companyFormatMoney(value, currencyCode);
 
 const joinAddress = (address?: Address) =>
   [
@@ -194,7 +186,7 @@ const QuotationPreviewTemplate: React.FC<QuotationPreviewTemplateProps> = ({
           </div>
           <div>
             <span className="quotation-preview-label">Currency</span>
-            <strong>{quotation.currencyCode || "INR"}</strong>
+            <strong>{quotation.currencyCode || companyCurrency()}</strong>
           </div>
         </div>
       </section>
@@ -254,7 +246,7 @@ const QuotationPreviewTemplate: React.FC<QuotationPreviewTemplateProps> = ({
                     {item.remarks && <em>{item.remarks}</em>}
                   </td>
                   <td>{item.productCode || item.taxCode || "--"}</td>
-                  <td>{Number(item.quantity || 0).toLocaleString("en-IN")}</td>
+                  <td>{formatNumber(Number(item.quantity || 0))}</td>
                   <td>{formatMoney(item.unitPrice, quotation.currencyCode)}</td>
                   <td>{formatMoney(Number(item.discountAmount || 0) + Number(item.additionalDiscount || 0), quotation.currencyCode)}</td>
                   <td>{Number(item.taxRate || 0)}%</td>

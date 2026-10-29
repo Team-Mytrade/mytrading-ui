@@ -2,7 +2,7 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   DocumentTextIcon,
   ArrowDownTrayIcon,
@@ -35,13 +35,15 @@ import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
 import QuotationItemsEditor, {
   blankLine,
-  formatRupees,
+  formatPrice,
   lineAmounts,
   lineError,
+  productLinePatch,
   QuotationLine,
   QuotationProduct,
   quotationTotals,
 } from "./QuotationItemsEditor";
+import { formatAmount, formatDate, companyCurrency } from "../../company/format";
 
 type Address = {
   id: number;
@@ -161,9 +163,20 @@ type Quotation = {
   creditDays?: number;
   deliveryTerms?: string;
   shippingMethod?: string;
+  dealId?: number | null;
+};
+
+/** A CRM deal (enquiry) a quotation can be made from. */
+type EnquiryDeal = {
+  id: number;
+  dealName: string;
+  stage?: string;
+  customer?: { id: number } | null;
+  items?: { productId?: number | null; productName?: string; quantity?: number; expectedPrice?: number | null; remarks?: string }[];
 };
 
 type QuotationForm = {
+  dealId: string;
   tenantId: string;
   customerId: string;
   customerName: string;
@@ -262,13 +275,16 @@ const defaultValidUntil = () => {
 };
 
 const emptyForm: QuotationForm = {
+  dealId: "",
   tenantId: getStoredTenantId(),
   customerId: "",
   customerName: "",
   customerCode: "",
   quotationType: "PRODUCT",
   validUntil: defaultValidUntil(),
-  currencyCode: "INR",
+  get currencyCode() {
+    return companyCurrency();
+  },
   customerReference: "",
   customerReferenceDate: "",
   paymentTerms: "",
@@ -321,17 +337,13 @@ function toNumber(value: string | number | undefined | null) {
 }
 
 function money(value: number | string | undefined) {
-  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return formatAmount(value);
 }
 
 const formatPdfDate = (value?: string) => {
   if (!value) return "--";
   const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return Number.isNaN(date.getTime()) ? value : formatDate(date);
 };
 
 const quotationItemAmount = (item: QuotationItemPayload) => {
@@ -356,7 +368,7 @@ const createQuotationPdfUrl = async (
   const reportWidth = doc.internal.pageSize.getWidth();
   const reportHeight = doc.internal.pageSize.getHeight();
   const reportMargin = 14;
-  const reportCurrency = quotation.currencyCode || "INR";
+  const reportCurrency = quotation.currencyCode || companyCurrency();
   const reportTotals = calculateQuotationTotals(quotation.items || []);
   const apiHasTotals = [quotation.subTotal, quotation.discountAmount, quotation.additionalDiscount, quotation.taxAmount, quotation.grandTotal]
     .some((value) => Number(value || 0) !== 0);
@@ -568,6 +580,9 @@ const Quotations: React.FC = () => {
   // Email dialog; markSent when it was opened by moving a draft to Sent
   const [emailing, setEmailing] = useState<{ quotation: Quotation; markSent: boolean } | null>(null);
   const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
+  const [customersLoaded, setCustomersLoaded] = useState(false);
+  const [productsLoaded, setProductsLoaded] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchQuotations();
@@ -633,6 +648,8 @@ const Quotations: React.FC = () => {
       });
     } catch (error) {
       ToasterService.error("Failed to load customers", getErrorMessage(error, "Please try again."));
+    } finally {
+      setCustomersLoaded(true);
     }
   };
 
@@ -643,6 +660,8 @@ const Quotations: React.FC = () => {
     } catch (error) {
       ToasterService.error("Failed to load products", getErrorMessage(error, "Please try again."));
       setProducts([]);
+    } finally {
+      setProductsLoaded(true);
     }
   };
 
@@ -660,7 +679,7 @@ const Quotations: React.FC = () => {
 
         next.customerName = customer?.customerName || "";
         next.customerCode = customer?.customerCode || "";
-        next.currencyCode = customer?.currencyCode || current.currencyCode || "INR";
+        next.currencyCode = customer?.currencyCode || current.currencyCode || companyCurrency();
         next.billingAddressLine1 = billingAddress?.addressLine1 || "";
         next.billingAddressLine2 = billingAddress?.addressLine2 || "";
         next.billingStreet = billingAddress?.street || "";
@@ -722,7 +741,7 @@ const Quotations: React.FC = () => {
   };
 
   const buildPayload = () => {
-    const totals = quotationTotals(lines, toNumber(form.quotationAdditionalDiscount));
+    const totals = quotationTotals(lines, toNumber(form.quotationAdditionalDiscount), form.currencyCode);
 
     return {
       id: editingId || 0,
@@ -758,7 +777,7 @@ const Quotations: React.FC = () => {
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         discountPercentage: line.discountPercentage,
-        discountAmount: lineAmounts(line).discount,
+        discountAmount: lineAmounts(line, form.currencyCode).discount,
         taxRate: line.taxRate,
         taxCode: line.taxCode,
         remarks: line.remarks,
@@ -778,6 +797,8 @@ const Quotations: React.FC = () => {
       salesPerson: buildSalesPerson(),
       termsAndConditions: form.termsAndConditions,
       versionNo: toNumber(form.versionNo),
+      // Links the quotation to its CRM deal (saved on create only)
+      dealId: form.dealId ? Number(form.dealId) : null,
     };
   };
 
@@ -843,6 +864,59 @@ const Quotations: React.FC = () => {
     setShowForm(true);
   };
 
+  /** A new quotation for the deal's customer, with the products the customer asked for. */
+  const openFromDeal = (deal: EnquiryDeal) => {
+    const dealLines = (deal.items || []).map((item) => {
+      const product = item.productId ? products.find((p) => p.id === item.productId) : undefined;
+      const quantity = Number(item.quantity) || 1;
+      const remarks = item.remarks || "";
+      if (product) {
+        const line: QuotationLine = { ...blankLine("PRODUCT"), ...productLinePatch(product), quantity, remarks };
+        // The price agreed on the deal, else the catalogue price
+        return item.expectedPrice != null ? { ...line, unitPrice: Number(item.expectedPrice) } : line;
+      }
+      // Free-text enquiry lines (or a product no longer in the catalogue) come in as service lines to edit
+      return { ...blankLine("SERVICE"), productName: item.productName || "", quantity, unitPrice: Number(item.expectedPrice) || 0, remarks };
+    });
+    openCreate();
+    setField("customerId", String(deal.customer!.id));
+    setForm((current) => ({
+      ...current,
+      dealId: String(deal.id),
+      subject: current.subject || deal.dealName || "",
+      quotationType: dealLines.length > 0 && dealLines.every((line) => line.itemType === "SERVICE") ? "SERVICE" : "PRODUCT",
+    }));
+    if (dealLines.length > 0) setLines(dealLines);
+  };
+
+  // Deals → "Create quotation" opens /quotations?dealId=..; runs once customers and products are in
+  const dealParam = searchParams.get("dealId");
+  useEffect(() => {
+    if (!dealParam || !customersLoaded || !productsLoaded) return;
+    const clearParam = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete("dealId");
+      setSearchParams(next, { replace: true });
+    };
+    (async () => {
+      try {
+        const { data: deal } = await axios.get<EnquiryDeal>(`/v1/api/crm/deals/${dealParam}`, { headers });
+        if (!deal.customer?.id) {
+          ToasterService.error("This deal has no customer yet", "Convert its lead to a customer first, then create the quotation.");
+        } else if (!customers.some((customer) => Number(customer.id) === Number(deal.customer!.id))) {
+          ToasterService.error("Customer not found", "The deal's customer is not in the customer list.");
+        } else {
+          openFromDeal(deal);
+        }
+      } catch (error) {
+        ToasterService.error("Failed to load the deal", getErrorMessage(error, "Please try again."));
+      } finally {
+        clearParam();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealParam, customersLoaded, productsLoaded]);
+
   const openEdit = async (quotation: Quotation) => {
     if (getQuotationStatus(quotation.status) !== "DRAFT") {
       ToasterService.error("Quotation cannot be edited", "Only draft quotations can be edited.");
@@ -860,12 +934,13 @@ const Quotations: React.FC = () => {
       setForm({
         ...emptyForm,
         tenantId: getStoredTenantId(),
+        dealId: full.dealId ? String(full.dealId) : "",
         customerId: String(full.customerId || ""),
         customerName: customer?.customerName || full.billingAddress?.customerName || "",
         customerCode: customer?.customerCode || full.billingAddress?.customerCode || "",
         quotationType: full.quotationType || "PRODUCT",
         validUntil: full.validUntil || today,
-        currencyCode: full.currencyCode || "INR",
+        currencyCode: full.currencyCode || companyCurrency(),
         customerReference: full.customerReference || "",
         customerReferenceDate: full.customerReferenceDate || "",
         paymentTerms: full.paymentTerms || "",
@@ -1174,7 +1249,7 @@ const Quotations: React.FC = () => {
       headerClassName: "text-right",
       render: (quotation) => (
         <span className="font-semibold text-slate-900 dark:text-white">
-          {formatRupees(Number(quotation.grandTotal || 0))}
+          {formatPrice(Number(quotation.grandTotal || 0), quotation.currencyCode)}
         </span>
       ),
     },
@@ -1319,6 +1394,11 @@ const Quotations: React.FC = () => {
       >
         <div className="grid grid-cols-1 gap-x-3 md:grid-cols-2">
           <h3 className={sectionTitle}>Quotation Details</h3>
+          {form.dealId && (
+            <p className="col-span-full -mt-1 mb-2 text-xs text-cyan-700 dark:text-cyan-300">
+              Made from CRM deal #{form.dealId}: accepting this quotation marks the deal as Won.
+            </p>
+          )}
           <div className="mb-5">
             <SearchableSelect
               label="Customer"
@@ -1399,6 +1479,7 @@ const Quotations: React.FC = () => {
           <h3 className={sectionTitle}>Items</h3>
           <div className="mb-5 md:col-span-2">
             <QuotationItemsEditor
+              currency={form.currencyCode}
               lines={lines}
               onChange={setLines}
               products={activeProducts}

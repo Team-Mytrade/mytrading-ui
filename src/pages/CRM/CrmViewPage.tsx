@@ -21,6 +21,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDateTime } from "../../company/format";
 const BASE_URL = "/v1/api/crm";
 
 // System fields to hide from display
@@ -184,7 +185,7 @@ export default function CrmViewPage() {
       return (
         <div className="flex items-center gap-2">
           <CalendarIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-          <span>{new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
+          <span>{formatDateTime(value)}</span>
         </div>
       );
     }

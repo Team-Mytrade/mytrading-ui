@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
+import { formatMoney as companyMoney, formatNumber as companyNumber, formatDate as companyDate } from "../../company/format";
 
 /* ================= data ================= */
 
@@ -116,23 +117,13 @@ export const weeksBack = (count: number) => {
   });
 };
 
-export const formatDate = (value?: string | null) =>
-  parseDate(value)?.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) ?? "—";
+export const formatDate = (value?: string | null) => companyDate(value);
 
-export const formatNumber = (value: number) => new Intl.NumberFormat("en-IN").format(value);
+export const formatNumber = (value: number) => companyNumber(value);
 
-export const formatMoney = (value: number, currency = "INR", compact = false) => {
-  try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: compact ? 1 : 0,
-      notation: compact ? "compact" : "standard",
-    }).format(value);
-  } catch {
-    return formatNumber(Math.round(value)); // unknown currency code
-  }
-};
+// Dashboards show whole amounts (or 1.2K style when compact), in the company's currency by default
+export const formatMoney = (value: number, currency?: string | null, compact = false) =>
+  companyMoney(value, { currency, whole: true, compact });
 
 /** "IN_PROGRESS" → "In progress". */
 export const titleCase = (code?: string | null) =>

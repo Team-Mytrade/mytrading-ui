@@ -7,6 +7,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCardFilter, { StatsCardOption, useStatsCardFilter } from "../../components/common/StatsCardFilter";
 import { ToasterService } from "../../Services/ToasterService";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
+import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
 /**
  * Inventory reports built from the live inventory records (stock levels, movements, adjustments, batches,
@@ -35,6 +36,8 @@ type StockLevel = {
   reserved?: number;
   available?: number;
   reorderLevel?: number | null;
+  // Weighted-average cost from purchase receipts (inventory service); null until a cost is known
+  averageCost?: number | null;
   warehouse?: Warehouse | null;
 };
 
@@ -44,6 +47,7 @@ type ReportType =
   | "valuation"
   | "reserved"
   | "movement"
+  | "cogs"
   | "adjustment"
   | "batch"
   | "serial"
@@ -56,9 +60,10 @@ type Dataset = "movements" | "adjustments" | "batches" | "serials" | "inspection
 const REPORTS: { key: ReportType; label: string; group: string; needs: Dataset[]; help: string }[] = [
   { key: "current", label: "Current Stock", group: "Stock", needs: [], help: "Stock on hand, reserved for orders and still available, per product and warehouse." },
   { key: "low", label: "Low Stock & Reorder", group: "Stock", needs: [], help: "Records at or below their reorder level, or out of stock. Order at least the shortfall to get back to the reorder level." },
-  { key: "valuation", label: "Stock Valuation", group: "Stock", needs: [], help: "Stock on hand × the product's standard cost from the Product Catalogue." },
+  { key: "valuation", label: "Stock Valuation", group: "Stock", needs: [], help: "Stock on hand × its weighted-average cost from purchase receipts. Stock with no cost recorded yet uses the product's standard cost from the Product Catalogue (shown as such)." },
   { key: "reserved", label: "Reserved Stock", group: "Stock", needs: [], help: "Stock held for confirmed sales orders and not yet dispatched." },
   { key: "movement", label: "Stock Movements", group: "Activity", needs: ["movements"], help: "Every receipt, issue, transfer and correction in the chosen period." },
+  { key: "cogs", label: "Cost of Goods Sold", group: "Activity", needs: ["movements"], help: "What the goods sold in the chosen period cost: sales dispatches at the average cost when they left, less customer returns. Sales from before costing have no cost and are counted as missing." },
   { key: "adjustment", label: "Stock Adjustments", group: "Activity", needs: ["adjustments"], help: "Stock counted up or written off in the chosen period, with the reason." },
   { key: "analysis", label: "Fast / Slow / Dead Stock", group: "Activity", needs: ["movements"], help: "Quantity issued (sold or issued, not written off) per product in the chosen period. Fast = top third, Slow = the rest, Not issued = received or moved but nothing issued, Dead = in stock with no movement at all." },
   { key: "batch", label: "Batches & Expiry", group: "Tracking", needs: ["batches"], help: "Batches with stock, by expiry date. Expiring soon = within 30 days." },
@@ -74,7 +79,13 @@ const PERIODS = [
 ];
 
 /** Reports that use the period selector. */
-const PERIOD_REPORTS: ReportType[] = ["movement", "adjustment", "analysis", "quality"];
+const PERIOD_REPORTS: ReportType[] = ["movement", "cogs", "adjustment", "analysis", "quality"];
+
+// Same rule as the inventory service's cost of sales (InventoryValuationService): goods out to customers, and back
+const isSale = (m: Row) =>
+  m.movementType === "SALES_ISSUE" || (m.movementType === "ISSUE" && m.referenceType === "SALES_ORDER");
+const isCustomerReturn = (m: Row) =>
+  m.movementType === "CUSTOMER_RETURN" || (m.movementType === "RETURN" && m.referenceType === "SALES_RETURN");
 
 const IN_TYPES = ["GRN", "PURCHASE_RECEIPT", "RETURN", "CUSTOMER_RETURN"];
 const OUT_TYPES = ["ISSUE", "SALES_ISSUE", "SUPPLIER_RETURN", "DAMAGE"];
@@ -83,9 +94,9 @@ const ISSUE_TYPES = ["ISSUE", "SALES_ISSUE"];
 const TRANSFER_TYPES = ["TRANSFER", "WAREHOUSE_TRANSFER"];
 
 const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
-const qty = (value: unknown) => num(value).toLocaleString("en-IN");
+const qty = (value: unknown) => formatNumber(num(value));
 const rupees = (value: unknown) =>
-  `₹${num(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  formatMoney(num(value));
 const humanize = (value: unknown) =>
   String(value ?? "")
     .toLowerCase()
@@ -104,7 +115,7 @@ const showDate = (value: unknown) => {
   const iso = toIso(value);
   if (!iso) return "--";
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(new Date(y, m - 1, d));
 };
 
 const daysFromToday = (iso: string) => {
@@ -243,7 +254,10 @@ const InventoryReports: React.FC = () => {
           const available = num(s.available ?? num(s.quantity) - num(s.reserved));
           const reorder = s.reorderLevel == null ? null : num(s.reorderLevel);
           const status = available <= 0 ? "Out of Stock" : reorder != null && available <= reorder ? "Low Stock" : "Healthy";
-          const unitCost = productById.get(Number(s.productId))?.standardCost;
+          // The average cost from receipts; the catalogue's standard cost only while no cost is recorded
+          const standardCost = productById.get(Number(s.productId))?.standardCost;
+          const unitCost = s.averageCost != null ? s.averageCost : standardCost;
+          const costBasis = s.averageCost != null ? "Average cost" : standardCost ? "Standard cost" : "No cost";
           return {
             id: s.id,
             productId: s.productId,
@@ -257,6 +271,7 @@ const InventoryReports: React.FC = () => {
             shortfall: reorder == null ? null : Math.max(0, reorder - available),
             status,
             unitCost: unitCost == null ? null : num(unitCost),
+            costBasis,
             value: unitCost == null ? null : num(s.quantity) * num(unitCost),
           };
         }),
@@ -279,10 +294,35 @@ const InventoryReports: React.FC = () => {
           quantity: num(m.quantity),
           route: [m.fromLocation, m.toLocation].some(Boolean) ? `${m.fromLocation || "—"} → ${m.toLocation || "—"}` : "--",
           reference: m.reference || "--",
+          cost: m.totalCost == null ? null : num(m.totalCost),
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [extra.movements, productById, warehouseById, warehouseId, since]
   );
+
+  const cogsRows = useMemo<Row[]>(() => {
+    const byProduct = new Map<number, Row>();
+    (extra.movements ?? [])
+      .filter((m) => inWarehouse(m.warehouse?.id) && inPeriod(m.movementDate) && (isSale(m) || isCustomerReturn(m)))
+      .forEach((m) => {
+        const id = Number(m.productId);
+        const row = byProduct.get(id) ?? {
+          id, product: productName(id), code: productCode(id), sold: 0, saleCost: 0, returned: 0, returnCost: 0, net: 0, uncosted: 0,
+        };
+        if (isSale(m)) {
+          row.sold += num(m.quantity);
+          if (m.totalCost == null) row.uncosted += 1;
+          else row.saleCost += num(m.totalCost);
+        } else {
+          row.returned += num(m.quantity);
+          row.returnCost += num(m.totalCost);
+        }
+        row.net = row.saleCost - row.returnCost;
+        byProduct.set(id, row);
+      });
+    return [...byProduct.values()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extra.movements, productById, warehouseId, since]);
 
   const adjustmentRows = useMemo<Row[]>(
     () =>
@@ -414,6 +454,7 @@ const InventoryReports: React.FC = () => {
     valuation: stockRows.filter((r) => r.onHand !== 0),
     reserved: stockRows.filter((r) => r.reserved > 0),
     movement: movementRows,
+    cogs: cogsRows,
     adjustment: adjustmentRows,
     analysis: analysisRows,
     batch: batchRows,
@@ -437,7 +478,14 @@ const InventoryReports: React.FC = () => {
       case "low":
         return [all("Needs Attention"), by("LOW", "Low Stock", (r) => r.status === "Low Stock", "amber"), by("OUT", "Out of Stock", (r) => r.status === "Out of Stock", "red")];
       case "valuation":
-        return [all("Records In Stock"), by("NOCOST", "No Standard Cost", (r) => r.unitCost == null || r.unitCost === 0, "amber")];
+        return [
+          all("Records In Stock"),
+          by("AVERAGE", "At Average Cost", (r) => r.costBasis === "Average cost", "green"),
+          by("STANDARD", "At Standard Cost", (r) => r.costBasis === "Standard cost", "amber"),
+          by("NOCOST", "No Cost", (r) => r.costBasis === "No cost", "red"),
+        ];
+      case "cogs":
+        return [all("Products Sold"), by("MISSING", "Sales Without Cost", (r) => r.uncosted > 0, "amber")];
       case "reserved":
         return [all("Records With Reservations"), by("NONE", "Fully Reserved", (r) => r.available <= 0, "red")];
       case "movement":
@@ -540,12 +588,21 @@ const InventoryReports: React.FC = () => {
           qtyColumn("onHand", "On Hand"),
           {
             key: "unitCost",
-            label: "Standard Cost",
+            label: "Unit Cost",
             sortable: true,
             className: "text-right tabular-nums",
             headerClassName: "text-right",
             render: (row) => (row.unitCost == null ? "--" : rupees(row.unitCost)),
             exportValueGetter: (row) => (row.unitCost == null ? "" : rupees(row.unitCost)),
+          },
+          {
+            key: "costBasis",
+            label: "Basis",
+            sortable: true,
+            render: (row) => (
+              <Pill text={row.costBasis} tone={row.costBasis === "Average cost" ? "green" : row.costBasis === "Standard cost" ? "amber" : "red"} />
+            ),
+            exportValueGetter: (row) => row.costBasis,
           },
           {
             key: "value",
@@ -573,9 +630,46 @@ const InventoryReports: React.FC = () => {
           ...productColumns,
           { key: "warehouse", label: "Warehouse", sortable: true },
           qtyColumn("quantity", "Qty"),
+          {
+            key: "cost",
+            label: "Cost",
+            sortable: true,
+            className: "text-right tabular-nums",
+            headerClassName: "text-right",
+            render: (row) => (row.cost == null ? "--" : rupees(row.cost)),
+            exportValueGetter: (row) => (row.cost == null ? "" : rupees(row.cost)),
+          },
           { key: "route", label: "From → To", sortable: false },
           { key: "reference", label: "Reference", sortable: true },
         ];
+      case "cogs": {
+        const money = (key: string, label: string, strong = false): ColumnDef<Row> => ({
+          key,
+          label,
+          sortable: true,
+          className: `text-right tabular-nums${strong ? " font-semibold" : ""}`,
+          headerClassName: "text-right",
+          render: (row) => rupees(row[key]),
+          exportValueGetter: (row) => rupees(row[key]),
+        });
+        return [
+          ...productColumns,
+          qtyColumn("sold", "Qty Sold"),
+          money("saleCost", "Cost of Sales"),
+          qtyColumn("returned", "Qty Returned"),
+          money("returnCost", "Returned Cost"),
+          money("net", "Net Cost", true),
+          {
+            key: "uncosted",
+            label: "Without Cost",
+            sortable: true,
+            className: "text-right",
+            headerClassName: "text-right",
+            render: (row) => (row.uncosted ? <Pill text={`${row.uncosted} sale(s)`} tone="amber" /> : "--"),
+            exportValueGetter: (row) => String(row.uncosted || ""),
+          },
+        ];
+      }
       case "adjustment":
         return [
           dateColumn("date", "Date"),
@@ -674,6 +768,8 @@ const InventoryReports: React.FC = () => {
         return `On hand ${qty(sum("onHand"))} · Reserved ${qty(sum("reserved"))} · Available ${qty(sum("available"))}`;
       case "valuation":
         return `Total stock value ${rupees(sum("value"))}`;
+      case "cogs":
+        return `Cost of goods sold ${rupees(sum("net"))} · Sold ${qty(sum("sold"))} · Returned ${qty(sum("returned"))}`;
       case "reserved":
         return `Reserved ${qty(sum("reserved"))} of ${qty(sum("onHand"))} on hand`;
       case "movement": {

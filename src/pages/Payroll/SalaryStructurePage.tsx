@@ -29,6 +29,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
+import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
 // Amounts are YEARLY, as payroll stores them; a month pays one twelfth
 type SalaryStructure = {
@@ -52,8 +53,8 @@ const PAGE_SIZE = 10;
 
 const emptyForm = { employeeId: '', basic: 0, hra: 0, allowances: 0, ctc: 0, effectiveFrom: todayIso() };
 
-const rupees = (value: number) => `₹${Math.round(value || 0).toLocaleString("en-IN")}`;
-const lakhs = (value: number) => `₹${((value || 0) / 100000).toFixed(1)}L`;
+const rupees = (value: number) => formatMoney(Math.round(value || 0));
+const lakhs = (value: number) => formatMoney(value || 0, { compact: true });
 
 const SalaryStructurePage: React.FC = () => {
   const { canDelete, canExport, canUpdate } = usePermissions();
@@ -192,18 +193,18 @@ const SalaryStructurePage: React.FC = () => {
         doc.text("Compensation Schedule", 14, 20);
         doc.setFontSize(10);
         doc.text(`Employee: ${label(record)}`, 14, 28);
-        doc.text(`Effective From: ${record.effectiveFrom ? new Date(record.effectiveFrom).toLocaleDateString() : "-"}`, 14, 34);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
+        doc.text(`Effective From: ${record.effectiveFrom ? formatDate(record.effectiveFrom) : "-"}`, 14, 34);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 40);
 
-        const monthly = (value: number) => Math.round((value || 0) / 12).toLocaleString("en-IN");
+        const monthly = (value: number) => formatNumber(Math.round((value || 0) / 12));
         autoTable(doc, {
             head: [['Component', 'Monthly Value (INR)', 'Annual Value (INR)']],
             body: [
-                ['Basic Salary', monthly(record.basic), record.basic.toLocaleString("en-IN")],
-                ['House Rent Allowance (HRA)', monthly(record.hra), record.hra.toLocaleString("en-IN")],
-                ['Other Allowances', monthly(record.allowances), record.allowances.toLocaleString("en-IN")],
-                ['Gross Earnings', monthly(record.netSalary), record.netSalary.toLocaleString("en-IN")],
-                ['Annual CTC', '', record.ctc.toLocaleString("en-IN")],
+                ['Basic Salary', monthly(record.basic), formatNumber(record.basic)],
+                ['House Rent Allowance (HRA)', monthly(record.hra), formatNumber(record.hra)],
+                ['Other Allowances', monthly(record.allowances), formatNumber(record.allowances)],
+                ['Gross Earnings', monthly(record.netSalary), formatNumber(record.netSalary)],
+                ['Annual CTC', '', formatNumber(record.ctc)],
             ],
             startY: 50,
             theme: 'striped',
@@ -219,19 +220,19 @@ const SalaryStructurePage: React.FC = () => {
         doc.setTextColor(31, 41, 55);
         doc.text("Salary Structures Report (yearly amounts)", 14, 20);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 28);
         doc.text(`Total Records: ${data.length}`, 14, 34);
 
         autoTable(doc, {
             head: [['Employee', 'Basic', 'HRA', 'Allowances', 'Gross', 'CTC', 'Effective From']],
             body: data.map(s => [
                 label(s),
-                s.basic.toLocaleString("en-IN"),
-                s.hra.toLocaleString("en-IN"),
-                s.allowances.toLocaleString("en-IN"),
-                s.netSalary.toLocaleString("en-IN"),
-                s.ctc.toLocaleString("en-IN"),
-                s.effectiveFrom ? new Date(s.effectiveFrom).toLocaleDateString() : "-",
+                formatNumber(s.basic),
+                formatNumber(s.hra),
+                formatNumber(s.allowances),
+                formatNumber(s.netSalary),
+                formatNumber(s.ctc),
+                s.effectiveFrom ? formatDate(s.effectiveFrom) : "-",
             ]),
             startY: 45,
             styles: { fontSize: 8 },
@@ -250,7 +251,7 @@ const SalaryStructurePage: React.FC = () => {
             'Other Allowances (yearly)': s.allowances,
             'Gross (yearly)': s.netSalary,
             'Annual CTC': s.ctc,
-            'Effective From': s.effectiveFrom ? new Date(s.effectiveFrom).toLocaleDateString() : "",
+            'Effective From': s.effectiveFrom ? formatDate(s.effectiveFrom) : "",
         })));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Salary Structures');
@@ -323,7 +324,7 @@ const SalaryStructurePage: React.FC = () => {
             render: (row) => (
                 <span className="inline-flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
                     <CalendarIcon className="h-4 w-4 text-slate-400" />
-                    {row.effectiveFrom ? new Date(row.effectiveFrom).toLocaleDateString() : "-"}
+                    {row.effectiveFrom ? formatDate(row.effectiveFrom) : "-"}
                 </span>
             )
         },

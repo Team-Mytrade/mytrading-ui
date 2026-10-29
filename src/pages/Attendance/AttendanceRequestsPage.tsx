@@ -12,7 +12,8 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
-import { apiError, CalendarDay, fetchMonth } from './attendanceApi';
+import { apiError, CalendarDay, fetchMonth, timeOf, withBrowserOffset } from './attendanceApi';
+import { leadingDays, weekdayLabels } from "../../company/format";
 
 // On-duty visits and work-from-home days. Missed punches are corrected on the regularization page.
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
@@ -34,6 +35,7 @@ export interface RequestDetail {
   approvalStatus?: string;
   reason?: string;
   remarks?: string | null;
+  projectTaskId?: number | null;
   projectTaskName?: string | null;
   clientName?: string | null;
   visitLocation?: string | null;
@@ -58,9 +60,40 @@ interface RequestForm {
   clientName: string;
   visitLocation: string;
   purpose: string;
+  projectTaskId: string;
   projectTaskName: string;
   reason: string;
+  remarks: string;
 }
+
+/** One day of the request on the review tab: its shift and planned working times can be changed. */
+interface ReviewDay {
+  date: string;
+  /** Holiday name or "Weekly off" when the day is not a working day, else null */
+  off: string | null;
+  include: boolean;
+  shiftIn: string;
+  shiftOut: string;
+  workFrom: string;
+  workTo: string;
+}
+
+const DEFAULT_SHIFT = { start: '09:00', end: '18:00' };
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** "2026-08-10" + "18:00" → "2026-08-10T18:00:00"; an end time before the start belongs to the next day (night shift). */
+const dateTime = (date: string, time: string, startTime?: string) => {
+  if (!time) return null;
+  let day = date;
+  if (startTime && time <= startTime) {
+    const next = new Date(`${date}T00:00:00`);
+    next.setDate(next.getDate() + 1);
+    day = isoDay(next);
+  }
+  return withBrowserOffset(`${day}T${time}:00`);
+};
 
 const emptyForm = (): RequestForm => ({
   requestType: 'ON_DUTY',
@@ -69,8 +102,10 @@ const emptyForm = (): RequestForm => ({
   clientName: '',
   visitLocation: '',
   purpose: '',
+  projectTaskId: '',
   projectTaskName: '',
   reason: '',
+  remarks: '',
 });
 
 const formatDateDisplay = (dStr?: string) => {
@@ -94,6 +129,10 @@ const AttendanceRequestsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'apply' | 'history'>('apply');
+  // Apply has two steps: the request details, then every day of the range to check and adjust times
+  const [step, setStep] = useState<'details' | 'review'>('details');
+  const [reviewDays, setReviewDays] = useState<ReviewDay[]>([]);
+  const [shiftTimes, setShiftTimes] = useState(DEFAULT_SHIFT);
   const [viewingRequest, setViewingRequest] = useState<AttendanceRequestModel | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [form, setForm] = useState<RequestForm>(emptyForm);
@@ -129,6 +168,19 @@ const AttendanceRequestsPage: React.FC = () => {
       .catch(() => undefined);
   }, [currentUser.hasEmployee, currentYear, currentMonth]);
 
+  // The employee's current shift gives the default times on the review tab (09:00–18:00 when there is none)
+  useEffect(() => {
+    if (!currentUser.hasEmployee) return;
+    axios.get(`${BASE_REQUESTS_URL.replace('/requests', '')}/shiftShedules/employee/${employeeId}/current`)
+      .then((res) => res.data?.shiftId ? axios.get(`${BASE_REQUESTS_URL.replace('/requests', '')}/shifts/${res.data.shiftId}`) : null)
+      .then((res) => {
+        const start = String(res?.data?.startTime || '').slice(0, 5);
+        const end = String(res?.data?.endTime || '').slice(0, 5);
+        if (start && end) setShiftTimes({ start, end });
+      })
+      .catch(() => undefined);
+  }, [currentUser.hasEmployee, employeeId]);
+
   const isOff = (date: string) => Boolean(days[date]?.holidayName || days[date]?.weeklyOff);
 
   // Working days in the range (only these are marked when approved)
@@ -154,23 +206,67 @@ const AttendanceRequestsPage: React.FC = () => {
       return ToasterService.error('Give the client or the place you are visiting.');
     }
 
+    // Weekly offs and holidays of every month in the range (the calendar only loaded the shown month)
+    const known = { ...days };
+    const months = new Set<string>();
+    for (let d = new Date(`${form.fromDate}T00:00:00`); isoDay(d) <= form.toDate; d.setDate(d.getDate() + 1)) months.add(isoDay(d).slice(0, 7));
+    await Promise.all([...months].filter((m) => !Object.keys(known).some((k) => k.startsWith(m))).map(async (m) => {
+      try {
+        const list = await fetchMonth(Number(m.slice(0, 4)), Number(m.slice(5, 7)));
+        list.forEach((day) => { known[day.date] = day; });
+      } catch { /* shown as working days */ }
+    }));
+    setDays(known);
+
+    const rows: ReviewDay[] = [];
+    for (let d = new Date(`${form.fromDate}T00:00:00`); isoDay(d) <= form.toDate; d.setDate(d.getDate() + 1)) {
+      const date = isoDay(d);
+      const off = known[date]?.holidayName || (known[date]?.weeklyOff ? 'Weekly off' : null);
+      rows.push({ date, off, include: !off, shiftIn: shiftTimes.start, shiftOut: shiftTimes.end, workFrom: shiftTimes.start, workTo: shiftTimes.end });
+    }
+    setReviewDays(rows);
+    setStep('review');
+  };
+
+  const updateDay = (date: string, patch: Partial<ReviewDay>) =>
+    setReviewDays((prev) => prev.map((d) => (d.date === date ? { ...d, ...patch } : d)));
+
+  const includedDays = reviewDays.filter((d) => d.include);
+
+  // Sends the request: one detail per chosen day with its shift and working times
+  const handleConfirm = async () => {
+    if (includedDays.length === 0) return ToasterService.error('Choose at least one day.');
+    const bad = includedDays.find((d) => !d.shiftIn || !d.shiftOut || !d.workFrom || !d.workTo);
+    if (bad) return ToasterService.error(`Fill in the times for ${formatDateDisplay(bad.date)}.`);
+
     setIsSubmitting(true);
     try {
       const onDuty = form.requestType === 'ON_DUTY';
+      const taskId = Number(form.projectTaskId);
       await axios.post(BASE_REQUESTS_URL, {
-        requestDetails: [{
+        employeeId,
+        requestDetails: includedDays.map((d) => ({
           requestType: form.requestType,
-          fromDate: form.fromDate,
-          toDate: form.toDate,
+          fromDate: d.date,
+          toDate: d.date,
+          shiftDate: d.date,
+          shiftInTime: dateTime(d.date, d.shiftIn),
+          shiftOutTime: dateTime(d.date, d.shiftOut, d.shiftIn),
+          checkInTime: dateTime(d.date, d.workFrom),
+          checkOutTime: dateTime(d.date, d.workTo, d.workFrom),
           reason: form.reason.trim(),
+          remarks: form.remarks.trim() || null,
           clientName: onDuty ? form.clientName.trim() || null : null,
           visitLocation: onDuty ? form.visitLocation.trim() || null : null,
           purpose: onDuty ? form.purpose.trim() || null : null,
+          projectTaskId: !onDuty && taskId > 0 ? taskId : null,
           projectTaskName: !onDuty ? form.projectTaskName.trim() || null : null,
-        }],
+        })),
       });
-      ToasterService.success(`${TYPE_LABEL[form.requestType]} request sent for approval.`);
+      ToasterService.success(`${TYPE_LABEL[form.requestType]} request for ${includedDays.length} ${includedDays.length === 1 ? 'day' : 'days'} sent for approval.`);
       setForm(emptyForm());
+      setReviewDays([]);
+      setStep('details');
       fetchMyRequests();
       setActiveTab('history');
     } catch (err) {
@@ -192,7 +288,7 @@ const AttendanceRequestsPage: React.FC = () => {
   };
 
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+  const firstDayOfMonth = (month: number, year: number) => leadingDays(year, month);
 
   const handlePrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
@@ -254,6 +350,18 @@ const AttendanceRequestsPage: React.FC = () => {
   };
 
   const firstDetail = (r: AttendanceRequestModel): RequestDetail | undefined => r.responseDetails?.[0];
+  // A request holds one detail per day; its dates run from the earliest to the latest of them
+  const rangeOf = (r: AttendanceRequestModel) => {
+    const list = r.responseDetails || [];
+    const from = list.map((d) => d.fromDate).filter(Boolean).sort()[0];
+    const to = list.map((d) => d.toDate || d.fromDate).filter(Boolean).sort().slice(-1)[0];
+    return { from, to, count: list.length };
+  };
+  const rangeText = (r: AttendanceRequestModel) => {
+    const { from, to, count } = rangeOf(r);
+    return `${formatDateDisplay(from)}${to && to !== from ? ` to ${formatDateDisplay(to)}` : ''}${count > 1 ? ` (${count} days)` : ''}`;
+  };
+  const clock = (value?: string | null) => timeOf(value) || '—';
 
   const columns: ColumnDef<AttendanceRequestModel>[] = [
     {
@@ -281,15 +389,10 @@ const AttendanceRequestsPage: React.FC = () => {
       key: 'dates',
       label: 'Dates',
       sortable: true,
-      sortValueGetter: (row) => firstDetail(row)?.fromDate || '',
-      render: (row) => {
-        const d = firstDetail(row);
-        return (
-          <span className="text-xs font-mono font-semibold text-slate-700 dark:text-gray-300">
-            {formatDateDisplay(d?.fromDate)}{d?.toDate && d.toDate !== d.fromDate ? ` to ${formatDateDisplay(d.toDate)}` : ''}
-          </span>
-        );
-      }
+      sortValueGetter: (row) => rangeOf(row).from || '',
+      render: (row) => (
+        <span className="text-xs font-mono font-semibold text-slate-700 dark:text-gray-300">{rangeText(row)}</span>
+      )
     },
     {
       key: 'overallStatus',
@@ -350,6 +453,110 @@ const AttendanceRequestsPage: React.FC = () => {
       <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200">
 
         {activeTab === 'apply' && (
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
+            {(['details', 'review'] as const).map((s, i) => (
+              <React.Fragment key={s}>
+                {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
+                <button
+                  type="button"
+                  disabled={s === 'review' && reviewDays.length === 0}
+                  onClick={() => setStep(s)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    step === s ? 'bg-[#e0f7fa] text-[#006f7a]' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <span className={`grid h-4.5 w-4.5 place-items-center rounded-full text-[10px] ${step === s ? 'bg-[#0097a7] text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
+                  {s === 'details' ? 'Request details' : 'Review days & times'}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'apply' && step === 'review' && (
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-transparent dark:bg-[#191919]">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {TYPE_LABEL[form.requestType]} · {formatDateDisplay(form.fromDate)}{form.toDate !== form.fromDate ? ` to ${formatDateDisplay(form.toDate)}` : ''}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                  Check each day and change the shift or working times if needed. Weekly offs and holidays are highlighted and left out unless you tick them.
+                </p>
+              </div>
+              <span className="rounded-lg bg-[#e0f7fa] px-2.5 py-1 text-xs font-bold text-[#006f7a]">
+                {includedDays.length} of {reviewDays.length} {reviewDays.length === 1 ? 'day' : 'days'} included
+              </span>
+            </div>
+
+            <div className="max-h-[calc(100cqh-230px)] overflow-auto rounded-lg border border-slate-200 dark:border-[#2a2a2a]">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-[1] bg-[#e8f3dc] text-left text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-gray-800/70 dark:text-gray-200">
+                  <tr>
+                    <th className="w-10 px-2 py-2 text-center">Include</th>
+                    <th className="px-2 py-2">Date</th>
+                    <th className="px-2 py-2">Day type</th>
+                    <th className="px-2 py-2">Shift in</th>
+                    <th className="px-2 py-2">Shift out</th>
+                    <th className="px-2 py-2">{form.requestType === 'ON_DUTY' ? 'On duty from' : 'Work from'}</th>
+                    <th className="px-2 py-2">{form.requestType === 'ON_DUTY' ? 'On duty to' : 'Work to'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
+                  {reviewDays.map((d) => {
+                    const weekday = WEEKDAY[new Date(`${d.date}T00:00:00`).getDay()];
+                    const holiday = d.off && d.off !== 'Weekly off';
+                    const time = (field: 'shiftIn' | 'shiftOut' | 'workFrom' | 'workTo') => (
+                      <input
+                        type="time"
+                        value={d[field]}
+                        disabled={!d.include}
+                        onChange={(e) => updateDay(d.date, { [field]: e.target.value })}
+                        className="h-8 w-[110px] rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-400 dark:border-gray-700 dark:bg-[#222222] dark:text-white"
+                      />
+                    );
+                    return (
+                      <tr key={d.date} className={holiday ? 'bg-orange-50/80 dark:bg-orange-950/20' : d.off ? 'bg-slate-100/80 dark:bg-[#222222]' : ''}>
+                        <td className="px-2 py-1.5 text-center">
+                          <input type="checkbox" checked={d.include} onChange={(e) => updateDay(d.date, { include: e.target.checked })} aria-label={`Include ${d.date}`} className="h-4 w-4 accent-[#0097a7]" />
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-slate-800 dark:text-gray-100">
+                          {formatDateDisplay(d.date)} <span className="font-normal text-slate-500">{weekday}</span>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {d.off ? (
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${holiday ? 'border-orange-200 bg-orange-100 text-orange-800' : 'border-slate-300 bg-slate-200 text-slate-700'}`}>
+                              {holiday ? `Holiday · ${d.off}` : 'Weekly off'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Working day</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">{time('shiftIn')}</td>
+                        <td className="px-2 py-1.5">{time('shiftOut')}</td>
+                        <td className="px-2 py-1.5">{time('workFrom')}</td>
+                        <td className="px-2 py-1.5">{time('workTo')}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-[#2a2a2a]">
+              <button type="button" onClick={() => setStep('details')} className={TOOL_BUTTON}>
+                <ChevronLeft className="h-3.5 w-3.5" /> Back to details
+              </button>
+              <button type="button" onClick={handleConfirm} disabled={isSubmitting || includedDays.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50">
+                <Send className="h-3.5 w-3.5" />
+                {isSubmitting ? 'Submitting...' : `Confirm & submit (${includedDays.length} ${includedDays.length === 1 ? 'day' : 'days'})`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'apply' && step === 'details' && (
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch mb-2">
 
@@ -371,7 +578,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-1.5">
-                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                    {weekdayLabels("min").map((d) => <span key={d}>{d}</span>)}
                   </div>
 
                   <div className="grid grid-cols-7 gap-1 max-w-xs mx-auto lg:max-w-none">
@@ -443,10 +650,17 @@ const AttendanceRequestsPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Work / project (optional)</label>
-                      <input type="text" value={form.projectTaskName} maxLength={200} onChange={(e) => setForm((p) => ({ ...p, projectTaskName: e.target.value }))}
-                        className={inputClass} placeholder="What you will work on" />
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Task ID</label>
+                        <input type="number" min={1} value={form.projectTaskId} onChange={(e) => setForm((p) => ({ ...p, projectTaskId: e.target.value }))}
+                          className={`${inputClass} font-mono`} placeholder="Optional" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Work / project (optional)</label>
+                        <input type="text" value={form.projectTaskName} maxLength={200} onChange={(e) => setForm((p) => ({ ...p, projectTaskName: e.target.value }))}
+                          className={inputClass} placeholder="What you will work on" />
+                      </div>
                     </div>
                   )}
 
@@ -456,20 +670,26 @@ const AttendanceRequestsPage: React.FC = () => {
                       className={inputClass} placeholder="Why you need this" required />
                   </div>
 
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Remarks (optional)</label>
+                    <input type="text" value={form.remarks} maxLength={1000} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))}
+                      className={inputClass} placeholder="Anything else the approver should know" />
+                  </div>
+
                   <p className="text-[10.5px] text-slate-400 dark:text-gray-500">
                     Forgot to punch? Use <Link to="/att_timesheetManagement" className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline">Attendance Regularization</Link> instead.
                   </p>
                 </div>
 
                 <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:!border-transparent shrink-0 mt-1.5">
-                  <button type="button" onClick={() => setForm(emptyForm())}
+                  <button type="button" onClick={() => { setForm(emptyForm()); setReviewDays([]); }}
                     className="px-3 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer">
                     Clear Form
                   </button>
-                  <button type="submit" disabled={isSubmitting || totalDays === 0}
+                  <button type="submit" disabled={!form.fromDate || !form.toDate || form.toDate < form.fromDate}
                     className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50">
-                    <Send className="w-3.5 h-3.5" />
-                    {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                    <ChevronRight className="w-3.5 h-3.5" />
+                    Review days & times
                   </button>
                 </div>
               </div>
@@ -534,17 +754,38 @@ const AttendanceRequestsPage: React.FC = () => {
                   <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                     <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Dates
                   </span>
-                  <span className="font-mono font-bold text-slate-800 dark:text-white">
-                    {formatDateDisplay(detail.fromDate)}{detail.toDate && detail.toDate !== detail.fromDate ? ` to ${formatDateDisplay(detail.toDate)}` : ''}
-                  </span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-white">{rangeText(viewingRequest)}</span>
                 </div>
+
+                {(viewingRequest.responseDetails || []).some((d: any) => d.shiftInTime || d.checkInTime) && (
+                  <div className="col-span-1 sm:col-span-2 overflow-hidden rounded-xl border border-slate-200/80 dark:!border-transparent">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-slate-50 text-left font-semibold text-slate-600 dark:bg-[#222222] dark:text-gray-300">
+                        <tr><th className="px-2 py-1.5">Date</th><th className="px-2 py-1.5">Shift</th><th className="px-2 py-1.5">Working</th><th className="px-2 py-1.5">Status</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
+                        {[...(viewingRequest.responseDetails || [])].sort((a, b) => a.fromDate.localeCompare(b.fromDate)).map((d: any) => (
+                          <tr key={d.id ?? d.fromDate}>
+                            <td className="px-2 py-1.5 font-mono">{formatDateDisplay(d.fromDate)}</td>
+                            <td className="px-2 py-1.5 font-mono">{clock(d.shiftInTime)} – {clock(d.shiftOutTime)}</td>
+                            <td className="px-2 py-1.5 font-mono">{clock(d.checkInTime)} – {clock(d.checkOutTime)}</td>
+                            <td className="px-2 py-1.5">{String(d.approvalStatus || 'PENDING').replace(/_/g, ' ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {detail.projectTaskName && (
                   <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
                       <Briefcase className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Work / project
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-white">{detail.projectTaskName}</span>
+                    <span className="font-bold text-slate-800 dark:text-white">
+                      {detail.projectTaskId ? <span className="font-mono text-slate-500 dark:text-gray-400 mr-1.5">#{detail.projectTaskId}</span> : null}
+                      {detail.projectTaskName}
+                    </span>
                   </div>
                 )}
 
@@ -563,6 +804,13 @@ const AttendanceRequestsPage: React.FC = () => {
                   <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">Reason</span>
                   <p className="font-semibold text-slate-800 dark:text-white leading-relaxed text-xs">{detail.reason || '—'}</p>
                 </div>
+
+                {detail.remarks && (
+                  <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
+                    <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">Remarks</span>
+                    <p className="text-slate-800 dark:text-white leading-relaxed text-xs">{detail.remarks}</p>
+                  </div>
+                )}
 
                 {viewingRequest.approverRemarks && (
                   <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">

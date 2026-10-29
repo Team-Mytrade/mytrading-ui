@@ -21,7 +21,10 @@ import {
   PlusIcon,
   RefreshCwIcon,
   PackageMinusIcon,
+  BadgeCheckIcon,
+  PrinterIcon,
 } from "lucide-react";
+import { printDeliveryChallan } from "./deliveryChallan";
 import { todayIso } from "../../utils/localDate";
 import {
   DELIVERY_API,
@@ -46,11 +49,15 @@ const API = {
 };
 
 const NOTE_STATUSES: DeliveryStatus[] = ["PENDING", "CONFIRMED", "PARTIAL", "DELIVERED", "CANCELLED"];
+// Delivered / partly delivered are set by Confirm delivery (it takes the goods out of stock), not by editing
+const EDITABLE_NOTE_STATUSES: DeliveryStatus[] = ["PENDING", "CONFIRMED", "IN_TRANSIT", "CANCELLED"];
 const PAGE_SIZE = 10;
 
 interface NoteItem {
   id?: number;
   productId: number;
+  productName?: string | null;
+  salesOrderItemId?: number | null;
   orderedQty: number;
   deliveredQty: number;
 }
@@ -62,6 +69,10 @@ interface DeliveryNoteRecord {
   salesOrderId?: number;
   customerId: number;
   deliveryOrderId?: number;
+  deliveryOrderNumber?: string | null;
+  // Set when confirmed: the sales dispatch was confirmed (stock out, invoiceable)
+  confirmedAt?: string | null;
+  salesDispatchNumber?: string | null;
   status: DeliveryStatus;
   createdDate?: string;
   items: NoteItem[];
@@ -69,6 +80,8 @@ interface DeliveryNoteRecord {
 
 interface FormItem {
   productId: string;
+  productName?: string | null;
+  salesOrderItemId?: number | null;
   orderedQty: string;
   deliveredQty: string;
 }
@@ -180,7 +193,8 @@ const DeliveryNote: React.FC = () => {
       deliveryDate: note.deliveryDate ?? todayIso(),
       status: note.status ?? "PENDING",
       items: note.items.length
-        ? note.items.map((i) => ({ productId: String(i.productId), orderedQty: String(i.orderedQty), deliveredQty: String(i.deliveredQty ?? 0) }))
+        ? note.items.map((i) => ({ productId: String(i.productId), productName: i.productName, salesOrderItemId: i.salesOrderItemId,
+          orderedQty: String(i.orderedQty), deliveredQty: String(i.deliveredQty ?? 0) }))
         : [emptyItem()],
     });
     setShowDetailModal(false);
@@ -204,7 +218,8 @@ const DeliveryNote: React.FC = () => {
             deliveryOrderId: orderId,
             customerId: String(order.customerId),
             salesOrderId: order.salesOrderId ? String(order.salesOrderId) : "",
-            items: order.items.map((i) => ({ productId: String(i.productId), orderedQty: String(i.quantity), deliveredQty: String(i.quantity) })),
+            items: order.items.map((i) => ({ productId: String(i.productId), productName: i.productName, salesOrderItemId: i.salesOrderItemId,
+              orderedQty: String(Number(i.quantity)), deliveredQty: String(Number(i.quantity)) })),
           }
         : { ...prev, deliveryOrderId: orderId }
     );
@@ -236,7 +251,8 @@ const DeliveryNote: React.FC = () => {
       salesOrderId: optionalId(form.salesOrderId),
       deliveryDate: form.deliveryDate || undefined,
       status: form.status,
-      items: lines.map((i) => ({ productId: Number(i.productId), orderedQty: Number(i.orderedQty), deliveredQty: Number(i.deliveredQty || 0) })),
+      items: lines.map((i) => ({ productId: Number(i.productId), productName: i.productName || lookups.productName(Number(i.productId)),
+        salesOrderItemId: i.salesOrderItemId ?? undefined, orderedQty: Number(i.orderedQty), deliveredQty: Number(i.deliveredQty || 0) })),
     };
 
     setSubmitting(true);
@@ -282,6 +298,56 @@ const DeliveryNote: React.FC = () => {
       toast.error(apiError(err, "Failed to delete the delivery note"));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /*
+   * The customer received the goods: Sales confirms the delivery order's dispatch at the delivered quantities
+   * (stock leaves the warehouse and it can be invoiced). Anything not delivered goes back to "left to dispatch".
+   */
+  const confirmDelivery = async (note: DeliveryNoteRecord) => {
+    const partial = note.items.some((i) => Number(i.deliveredQty ?? 0) < Number(i.orderedQty));
+    const message = partial
+      ? `Confirm ${note.deliveryNo} as partly delivered? The delivered quantities leave stock; the rest can go on another delivery order.`
+      : `Confirm ${note.deliveryNo} as delivered? The goods leave stock and the dispatch can be invoiced.`;
+    if (!window.confirm(message)) return;
+    try {
+      const { data } = await axios.post<DeliveryNoteRecord>(`${API.note(note.id)}/confirm`);
+      toast.success(data.salesDispatchNumber
+        ? `${note.deliveryNo} confirmed; dispatch ${data.salesDispatchNumber} is ready to invoice`
+        : `${note.deliveryNo} confirmed`);
+      setShowDetailModal(false);
+      await fetchNotes();
+    } catch (err) {
+      toast.error(apiError(err, "Could not confirm the delivery"));
+    }
+  };
+
+  // The challan the driver hands over and the customer signs (vehicle, transporter and address from the delivery order)
+  const printChallan = async (note: DeliveryNoteRecord) => {
+    const order = orders.find((o) => o.id === note.deliveryOrderId);
+    try {
+      await printDeliveryChallan({
+        deliveryNo: note.deliveryNo,
+        deliveryDate: note.deliveryDate,
+        status: statusConfig(note.status).label,
+        confirmedAt: note.confirmedAt,
+        customerName: lookups.customerName(note.customerId, order?.customerName),
+        customerCode: order?.customerNumber,
+        deliveryAddress: order?.deliveryAddress,
+        deliveryOrderNumber: note.deliveryOrderNumber ?? (note.deliveryOrderId ? orderNumber(note.deliveryOrderId) : null),
+        salesOrderLabel: note.salesOrderId ? lookups.salesOrderLabel(note.salesOrderId) : null,
+        salesDispatchNumber: note.salesDispatchNumber ?? order?.salesDispatchNumber,
+        vehiclePlate: order?.vehiclePlate,
+        transporterName: order?.transporterName,
+        lines: note.items.map((i) => ({
+          productName: i.productName || lookups.productName(i.productId),
+          orderedQty: Number(i.orderedQty),
+          deliveredQty: i.deliveredQty == null ? null : Number(i.deliveredQty),
+        })),
+      });
+    } catch (err) {
+      toast.error(apiError(err, "Could not make the delivery challan"));
     }
   };
 
@@ -383,7 +449,15 @@ const DeliveryNote: React.FC = () => {
           <button type="button" onClick={() => openView(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600" title="View">
             <EyeIcon className="h-4 w-4" />
           </button>
-          {canUpdate && (<button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
+          <button type="button" onClick={() => printChallan(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700" title="Print delivery challan">
+            <PrinterIcon className="h-4 w-4" />
+          </button>
+          {canUpdate && !row.confirmedAt && row.status !== "CANCELLED" && (
+            <button type="button" onClick={() => confirmDelivery(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600" title="Confirm delivery (stock out)">
+              <BadgeCheckIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canUpdate && !row.confirmedAt && (<button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600" title="Edit">
             <PencilIcon className="h-4 w-4" />
           </button>)}
           {row.status !== "CANCELLED" && canCreate && (
@@ -391,7 +465,7 @@ const DeliveryNote: React.FC = () => {
               <PackageMinusIcon className="h-4 w-4" />
             </button>
           )}
-          {canDelete && (<button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
+          {canDelete && !row.confirmedAt && (<button type="button" onClick={() => openDelete(row)} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600" title="Delete">
             <TrashIcon className="h-4 w-4" />
           </button>)}
         </div>
@@ -571,7 +645,7 @@ const DeliveryNote: React.FC = () => {
                   name="status"
                   value={form.status}
                   onChange={(e) => setField("status", e.target.value as DeliveryStatus)}
-                  options={NOTE_STATUSES.map((s) => ({ id: s, name: statusConfig(s).label }))}
+                  options={EDITABLE_NOTE_STATUSES.map((s) => ({ id: s, name: statusConfig(s).label }))}
                   includeEmptyOption={false}
                   required
                 />
@@ -656,6 +730,14 @@ const DeliveryNote: React.FC = () => {
                 <div><label className="text-xs text-gray-500">Date</label><p className="font-medium text-slate-700">{formatDate(selected.deliveryDate)}</p></div>
                 <div><label className="text-xs text-gray-500">Delivery Order</label><p className="font-medium text-slate-700">{selected.deliveryOrderId ? orderNumber(selected.deliveryOrderId) : "-"}</p></div>
                 <div><label className="text-xs text-gray-500">Sales Order</label><p className="font-medium text-slate-700">{selected.salesOrderId ? lookups.salesOrderLabel(selected.salesOrderId) : "-"}</p></div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-gray-500">Delivery</label>
+                  <p className="font-medium text-slate-700">
+                    {selected.confirmedAt
+                      ? `Confirmed ${formatDateTime(selected.confirmedAt)}${selected.salesDispatchNumber ? ` · dispatch ${selected.salesDispatchNumber} (stock out, ready to invoice)` : ""}`
+                      : "Not confirmed yet: confirm it when the customer has received the goods"}
+                  </p>
+                </div>
               </div>
 
               <div className="mt-4 border-t pt-4">
@@ -666,7 +748,7 @@ const DeliveryNote: React.FC = () => {
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {selected.items?.map((item, index) => (
                     <div key={item.id ?? index} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm gap-3">
-                      <span className="font-medium text-slate-700 truncate">{lookups.productName(item.productId)}</span>
+                      <span className="font-medium text-slate-700 truncate">{item.productName || lookups.productName(item.productId)}</span>
                       <span className="whitespace-nowrap space-x-3">
                         <span className="text-gray-500">Ordered {item.orderedQty}</span>
                         <span className="text-green-600">Delivered {item.deliveredQty ?? 0}</span>
@@ -677,17 +759,27 @@ const DeliveryNote: React.FC = () => {
               </div>
 
               <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
+                <button onClick={() => printChallan(selected)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-medium">
+                  <PrinterIcon className="h-4 w-4 inline mr-1" />
+                  Print Challan
+                </button>
+                {canUpdate && !selected.confirmedAt && selected.status !== "CANCELLED" && (
+                  <button onClick={() => confirmDelivery(selected)} className="px-4 py-2 bg-[#4DD0E1] text-white rounded-lg hover:bg-[#26C6DA] text-sm font-medium">
+                    <BadgeCheckIcon className="h-4 w-4 inline mr-1" />
+                    Confirm Delivery
+                  </button>
+                )}
                 {selected.status !== "CANCELLED" && canCreate && (
                   <button onClick={() => issueGoods(selected)} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-sm font-medium">
                     <PackageMinusIcon className="h-4 w-4 inline mr-1" />
                     Issue Goods
                   </button>
                 )}
-                {canUpdate && (<button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
+                {canUpdate && !selected.confirmedAt && (<button onClick={() => openEdit(selected)} className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 text-sm font-medium">
                   <PencilIcon className="h-4 w-4 inline mr-1" />
                   Edit
                 </button>)}
-                {canDelete && (<button
+                {canDelete && !selected.confirmedAt && (<button
                   onClick={() => {
                     setShowDetailModal(false);
                     openDelete(selected);

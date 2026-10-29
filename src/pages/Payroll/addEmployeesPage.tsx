@@ -43,6 +43,7 @@ import {
 } from "../../shared/types/employee.types";
 import { COUNTRY_OPTIONS, ALL_CURRENCIES } from "../../shared/utils/country-list";
 import type { ICity, IState } from "country-state-city";
+import { formatNumber, formatDate, companyCurrency } from "../../company/format";
 
 // The city/state dataset is several MB, so it is downloaded after the page opens rather than with it
 type GeoData = {
@@ -268,7 +269,7 @@ const AddEmployeePage: React.FC = () => {
       postalCode: "",
     },
     salary: {
-      currency: "INR",
+      currency: companyCurrency(),
       ctc: 0,
       role: "",
       country: "INDIA",
@@ -451,7 +452,7 @@ const AddEmployeePage: React.FC = () => {
 
       if (!employeeData.salary) {
         employeeData.salary = {
-          currency: "INR",
+          currency: companyCurrency(),
           ctc: 0,
           role: "",
           country: "INDIA",
@@ -923,7 +924,7 @@ const AddEmployeePage: React.FC = () => {
     else earnings.push({ name: "Special Allowance", amount: unallocated });
     handleChange("salary.earnings", earnings);
   };
-  const money = (value: number) => `${currencySymbol} ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const money = (value: number) => `${currencySymbol} ${formatNumber(value, 2)}`;
 
 
   return (
@@ -2141,7 +2142,7 @@ const AddEmployeePage: React.FC = () => {
                       <div className="space-y-3">
                         <div className="text-sm">
                           <div className="text-gray-500">Joining Date</div>
-                          <div className="text-gray-900">{form.joiningDate?.toLocaleDateString("en-IN")}</div>
+                          <div className="text-gray-900">{formatDate(form.joiningDate)}</div>
                         </div>
                         <div className="text-sm">
                           <div className="text-gray-500">Department</div>

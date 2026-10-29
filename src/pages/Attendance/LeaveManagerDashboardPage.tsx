@@ -16,6 +16,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from '../../access/usePermissions';
 import { useTheme } from '../../context/ThemeContext';
 import { apiError, ATTENDANCE_API, fetchLeaveBalances, formatDays, LeaveBalance, leaveTypeLabel } from './attendanceApi';
+import { formatDate } from "../../company/format";
 
 interface ManagerDashboardModel {
   totalEmployees?: number;
@@ -187,7 +188,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
       render: (row) => {
         const d = row.adjustedDate ? new Date(row.adjustedDate) : null;
         return <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-          {d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : row.adjustedDate}
+          {d && !isNaN(d.getTime()) ? formatDate(d) : row.adjustedDate}
         </span>;
       }
     },
@@ -404,7 +405,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           data={adjustments}
           columns={adjustmentColumns}
           loading={loading}
-          pageSize={5}
+          pageSize={10}
           defaultSortKey="adjustedDate"
           defaultSortOrder="desc"
           emptyState={<p className="text-xs text-slate-400 dark:text-gray-500 py-6 text-center">No adjustments yet.</p>}

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, FileText, Building, Calendar, User, CreditCard } from 'lucide-react';
 import { useCompany } from '../../company/companyApi';
+import { formatMoney } from "../../company/format";
 
 interface PayslipPreviewModalProps {
     isOpen: boolean;
@@ -170,13 +171,13 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                                 {payslipData.earnings?.map((e: any, i: number) => (
                                                     <div key={i} className="flex justify-between">
                                                         <span className="text-gray-600">{e.componentName || e.name || e.earningName}</span>
-                                                        <span className="font-medium">₹{e.amount?.toLocaleString() || '0'}</span>
+                                                        <span className="font-medium">{formatMoney(e.amount)}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                             <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
                                                 <span className="font-bold text-gray-800">Total Earnings</span>
-                                                <span className="font-bold text-gray-900">₹{(payslipData.totalEarnings ?? payslipData.grossSalary)?.toLocaleString() || '0'}</span>
+                                                <span className="font-bold text-gray-900">{formatMoney((payslipData.totalEarnings ?? payslipData.grossSalary))}</span>
                                             </div>
                                         </div>
 
@@ -188,7 +189,7 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                                     payslipData.deductions.map((d: any, i: number) => (
                                                         <div key={i} className="flex justify-between">
                                                             <span className="text-gray-600">{d.componentName || d.name || d.deductionName}</span>
-                                                            <span className="font-medium text-red-600">₹{d.amount?.toLocaleString() || '0'}</span>
+                                                            <span className="font-medium text-red-600">{formatMoney(d.amount)}</span>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -197,13 +198,13 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                             </div>
                                             <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
                                                 <span className="font-bold text-gray-800">Total Deductions</span>
-                                                <span className="font-bold text-red-600">₹{payslipData.totalDeductions?.toLocaleString() || '0'}</span>
+                                                <span className="font-bold text-red-600">{formatMoney(payslipData.totalDeductions)}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="bg-cyan-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
                                         <span className="font-bold text-gray-800 text-lg">Net Payable</span>
-                                        <span className="font-bold text-cyan-700 text-2xl">₹{payslipData.netSalary?.toLocaleString() || '0'}</span>
+                                        <span className="font-bold text-cyan-700 text-2xl">{formatMoney(payslipData.netSalary)}</span>
                                     </div>
                                 </div>
                             </div>

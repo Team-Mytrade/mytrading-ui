@@ -21,6 +21,7 @@ import {
   countOf, formatDate, formatMoney, formatNumber, getList, monthKeyOf, monthsBack, mostCommon, sum,
   useDashboardSources,
 } from "../Dashboard/dashboardKit";
+import { companyCurrency } from "../../company/format";
 
 // Live procurement overview built from the purchase and common services.
 
@@ -90,7 +91,7 @@ const ProcurementDashboard: React.FC = () => {
   const receipts = (data.receipts as GoodsReceipt[] | undefined) ?? [];
   const vendors = data.vendors as Vendor[] | undefined;
   const liveOrders = orders.filter((o) => o.status !== "CANCELLED");
-  const currency = mostCommon(orders.map((o) => o.currency), "INR");
+  const currency = mostCommon(orders.map((o) => o.currency), companyCurrency());
 
   const openRequisitions = requisitions.filter((r) => OPEN_REQUISITION.includes(r.status ?? ""));
   const awaitingRequisitions = requisitions.filter((r) => AWAITING_APPROVAL.includes(r.status ?? ""));

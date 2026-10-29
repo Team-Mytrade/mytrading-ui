@@ -13,7 +13,10 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, dateLabel, money, paymentMethodLabel, todayInput } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
+import { defaultBankAccountId, useBankAccounts } from "./bankShared";
+import BankAccountField from "./BankAccountField";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/vendor-payments`;
 const PAGE_SIZE = 10;
 
@@ -25,6 +28,8 @@ interface VendorPayment {
   invoice?: { id: number; invoiceNumber?: string; currency?: string };
   amountPaid?: number;
   paymentMethod?: string;
+  // Bank account / cash box it was paid from (none on older payments)
+  bankAccountId?: number | null;
   paidBy?: string;
 }
 
@@ -47,6 +52,7 @@ const emptyForm = () => ({
   amountPaid: "",
   paymentDate: todayInput(),
   paymentMethod: "BANK_TRANSFER",
+  bankAccountId: "",
   paymentReference: "",
   paidBy: "",
 });
@@ -63,6 +69,8 @@ const VendorPayments: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<VendorPayment | null>(null);
+  const bankAccounts = useBankAccounts();
+  const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -104,7 +112,8 @@ const VendorPayments: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm());
+    const fresh = emptyForm();
+    setForm({ ...fresh, bankAccountId: bankAccounts ? defaultBankAccountId(bankAccounts, fresh.paymentMethod) : "" });
     setFormOpen(true);
   };
 
@@ -116,6 +125,7 @@ const VendorPayments: React.FC = () => {
       amountPaid: String(payment.amountPaid ?? ""),
       paymentDate: payment.paymentDate ?? todayInput(),
       paymentMethod: payment.paymentMethod || "BANK_TRANSFER",
+      bankAccountId: payment.bankAccountId != null ? String(payment.bankAccountId) : "",
       paymentReference: payment.paymentReference ?? "",
       paidBy: payment.paidBy ?? "",
     });
@@ -140,6 +150,7 @@ const VendorPayments: React.FC = () => {
       amountPaid: amount,
       paymentDate: form.paymentDate || null,
       paymentMethod: form.paymentMethod,
+      bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
       paymentReference: form.paymentReference.trim() || null,
       paidBy: form.paidBy.trim() || null,
     };
@@ -229,12 +240,12 @@ const VendorPayments: React.FC = () => {
       render: (row) => (
         <div className="flex justify-end gap-0.5">
           {canUpdate && (
-            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="Edit payment">
+            <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit payment")}>
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
           {canDelete && (
-            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete payment">
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("Delete payment")}>
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -245,16 +256,16 @@ const VendorPayments: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Vendor Payments" description="Payments made to vendors against their bills" />
-      <PageBreadcrumb pageTitle="Vendor Payments" actions={canCreate ? <AddButton onClick={openCreate} label="Pay a bill" /> : undefined} />
+      <PageMeta title={t("Vendor Payments")} description="Payments made to vendors against their bills" />
+      <PageBreadcrumb pageTitle="Vendor Payments" actions={canCreate ? <AddButton onClick={openCreate} label={t("Pay a bill")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Payments" value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Paid in total" value={money(stats.total)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Paid this month" value={money(stats.thisMonth)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-          <StatsCard label="Still to pay" value={money(stats.toPay)} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
+          <StatsCard label={t("Payments")} value={stats.count} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Paid in total")} value={money(stats.total)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Paid this month")} value={money(stats.thisMonth)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
+          <StatsCard label={t("Still to pay")} value={money(stats.toPay)} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -278,7 +289,7 @@ const VendorPayments: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <UserGroupIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-sm text-gray-500">No vendor payments yet</p>
+              <p className="text-sm text-gray-500">{t("No vendor payments yet")}</p>
             </div>
           }
         />
@@ -287,14 +298,14 @@ const VendorPayments: React.FC = () => {
       <PaginatedPopup
         isOpen={formOpen}
         title={editing ? "Edit vendor payment" : "Pay a bill"}
-        subtitle="The payment settles the bill's payable"
+        subtitle={t("The payment settles the bill's payable")}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-2xl"
         content={
           <form onSubmit={save} className="flex flex-col">
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
               <FloatingSelect1
-                label="Vendor"
+                label={t("Vendor")}
                 name="vendorId"
                 required
                 value={form.vendorId}
@@ -302,7 +313,7 @@ const VendorPayments: React.FC = () => {
                 onChange={(event) => setForm((current) => ({ ...current, vendorId: event.target.value, invoiceId: "" }))}
               />
               <FloatingSelect1
-                label="Bill"
+                label={t("Bill")}
                 name="invoiceId"
                 required
                 value={form.invoiceId}
@@ -313,17 +324,21 @@ const VendorPayments: React.FC = () => {
                 onChange={(event) => chooseBill(event.target.value)}
               />
               {form.vendorId && billOptions.length === 0 && (
-                <p className="text-xs text-amber-700 sm:col-span-2">This vendor has no unpaid bills. Add the bill under Purchase Invoices first.</p>
+                <p className="text-xs text-amber-700 sm:col-span-2">{t("This vendor has no unpaid bills. Add the bill under Purchase Invoices first.")}</p>
               )}
-              <FloatingInput label="Amount paid" name="amountPaid" type="number" required value={form.amountPaid}
+              <FloatingInput label={t("Amount paid")} name="amountPaid" type="number" required value={form.amountPaid}
                 onChange={(event) => setForm((current) => ({ ...current, amountPaid: event.target.value }))} />
-              <FloatingInput label="Payment date" name="paymentDate" type="date" value={form.paymentDate}
+              <FloatingInput label={t("Payment date")} name="paymentDate" type="date" value={form.paymentDate}
                 onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} />
-              <FloatingSelect1 label="Method" name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
-                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
-              <FloatingInput label="Reference (UTR, cheque no.)" name="paymentReference" value={form.paymentReference}
+              <FloatingSelect1 label={t("Method")} name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => {
+                  const paymentMethod = event.target.value;
+                  setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
+                }} />
+              <BankAccountField accounts={bankAccounts} label={t("Paid from")} value={form.bankAccountId} onChange={setBankAccount} />
+              <FloatingInput label={t("Reference (UTR, cheque no.)")} name="paymentReference" value={form.paymentReference}
                 onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
-              <FloatingInput label="Paid by" name="paidBy" value={form.paidBy}
+              <FloatingInput label={t("Paid by")} name="paidBy" value={form.paidBy}
                 onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value }))} />
             </div>
             <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Record payment"} busy={busy} />
@@ -333,9 +348,9 @@ const VendorPayments: React.FC = () => {
 
       <ConfirmDialog
         isOpen={Boolean(deleting)}
-        title="Delete payment"
+        title={t("Delete payment")}
         message={`Delete the ${money(deleting?.amountPaid)} payment to ${deleting?.vendor?.name ?? "the vendor"}? Bill ${deleting?.invoice?.invoiceNumber ?? ""} will show that amount as due again.`}
-        confirmLabel="Delete"
+        confirmLabel={t("Delete")}
         variant="danger"
         onConfirm={remove}
         onCancel={() => setDeleting(null)}

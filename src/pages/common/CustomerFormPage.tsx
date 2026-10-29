@@ -23,6 +23,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { CUSTOMER_TYPE_OPTIONS, apiError } from "../CRM/crmShared";
 import { formatMoney } from "../Dashboard/dashboardKit";
+import { companyCurrency, currencyChoices } from "../../company/format";
 
 // Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
 
@@ -47,15 +48,16 @@ const PAYMENT_TERM_OPTIONS = [
   { id: "NET90", name: "Net 90 days" },
 ];
 
-const CURRENCY_OPTIONS = [
-  { id: "INR", name: "INR — Indian rupee" },
-  { id: "USD", name: "USD — US dollar" },
-  { id: "EUR", name: "EUR — Euro" },
-  { id: "GBP", name: "GBP — British pound" },
-  { id: "AED", name: "AED — UAE dirham" },
-  { id: "QAR", name: "QAR — Qatari riyal" },
-  { id: "JPY", name: "JPY — Japanese yen" },
-];
+// "AED — UAE Dirham": the company's currency first, then Gulf, INR and major currencies
+const currencyNames = (() => {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "currency" });
+  } catch {
+    return null;
+  }
+})();
+const currencyOptions = (stored?: string) =>
+  currencyChoices(stored).map((code) => ({ id: code, name: `${code} — ${currencyNames?.of(code) ?? code}` }));
 
 const ADDRESS_TYPES = [
   { id: "BILLING", name: "Billing", icon: HomeIcon },
@@ -128,7 +130,9 @@ const EMPTY_FORM: CustomerForm = {
   website: "",
   salesPersonId: "",
   paymentTerms: "NET30",
-  currencyCode: "INR",
+  get currencyCode() {
+    return companyCurrency();
+  },
   creditLimit: "",
   addresses: [],
 };
@@ -248,7 +252,7 @@ const CustomerFormPage: React.FC = () => {
           website: text(data.website),
           salesPersonId: text(data.salesPersonId),
           paymentTerms: text(data.paymentTerms),
-          currencyCode: text(data.currencyCode) || "INR",
+          currencyCode: text(data.currencyCode) || companyCurrency(),
           creditLimit: text(data.creditLimit),
           addresses: (data.addresses ?? []).map((a: Address) => ({
             ...EMPTY_ADDRESS,
@@ -352,7 +356,7 @@ const CustomerFormPage: React.FC = () => {
       salesPersonId: form.salesPersonId ? Number(form.salesPersonId) : null,
       salesPersonName: salesPerson?.name ?? null,
       paymentTerms: form.paymentTerms || null,
-      currencyCode: form.currencyCode || "INR",
+      currencyCode: form.currencyCode || companyCurrency(),
       creditLimit: form.creditLimit === "" ? null : Number(form.creditLimit),
       currentCredit: salesFigures.currentCredit,
       outstandingBalance: salesFigures.outstandingBalance,
@@ -390,13 +394,7 @@ const CustomerFormPage: React.FC = () => {
         : PAYMENT_TERM_OPTIONS,
     [form.paymentTerms]
   );
-  const currencyOptions = useMemo(
-    () =>
-      form.currencyCode && !CURRENCY_OPTIONS.some((o) => o.id === form.currencyCode)
-        ? [...CURRENCY_OPTIONS, { id: form.currencyCode, name: form.currencyCode }]
-        : CURRENCY_OPTIONS,
-    [form.currencyCode]
-  );
+  const currencySelectOptions = useMemo(() => currencyOptions(form.currencyCode), [form.currencyCode]);
   const salesPersonOptions = (salesPersons ?? [])
     .filter((p) => p.active !== false || String(p.id) === form.salesPersonId)
     .map((p) => ({ id: String(p.id), name: p.code ? `${p.name} (${p.code})` : p.name }));
@@ -479,7 +477,7 @@ const CustomerFormPage: React.FC = () => {
                     includeEmptyOption={false}
                   />
                   <FloatingInput
-                    label="GSTIN / Tax number"
+                    label="GSTIN / VAT TRN"
                     name="taxNumber"
                     value={form.taxNumber}
                     onChange={(e) => update("taxNumber", e.target.value.toUpperCase())}
@@ -517,7 +515,7 @@ const CustomerFormPage: React.FC = () => {
                     onChange={(e) => update("phone", e.target.value)}
                     maxLength={50}
                   />
-                  <div className="md:col-span-2">
+                  <div>
                     <FloatingInput
                       label="Website"
                       name="website"
@@ -741,7 +739,7 @@ const CustomerFormPage: React.FC = () => {
                   name="currencyCode"
                   value={form.currencyCode}
                   onChange={(e) => update("currencyCode", e.target.value)}
-                  options={currencyOptions}
+                  options={currencySelectOptions}
                   includeEmptyOption={false}
                 />
                 <FloatingInput
@@ -758,7 +756,7 @@ const CustomerFormPage: React.FC = () => {
                     ? "Leave blank for no limit — orders aren't checked against credit."
                     : Number(form.creditLimit) === 0
                     ? "A limit of 0 blocks every order on credit."
-                    : `Orders are checked against ${formatMoney(Number(form.creditLimit), form.currencyCode || "INR")}.`}
+                    : `Orders are checked against ${formatMoney(Number(form.creditLimit), form.currencyCode || companyCurrency())}.`}
                 </Hint>
               </Section>
 
@@ -772,7 +770,7 @@ const CustomerFormPage: React.FC = () => {
                     <div className="flex justify-between gap-3">
                       <dt className="text-gray-500 dark:text-gray-400">Outstanding balance</dt>
                       <dd className="font-semibold text-gray-900 dark:text-gray-100">
-                        {formatMoney(salesFigures.outstandingBalance, form.currencyCode || "INR")}
+                        {formatMoney(salesFigures.outstandingBalance, form.currencyCode || companyCurrency())}
                       </dd>
                     </div>
                   </dl>

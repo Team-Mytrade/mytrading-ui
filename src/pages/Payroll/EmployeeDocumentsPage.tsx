@@ -47,6 +47,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { AddButton } from "../../components/common/AddButton";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
+import { formatDate, formatDateTime } from "../../company/format";
 
 interface EmployeeDocument {
     id: number;
@@ -220,7 +221,7 @@ const EmployeeDocumentsPage: React.FC = () => {
         doc.setFontSize(18);
         doc.text(`Employee Documents - ID: ${employeeIdNum}`, 14, 15);
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+        doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         doc.text(`Total Documents: ${filtered.length}`, 14, 28);
 
         autoTable(doc, {
@@ -230,7 +231,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                 d.documentType,
                 d.fileName,
                 STATUS_LABEL[d.status] || d.status,
-                d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString() : "-"
+                d.uploadedAt ? formatDate(d.uploadedAt) : "-"
             ]),
             startY: 35,
             styles: { fontSize: 8 },
@@ -249,7 +250,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             'File Type': d.fileType,
             'File Size': d.fileSize ? `${(d.fileSize / 1024).toFixed(2)} KB` : "-",
             'Status': STATUS_LABEL[d.status] || d.status,
-            'Uploaded Date': d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString() : "-",
+            'Uploaded Date': d.uploadedAt ? formatDate(d.uploadedAt) : "-",
             'Remarks': d.remarks || "",
         })));
         const wb = XLSX.utils.book_new();
@@ -378,7 +379,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             key: "uploadedAt",
             label: "Uploaded Date",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-500 dark:text-gray-400">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleDateString() : "-"}</span>
+            render: (row) => <span className="text-xs text-gray-500 dark:text-gray-400">{row.uploadedAt ? formatDate(row.uploadedAt) : "-"}</span>
         },
         {
             key: "actions",
@@ -612,7 +613,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                     {selectedDocument.uploadedAt && (
                                                         <div className="col-span-2">
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">Uploaded Date</p>
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">{formatDateTime(selectedDocument.uploadedAt)}</p>
                                                         </div>
                                                     )}
                                                     {selectedDocument.remarks && (

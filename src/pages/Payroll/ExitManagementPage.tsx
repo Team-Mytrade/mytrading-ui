@@ -8,10 +8,13 @@ import {
     ClockIcon,
     FlagIcon,
 } from '@heroicons/react/24/outline';
+import { Link } from 'react-router-dom';
+import { usePermissions } from '../../access/usePermissions';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { AddButton } from '../../components/common/AddButton';
 import StatsCard from '../../components/common/Statscard';
+import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import PaginatedPopup from '../../components/common/unpopup';
 import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingTextarea } from '../../components/inputfeild/FloatingInput';
 import { ToasterService } from '../../Services/ToasterService';
@@ -51,6 +54,43 @@ const STATUS_LABEL: Record<ExitStatus, string> = {
 // Dates come as yyyy-MM-dd; shown as dd/MM/yyyy without shifting the day
 const showDate = (iso?: string | null) => (iso ? iso.split('-').reverse().join('/') : '-');
 
+const statusBadge = (status: ExitStatus) =>
+    ['SUBMITTED', 'UNDER_REVIEW'].includes(status) ? 'bg-amber-50 text-amber-600 border-amber-100'
+    : ['APPROVED', 'NOTICE_PERIOD', 'COMPLETED'].includes(status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+    : status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100'
+    : 'bg-gray-100 text-gray-500 border-gray-200';
+
+// What became of a request: who decided what, when, and their note
+const outcome = (r: ExitRequest) =>
+    r.status === 'COMPLETED' ? `Relieved ${showDate(r.relievedDate || r.lastWorkingDay)}`
+    : r.status === 'REJECTED' ? `Rejected ${showDate(r.rejectedDate)}${r.rejectedReason ? `: ${r.rejectedReason}` : ''}`
+    : r.status === 'REVERTED' ? `Withdrawn ${showDate(r.revertedDate)}${r.revertReason ? `: ${r.revertReason}` : ''}`
+    : r.withdrawalRequested ? 'Withdrawal waiting for HR'
+    : r.approvedDate ? `Approved ${showDate(r.approvedDate)}`
+    : 'Waiting for HR';
+
+// Every resignation of the employee, newest first (GET /exit/my)
+const HISTORY_COLUMNS: ColumnDef<ExitRequest>[] = [
+    { key: 'resignationDate', label: 'Applied On', sortable: true, render: (r) => <span className="text-xs">{showDate(r.resignationDate)}</span> },
+    { key: 'lastWorkingDay', label: 'Last Working Day', sortable: true, render: (r) => <span className="text-xs">{showDate(r.lastWorkingDay)}</span> },
+    {
+        key: 'reason', label: 'Reason',
+        render: (r) => <p className="max-w-[260px] truncate text-xs text-slate-600 dark:text-gray-300" title={r.reason}>{r.reason || '-'}</p>,
+    },
+    {
+        key: 'status', label: 'Status', sortable: true,
+        render: (r) => (
+            <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:border-transparent dark:bg-transparent dark:text-gray-300 ${statusBadge(r.status)}`}>
+                {STATUS_LABEL[r.status] || r.status}
+            </span>
+        ),
+    },
+    {
+        key: 'outcome', label: 'Outcome',
+        render: (r) => <p className="max-w-[280px] truncate text-xs text-slate-600 dark:text-gray-300" title={outcome(r)}>{outcome(r)}</p>,
+    },
+];
+
 const addDays = (isoDate: string, days: number) => {
     const [y, m, d] = isoDate.split('-').map(Number);
     return toLocalIsoDate(new Date(y, m - 1, d + days));
@@ -59,6 +99,7 @@ const addDays = (isoDate: string, days: number) => {
 const emptyForm = () => ({ resignationDate: todayIso(), noticePeriod: 90, lastWorkingDay: '', reason: '', comment: '' });
 
 const ExitManagementPage: React.FC = () => {
+    const { canApprove } = usePermissions();
     const [loading, setLoading] = useState(false);
     const [notLinked, setNotLinked] = useState<string | null>(null);
     const [requests, setRequests] = useState<ExitRequest[]>([]);
@@ -189,6 +230,13 @@ const ExitManagementPage: React.FC = () => {
             />
 
             <div className={PAGE_BODY}>
+                {/* This page is the user's own resignation; approvers handle everyone's on Exit Approvals */}
+                {canApprove && (
+                    <p className="mb-3 rounded-lg border border-[#b2ebf2] bg-[#e0f7fa] px-3 py-2 text-xs text-slate-700">
+                        This page is for your own resignation. To review, edit or approve employees' exit requests, open{' '}
+                        <Link to="/exitApprovals" className="font-semibold text-[#006f7a] hover:underline">Exit Approvals</Link>.
+                    </p>
+                )}
                 {notLinked || !isOpen ? (
                     // Nothing open: the standard empty state, with the last resignation's outcome
                     <div className={`${CARD} flex flex-col items-center justify-center px-6 py-14 text-center`}>
@@ -309,6 +357,23 @@ const ExitManagementPage: React.FC = () => {
                             </div>
                         </div>
                     </>
+                )}
+
+                {/* Every resignation so far, including withdrawn and rejected ones */}
+                {!notLinked && requests.length > 0 && (
+                    <div className={`${CARD} mt-4 p-4`}>
+                        <h3 className={`${CARD_TITLE} mb-3`}>Request History ({requests.length})</h3>
+                        <ReusableTable
+                            data={requests}
+                            columns={HISTORY_COLUMNS}
+                            loading={loading}
+                            pageSize={10}
+                            defaultSortKey="resignationDate"
+                            defaultSortOrder="desc"
+                            rowDetailsTitle={(r) => `Resignation of ${showDate(r.resignationDate)}`}
+                            rowDetailsSubtitle="Your resignation"
+                        />
+                    </div>
                 )}
             </div>
 

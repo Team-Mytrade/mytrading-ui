@@ -7,6 +7,7 @@ import {
   CheckCircleIcon,
   DocumentPlusIcon,
   DocumentTextIcon,
+  EnvelopeIcon,
   EyeIcon,
   NoSymbolIcon,
   PencilSquareIcon,
@@ -38,7 +39,9 @@ import {
   todayInput,
 } from "./invoiceShared";
 import { ActionButton, DialogFooter, StatusBadge } from "./invoiceUi";
+import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/invoices`;
 const PAGE_SIZE = 10;
 
@@ -90,7 +93,7 @@ const Invoices: React.FC = () => {
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<"issue" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<"issue" | "delete" | "remind" | null>(null);
 
   // Generate from dispatch
   const [pendingDispatches, setPendingDispatches] = useState<PendingDispatch[] | null>(null);
@@ -228,6 +231,23 @@ const Invoices: React.FC = () => {
       await refreshSelected(selected.id);
     } catch (err) {
       ToasterService.error(apiError(err, "Could not issue the invoice"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Emails the customer a payment reminder now (the company's template; overdue or before the due date)
+  const sendReminder = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const { data } = await axios.post<{ subject?: string }>(`${API_URL}/${selected.id}/reminder`);
+      ToasterService.success(`Payment reminder emailed to ${selected.customerEmail}`, data?.subject);
+      setConfirm(null);
+      await refreshSelected(selected.id);
+    } catch (err) {
+      setConfirm(null);
+      ToasterService.error(apiError(err, "Could not send the reminder"));
     } finally {
       setBusy(false);
     }
@@ -449,7 +469,7 @@ const Invoices: React.FC = () => {
       className: "text-right",
       render: (invoice) => (
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => openDetail(invoice)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title="View invoice">
+          <button type="button" onClick={() => openDetail(invoice)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("View invoice")}>
             <EyeIcon className="h-4 w-4" />
           </button>
           {isOpenInvoice(invoice.status) && canCreate && (
@@ -457,7 +477,7 @@ const Invoices: React.FC = () => {
               type="button"
               onClick={() => navigate(`/paymentReceipts?customerId=${invoice.customerId}&invoiceId=${invoice.id}`)}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
-              title="Record payment"
+              title={t("Record payment")}
             >
               <BanknotesIcon className="h-4 w-4" />
             </button>
@@ -483,28 +503,28 @@ const Invoices: React.FC = () => {
             </p>
           </div>
           <div className="text-right text-sm text-slate-600">
-            <div>Invoice date <strong className="text-slate-800">{dateLabel(selected.invoiceDate)}</strong></div>
-            <div>Due <strong className="text-slate-800">{dateLabel(selected.dueDate)}</strong> {selected.paymentTerms ? `(${selected.paymentTerms})` : ""}</div>
+            <div>{t("Invoice date")} <strong className="text-slate-800">{dateLabel(selected.invoiceDate)}</strong></div>
+            <div>{t("Due")} <strong className="text-slate-800">{dateLabel(selected.dueDate)}</strong> {selected.paymentTerms ? `(${selected.paymentTerms})` : ""}</div>
           </div>
         </div>
 
         <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm sm:grid-cols-4">
-          <div><dt className="text-xs text-slate-500">Sales order</dt><dd className="font-medium text-slate-800">{selected.salesOrderNumber || "—"}</dd></div>
-          <div><dt className="text-xs text-slate-500">Dispatch</dt><dd className="font-medium text-slate-800">{selected.salesDispatchNumber || "—"}</dd></div>
-          <div><dt className="text-xs text-slate-500">Customer reference</dt><dd className="font-medium text-slate-800">{selected.customerReference || "—"}</dd></div>
-          <div><dt className="text-xs text-slate-500">Currency</dt><dd className="font-medium text-slate-800">{selected.currencyCode || "INR"}</dd></div>
+          <div><dt className="text-xs text-slate-500">{t("Sales order")}</dt><dd className="font-medium text-slate-800">{selected.salesOrderNumber || "—"}</dd></div>
+          <div><dt className="text-xs text-slate-500">{t("Dispatch")}</dt><dd className="font-medium text-slate-800">{selected.salesDispatchNumber || "—"}</dd></div>
+          <div><dt className="text-xs text-slate-500">{t("Customer reference")}</dt><dd className="font-medium text-slate-800">{selected.customerReference || "—"}</dd></div>
+          <div><dt className="text-xs text-slate-500">{t("Currency")}</dt><dd className="font-medium text-slate-800">{selected.currencyCode || companyCurrency()}</dd></div>
         </dl>
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-2 text-left">Item</th>
-                <th className="px-3 py-2 text-right">Qty</th>
-                <th className="px-3 py-2 text-right">Price</th>
-                <th className="px-3 py-2 text-right">Discount</th>
-                <th className="px-3 py-2 text-right">Tax</th>
-                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2 text-left">{t("Item")}</th>
+                <th className="px-3 py-2 text-right">{t("Qty")}</th>
+                <th className="px-3 py-2 text-right">{t("Price")}</th>
+                <th className="px-3 py-2 text-right">{t("Discount")}</th>
+                <th className="px-3 py-2 text-right">{t("Tax")}</th>
+                <th className="px-3 py-2 text-right">{t("Total")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -534,13 +554,13 @@ const Invoices: React.FC = () => {
           <div className="space-y-3 text-sm">
             {selected.remarks && (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Remarks</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Remarks")}</div>
                 <p className="mt-1 whitespace-pre-line text-slate-700">{selected.remarks}</p>
               </div>
             )}
             {creditNotes.length > 0 && (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Credit notes</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Credit notes")}</div>
                 <ul className="mt-1 space-y-1">
                   {creditNotes.map((note) => (
                     <li key={note.id} className="flex justify-between gap-2 text-slate-700">
@@ -553,7 +573,7 @@ const Invoices: React.FC = () => {
             )}
             {documents.length > 0 && (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">PDF versions</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("PDF versions")}</div>
                 <ul className="mt-1 space-y-1 text-slate-600">
                   {documents.map((doc) => (
                     <li key={doc.id}>{doc.fileName} · {labelOf(doc.status)} · {dateLabel(doc.generatedAt)}</li>
@@ -563,49 +583,70 @@ const Invoices: React.FC = () => {
             )}
           </div>
           <dl className="space-y-1 rounded-xl border border-slate-200 p-3 text-sm">
-            <div className="flex justify-between"><dt className="text-slate-500">Subtotal</dt><dd>{money(selected.subTotal, selected.currencyCode)}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Discount</dt><dd>− {money(selected.discountAmount, selected.currencyCode)}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Tax</dt><dd>{money(selected.taxAmount, selected.currencyCode)}</dd></div>
-            <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-900"><dt>Total</dt><dd>{money(selected.grandTotal, selected.currencyCode)}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Paid</dt><dd>{money(selected.amountPaid, selected.currencyCode)}</dd></div>
-            <div className="flex justify-between font-semibold text-cyan-700"><dt>Balance due</dt><dd>{money(selected.balanceAmount, selected.currencyCode)}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500">{t("Subtotal")}</dt><dd>{money(selected.subTotal, selected.currencyCode)}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500">{t("Discount")}</dt><dd>− {money(selected.discountAmount, selected.currencyCode)}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500">{t("Tax")}</dt><dd>{money(selected.taxAmount, selected.currencyCode)}</dd></div>
+            <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-900"><dt>{t("Total")}</dt><dd>{money(selected.grandTotal, selected.currencyCode)}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500">{t("Paid")}</dt><dd>{money(selected.amountPaid, selected.currencyCode)}</dd></div>
+            <div className="flex justify-between font-semibold text-cyan-700"><dt>{t("Balance due")}</dt><dd>{money(selected.balanceAmount, selected.currencyCode)}</dd></div>
+            {/* In another currency: the rate it was booked at, and the total in the company's money */}
+            {selected.exchangeRate != null && selected.currencyCode && selected.currencyCode !== companyCurrency() && (
+              <div className="flex justify-between border-t border-slate-100 pt-1 text-xs text-slate-500">
+                <dt>{t("Booked at 1 {currency} = {rate} {company}", { currency: selected.currencyCode ?? "", rate: Number(selected.exchangeRate), company: companyCurrency() })}</dt>
+                <dd>{money(Number(selected.grandTotal || 0) * Number(selected.exchangeRate), companyCurrency())}</dd>
+              </div>
+            )}
+            {selected.lastReminderOn && (
+              <div className="flex justify-between border-t border-slate-100 pt-1 text-xs text-slate-500">
+                <dt>{t("Last payment reminder")}</dt>
+                <dd>
+                  {dateLabel(selected.lastReminderOn)}
+                  {selected.overdueRemindersSent ? ` · ${selected.overdueRemindersSent} overdue sent` : " · before due"}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
       </div>
 
       <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-5">
         {selected.status === "DRAFT" && canDelete && (
-          <ActionButton tone="danger" icon={TrashIcon} label="Delete draft" onClick={() => setConfirm("delete")} disabled={busy} />
+          <ActionButton tone="danger" icon={TrashIcon} label={t("Delete draft")} onClick={() => setConfirm("delete")} disabled={busy} />
         )}
         {selected.status === "DRAFT" && canUpdate && (
-          <ActionButton icon={PencilSquareIcon} label="Edit" disabled={busy} onClick={() => {
+          <ActionButton icon={PencilSquareIcon} label={t("Edit")} disabled={busy} onClick={() => {
             setEditForm({ invoiceDate: selected.invoiceDate || "", remarks: selected.remarks || "" });
             setDialog("edit");
           }} />
         )}
         {selected.status === "DRAFT" && canApprove && (
-          <ActionButton tone="primary" icon={CheckCircleIcon} label="Issue invoice" onClick={() => setConfirm("issue")} disabled={busy} />
+          <ActionButton tone="primary" icon={CheckCircleIcon} label={t("Issue invoice")} onClick={() => setConfirm("issue")} disabled={busy} />
         )}
         {isOpenInvoice(selected.status) && Number(selected.amountPaid || 0) === 0 && canApprove && (
-          <ActionButton tone="danger" icon={NoSymbolIcon} label="Cancel invoice" disabled={busy} onClick={() => {
+          <ActionButton tone="danger" icon={NoSymbolIcon} label={t("Cancel invoice")} disabled={busy} onClick={() => {
             setCancelReason("");
             setDialog("cancel");
           }} />
         )}
         {selected.status !== "DRAFT" && selected.status !== "CANCELLED" && selected.status !== "VOID" && canCreate && (
-          <ActionButton icon={ReceiptRefundIcon} label="Credit note" disabled={busy} onClick={() => {
+          <ActionButton icon={ReceiptRefundIcon} label={t("Credit note")} disabled={busy} onClick={() => {
             setCreditNoteForm({ amount: "", creditNoteType: "DISCOUNT", reason: "" });
             setDialog("creditNote");
           }} />
         )}
         {isOpenInvoice(selected.status) && canCreate && (
-          <ActionButton icon={DocumentPlusIcon} label="Apply credit" onClick={openApplyCredit} disabled={busy} />
+          <ActionButton icon={DocumentPlusIcon} label={t("Apply credit")} onClick={openApplyCredit} disabled={busy} />
+        )}
+        {isOpenInvoice(selected.status) && Number(selected.balanceAmount || 0) > 0 && canCreate && (
+          <ActionButton icon={EnvelopeIcon} label={t("Send payment reminder")} disabled={busy || !selected.customerEmail}
+            title={selected.customerEmail ? `Email ${selected.customerEmail}` : "The invoice has no customer email address"}
+            onClick={() => setConfirm("remind")} />
         )}
         {selected.status !== "DRAFT" && canExport && (
           <ActionButton icon={ArrowDownTrayIcon} label={busy ? "Preparing…" : "Download PDF"} onClick={downloadPdf} disabled={busy} />
         )}
         {isOpenInvoice(selected.status) && canCreate && (
-          <ActionButton tone="primary" icon={BanknotesIcon} label="Record payment" disabled={busy}
+          <ActionButton tone="primary" icon={BanknotesIcon} label={t("Record payment")} disabled={busy}
             onClick={() => navigate(`/paymentReceipts?customerId=${selected.customerId}&invoiceId=${selected.id}`)} />
         )}
       </div>
@@ -616,18 +657,18 @@ const Invoices: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Invoices" description="Sales invoices generated from dispatches" />
+      <PageMeta title={t("Invoices")} description="Sales invoices generated from dispatches" />
       <PageBreadcrumb
         pageTitle="Invoices"
-        actions={canCreate ? <AddButton onClick={openGenerate} label="Generate invoice" /> : undefined}
+        actions={canCreate ? <AddButton onClick={openGenerate} label={t("Generate invoice")} /> : undefined}
       />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Outstanding" value={money(stats.outstanding)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Overdue invoices" value={stats.overdue} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
-          <StatsCard label="Drafts to issue" value={stats.drafts} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
-          <StatsCard label="Paid" value={stats.paid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Outstanding")} value={money(stats.outstanding)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Overdue invoices")} value={stats.overdue} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Drafts to issue")} value={stats.drafts} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
+          <StatsCard label={t("Paid")} value={stats.paid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -648,15 +689,15 @@ const Invoices: React.FC = () => {
           columns={columns}
           pageSize={PAGE_SIZE}
           searchable
-          searchPlaceholder="Search by invoice, customer or dispatch…"
+          searchPlaceholder={t("Search by invoice, customer or dispatch…")}
           searchFields={["invoiceNumber", "customerName", "salesDispatchNumber", "salesOrderNumber"]}
           onRowClick={openDetail}
           loading={loading}
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <DocumentTextIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-1 text-sm text-gray-500">No invoices yet</p>
-              <p className="text-xs text-gray-400">Invoices are generated from confirmed sales dispatches.</p>
+              <p className="mb-1 text-sm text-gray-500">{t("No invoices yet")}</p>
+              <p className="text-xs text-gray-400">{t("Invoices are generated from confirmed sales dispatches.")}</p>
             </div>
           }
         />
@@ -664,7 +705,7 @@ const Invoices: React.FC = () => {
 
       <PaginatedPopup
         isOpen={Boolean(selected) && !dialog && !confirm}
-        title="Invoice"
+        title={t("Invoice")}
         subtitle={selected ? `${selected.customerName ?? ""} · ${labelOf(selected.status)}` : ""}
         onClose={() => setSelected(null)}
         maxWidthClassName="max-w-4xl"
@@ -674,19 +715,19 @@ const Invoices: React.FC = () => {
       {/* Generate from a confirmed dispatch */}
       <PaginatedPopup
         isOpen={dialog === "generate"}
-        title="Generate invoice"
-        subtitle="From a confirmed sales dispatch. The invoice starts as a draft you can check before issuing."
+        title={t("Generate invoice")}
+        subtitle={t("From a confirmed sales dispatch. The invoice starts as a draft you can check before issuing.")}
         onClose={() => setDialog(null)}
         maxWidthClassName="max-w-2xl"
         content={
           <form onSubmit={generate} className="flex flex-col">
             <div className="max-h-[60dvh] space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
               {pendingDispatches === null ? (
-                <p className="text-sm text-slate-500">Loading dispatches…</p>
+                <p className="text-sm text-slate-500">{t("Loading dispatches…")}</p>
               ) : pendingDispatches.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
                   <TruckIcon className="mx-auto mb-2 h-8 w-8 text-slate-400" />
-                  No confirmed dispatches are waiting for an invoice.
+                  {t("No confirmed dispatches are waiting for an invoice.")}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -713,13 +754,13 @@ const Invoices: React.FC = () => {
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
-                <FloatingInput label="Invoice date" name="invoiceDate" type="date" value={generateForm.invoiceDate}
+                <FloatingInput label={t("Invoice date")} name="invoiceDate" type="date" value={generateForm.invoiceDate}
                   onChange={(event) => setGenerateForm((form) => ({ ...form, invoiceDate: event.target.value }))} />
-                <FloatingInput label="Remarks" name="remarks" value={generateForm.remarks}
+                <FloatingInput label={t("Remarks")} name="remarks" value={generateForm.remarks}
                   onChange={(event) => setGenerateForm((form) => ({ ...form, remarks: event.target.value }))} />
               </div>
             </div>
-            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Create draft" busy={busy} disabled={!generateForm.dispatchId} />
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Create draft")} busy={busy} disabled={!generateForm.dispatchId} />
           </form>
         }
       />
@@ -728,18 +769,18 @@ const Invoices: React.FC = () => {
       <PaginatedPopup
         isOpen={dialog === "edit"}
         title={`Edit draft ${selected?.invoiceNumber ?? ""}`}
-        subtitle="Lines, prices and taxes come from the sales order and dispatch."
+        subtitle={t("Lines, prices and taxes come from the sales order and dispatch.")}
         onClose={() => setDialog(null)}
         maxWidthClassName="max-w-lg"
         content={
           <form onSubmit={saveDraft} className="flex flex-col">
             <div className="space-y-3 px-4 py-4 sm:px-5">
-              <FloatingInput label="Invoice date" name="invoiceDate" type="date" value={editForm.invoiceDate}
+              <FloatingInput label={t("Invoice date")} name="invoiceDate" type="date" value={editForm.invoiceDate}
                 onChange={(event) => setEditForm((form) => ({ ...form, invoiceDate: event.target.value }))} />
-              <FloatingTextarea label="Remarks" name="remarks" rows={3} value={editForm.remarks}
+              <FloatingTextarea label={t("Remarks")} name="remarks" rows={3} value={editForm.remarks}
                 onChange={(event) => setEditForm((form) => ({ ...form, remarks: event.target.value }))} />
             </div>
-            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Save" busy={busy} />
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Save")} busy={busy} />
           </form>
         }
       />
@@ -748,16 +789,16 @@ const Invoices: React.FC = () => {
       <PaginatedPopup
         isOpen={dialog === "cancel"}
         title={`Cancel ${selected?.invoiceNumber ?? ""}`}
-        subtitle="The receivable is closed and the invoice stays on record as cancelled."
+        subtitle={t("The receivable is closed and the invoice stays on record as cancelled.")}
         onClose={() => setDialog(null)}
         maxWidthClassName="max-w-lg"
         content={
           <form onSubmit={cancelInvoice} className="flex flex-col">
             <div className="px-4 py-4 sm:px-5">
-              <FloatingTextarea label="Reason" name="reason" rows={3} required value={cancelReason}
+              <FloatingTextarea label={t("Reason")} name="reason" rows={3} required value={cancelReason}
                 onChange={(event) => setCancelReason(event.target.value)} />
             </div>
-            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Cancel invoice" busy={busy} danger />
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Cancel invoice")} busy={busy} danger />
           </form>
         }
       />
@@ -772,16 +813,16 @@ const Invoices: React.FC = () => {
         content={
           <form onSubmit={createCreditNote} className="flex flex-col">
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
-              <FloatingInput label="Amount" name="amount" type="number" required value={creditNoteForm.amount}
+              <FloatingInput label={t("Amount")} name="amount" type="number" required value={creditNoteForm.amount}
                 onChange={(event) => setCreditNoteForm((form) => ({ ...form, amount: event.target.value }))} />
-              <FloatingSelect1 label="Type" name="creditNoteType" value={creditNoteForm.creditNoteType} options={CREDIT_NOTE_TYPE_OPTIONS}
+              <FloatingSelect1 label={t("Type")} name="creditNoteType" value={creditNoteForm.creditNoteType} options={CREDIT_NOTE_TYPE_OPTIONS}
                 includeEmptyOption={false} onChange={(event) => setCreditNoteForm((form) => ({ ...form, creditNoteType: event.target.value }))} />
               <div className="sm:col-span-2">
-                <FloatingTextarea label="Reason" name="reason" rows={3} required value={creditNoteForm.reason}
+                <FloatingTextarea label={t("Reason")} name="reason" rows={3} required value={creditNoteForm.reason}
                   onChange={(event) => setCreditNoteForm((form) => ({ ...form, reason: event.target.value }))} />
               </div>
             </div>
-            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Issue credit note" busy={busy} />
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Issue credit note")} busy={busy} />
           </form>
         }
       />
@@ -797,11 +838,11 @@ const Invoices: React.FC = () => {
           <form onSubmit={applyCredit} className="flex flex-col">
             <div className="space-y-3 px-4 py-4 sm:px-5">
               {credits.length === 0 ? (
-                <p className="text-sm text-slate-500">This customer has no unused credit.</p>
+                <p className="text-sm text-slate-500">{t("This customer has no unused credit.")}</p>
               ) : (
                 <>
                   <FloatingSelect1
-                    label="Credit"
+                    label={t("Credit")}
                     name="creditId"
                     value={applyForm.creditId}
                     options={credits.map((credit) => ({
@@ -814,19 +855,19 @@ const Invoices: React.FC = () => {
                       setApplyForm((form) => ({ ...form, creditId: event.target.value, amount: amount ? String(amount) : "" }));
                     }}
                   />
-                  <FloatingInput label="Amount to apply" name="amount" type="number" value={applyForm.amount}
+                  <FloatingInput label={t("Amount to apply")} name="amount" type="number" value={applyForm.amount}
                     onChange={(event) => setApplyForm((form) => ({ ...form, amount: event.target.value }))} />
                   {selectedCredit && (
                     <p className="text-xs text-slate-500">
-                      Up to {money(Math.min(Number(selectedCredit.remainingAmount), Number(selected?.balanceAmount || 0)), selected?.currencyCode)}
+                      {t("Up to")} {money(Math.min(Number(selectedCredit.remainingAmount), Number(selected?.balanceAmount || 0)), selected?.currencyCode)}
                     </p>
                   )}
-                  <FloatingInput label="Remarks" name="remarks" value={applyForm.remarks}
+                  <FloatingInput label={t("Remarks")} name="remarks" value={applyForm.remarks}
                     onChange={(event) => setApplyForm((form) => ({ ...form, remarks: event.target.value }))} />
                 </>
               )}
             </div>
-            <DialogFooter onCancel={() => setDialog(null)} submitLabel="Apply credit" busy={busy} disabled={!credits.length} />
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Apply credit")} busy={busy} disabled={!credits.length} />
           </form>
         }
       />
@@ -838,6 +879,15 @@ const Invoices: React.FC = () => {
         confirmLabel={busy ? "Issuing…" : "Issue"}
         variant="info"
         onConfirm={issue}
+        onCancel={() => setConfirm(null)}
+      />
+      <ConfirmDialog
+        isOpen={confirm === "remind"}
+        title={`Email a payment reminder for ${selected?.invoiceNumber ?? "this invoice"}?`}
+        message={`${selected?.customerName ?? "The customer"} (${selected?.customerEmail ?? "no email"}) is reminded that ${money(selected?.balanceAmount, selected?.currencyCode)} ${selected?.dueDate && selected.dueDate < todayInput() ? "was" : "is"} due on ${dateLabel(selected?.dueDate)}. The wording comes from Notification Settings.`}
+        confirmLabel={busy ? "Sending…" : "Send reminder"}
+        variant="info"
+        onConfirm={sendReminder}
         onCancel={() => setConfirm(null)}
       />
       <ConfirmDialog

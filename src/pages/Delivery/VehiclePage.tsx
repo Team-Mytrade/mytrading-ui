@@ -43,8 +43,9 @@ interface Vehicle {
 
 const API_URL = "/v1/api/delivery/vehicles";
 
-const TYPE_OPTIONS: string[]   = ["Truck", "Van", "Container", "Tempo"]; // TODO: confirm against backend enum
-const STATUS_OPTIONS: string[] = ["Active", "Inactive", "Maintenance"];  // TODO: confirm against backend enum
+// Vehicle type and status are free text on the server (no enum), so these lists are the screen's choices
+const TYPE_OPTIONS: string[]   = ["Truck", "Van", "Container", "Tempo"];
+const STATUS_OPTIONS: string[] = ["Active", "Inactive", "Maintenance"];
 
 const STATUS_STYLES: Record<string, string> = {
   Active:      "bg-green-100  text-green-800 border-green-200/60",

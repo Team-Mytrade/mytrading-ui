@@ -38,6 +38,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { ToasterService } from "../../Services/ToasterService";
+import { formatNumber, formatDateTime } from "../../company/format";
 
 export type PurchaseRecord = Record<string, any> & { id?: number | string };
 
@@ -968,7 +969,7 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
         const value = getValue(row, column.key);
         if (value == null || value === "") return "--";
         if (typeof value === "boolean") return formatBooleanFor(column.key, value);
-        if (typeof value === "number") return isMoneyLikeKey(column.key) ? formatMoney(value) : value.toLocaleString("en-IN");
+        if (typeof value === "number") return isMoneyLikeKey(column.key) ? formatMoney(value) : formatNumber(value);
         if (typeof value === "object") return Array.isArray(value) ? value.length : formatCellValue(value);
         return formatDisplayText(String(value));
       },
@@ -1374,8 +1375,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   });
   const headerDateValue = config.drawerHeaderDateField ? form[config.drawerHeaderDateField] : null;
   const headerDate = headerDateValue
-    ? new Date(String(headerDateValue)).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
-    : new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+    ? formatDateTime(String(headerDateValue))
+    : formatDateTime(new Date());
 
   /* ---------------- Tabs / steps ----------------
    * If any field has a `section`, fields are grouped into named tabs (in the order the

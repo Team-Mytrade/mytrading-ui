@@ -1,5 +1,7 @@
 // Shared by the Invoice (finance) pages. Values follow the invoice service's enums; labels are what users see.
 import { formatEnumLabel } from "./invoiceEnums";
+import { formatMoney, formatDate } from "../../company/format";
+import { t } from "../../i18n/i18n";
 
 export { apiError, apiFieldErrors } from "../../utils/apiError";
 
@@ -10,21 +12,11 @@ export type Option = { id: string; name: string };
 
 /* ================= Formatting ================= */
 
-// Finance amounts keep their paise; dashboards round, ledgers don't
-export const money = (value: number | string | null | undefined, currency = "INR"): string => {
-  const amount = Number(value ?? 0);
-  try {
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: currency || "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-  } catch {
-    return amount.toFixed(2);
-  }
-};
+// Finance amounts keep the currency's decimals; dashboards round, ledgers don't
+export const money = (value: number | string | null | undefined, currency?: string | null): string =>
+  formatMoney(value, { currency });
 
-export const dateLabel = (value?: string | null): string => {
-  if (!value) return "—";
-  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
+export const dateLabel = (value?: string | null): string => formatDate(value);
 
 export const todayInput = (): string => {
   const now = new Date();
@@ -39,7 +31,8 @@ export const daysOverdue = (dueDate?: string | null): number => {
   return days > 0 ? days : 0;
 };
 
-export const labelOf = (code?: string | null): string => (code ? formatEnumLabel(code) : "—");
+// In the screen language when the label has a translation
+export const labelOf = (code?: string | null): string => (code ? t(formatEnumLabel(code)) : "—");
 
 // Report month keys: "2026-10" → "Oct 2026"
 export const monthLabel = (key: string): string => {
@@ -86,6 +79,8 @@ export interface Invoice {
   customerTaxNumber?: string;
   customerEmail?: string;
   currencyCode?: string;
+  // Company currency per unit of the invoice's, fixed when issued
+  exchangeRate?: number | null;
   paymentTerms?: string;
   customerReference?: string;
   subTotal?: number;
@@ -98,6 +93,10 @@ export interface Invoice {
   items?: InvoiceLine[];
   issuedAt?: string;
   issuedBy?: string;
+  // Payment reminders emailed to the customer (automatic or by hand)
+  overdueRemindersSent?: number | null;
+  lastReminderOn?: string | null;
+  lastReminderType?: "BEFORE_DUE" | "OVERDUE" | null;
 }
 
 export const INVOICE_STATUS_TONES: Record<string, string> = {
@@ -169,6 +168,8 @@ export interface JournalLine {
   debit: number;
   credit: number;
   narration?: string;
+  // The line in the entry's (document's) currency, debit positive
+  currencyAmount?: number | null;
 }
 
 export interface JournalEntry {
@@ -179,6 +180,14 @@ export interface JournalEntry {
   sourceModule?: string;
   sourceId?: number;
   entries: JournalLine[];
+  // Posted by the system from a document: read-only (the document is corrected instead)
+  automatic?: boolean;
+  postingKey?: string | null;
+  // The entry this one reverses (cancelled invoice, reversed receipt, corrected bill)
+  reversalOf?: number | null;
+  // The document's currency and rate (amounts are in the company's currency)
+  currency?: string | null;
+  exchangeRate?: number | null;
 }
 
 export const ACCOUNT_TYPE_OPTIONS: Option[] = [
@@ -197,6 +206,15 @@ export const SOURCE_MODULE_OPTIONS: Option[] = [
   { id: "DEBIT_NOTE", name: "Debit note" },
   { id: "ADJUSTMENT_NOTE", name: "Adjustment" },
   { id: "OTHER", name: "Other" },
+];
+
+// Sources only automatic postings have (not offered for entries made by hand)
+export const AUTOMATIC_SOURCE_OPTIONS: Option[] = [
+  { id: "RECEIPT", name: "Customer receipt" },
+  { id: "CUSTOMER_CREDIT", name: "Customer credit used" },
+  { id: "VENDOR_PAYMENT", name: "Vendor payment" },
+  { id: "STOCK", name: "Stock" },
+  { id: "BANK", name: "Bank" },
 ];
 
 // Assets and expenses grow with debits; liabilities, equity and income with credits

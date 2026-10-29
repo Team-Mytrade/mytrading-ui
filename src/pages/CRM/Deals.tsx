@@ -17,6 +17,7 @@ import {
   BanknotesIcon,
   TagIcon,
   BuildingOfficeIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate, useLocation } from "react-router-dom";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -42,10 +43,13 @@ import {
   isClosedStage,
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate, companyCurrency, moneyDecimals } from "../../company/format";
+import { cellInput, NumberCell } from "../Purchase/LineItemsEditor";
 
 const API_URL = "/v1/api/crm/deals";
 const LEADS_API = "/v1/api/crm/leads";
 const CUSTOMERS_API = "/v1/api/common/customers";
+const PRODUCTS_API = "/v1/api/common/products";
 const PAGE_SIZE = 10;
 
 const stageOptions = DEAL_STAGE_OPTIONS;
@@ -65,6 +69,27 @@ interface Opportunity {
   status: string;
   lead?: { id: number; name: string } | null;
   customer?: { id: number; name?: string; customerName?: string; currencyCode?: string } | null;
+  // What the customer asked for; a quotation made from the deal copies these lines
+  items?: DealLine[];
+  quotationId?: number | null;
+  quotationNumber?: string | null;
+}
+
+interface DealLine {
+  productId?: number | null;
+  productName: string;
+  productCode?: string;
+  quantity: number;
+  expectedPrice?: number | null;
+  remarks?: string;
+}
+
+interface Product {
+  id: number;
+  productName: string;
+  productCode?: string;
+  sellingPrice?: number;
+  active?: boolean;
 }
 
 interface Lead {
@@ -80,6 +105,10 @@ interface Customer {
 
 const getToken = () => localStorage.getItem("accessToken") || "";
 
+/** What the priced lines come to (the server works the deal value out the same way). */
+const linesTotal = (items?: DealLine[]) =>
+  (items || []).reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.expectedPrice) || 0), 0);
+
 export default function Deals() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -88,6 +117,7 @@ export default function Deals() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   const [form, setForm] = useState<Partial<Opportunity>>({});
   const [ownerType, setOwnerType] = useState<OwnerType>("LEAD");
@@ -120,6 +150,7 @@ export default function Deals() {
     fetchOpportunities();
     fetchLeads();
     fetchCustomers();
+    fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -167,13 +198,24 @@ export default function Deals() {
     }
   };
 
+  // Needs PRODUCT_CATALOGUE:VIEW; without it lines are typed in by name
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get(PRODUCTS_API, { headers: authHeaders });
+      setProducts((Array.isArray(res.data) ? res.data : []).filter((p: Product) => p.active !== false));
+    } catch (err) {
+      console.error("Error fetching products", err);
+    }
+  };
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === "amount" ? Number(value) : value,
+      // An empty amount is worked out from the product lines
+      [name]: name === "amount" ? (value === "" ? undefined : Number(value)) : value,
     }));
   };
 
@@ -193,8 +235,9 @@ export default function Deals() {
 
     return {
       dealName: form.dealName?.trim(),
-      amount: Number(form.amount) || 0,
+      amount: form.amount == null || String(form.amount) === "" ? null : Number(form.amount),
       stage: normalizeStage(form.stage),
+      items: (form.items || []).filter((l) => l.productId || l.productName?.trim()),
       expectedCloseDate: form.expectedCloseDate || null,
       status: form.status || "ACTIVE",
       ...owner,
@@ -203,13 +246,43 @@ export default function Deals() {
 
   const buildInlinePayload = (o: Opportunity) => ({
     dealName: o.dealName?.trim(),
-    amount: Number(o.amount) || 0,
+    amount: o.amount ?? null,
     stage: normalizeStage(o.stage),
     expectedCloseDate: o.expectedCloseDate || null,
     status: o.status || "ACTIVE",
     lead: o.lead ? { id: o.lead.id, name: o.lead.name } : undefined,
     customer: o.customer ? { id: o.customer.id } : undefined,
   });
+
+  // The amount follows the lines until the user types their own
+  const setLines = (items: DealLine[]) =>
+    setForm((prev) => {
+      const followsLines = prev.amount == null || Number(prev.amount) === linesTotal(prev.items);
+      const total = linesTotal(items);
+      return { ...prev, items, amount: followsLines ? (total || undefined) : prev.amount };
+    });
+
+  const updateLine = (index: number, patch: Partial<DealLine>) =>
+    setLines((form.items || []).map((line, i) => (i === index ? { ...line, ...patch } : line)));
+
+  const pickLineProduct = (index: number, productId: string) => {
+    const product = products.find((p) => String(p.id) === productId);
+    updateLine(index, {
+      productId: product?.id ?? null,
+      productName: product?.productName || "",
+      productCode: product?.productCode || "",
+      expectedPrice: product?.sellingPrice ?? null,
+    });
+  };
+
+  /** Deals → Quotations, filled in from the deal. A lead must be converted to a customer first. */
+  const createQuotation = (o: Opportunity) => {
+    if (!o.customer?.id) {
+      ToasterService.error("This deal has no customer yet", "Convert its lead to a customer first, then create the quotation.");
+      return;
+    }
+    navigate(`/quotations?dealId=${o.id}`);
+  };
 
   const handleInlineChange = async (
     o: Opportunity,
@@ -313,7 +386,7 @@ export default function Deals() {
 
   // Rupees, like the rest of the app (a deal's customer may use another currency)
   const formatCurrency = (amount: number, currency?: string) =>
-    formatMoney(Number(amount) || 0, currency || "INR");
+    formatMoney(Number(amount) || 0, currency || companyCurrency());
 
   const getStageColor = (stage: string) => {
     switch (normalizeStage(stage)) {
@@ -356,6 +429,9 @@ export default function Deals() {
                   ""}
               </div>
             )}
+            {o.quotationNumber && (
+              <div className="text-xs text-cyan-700 truncate max-w-[150px]">Quotation {o.quotationNumber}</div>
+            )}
           </div>
         </div>
       ),
@@ -379,11 +455,7 @@ export default function Deals() {
         <div className="flex items-center text-xs text-gray-600">
           <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
           {o.expectedCloseDate
-            ? new Date(o.expectedCloseDate).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })
+            ? formatDate(o.expectedCloseDate)
             : "-"}
         </div>
       ),
@@ -488,6 +560,28 @@ export default function Deals() {
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
+          )}
+
+          {o.quotationId ? (
+            <button
+              type="button"
+              onClick={() => navigate("/quotations")}
+              className="rounded-lg p-2 text-cyan-600 transition-colors hover:bg-cyan-50 hover:text-cyan-700"
+              title={`View quotation ${o.quotationNumber || ""}`.trim()}
+            >
+              <DocumentTextIcon className="h-4 w-4" />
+            </button>
+          ) : (
+            normalizeStage(o.stage) !== "LOST" && (
+              <button
+                type="button"
+                onClick={() => createQuotation(o)}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+                title={o.customer ? "Create quotation" : "Create quotation (convert the lead to a customer first)"}
+              >
+                <DocumentTextIcon className="h-4 w-4" />
+              </button>
+            )
           )}
 
           {o.lead ? (
@@ -628,6 +722,8 @@ export default function Deals() {
               "createdAt",
               "updatedAt",
              "deletedAt",
+             "items",
+             "quotationId",
               ]}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
@@ -678,12 +774,11 @@ export default function Deals() {
         />,
         <FloatingInput
           key="amount"
-          label="Amount"
+          label="Amount (empty = total of the product lines)"
           name="amount"
           type="number"
-          value={form.amount || ""}
+          value={form.amount ?? ""}
           onChange={handleChange}
-          required
         />,
         <FloatingDatePicker
           key="expectedCloseDate"
@@ -722,6 +817,88 @@ export default function Deals() {
               : OPEN_DEAL_STATUS_OPTIONS
           }
         />,
+      ],
+    },
+    {
+      label: "Products",
+      fields: [
+        <div key="items" className="md:col-span-2 space-y-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            What the customer is asking for. "Create quotation" copies these lines; the price is optional (the catalogue price is used when empty).
+          </p>
+          {(form.items || []).length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <th className="px-1 py-1">Product</th>
+                    <th className="px-1 py-1 w-24">Quantity</th>
+                    <th className="px-1 py-1 w-32">Expected price</th>
+                    <th className="px-1 py-1 w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(form.items || []).map((line, index) => (
+                    <tr key={index} className="align-top">
+                      <td className="px-1 py-1 space-y-1">
+                        {products.length > 0 && (
+                          <select
+                            aria-label={`Line ${index + 1} product`}
+                            className={cellInput}
+                            value={line.productId ? String(line.productId) : ""}
+                            onChange={(e) => pickLineProduct(index, e.target.value)}
+                          >
+                            <option value="">Not in the catalogue (type the name)</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.productCode ? `${p.productCode} - ${p.productName}` : p.productName}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {!line.productId && (
+                          <input
+                            aria-label={`Line ${index + 1} name`}
+                            className={cellInput}
+                            placeholder="Product or service asked for"
+                            maxLength={200}
+                            value={line.productName}
+                            onChange={(e) => updateLine(index, { productName: e.target.value })}
+                          />
+                        )}
+                      </td>
+                      <td className="px-1 py-1">
+                        <NumberCell label={`Line ${index + 1} quantity`} decimals={3} value={line.quantity}
+                          onValue={(quantity) => updateLine(index, { quantity })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <NumberCell label={`Line ${index + 1} expected price`} decimals={moneyDecimals(form.customer?.currencyCode)}
+                          value={line.expectedPrice ?? ""} onValue={(expectedPrice) => updateLine(index, { expectedPrice: expectedPrice || null })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <button
+                          type="button"
+                          onClick={() => setLines((form.items || []).filter((_, i) => i !== index))}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                          title="Remove line"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setLines([...(form.items || []), { productId: null, productName: "", quantity: 1, expectedPrice: null }])}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100"
+          >
+            <PlusIcon className="h-4 w-4" /> Add product
+          </button>
+        </div>,
       ],
     },
     {

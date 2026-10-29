@@ -593,7 +593,7 @@ const WarehousePage: React.FC = () => {
             className={`w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getStatusColor(
               status
             )}`}
-            title="Stored locally only — not yet supported by the server"
+            title="Active warehouses can receive and issue stock"
           >
             {statusOptions.map((s) => (
               <option key={s} value={s}>
@@ -801,12 +801,6 @@ const WarehousePage: React.FC = () => {
                 includeEmptyOption={false}
                 options={statusOptions.map((status) => ({ id: status, name: status }))}
               />,
-              <p
-                key="status-hint"
-                className="text-xs text-amber-600 dark:text-amber-400"
-              >
-                Status is saved to the warehouse API as <code>active: true</code> or <code>active: false</code>.
-              </p>,
             ],
           },
         ]}

@@ -15,7 +15,9 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import noDataImage from "../../images/no_data.png";
 import RecordDetailDrawer from "./RecordDetailDrawer";
 import TableExportModal from "./TableExportModal";
+import { formatMoney as formatCompanyMoney, formatNumber, formatDate, formatDateTime } from "../../company/format";
 import "../../styles/Table.css";
+import { t } from "../../i18n/i18n";
 
 export interface ColumnDef<T> {
   key: string;
@@ -99,37 +101,22 @@ function getCellValue<T>(row: T, key: string): unknown {
 }
 
 /* ------------------------------------------------------------------ */
-/* Display formats used by the table, the details drawer and export     */
-/*   Date:      13 Oct 2026                                              */
-/*   Date-time: 13 Oct 2026, 03:45 PM (12-hour)                          */
-/*   Money:     ₹25,000.00                                               */
+/* Display formats used by the table, the details drawer and export:    */
+/* the company's regional settings (company/format.ts)                  */
 /* ------------------------------------------------------------------ */
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
 export function formatDisplayDate(value: string): string {
-  // Date-only values are read as local dates, so 2026-10-13 never shifts to the 12th.
-  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(value.slice(0, 10), value);
 }
 
 export function formatDisplayDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).replace(/\b(am|pm)\b/i, (part) => part.toUpperCase());
+  return formatDateTime(value, value);
 }
 
 export function formatMoney(value: number): string {
-  return value.toLocaleString("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
+  return formatCompanyMoney(value);
 }
 
 /** Turns a date / date-time string into the display format; other text is returned unchanged. */
@@ -218,7 +205,7 @@ function formatDetailLabel(key: string): string {
 function formatPrimitiveValue(v: unknown, fieldName = ""): string {
   if (v == null || v === "") return "--";
   if (typeof v === "boolean") return formatBooleanFor(fieldName, v);
-  if (typeof v === "number") return isMoneyLikeKey(fieldName) ? formatMoney(v) : v.toLocaleString("en-IN");
+  if (typeof v === "number") return isMoneyLikeKey(fieldName) ? formatMoney(v) : formatNumber(v);
   return formatDisplayText(String(v));
 }
 
@@ -590,7 +577,7 @@ const EmptyImage = () => (
 const DefaultEmpty = () => (
   <div className="flex flex-col items-center py-4 text-gray-400 dark:text-gray-500">
     <EmptyImage />
-    <span className="text-sm font-medium">No results found</span>
+    <span className="text-sm font-medium">{t("No results found")}</span>
   </div>
 );
 
@@ -676,6 +663,10 @@ export function ReusableTable<T extends { id?: number | string }>({
   const showTableTooltip = (event: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-table-tooltip]");
     if (!target || !tableRootRef.current?.contains(target)) return;
+    const isTruncated =
+      target.scrollWidth > target.clientWidth + 1 ||
+      target.scrollHeight > target.clientHeight + 1;
+    if (!isTruncated) return;
     const bounds = target.getBoundingClientRect();
     const alignRight = window.innerWidth - bounds.right < 260;
     setActiveTableTooltip({
@@ -853,7 +844,9 @@ export function ReusableTable<T extends { id?: number | string }>({
         bottomPadding;
       const rowsThatFit = Math.max(1, Math.floor(availableHeight / rowHeight));
 
-      setViewportPageSize(Math.max(1, Math.min(pageSize, rowsThatFit)));
+      // Never fewer than 10 rows a page (or the page's own size if smaller): a table low on a page used to
+      // shrink to a few rows, so 5 requests were split over 2 pages. Pages scroll now, so the rest is reachable.
+      setViewportPageSize(Math.max(Math.min(pageSize, 10), Math.min(pageSize, rowsThatFit)));
     };
 
     calculatePageSize();
@@ -999,7 +992,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                 type="text"
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
-                placeholder={searchPlaceholder}
+                placeholder={t(searchPlaceholder)}
                 className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-9 text-sm text-gray-900 transition-all placeholder:text-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
               />
               {search && (
@@ -1045,16 +1038,16 @@ export function ReusableTable<T extends { id?: number | string }>({
             type="button"
             onClick={() => setIsTableFullscreen((current) => !current)}
             className="absolute right-2 top-1.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-cyan-300"
-            title={
+            title={t(
               isTableFullscreen
                 ? "Exit full screen (Esc)"
                 : "View table in full screen"
-            }
-            aria-label={
+            )}
+            aria-label={t(
               isTableFullscreen
                 ? "Exit table full screen"
                 : "View table in full screen"
-            }
+            )}
           >
             {isTableFullscreen ? (
               <ArrowsPointingInIcon className="h-4 w-4" />
@@ -1064,11 +1057,11 @@ export function ReusableTable<T extends { id?: number | string }>({
           </button>
           {showColumnPicker && (
             <div className="common-data-table__column-picker" style={columnPickerPosition ? { position: "fixed", left: columnPickerPosition.left, top: columnPickerPosition.top } : undefined} role="dialog" aria-label="Choose visible columns">
-              <p>Columns</p>
+              <p>{t("Columns")}</p>
               {columns.map((column) => (
                 <label key={column.key}>
                   <input type="checkbox" checked={visibleColumnKeys.includes(column.key)} onChange={() => toggleColumnVisibility(column.key)} />
-                  <span>{column.label}</span>
+                  <span>{t(column.label)}</span>
                 </label>
               ))}
             </div>
@@ -1110,8 +1103,8 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <span
                         className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${align === "center" ? "justify-center w-full" : align === "right" ? "justify-end w-full" : ""}`}
                       >
-                        <span className="line-clamp-2 break-words leading-tight" data-table-tooltip={col.label}>
-                          {col.label}
+                        <span className="line-clamp-2 break-words leading-tight" data-table-tooltip={t(col.label)}>
+                          {t(col.label)}
                         </span>
                         {col.sortable &&
                           (sortKey === col.key ? (
@@ -1135,12 +1128,12 @@ export function ReusableTable<T extends { id?: number | string }>({
                       return (
                         <th key={`${column.key}-filter`} className={`px-2 py-2 ${isActionsColumn(column) ? "common-data-table__sticky-actions" : ""}`}>
                           {canFilter && options.length > 0 ? (
-                            <select value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} aria-label={`Filter ${column.label}`}>
-                              <option value="">All</option>
+                            <select value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} aria-label={`${t("Filter")} ${t(column.label)}`}>
+                              <option value="">{t("All")}</option>
                               {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                             </select>
                           ) : canFilter ? (
-                            <input type="search" value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} placeholder={`Search ${column.label}`} aria-label={`Search ${column.label}`} />
+                            <input type="search" value={columnFilters[column.key] ?? ""} onChange={(event) => handleColumnFilter(column.key, event.target.value)} placeholder={`${t("Search")} ${t(column.label)}`} aria-label={`${t("Search")} ${t(column.label)}`} />
                           ) : null}
                         </th>
                       );
@@ -1172,7 +1165,11 @@ export function ReusableTable<T extends { id?: number | string }>({
                         {visibleColumns.map((col) =>
                           (() => {
                             const value = getCellValue(row, col.key);
-                            const tooltipContent = col.tooltipContent?.(row, value) || (col.render ? getCellTitle(value) : undefined);
+                            // A renderer may display a friendly label for a foreign key. Do not
+                            // fall back to that raw ID (for example, warehouseId: 9) as a tooltip.
+                            const tooltipContent = col.tooltipContent?.(row, value) ?? (
+                              col.render && !isIdLikeKey(col.key) ? getCellTitle(value) : undefined
+                            );
                             const cellContent = col.render
                               ? col.render(row, value)
                               : renderDefaultCell(value);
@@ -1213,15 +1210,15 @@ export function ReusableTable<T extends { id?: number | string }>({
           {!isLoading && sorted.length > 0 && (
             <div className="flex flex-col items-center justify-between gap-2.5 px-4 py-3 sm:flex-row sm:items-center border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs text-gray-500 shrink-0 dark:text-gray-400">
-                Showing{" "}
+                {t("Showing")}{" "}
                 <span className="font-medium text-gray-700 dark:text-gray-200">
                   {(safePage - 1) * effectivePageSize + 1}
                 </span>{" "}
-                of{" "}
+                {t("of")}{" "}
                 <span className="font-medium text-gray-700 dark:text-gray-200">
                   {sorted.length}
                 </span>{" "}
-                results
+                {t("results")}
               </p>
 
               <div className="flex max-w-full items-center gap-1 overflow-x-auto pb-0.5">
@@ -1229,20 +1226,20 @@ export function ReusableTable<T extends { id?: number | string }>({
                 <button
                   onClick={() => setPage(1)}
                   disabled={safePage === 1}
-                  title="First page"
+                  title={t("First page")}
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  <FirstPageIcon style={{ fontSize: 18 }} />
+                  <FirstPageIcon className="rtl:rotate-180" style={{ fontSize: 18 }} />
                 </button>
 
                 {/* Previous */}
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={safePage === 1}
-                  title="Previous page"
+                  title={t("Previous page")}
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  <ChevronLeftIcon style={{ fontSize: 18 }} />
+                  <ChevronLeftIcon className="rtl:rotate-180" style={{ fontSize: 18 }} />
                 </button>
 
                 {/* Page number buttons */}
@@ -1265,20 +1262,20 @@ export function ReusableTable<T extends { id?: number | string }>({
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safePage === totalPages}
-                  title="Next page"
+                  title={t("Next page")}
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  <ChevronRightIcon style={{ fontSize: 18 }} />
+                  <ChevronRightIcon className="rtl:rotate-180" style={{ fontSize: 18 }} />
                 </button>
 
                 {/* Last */}
                 <button
                   onClick={() => setPage(totalPages)}
                   disabled={safePage === totalPages}
-                  title="Last page"
+                  title={t("Last page")}
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
-                  <LastPageIcon style={{ fontSize: 18 }} />
+                  <LastPageIcon className="rtl:rotate-180" style={{ fontSize: 18 }} />
                 </button>
               </div>
             </div>

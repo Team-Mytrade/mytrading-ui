@@ -1,5 +1,6 @@
 import React from "react";
 import { AR_STATUS_TONES, INVOICE_STATUS_TONES, labelOf } from "./invoiceShared";
+import { t } from "../../i18n/i18n";
 
 export const StatusBadge = ({ status, tones = INVOICE_STATUS_TONES }: { status?: string; tones?: Record<string, string> }) => (
   <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${(status && tones[status]) || "bg-gray-50 text-gray-700 border-gray-200"}`}>
@@ -15,17 +16,21 @@ export const ActionButton = ({
   onClick,
   disabled,
   tone = "default",
+  title,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   tone?: "default" | "primary" | "danger";
+  // Tooltip, e.g. why the button is disabled
+  title?: string;
 }) => (
   <button
     type="button"
     onClick={onClick}
     disabled={disabled}
+    title={title}
     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
       tone === "primary"
         ? "bg-cyan-600 text-white hover:bg-cyan-700"
@@ -35,7 +40,7 @@ export const ActionButton = ({
     }`}
   >
     <Icon className="h-4 w-4" />
-    {label}
+    {t(label)}
   </button>
 );
 
@@ -55,14 +60,14 @@ export const DialogFooter = ({
 }) => (
   <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-5">
     <button type="button" onClick={onCancel} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-      Close
+      {t("Close")}
     </button>
     <button
       type="submit"
       disabled={busy || disabled}
       className={`rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${danger ? "bg-red-600 hover:bg-red-700" : "bg-cyan-600 hover:bg-cyan-700"}`}
     >
-      {busy ? "Saving…" : submitLabel}
+      {t(busy ? "Saving…" : submitLabel)}
     </button>
   </div>
 );

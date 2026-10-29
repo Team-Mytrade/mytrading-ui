@@ -21,22 +21,10 @@ export const APP_LABELS = {
 
 } as const;
 
-export const CURRENCY_SYMBOLS = {
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-  INR: "₹",
-  JPY: "¥",
-  IND: "₹",
-  AED: "د.إ",
-  QAR: "ر.ق",
-
-}as const;
-
+// Currencies are shown with company/format.ts (the company's currency and number style)
 const PUBLIC_BASE = import.meta.env.BASE_URL;
 
 export const CUSTOMER_UTILS = {
-  CURRENCY: "₹",
   ICON: `${PUBLIC_BASE}images/logo/logo.png`,
   ICON_D: `${PUBLIC_BASE}images/logo/logo-dark.svg`
 

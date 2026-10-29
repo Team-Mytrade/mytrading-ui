@@ -12,8 +12,10 @@ import LineItemsEditor, { LineItem, taxRateFromCode } from "../Purchase/LineItem
 import GoodsReceiptEditor from "../purchase-service/GoodsReceiptEditor";
 import GoodsReceiptSyncAction from "../purchase-service/GoodsReceiptSyncAction";
 import RequisitionWorkflowActions from "./RequisitionWorkflowActions";
+import PurchaseOrderDocumentActions from "../purchase-service/PurchaseOrderDocumentActions";
 import { todayIso } from "../../utils/localDate";
 import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
+import { formatMoney, formatDate, companyCurrency, currencyChoices } from "../../company/format";
 
 const PURCHASE = "/v1/api/purchase";
 // Products and categories live in the product catalogue (the purchase service has neither)
@@ -30,6 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "Pending Approval",
   PENDING: "Pending",
   APPROVED: "Approved",
+  SENT: "Sent to Vendor",
   REJECTED: "Rejected",
   CANCELLED: "Cancelled",
   CLOSED: "Closed",
@@ -56,7 +59,7 @@ const statusBadge = (value: string) => {
       ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300"
       : ["REJECTED", "INACTIVE"].includes(status)
         ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-        : ["SUBMITTED", "PENDING", "PARTIALLY_RECEIVED"].includes(status)
+        : ["SUBMITTED", "PENDING", "PARTIALLY_RECEIVED", "SENT"].includes(status)
           ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
           : status === "DRAFT"
             ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -411,7 +414,7 @@ export const purchaseRequisitionConfig: PurchaseResourceConfig = {
         const date = dateOnly(row.requiredByDate ?? row.requiredDate);
         if (!date) return "--";
         const [year, month, day] = date.split("-").map(Number);
-        return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        return formatDate(new Date(year, month - 1, day));
       },
       sortValueGetter: (row) => dateOnly(row.requiredByDate ?? row.requiredDate),
     },
@@ -699,7 +702,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       render: (row) =>
         row.totalAmount == null
           ? "--"
-          : Number(row.totalAmount).toLocaleString("en-IN", { style: "currency", currency: row.currency || "INR" }),
+          : formatMoney(Number(row.totalAmount), row.currency),
     },
     // Two different statuses: where the PO is in its life (DRAFT → RECEIVED) and its approval.
     { key: "status", label: "PO Status", render: (row) => statusBadge(row.status), exportValue: (row) => statusLabel(row.status) },
@@ -805,7 +808,16 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       defaultValue: todayIso(),
     },
     { name: "expectedDeliveryDate", section: "Vendor & Delivery", label: "Expected Delivery Date", type: "date", required: true },
-    { name: "currency", section: "Terms & Shipping", label: "Currency", type: "select", required: true, defaultValue: "INR", options: ["INR", "USD", "EUR", "GBP", "AED"].map((value) => ({ value, label: value })) },
+    {
+      name: "currency", section: "Terms & Shipping", label: "Currency", type: "select", required: true,
+      // Read when the form opens: the company's currency
+      get defaultValue() {
+        return companyCurrency();
+      },
+      get options() {
+        return currencyChoices().map((value) => ({ value, label: value }));
+      },
+    },
     { name: "paymentTerms", section: "Terms & Shipping", label: "Payment Terms", type: "select", required: true, options: ["Due on Receipt", "Advance Payment", "7 Days", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"].map((value) => ({ value, label: value })) },
     { name: "shippingAddress", section: "Terms & Shipping", label: "Shipping Address", type: "textarea", required: true, gridClassName: "md:col-span-2" },
     { name: "notes", section: "Terms & Shipping", label: "Notes", type: "textarea", gridClassName: "md:col-span-2" },
@@ -820,7 +832,9 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
     purchaseRequisitionId: "",
     orderDate: todayLocal(),
     expectedDeliveryDate: "",
-    currency: "INR",
+    get currency() {
+      return companyCurrency();
+    },
     paymentTerms: "30 Days",
     shippingAddress: "",
     notes: "",
@@ -875,7 +889,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
     requisitionNumber: row.requisitionNumber ?? row.requisition?.requisitionNumber ?? "",
     orderDate: dateOnly(row.orderDate),
     expectedDeliveryDate: dateOnly(row.expectedDeliveryDate),
-    currency: row.currency || "INR",
+    currency: row.currency || companyCurrency(),
     paymentTerms: row.paymentTerms || "",
     shippingAddress: row.shippingAddress || "",
     notes: row.notes || "",
@@ -897,6 +911,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
         }))}
         showUom={false}
         showPricing
+        currency={typeof form.currency === "string" ? form.currency : null}
         // Tax = (Qty × Unit price − Discount) × the product's GST % (from its tax code, e.g. GST18 → 18%).
         taxRateFor={(productId) =>
           taxRateFromCode(productOptions.find((p) => String(p.value) === String(productId))?.raw?.taxCode)
@@ -953,7 +968,7 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
       requisition: requisitionId > 0 ? { id: requisitionId } : null,
       orderDate: form.orderDate || "",
       expectedDeliveryDate: form.expectedDeliveryDate || "",
-      currency: form.currency || "INR",
+      currency: form.currency || companyCurrency(),
       paymentTerms: form.paymentTerms || "",
       shippingAddress: String(form.shippingAddress || "").trim(),
       notes: String(form.notes || "").trim(),
@@ -970,6 +985,8 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   },
   // No approval record is posted after create: a new PO is already PENDING on the server, and that
   // endpoint needs PURCHASE:APPROVE, so a buyer would get an error after the order was saved.
+  // Print (any order; unapproved ones are marked) and email to the vendor (approved ones)
+  renderRowActions: (row, { refreshRows }) => <PurchaseOrderDocumentActions row={row} refreshRows={refreshRows} />,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -1054,7 +1071,7 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
         const date = dateOnly(row.receiptDate);
         if (!date) return "--";
         const [year, month, day] = date.split("-").map(Number);
-        return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        return formatDate(new Date(year, month - 1, day));
       },
       sortValueGetter: (row) => dateOnly(row.receiptDate),
     },

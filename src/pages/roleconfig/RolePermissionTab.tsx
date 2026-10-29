@@ -13,6 +13,7 @@ import { StatusBadge, Toggle } from "./RoleConfigShared";
 import { AuthContext } from "../../context/AuthContext";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { usePermissions } from "../../access/usePermissions";
+import { formatDate } from "../../company/format";
 
 const API_BASE = "/v1/api/user/role-permissions";
 const PERMISSION_API_BASE = "/v1/api/user/permissions/all";
@@ -275,7 +276,7 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
       sortable: true,
       render: (row: RolePermission) => (
         <span className="text-sm font-mono text-gray-600">
-          {row.validFrom ? new Date(row.validFrom).toLocaleDateString() : "—"}
+          {row.validFrom ? formatDate(row.validFrom) : "—"}
         </span>
       ),
     },
@@ -285,7 +286,7 @@ const RolePermissionTab: React.FC<RolePermissionTabProps> = ({ selectedPermissio
       sortable: true,
       render: (row: RolePermission) => (
         <span className="text-sm font-mono text-gray-600">
-          {row.validTo ? new Date(row.validTo).toLocaleDateString() : "—"}
+          {row.validTo ? formatDate(row.validTo) : "—"}
         </span>
       ),
     },

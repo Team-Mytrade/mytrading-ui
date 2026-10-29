@@ -9,6 +9,8 @@ import { useContext } from "react";
 import { canAccessPath } from "../access/access";
 import NoAccess from "../access/NoAccess";
 import TenantBanner from "../access/TenantBanner";
+import { useRegionalVersion } from "../company/companyApi";
+import { useLanguage } from "../i18n/i18n";
 
 
 import { useState, useEffect, Suspense } from "react";
@@ -18,7 +20,10 @@ import "../styles/SalesDarkMode.css";
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, sidebarWidth, isResizing } = useSidebar();
   const location = useLocation();
-  const { access } = useContext(AuthContext);
+  const { access, isLoggedIn } = useContext(AuthContext);
+  // Dates, times and money follow the company's regional settings
+  const regional = useRegionalVersion(isLoggedIn);
+  const lang = useLanguage();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
   const isSalesModule = [
     "/sales-dashboard", "/sales-targets", "/sales-persons", "/sales-orders",
@@ -43,7 +48,8 @@ const LayoutContent: React.FC = () => {
       </div>
       <div
         style={{
-          marginLeft: isLargeScreen
+          // Start side: the sidebar is on the right in Arabic
+          marginInlineStart: isLargeScreen
             ? (isExpanded || isHovered ? `${sidebarWidth}px` : "60px")
             : "0px",
           width: isLargeScreen
@@ -59,9 +65,12 @@ const LayoutContent: React.FC = () => {
         {/* Every page scrolls vertically when its content is taller than the window (a list of "scrollable
             pages" used to decide this, and pages missing from it were cut off); never sideways */}
         <div className={`app-content-tight app-content-scroll min-h-0 flex-1 w-full overflow-x-hidden overflow-y-auto overscroll-contain px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""}`}>
-          {canAccessPath(access, location.pathname) ? (
-            // Pages are loaded on demand; header and sidebar stay while one loads
-            <Suspense fallback={<PageLoading />}>
+          {!regional.ready && isLoggedIn ? (
+            <PageLoading />
+          ) : canAccessPath(access, location.pathname) ? (
+            // Pages are loaded on demand; header and sidebar stay while one loads. A new language or regional
+            // setting draws the page again.
+            <Suspense key={`${regional.version}-${lang}`} fallback={<PageLoading />}>
               <Outlet />
             </Suspense>
           ) : (

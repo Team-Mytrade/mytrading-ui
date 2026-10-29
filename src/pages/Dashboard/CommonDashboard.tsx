@@ -10,6 +10,7 @@ import {
   CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatMoney, formatNumber, getList, mostCommon, sourcesForModules, titleCase, useDashboardSources,
 } from "./dashboardKit";
+import { companyCurrency } from "../../company/format";
 
 // Master data shared by the modules (the common service): customers, vendors, product categories and products, plus tax set-up.
 
@@ -69,7 +70,7 @@ export default function CommonDashboard() {
 
   const customers = (data.customers as Customer[] | undefined) ?? [];
   const noCustomers = data.customers === undefined && !loading ? NO_CUSTOMER_ACCESS : "No customers yet.";
-  const currency = mostCommon(customers.map((c) => c.currencyCode), "INR");
+  const currency = mostCommon(customers.map((c) => c.currencyCode), companyCurrency());
 
   // Open invoice balances per customer; without Invoice access, CRM's own figure
   const receivableByCustomer = useMemo(() => {
