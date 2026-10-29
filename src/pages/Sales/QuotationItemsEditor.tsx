@@ -2,6 +2,7 @@ import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { allowsFraction, cellInput, NumberCell, taxRateFromCode } from "../Purchase/LineItemsEditor";
 import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /** One quotation line as edited on screen. Discount is a % of the line value, tax a % of what is left. */
 export type QuotationLine = {
   /** Stable React key (new lines have no id yet). */
@@ -171,9 +172,9 @@ export default function QuotationItemsEditor({
     <div className="rounded-xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-900">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-gray-800">
         <div>
-          <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Line Items</div>
+          <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">{t("Line Items")}</div>
           <div className="text-xs text-slate-500 dark:text-gray-400">
-            {lines.length === 0 ? "No items added yet" : `${lines.length} item${lines.length === 1 ? "" : "s"}`}
+            {lines.length === 0 ? t("No items added yet") : lines.length === 1 ? t("1 item") : t("{count} items", { count: lines.length })}
             {onCreateProduct && (
               <>
                 {" · "}
@@ -182,7 +183,7 @@ export default function QuotationItemsEditor({
                   onClick={onCreateProduct}
                   className="font-medium text-cyan-700 hover:underline dark:text-cyan-400"
                 >
-                  New product
+                  {t("New product")}
                 </button>
               </>
             )}
@@ -191,31 +192,31 @@ export default function QuotationItemsEditor({
         <div className="flex gap-2">
           <button type="button" onClick={() => onChange([...lines, blankLine("PRODUCT")])} className={addButton}>
             <PlusIcon className="h-3.5 w-3.5" />
-            Product
+            {t("Product")}
           </button>
           <button type="button" onClick={() => onChange([...lines, blankLine("SERVICE")])} className={addButton}>
             <PlusIcon className="h-3.5 w-3.5" />
-            Service
+            {t("Service")}
           </button>
         </div>
       </div>
 
       {lines.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-slate-500 dark:text-gray-400">
-          Add a <span className="font-medium text-slate-700 dark:text-gray-200">Product</span> or a{" "}
-          <span className="font-medium text-slate-700 dark:text-gray-200">Service</span> to build the quotation.
+          {t("Add a")} <span className="font-medium text-slate-700 dark:text-gray-200">{t("Product")}</span> {t("or a")}{" "}
+          <span className="font-medium text-slate-700 dark:text-gray-200">{t("Service")}</span> {t("to build the quotation.")}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-gray-800 dark:text-gray-400">
               <tr>
-                <th className={`${headCell} min-w-[190px] pl-4`}>Item</th>
-                <th className={`${headCell} w-[76px] text-right`}>Qty</th>
-                <th className={`${headCell} w-[104px] text-right`}>Rate ({code})</th>
-                <th className={`${headCell} w-[72px] text-right`}>Disc %</th>
-                <th className={`${headCell} w-[72px] text-right`}>Tax %</th>
-                <th className={`${headCell} w-[110px] text-right`}>Amount</th>
+                <th className={`${headCell} min-w-[190px] pl-4`}>{t("Item")}</th>
+                <th className={`${headCell} w-[76px] text-right`}>{t("Qty")}</th>
+                <th className={`${headCell} w-[104px] text-right`}>{t("Rate ({currency})", { currency: code })}</th>
+                <th className={`${headCell} w-[72px] text-right`}>{t("Disc %")}</th>
+                <th className={`${headCell} w-[72px] text-right`}>{t("Tax %")}</th>
+                <th className={`${headCell} w-[110px] text-right`}>{t("Amount")}</th>
                 <th className="w-9 px-1 py-2" />
               </tr>
             </thead>
@@ -236,10 +237,10 @@ export default function QuotationItemsEditor({
                         <select
                           value={line.productId ? String(line.productId) : ""}
                           onChange={(event) => pickProduct(index, event.target.value)}
-                          aria-label="Product"
+                          aria-label={t("Product")}
                           className={`${cellInput} ${line.productId ? "" : "text-slate-400 dark:text-gray-500"}`}
                         >
-                          <option value="">Select product</option>
+                          <option value="">{t("Select product")}</option>
                           {/* Keep a saved product visible even if it is no longer in the catalogue list */}
                           {line.productId && !products.some((p) => String(p.id) === String(line.productId)) && (
                             <option value={String(line.productId)}>{line.productName || `Product #${line.productId}`}</option>
@@ -259,8 +260,8 @@ export default function QuotationItemsEditor({
                         <input
                           value={line.productName}
                           onChange={(event) => update(index, { productName: event.target.value })}
-                          placeholder="Service name"
-                          aria-label="Service name"
+                          placeholder={t("Service name")}
+                          aria-label={t("Service name")}
                           maxLength={150}
                           className={cellInput}
                         />
@@ -270,19 +271,19 @@ export default function QuotationItemsEditor({
                           <input
                             value={line.description}
                             onChange={(event) => update(index, { description: event.target.value })}
-                            placeholder="Description (optional)"
-                            aria-label="Service description"
+                            placeholder={t("Description (optional)")}
+                            aria-label={t("Service description")}
                             maxLength={250}
                             className={`${cellInput} min-w-0 flex-1 text-xs`}
                           />
                           <select
                             value={line.uom}
                             onChange={(event) => update(index, { uom: event.target.value })}
-                            aria-label="Unit"
-                            title="Unit"
+                            aria-label={t("Unit")}
+                            title={t("Unit")}
                             className={`${cellInput} w-[84px] shrink-0 text-xs ${line.uom ? "" : "text-slate-400 dark:text-gray-500"}`}
                           >
-                            <option value="">Unit</option>
+                            <option value="">{t("Unit")}</option>
                             {SERVICE_UNITS.map((unit) => (
                               <option key={unit.value} value={unit.value}>
                                 {unit.label}
@@ -297,7 +298,7 @@ export default function QuotationItemsEditor({
                     </td>
                     <td className="px-2 py-2">
                       <NumberCell
-                        label="Quantity"
+                        label={t("Quantity")}
                         value={line.quantity}
                         decimals={allowsFraction(line.uom) ? 3 : 0}
                         onValue={(quantity) => update(index, { quantity })}
@@ -305,7 +306,7 @@ export default function QuotationItemsEditor({
                     </td>
                     <td className="px-2 py-2">
                       <NumberCell
-                        label="Rate"
+                        label={t("Rate")}
                         value={line.unitPrice}
                         decimals={priceDecimals}
                         onValue={(unitPrice) => update(index, { unitPrice })}
@@ -313,7 +314,7 @@ export default function QuotationItemsEditor({
                     </td>
                     <td className="px-2 py-2">
                       <NumberCell
-                        label="Discount %"
+                        label={t("Discount %")}
                         value={line.discountPercentage}
                         decimals={2}
                         onValue={(discountPercentage) => update(index, { discountPercentage: Math.min(100, discountPercentage) })}
@@ -321,7 +322,7 @@ export default function QuotationItemsEditor({
                     </td>
                     <td className="px-2 py-2">
                       <NumberCell
-                        label="Tax %"
+                        label={t("Tax %")}
                         value={line.taxRate}
                         decimals={2}
                         onValue={(taxRate) => update(index, { taxRate: Math.min(100, taxRate) })}
@@ -335,8 +336,8 @@ export default function QuotationItemsEditor({
                         type="button"
                         onClick={() => onChange(lines.filter((_, i) => i !== index))}
                         className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                        title="Remove this line"
-                        aria-label="Remove this line"
+                        title={t("Remove this line")}
+                        aria-label={t("Remove this line")}
                       >
                         <TrashIcon className="h-4 w-4" />
                       </button>
@@ -353,22 +354,22 @@ export default function QuotationItemsEditor({
       <div className="flex justify-end border-t border-slate-200 px-4 py-3 dark:border-gray-700">
         <dl className="w-full max-w-[300px] space-y-1.5 text-sm">
           <div className="flex justify-between">
-            <dt className="text-slate-500 dark:text-gray-400">Sub Total</dt>
+            <dt className="text-slate-500 dark:text-gray-400">{t("Sub Total")}</dt>
             <dd className="font-medium text-slate-800 dark:text-gray-100">{formatPrice(totals.subTotal, currency)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-slate-500 dark:text-gray-400">Discount</dt>
+            <dt className="text-slate-500 dark:text-gray-400">{t("Discount")}</dt>
             <dd className="font-medium text-rose-600 dark:text-rose-400">−{formatPrice(totals.discount, currency)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-slate-500 dark:text-gray-400">Tax</dt>
+            <dt className="text-slate-500 dark:text-gray-400">{t("Tax")}</dt>
             <dd className="font-medium text-slate-800 dark:text-gray-100">{formatPrice(totals.tax, currency)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-slate-500 dark:text-gray-400">Additional Discount ({code})</dt>
+            <dt className="text-slate-500 dark:text-gray-400">{t("Additional Discount ({currency})", { currency: code })}</dt>
             <dd className="w-28">
               <NumberCell
-                label="Additional discount"
+                label={t("Additional discount")}
                 value={additionalDiscount}
                 decimals={priceDecimals}
                 onValue={onAdditionalDiscountChange}
@@ -376,7 +377,7 @@ export default function QuotationItemsEditor({
             </dd>
           </div>
           <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold dark:border-gray-700">
-            <dt className="text-slate-900 dark:text-gray-50">Grand Total</dt>
+            <dt className="text-slate-900 dark:text-gray-50">{t("Grand Total")}</dt>
             <dd className="text-cyan-700 dark:text-cyan-400">{formatPrice(totals.grandTotal, currency)}</dd>
           </div>
         </dl>

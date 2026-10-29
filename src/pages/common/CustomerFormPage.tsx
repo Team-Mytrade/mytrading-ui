@@ -25,6 +25,7 @@ import { CUSTOMER_TYPE_OPTIONS, apiError } from "../CRM/crmShared";
 import { formatMoney } from "../Dashboard/dashboardKit";
 import { companyCurrency, currencyChoices } from "../../company/format";
 
+import { language, t } from "../../i18n/i18n";
 // Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
 
 const API_URL = "/v1/api/common/customers";
@@ -48,16 +49,18 @@ const PAYMENT_TERM_OPTIONS = [
   { id: "NET90", name: "Net 90 days" },
 ];
 
-// "AED — UAE Dirham": the company's currency first, then Gulf, INR and major currencies
-const currencyNames = (() => {
+// "AED — UAE Dirham" (named in the screen language): the company's currency first, then Gulf, INR and major currencies
+const currencyNames = () => {
   try {
-    return new Intl.DisplayNames(["en"], { type: "currency" });
+    return new Intl.DisplayNames([language()], { type: "currency" });
   } catch {
     return null;
   }
-})();
-const currencyOptions = (stored?: string) =>
-  currencyChoices(stored).map((code) => ({ id: code, name: `${code} — ${currencyNames?.of(code) ?? code}` }));
+};
+const currencyOptions = (stored?: string) => {
+  const names = currencyNames();
+  return currencyChoices(stored).map((code) => ({ id: code, name: `${code} — ${names?.of(code) ?? code}` }));
+};
 
 const ADDRESS_TYPES = [
   { id: "BILLING", name: "Billing", icon: HomeIcon },
@@ -190,7 +193,7 @@ const Section: React.FC<{
         </span>
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
-          {description && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{description}</p>}
+          {description && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t(description)}</p>}
         </div>
       </div>
       {action}
@@ -414,7 +417,7 @@ const CustomerFormPage: React.FC = () => {
               onClick={leave}
               className="inline-flex h-9 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <button
               type="submit"
@@ -427,7 +430,7 @@ const CustomerFormPage: React.FC = () => {
               ) : (
                 <CheckIcon className="h-4 w-4" />
               )}
-              {saving ? "Saving…" : isEditing ? "Save changes" : "Create customer"}
+              {t(saving ? "Saving…" : isEditing ? "Save changes" : "Create customer")}
             </button>
           </div>
         }
@@ -442,10 +445,10 @@ const CustomerFormPage: React.FC = () => {
           <div className="grid gap-4 xl:grid-cols-3">
             {/* ---------------- left: who they are ---------------- */}
             <div className="space-y-4 xl:col-span-2">
-              <Section icon={BuildingOfficeIcon} title="Company" description="Legal name, type and registration details">
+              <Section icon={BuildingOfficeIcon} title={t("Company")} description="Legal name, type and registration details">
                 <div className="grid gap-x-4 md:grid-cols-2">
                   <FloatingInput
-                    label="Customer name"
+                    label={t("Customer name")}
                     name="customerName"
                     required
                     value={form.customerName}
@@ -454,14 +457,14 @@ const CustomerFormPage: React.FC = () => {
                     maxLength={150}
                   />
                   <FloatingInput
-                    label="Trade name"
+                    label={t("Trade name")}
                     name="tradeName"
                     value={form.tradeName}
                     onChange={(e) => update("tradeName", e.target.value)}
                     maxLength={150}
                   />
                   <FloatingSelect
-                    label="Customer type *"
+                    label={t("Customer type *")}
                     name="customerType"
                     value={form.customerType}
                     onChange={(e) => update("customerType", e.target.value)}
@@ -469,7 +472,7 @@ const CustomerFormPage: React.FC = () => {
                     includeEmptyOption={false}
                   />
                   <FloatingSelect
-                    label="Status *"
+                    label={t("Status *")}
                     name="status"
                     value={form.status}
                     onChange={(e) => update("status", e.target.value)}
@@ -477,14 +480,14 @@ const CustomerFormPage: React.FC = () => {
                     includeEmptyOption={false}
                   />
                   <FloatingInput
-                    label="GSTIN / VAT TRN"
+                    label={t("GSTIN / VAT TRN")}
                     name="taxNumber"
                     value={form.taxNumber}
                     onChange={(e) => update("taxNumber", e.target.value.toUpperCase())}
                     maxLength={50}
                   />
                   <FloatingInput
-                    label="Registration number"
+                    label={t("Registration number")}
                     name="registrationNumber"
                     value={form.registrationNumber}
                     onChange={(e) => update("registrationNumber", e.target.value)}
@@ -493,10 +496,10 @@ const CustomerFormPage: React.FC = () => {
                 </div>
               </Section>
 
-              <Section icon={EnvelopeIcon} title="Contact details" description="Main email and phone for the company; people go under Key Contacts">
+              <Section icon={EnvelopeIcon} title={t("Contact details")} description="Main email and phone for the company; people go under Key Contacts">
                 <div className="grid gap-x-4 md:grid-cols-2">
                   <FloatingInput
-                    label="Email"
+                    label={t("Email")}
                     name="email"
                     type="email"
                     required
@@ -506,7 +509,7 @@ const CustomerFormPage: React.FC = () => {
                     maxLength={120}
                   />
                   <FloatingInput
-                    label="Phone"
+                    label={t("Phone")}
                     name="phone"
                     type="tel"
                     required
@@ -517,7 +520,7 @@ const CustomerFormPage: React.FC = () => {
                   />
                   <div>
                     <FloatingInput
-                      label="Website"
+                      label={t("Website")}
                       name="website"
                       type="url"
                       value={form.website}
@@ -530,7 +533,7 @@ const CustomerFormPage: React.FC = () => {
 
               <Section
                 icon={MapPinIcon}
-                title="Addresses"
+                title={t("Addresses")}
                 description="Billing, shipping and other locations; mark one as the default"
                 action={
                   !addressDraft && (
@@ -540,7 +543,7 @@ const CustomerFormPage: React.FC = () => {
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300"
                     >
                       <PlusIcon className="h-4 w-4" />
-                      Add address
+                      {t("Add address")}
                     </button>
                   )
                 }
@@ -548,11 +551,11 @@ const CustomerFormPage: React.FC = () => {
                 {addressDraft && (
                   <div className="mb-5 rounded-lg border border-cyan-200 bg-cyan-50/40 p-4 dark:border-cyan-900 dark:bg-cyan-950/20">
                     <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
-                      {addressDraft.index === null ? "New address" : "Edit address"}
+                      {t(addressDraft.index === null ? "New address" : "Edit address")}
                     </p>
                     <div className="grid gap-x-4 md:grid-cols-2">
                       <FloatingSelect
-                        label="Address type"
+                        label={t("Address type")}
                         value={addressDraft.value.type}
                         onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, type: e.target.value } })}
                         options={ADDRESS_TYPES.map((t) => ({ id: t.id, name: t.name }))}
@@ -561,7 +564,7 @@ const CustomerFormPage: React.FC = () => {
                       <div className="hidden md:block" />
                       <div className="md:col-span-2">
                         <FloatingInput
-                          label="Address line 1"
+                          label={t("Address line 1")}
                           required
                           value={addressDraft.value.addressLine1}
                           error={addressErrors.addressLine1}
@@ -570,32 +573,32 @@ const CustomerFormPage: React.FC = () => {
                       </div>
                       <div className="md:col-span-2">
                         <FloatingInput
-                          label="Address line 2"
+                          label={t("Address line 2")}
                           value={addressDraft.value.addressLine2 ?? ""}
                           onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine2: e.target.value } })}
                         />
                       </div>
                       <FloatingInput
-                        label="City"
+                        label={t("City")}
                         required
                         value={addressDraft.value.city}
                         error={addressErrors.city}
                         onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, city: e.target.value } })}
                       />
                       <FloatingInput
-                        label="State"
+                        label={t("State")}
                         required
                         value={addressDraft.value.state}
                         error={addressErrors.state}
                         onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, state: e.target.value } })}
                       />
                       <FloatingInput
-                        label="Postal code"
+                        label={t("Postal code")}
                         value={addressDraft.value.postalCode}
                         onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, postalCode: e.target.value } })}
                       />
                       <FloatingInput
-                        label="Country"
+                        label={t("Country")}
                         required
                         value={addressDraft.value.country}
                         error={addressErrors.country}
@@ -610,7 +613,7 @@ const CustomerFormPage: React.FC = () => {
                           onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, defaultAddress: e.target.checked } })}
                           className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                         />
-                        Default address
+                        {t("Default address")}
                       </label>
                       <div className="flex gap-2">
                         <button
@@ -618,14 +621,14 @@ const CustomerFormPage: React.FC = () => {
                           onClick={() => setAddressDraft(null)}
                           className="h-8 rounded-lg border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                         >
-                          Cancel
+                          {t("Cancel")}
                         </button>
                         <button
                           type="button"
                           onClick={saveAddress}
                           className="h-8 rounded-lg bg-cyan-600 px-3 text-xs font-semibold text-white hover:bg-cyan-700"
                         >
-                          {addressDraft.index === null ? "Add address" : "Update address"}
+                          {t(addressDraft.index === null ? "Add address" : "Update address")}
                         </button>
                       </div>
                     </div>
@@ -639,8 +642,8 @@ const CustomerFormPage: React.FC = () => {
                     className="mb-5 flex w-full flex-col items-center rounded-lg border-2 border-dashed border-gray-200 py-8 text-center hover:border-cyan-300 hover:bg-cyan-50/30 dark:border-gray-700 dark:hover:border-cyan-800"
                   >
                     <MapPinIcon className="mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">No addresses yet</span>
-                    <span className="text-xs text-cyan-700 dark:text-cyan-400">Add the billing address</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{t("No addresses yet")}</span>
+                    <span className="text-xs text-cyan-700 dark:text-cyan-400">{t("Add the billing address")}</span>
                   </button>
                 ) : (
                   <div className="mb-5 grid gap-3 md:grid-cols-2">
@@ -665,7 +668,7 @@ const CustomerFormPage: React.FC = () => {
                               {type.name}
                               {address.defaultAddress && (
                                 <span className="rounded-full bg-cyan-600 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-white">
-                                  Default
+                                  {t("Default")}
                                 </span>
                               )}
                             </span>
@@ -673,7 +676,7 @@ const CustomerFormPage: React.FC = () => {
                               {!address.defaultAddress && (
                                 <button
                                   type="button"
-                                  title="Make default"
+                                  title={t("Make default")}
                                   onClick={() => makeDefault(index)}
                                   className="rounded-md p-1.5 text-gray-400 hover:bg-cyan-50 hover:text-cyan-700"
                                 >
@@ -682,7 +685,7 @@ const CustomerFormPage: React.FC = () => {
                               )}
                               <button
                                 type="button"
-                                title="Edit address"
+                                title={t("Edit address")}
                                 onClick={() => openAddress(index)}
                                 className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
                               >
@@ -690,7 +693,7 @@ const CustomerFormPage: React.FC = () => {
                               </button>
                               <button
                                 type="button"
-                                title="Remove address"
+                                title={t("Remove address")}
                                 onClick={() => removeAddress(index)}
                                 className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
                               >
@@ -714,28 +717,28 @@ const CustomerFormPage: React.FC = () => {
 
             {/* ---------------- right: how we sell to them ---------------- */}
             <div className="space-y-4">
-              <Section icon={WalletIcon} title="Sales & billing" description="Sales person, payment terms, currency and credit">
+              <Section icon={WalletIcon} title={t("Sales & billing")} description="Sales person, payment terms, currency and credit">
                 {salesPersons !== null && (
                   <>
                     <FloatingSelect
-                      label="Sales person"
+                      label={t("Sales person")}
                       name="salesPersonId"
                       value={form.salesPersonId}
                       onChange={(e) => update("salesPersonId", e.target.value)}
                       options={salesPersonOptions}
                     />
-                    {salesPersonOptions.length === 0 && <Hint>Add sales persons in Sales → Sales Persons.</Hint>}
+                    {salesPersonOptions.length === 0 && <Hint>{t("Add sales persons in Sales → Sales Persons.")}</Hint>}
                   </>
                 )}
                 <FloatingSelect
-                  label="Payment terms"
+                  label={t("Payment terms")}
                   name="paymentTerms"
                   value={form.paymentTerms}
                   onChange={(e) => update("paymentTerms", e.target.value)}
                   options={paymentTermOptions}
                 />
                 <FloatingSelect
-                  label="Currency"
+                  label={t("Currency")}
                   name="currencyCode"
                   value={form.currencyCode}
                   onChange={(e) => update("currencyCode", e.target.value)}
@@ -743,7 +746,7 @@ const CustomerFormPage: React.FC = () => {
                   includeEmptyOption={false}
                 />
                 <FloatingInput
-                  label="Credit limit"
+                  label={t("Credit limit")}
                   name="creditLimit"
                   type="number"
                   min={0}
@@ -752,23 +755,19 @@ const CustomerFormPage: React.FC = () => {
                   onChange={(e) => update("creditLimit", e.target.value)}
                 />
                 <Hint>
-                  {form.creditLimit === ""
-                    ? "Leave blank for no limit — orders aren't checked against credit."
-                    : Number(form.creditLimit) === 0
-                    ? "A limit of 0 blocks every order on credit."
-                    : `Orders are checked against ${formatMoney(Number(form.creditLimit), form.currencyCode || companyCurrency())}.`}
+                  {form.creditLimit === "" ? t("Leave blank for no limit — orders aren't checked against credit.") : Number(form.creditLimit) === 0 ? t("A limit of 0 blocks every order on credit.") : t("Orders are checked against {amount}.", { amount: formatMoney(Number(form.creditLimit), form.currencyCode || companyCurrency()) })}
                 </Hint>
               </Section>
 
               {isEditing ? (
-                <Section icon={BriefcaseIcon} title="Account" description="Kept up to date by Sales">
+                <Section icon={BriefcaseIcon} title={t("Account")} description="Kept up to date by Sales">
                   <dl className="mb-4 space-y-3 text-sm">
                     <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Customer code</dt>
+                      <dt className="text-gray-500 dark:text-gray-400">{t("Customer code")}</dt>
                       <dd className="font-mono text-gray-900 dark:text-gray-100">{salesFigures.customerCode ?? "—"}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Outstanding balance</dt>
+                      <dt className="text-gray-500 dark:text-gray-400">{t("Outstanding balance")}</dt>
                       <dd className="font-semibold text-gray-900 dark:text-gray-100">
                         {formatMoney(salesFigures.outstandingBalance, form.currencyCode || companyCurrency())}
                       </dd>
@@ -777,8 +776,7 @@ const CustomerFormPage: React.FC = () => {
                 </Section>
               ) : (
                 <p className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                  The customer code is assigned automatically when you create the customer. Add contact people afterwards under
-                  CRM → Key Contacts.
+                  {t("The customer code is assigned automatically when you create the customer. Add contact people afterwards under CRM → Key Contacts.")}
                 </p>
               )}
             </div>
@@ -789,10 +787,10 @@ const CustomerFormPage: React.FC = () => {
       <ConfirmDialog
         isOpen={confirmLeave}
         variant="warning"
-        title="Discard changes?"
+        title={t("Discard changes?")}
         message="You have unsaved changes to this customer. Leave without saving?"
-        confirmLabel="Discard"
-        cancelLabel="Keep editing"
+        confirmLabel={t("Discard")}
+        cancelLabel={t("Keep editing")}
         onConfirm={() => {
           setConfirmLeave(false);
           navigate("/customer-management");

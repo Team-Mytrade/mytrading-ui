@@ -12,6 +12,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 /* ---------------- Types ---------------- */
 
 export interface SegmentCustomer {
@@ -260,7 +261,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Manage customers"
+        aria-label={t("Manage customers")}
         className={[
           "fixed right-0 top-0 h-full bg-white dark:bg-gray-900 shadow-2xl flex flex-col",
           isResizing ? "" : "transition-[width] duration-200 ease-out",
@@ -270,7 +271,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
         {/* Resize handle */}
         <button
           type="button"
-          aria-label="Resize drawer"
+          aria-label={t("Resize drawer")}
           onPointerDown={(e) => {
             e.preventDefault();
             setIsResizing(true);
@@ -285,13 +286,13 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
               {segmentName || "Segment"}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Customer segment details
+              {t("Customer segment details")}
             </p>
           </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex-shrink-0"
-            aria-label="Close"
+            aria-label={t("Close")}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -304,7 +305,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
             <div className="grid grid-cols-2 lg:grid-cols-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
               <div className="px-4 py-4 border-r border-gray-100 dark:border-gray-800">
                 <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  Segment Name
+                  {t("Segment Name")}
                 </div>
                 <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1.5 truncate">
                   {segmentName || "--"}
@@ -312,7 +313,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
               </div>
               <div className="px-4 py-4 border-r border-gray-100 dark:border-gray-800">
                 <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  Description
+                  {t("Description")}
                 </div>
                 <div className="text-sm text-gray-800 dark:text-gray-200 mt-1.5">
                   {segmentDescription || "--"}
@@ -320,7 +321,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
               </div>
               <div className="px-4 py-4 border-r border-gray-100 dark:border-gray-800">
                 <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  Customers
+                  {t("Customers")}
                 </div>
                 <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1.5">
                   {assigned.length}
@@ -328,7 +329,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
               </div>
               <div className="px-4 py-4">
                 <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  Code
+                  {t("Code")}
                 </div>
                 <div className="text-base font-mono text-gray-900 dark:text-gray-100 mt-1.5 truncate">
                   {segmentCode || "--"}
@@ -342,10 +343,10 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  Record Information
+                  {t("Record Information")}
                 </p>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-0.5">
-                  {showAddPanel ? "Add Customers" : "Details"}
+                  {t(showAddPanel ? "Add Customers" : "Details")}
                 </h3>
               </div>
               {canCreate && (
@@ -369,7 +370,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
-                  placeholder="Search by name, email, phone, code..."
+                  placeholder={t("Search by name, email, phone, code...")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
@@ -383,7 +384,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                     onChange={toggleAll}
                     className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500"
                   />
-                  Select all
+                  {t("Select all")}
                 </label>
               )}
             </div>
@@ -447,7 +448,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                             type="button"
                             onClick={() => onViewCustomer(id)}
                             className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded transition-colors"
-                            title="View customer profile"
+                            title={t("View customer profile")}
                           >
                             <EyeIcon className="h-4 w-4" />
                           </button>
@@ -459,7 +460,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                         {/* Customer Name */}
                         <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
                           <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            Customer Name
+                            {t("Customer Name")}
                           </span>
                           <button
                             onClick={() => onViewCustomer(id)}
@@ -472,7 +473,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                         {/* Customer Code */}
                         <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
                           <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            Customer Code
+                            {t("Customer Code")}
                           </span>
                           <span className="text-sm font-mono text-gray-800 dark:text-gray-100 truncate">
                             {code}
@@ -482,7 +483,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                         {/* Active */}
                         <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
                           <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            Active
+                            {t("Active")}
                           </span>
                           <span
                             className={`text-sm font-semibold ${
@@ -491,14 +492,14 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                                 : "text-gray-600 dark:text-gray-400"
                             }`}
                           >
-                            {c.active ? "Yes" : "No"}
+                            {t(c.active ? "Yes" : "No")}
                           </span>
                         </div>
 
                         {/* Email */}
                         <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
                           <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            Email
+                            {t("Email")}
                           </span>
                           <span className="text-sm text-cyan-700 dark:text-cyan-300 truncate">
                             {email}
@@ -508,7 +509,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                         {/* Phone */}
                         <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
                           <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            Phone
+                            {t("Phone")}
                           </span>
                           <span className="text-sm text-cyan-700 dark:text-cyan-300">
                             {phone}
@@ -519,7 +520,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                         {assignedAt && (
                           <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
                             <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                              Assigned At
+                              {t("Assigned At")}
                             </span>
                             <span className="text-sm text-cyan-700 dark:text-cyan-300">
                               {assignedAt}
@@ -544,7 +545,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                 {selectedIds.length} selected
               </span>
             ) : (
-              <span className="text-gray-400 dark:text-gray-500">None selected</span>
+              <span className="text-gray-400 dark:text-gray-500">{t("None selected")}</span>
             )}
           </div>
 
@@ -553,7 +554,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
               onClick={onClose}
               className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
-              Close
+              {t("Close")}
             </button>
 
             {showAddPanel ? (

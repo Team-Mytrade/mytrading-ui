@@ -41,6 +41,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type Payslip = {
     employeeId: string;
     employeeName: string;
@@ -277,19 +278,19 @@ const PayrollRunsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Payroll Runs" description="Manage monthly payroll runs and batch execution" />
+            <PageMeta title={t("Payroll Runs")} description="Manage monthly payroll runs and batch execution" />
             <PageBreadcrumb pageTitle="Processing Engine" />
 
             <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
                 <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-                    <AddButton label="Define Cycle" onClick={() => setShowForm(true)} />
+                    <AddButton label={t("Define Cycle")} onClick={() => setShowForm(true)} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <StatsCard label="Total Cycles" value={totalRuns} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ClockIcon className="h-6 w-6" />} />
-                    <StatsCard label="Employees Processed" value={totalEmployeesProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />
-                    <StatsCard label="Total Amount" value={formatMoney(totalAmountProcessed, { compact: true })} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                    <StatsCard label="Completed / Pending" value={completedRuns + " / " + pendingRuns} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<ChartBarIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Total Cycles")} value={totalRuns} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ClockIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Employees Processed")} value={totalEmployeesProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Total Amount")} value={formatMoney(totalAmountProcessed, { compact: true })} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Completed / Pending")} value={completedRuns + " / " + pendingRuns} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<ChartBarIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Toolbar */}
@@ -299,7 +300,7 @@ const PayrollRunsPage: React.FC = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by period or status..."
+                                placeholder={t("Search by period or status...")}
                                 value={search}
                                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -325,14 +326,14 @@ const PayrollRunsPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
+                                        {t("Export PDF")}
                                     </button>
                                     <button
                                         onClick={exportExcel}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
+                                        {t("Export Excel")}
                                     </button>
                                 </div>
                             )}
@@ -374,17 +375,17 @@ const PayrollRunsPage: React.FC = () => {
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex flex-wrap gap-4">
                             <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
                                 <select
                                     value={statusFilter}
                                     onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="All">All Status</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Processing">Processing</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Cancelled">Cancelled</option>
+                                    <option value="All">{t("All Status")}</option>
+                                    <option value="Pending">{t("Pending")}</option>
+                                    <option value="Processing">{t("Processing")}</option>
+                                    <option value="Completed">{t("Completed")}</option>
+                                    <option value="Cancelled">{t("Cancelled")}</option>
                                 </select>
                             </div>
                             {statusFilter !== "All" && (
@@ -392,7 +393,7 @@ const PayrollRunsPage: React.FC = () => {
                                     onClick={() => setStatusFilter("All")}
                                     className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
                                 >
-                                    Clear Filter
+                                    {t("Clear Filter")}
                                 </button>
                             )}
                         </div>
@@ -433,7 +434,7 @@ const PayrollRunsPage: React.FC = () => {
                                         <td colSpan={6} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading payroll runs...</p>
+                                                <p className="text-gray-500 text-sm">{t("Loading payroll runs...")}</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -483,7 +484,7 @@ const PayrollRunsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
+                                                                {t("View Details")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>
@@ -494,7 +495,7 @@ const PayrollRunsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
+                                                                {t("Edit")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -505,7 +506,7 @@ const PayrollRunsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
                                                             >
                                                                 <TrashIcon className="h-4 w-4" />
-                                                                Delete
+                                                                {t("Delete")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -518,7 +519,7 @@ const PayrollRunsPage: React.FC = () => {
                                         <td colSpan={6} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No payroll runs found</p>
+                                                <p className="text-gray-500 text-sm mb-2">{t("No payroll runs found")}</p>
                                                 <p className="text-gray-400 text-xs">Click "Define Cycle" to create one</p>
                                             </div>
                                         </td>
@@ -537,41 +538,41 @@ const PayrollRunsPage: React.FC = () => {
                                     disabled={page === 1}
                                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Previous
+                                    {t("Previous")}
                                 </button>
                                 <button
                                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                                     disabled={page === totalPages}
                                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Next
+                                    {t("Next")}
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
+                                        {t("Showing")} <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> {t("to")}{' '}
                                         <span className="font-medium">
                                             {Math.min(page * PAGE_SIZE, filtered.length)}
                                         </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
+                                        of <span className="font-medium">{filtered.length}</span> {t("results")}
                                     </p>
                                 </div>
                                 <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label={t("Pagination")}>
                                         <button
                                             onClick={() => setPage(1)}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            First
+                                            {t("First")}
                                         </button>
                                         <button
                                             onClick={() => setPage(Math.max(1, page - 1))}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Previous
+                                            {t("Previous")}
                                         </button>
                                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                                             let pageNum: number;
@@ -602,14 +603,14 @@ const PayrollRunsPage: React.FC = () => {
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Next
+                                            {t("Next")}
                                         </button>
                                         <button
                                             onClick={() => setPage(totalPages)}
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Last
+                                            {t("Last")}
                                         </button>
                                     </nav>
                                 </div>
@@ -629,7 +630,7 @@ const PayrollRunsPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                    Payroll Run Details - {selectedRun.period}
+                                                    {t("Payroll Run Details -")} {selectedRun.period}
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
@@ -640,18 +641,18 @@ const PayrollRunsPage: React.FC = () => {
                                             </div>
                                             
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Run Information</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Run Information")}</h4>
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Period</p>
+                                                        <p className="text-xs text-gray-500">{t("Period")}</p>
                                                         <p className="text-sm font-medium">{selectedRun.period}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Run Date</p>
+                                                        <p className="text-xs text-gray-500">{t("Run Date")}</p>
                                                         <p className="text-sm font-medium">{formatDate(selectedRun.runDate)}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Status</p>
+                                                        <p className="text-xs text-gray-500">{t("Status")}</p>
                                                         <p className={`text-sm font-medium ${
                                                             selectedRun.status === "Completed" ? "text-green-600" :
                                                             selectedRun.status === "Pending" ? "text-yellow-600" :
@@ -661,24 +662,24 @@ const PayrollRunsPage: React.FC = () => {
                                                         </p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Total Amount</p>
+                                                        <p className="text-xs text-gray-500">{t("Total Amount")}</p>
                                                         <p className="text-sm font-bold text-cyan-600">{formatMoney(selectedRun.totalAmount)}</p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div>
-                                                <h4 className="text-sm font-medium text-gray-700 mb-3">Employee Payouts</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-3">{t("Employee Payouts")}</h4>
                                                 <div className="overflow-x-auto">
                                                     <table className="min-w-full divide-y divide-gray-200">
                                                         <thead className="bg-gray-50">
                                                             <tr>
-                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
-                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Basic</th>
-                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Allowances</th>
-                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Deductions</th>
-                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Net Pay</th>
+                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("Employee ID")}</th>
+                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t("Name")}</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t("Basic")}</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t("Allowances")}</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t("Deductions")}</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">{t("Net Pay")}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-gray-200">
@@ -694,7 +695,7 @@ const PayrollRunsPage: React.FC = () => {
                                                             )) : (
                                                                 <tr>
                                                                     <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                                                                        No payslip data available for this run
+                                                                        {t("No payslip data available for this run")}
                                                                     </td>
                                                                 </tr>
                                                             )}
@@ -711,7 +712,7 @@ const PayrollRunsPage: React.FC = () => {
                                         onClick={() => setViewModalOpen(false)}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>
@@ -729,11 +730,11 @@ const PayrollRunsPage: React.FC = () => {
                                     <div className="sm:flex sm:items-start">
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {editingRun ? "Edit Payroll Run" : "Define Payroll Cycle"}
+                                                {t(editingRun ? "Edit Payroll Run" : "Define Payroll Cycle")}
                                             </h3>
                                             <form onSubmit={handleSubmit} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Fiscal Period (YYYY-MM)</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Fiscal Period (YYYY-MM)")}</label>
                                                     <input
                                                         type="month"
                                                         value={form.period}
@@ -743,7 +744,7 @@ const PayrollRunsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Planned Execution Date</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Planned Execution Date")}</label>
                                                     <input
                                                         type="date"
                                                         value={form.runDate}
@@ -753,22 +754,22 @@ const PayrollRunsPage: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Status")}</label>
                                                     <select
                                                         value={form.status}
                                                         onChange={e => setForm({ ...form, status: e.target.value as any })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                     >
-                                                        <option value="Pending">Pending</option>
-                                                        <option value="Processing">Processing</option>
-                                                        <option value="Completed">Completed</option>
-                                                        <option value="Cancelled">Cancelled</option>
+                                                        <option value="Pending">{t("Pending")}</option>
+                                                        <option value="Processing">{t("Processing")}</option>
+                                                        <option value="Completed">{t("Completed")}</option>
+                                                        <option value="Cancelled">{t("Cancelled")}</option>
                                                     </select>
                                                 </div>
 
                                                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                                     <p className="text-sm text-yellow-800">
-                                                        <strong>Note:</strong> Cycle initiation triggers master data snapshots. 
+                                                        <strong>{t("Note:")}</strong> Cycle initiation triggers master data snapshots. 
                                                         Ensure structural changes are verified before processing.
                                                     </p>
                                                 </div>
@@ -782,14 +783,14 @@ const PayrollRunsPage: React.FC = () => {
                                         onClick={handleSubmit}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        {editingRun ? "Update" : "Create"}
+                                        {t(editingRun ? "Update" : "Create")}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={closeForm}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                 </div>
                             </div>

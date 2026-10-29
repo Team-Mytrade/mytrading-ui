@@ -30,6 +30,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_OPTIONS, apiError } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
+import { t } from "../../i18n/i18n";
 const API_URL = "/v1/api/crm/leads";
 const CUSTOMER_API = "/v1/api/common/customers";
 const getToken = () => localStorage.getItem("accessToken") || "";
@@ -445,7 +446,7 @@ const confirmConvert = async () => {
             </div>
             {lead.customer && (
               <div className="text-xs text-gray-500">
-                Customer: {lead.customer.customerName || lead.customer.name}
+                {t("Customer:")} {lead.customer.customerName || lead.customer.name}
               </div>
             )}
           </div>
@@ -485,7 +486,7 @@ const confirmConvert = async () => {
         // A converted lead stays converted (it is linked to its customer)
         lead.status === "CONVERTED" || !canUpdate ? (
           <span className={`inline-flex w-[112px] items-center rounded-lg px-2 py-1.5 text-xs font-semibold ${getStatusBadgeColor(lead.status)}`}>
-            {LEAD_STATUS_LABELS[lead.status]}
+            {t(LEAD_STATUS_LABELS[lead.status] ?? "")}
           </span>
         ) : (
         <div onClick={(e) => e.stopPropagation()}>
@@ -504,7 +505,7 @@ const confirmConvert = async () => {
             }`}
           >
             {LEAD_STATUS_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.name}</option>
+              <option key={option.id} value={option.id}>{t(option.name)}</option>
             ))}
           </select>
         </div>
@@ -528,7 +529,7 @@ const confirmConvert = async () => {
               onClick={() => openConvertPopup(lead)}
               disabled={convertingId === lead.id}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
-              title="Convert to Customer"
+              title={t("Convert to Customer")}
             >
               <ArrowRightCircleIcon className="h-4 w-4" />
             </button>
@@ -553,7 +554,7 @@ const confirmConvert = async () => {
               type="button"
               onClick={() => openLinkModal(lead.id)}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600"
-              title="Link to existing customer"
+              title={t("Link to existing customer")}
             >
               <UserPlusIcon className="h-4 w-4" />
             </button>
@@ -575,7 +576,7 @@ const confirmConvert = async () => {
                 setShowModal(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-              title="Edit Lead"
+              title={t("Edit Lead")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -590,7 +591,7 @@ const confirmConvert = async () => {
                 setShowDeletePopup(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-              title="Delete Lead"
+              title={t("Delete Lead")}
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -602,36 +603,36 @@ const confirmConvert = async () => {
 
   return (
     <>
-      <PageMeta title="Leads" description="Manage your sales leads" />
+      <PageMeta title={t("Leads")} description="Manage your sales leads" />
       <PageBreadcrumb pageTitle="Leads" showAddButton addButtonLabel="Add Lead" onAddClick={() => { resetForm(); setShowModal(true); }} />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8">
-        {isLeadScoped && <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>Showing lead: <strong>{scopedLeadName}</strong></span><button type="button" onClick={() => navigate("/leads")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all leads</button></div>}
+        {isLeadScoped && <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>{t("Showing lead:")} <strong>{scopedLeadName}</strong></span><button type="button" onClick={() => navigate("/leads")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">{t("View all leads")}</button></div>}
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard
-              label="Total Leads"
+              label={t("Total Leads")}
               value={stats.total}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
               labelColor="text-cyan-600"
             />
             <StatsCard
-              label="New"
+              label={t("New")}
               value={stats.new}
               gradient="from-green-50 to-emerald-50"
               borderColor="border-green-100"
               labelColor="text-green-600"
             />
             <StatsCard
-              label="Contacted"
+              label={t("Contacted")}
               value={stats.contacted}
               gradient="from-purple-50 to-pink-50"
               borderColor="border-purple-100"
               labelColor="text-purple-600"
             />
             <StatsCard
-              label="Qualified"
+              label={t("Qualified")}
               value={stats.qualified}
               gradient="from-orange-50 to-yellow-50"
               borderColor="border-orange-100"
@@ -659,10 +660,10 @@ const confirmConvert = async () => {
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <UsersIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm mb-1">No leads found</p>
+                <p className="text-gray-500 text-sm mb-1">{t("No leads found")}</p>
                 {search ? (
                   <p className="text-gray-400 text-xs">
-                    Try adjusting your search
+                    {t("Try adjusting your search")}
                   </p>
                 ) : (
                   canCreate && <button
@@ -673,7 +674,7 @@ const confirmConvert = async () => {
                     }}
                     className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                   >
-                    Add your first lead
+                    {t("Add your first lead")}
                   </button>
                 )}
               </div>
@@ -691,10 +692,10 @@ const confirmConvert = async () => {
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      Link to Existing Customer
+                      {t("Link to Existing Customer")}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Choose an existing customer record to link this lead to
+                      {t("Choose an existing customer record to link this lead to")}
                     </p>
                   </div>
                   <button
@@ -711,7 +712,7 @@ const confirmConvert = async () => {
                 <div className="p-5">
                   <div className="mb-4 pt-2">
                     <FloatingSelect
-                      label="Select Customer"
+                      label={t("Select Customer")}
                       name="customerId"
                       value={selectedCustomerId ?? ""}
                       onChange={(e) =>
@@ -735,13 +736,13 @@ const confirmConvert = async () => {
                       }}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       onClick={handleLinkCustomer}
                       className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm"
                     >
-                      Link Customer
+                      {t("Link Customer")}
                     </button>
                   </div>
                 </div>
@@ -753,20 +754,20 @@ const confirmConvert = async () => {
       {/* Add/Edit Lead (PaginatedPopup) */}
 <PaginatedPopup
   isOpen={showModal}
-  title={editingId ? "Edit Lead" : "Add New Lead"}
-  subtitle={
+  title={t(editingId ? "Edit Lead" : "Add New Lead")}
+  subtitle={t(
     editingId
       ? "Update lead information"
       : "Add a new lead to your pipeline"
-  }
+  )}
   onClose={closeModal}
   onSubmit={handleSubmit}
-  submitLabel={editingId ? "Update Lead" : "Add Lead"}
+  submitLabel={t(editingId ? "Update Lead" : "Add Lead")}
   submitting={isSaving}
   fields={[
     <FloatingInput
       key="name"
-      label="Lead Name"
+      label={t("Lead Name")}
       name="name"
       value={formData.name}
       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -774,7 +775,7 @@ const confirmConvert = async () => {
     />,
     <FloatingInput
       key="email"
-      label="Email"
+      label={t("Email")}
       name="email"
       type="email"
       value={formData.email}
@@ -783,7 +784,7 @@ const confirmConvert = async () => {
     />,
     <FloatingInput
       key="phone"
-      label="Phone"
+      label={t("Phone")}
       name="phone"
       value={formData.phone}
       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -791,7 +792,7 @@ const confirmConvert = async () => {
     />,
     <FloatingSelect
       key="status"
-      label="Status"
+      label={t("Status")}
       name="status"
       value={formData.status}
       onChange={(e) =>
@@ -812,14 +813,14 @@ const confirmConvert = async () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Lead"
+        innerText={t("Delete Lead")}
         subText={
           deleteLead
-            ? `Are you sure you want to delete "${deleteLead.name}"? This action cannot be undone.`
+            ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String(deleteLead.name ?? "") })
             : "Are you sure you want to delete this lead?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteLead(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
@@ -829,14 +830,14 @@ const confirmConvert = async () => {
   setIsPopupOpen={setShowConvertPopup}
   icon={<ArrowRightCircleIcon className="h-6 w-6 text-emerald-600" />}
   iconBg="bg-emerald-100"
-  innerText="Convert to Customer"
+  innerText={t("Convert to Customer")}
   subText={
     convertLead
       ? `Convert "${convertLead.name}" to a customer? A new customer record will be created and this lead marked as CONVERTED.`
       : "Convert this lead to a customer?"
   }
-  confirmLabel="Convert"
-  cancelLabel="Cancel"
+  confirmLabel={t("Convert")}
+  cancelLabel={t("Cancel")}
   onConfirm={confirmConvert}
   onCancel={() => {
     setConvertLead(null);

@@ -32,6 +32,7 @@ import {
 import { useDeliveryLookups } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ================= TYPES =================
 
 // Match the Customer interface from CustomerManager
@@ -629,12 +630,12 @@ const stats = getStats();
         <div className="flex flex-wrap gap-1">
           {address.defaultDelivery && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
-              📦 Delivery
+              {t("📦 Delivery")}
             </span>
           )}
           {address.defaultBilling && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium">
-              💳 Billing
+              {t("💳 Billing")}
             </span>
           )}
           {!address.defaultDelivery && !address.defaultBilling && (
@@ -658,7 +659,7 @@ const stats = getStats();
           <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
             address.active ? "bg-emerald-500" : "bg-slate-400"
           }`} />
-          {address.active ? "Active" : "Inactive"}
+          {t(address.active ? "Active" : "Inactive")}
         </span>
       ),
     },
@@ -674,7 +675,7 @@ const stats = getStats();
             type="button"
             onClick={() => handleViewAddress(address)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-            title="View Address"
+            title={t("View Address")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -682,7 +683,7 @@ const stats = getStats();
             type="button"
             onClick={() => handleEditAddress(address)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit Address"
+            title={t("Edit Address")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -690,7 +691,7 @@ const stats = getStats();
             type="button"
             onClick={() => handleDeleteClick(address)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-            title="Delete Address"
+            title={t("Delete Address")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -704,14 +705,14 @@ const stats = getStats();
   return (
     <>
       <PageMeta
-        title={customerId ? `Addresses - ${customer?.customerName || 'Customer'}` : "Customer Addresses"}
-        description={customerId ? `Manage addresses for ${customer?.customerName || 'customer'}` : "Delivery and billing addresses of all customers"}
+        title={customerId ? `Addresses - ${customer?.customerName || 'Customer'}` : t("Customer Addresses")}
+        description={customerId ? `Manage addresses for ${customer?.customerName || 'customer'}` : t("Delivery and billing addresses of all customers")}
       />
       {/* Standard page header: title (the customer's when opened for one), back and Add in the breadcrumb row */}
       <PageBreadcrumb
-        pageTitle={customerId ? `${customer?.customerName || "Customer"} Addresses` : "Customer Addresses"}
+        pageTitle={customerId ? `${customer?.customerName || "Customer"} Addresses` : t("Customer Addresses")}
         onBack={handleBack}
-        actions={<AddButton onClick={handleAddAddress} label="Add Address" />}
+        actions={<AddButton onClick={handleAddAddress} label={t("Add Address")} />}
       />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
@@ -719,35 +720,35 @@ const stats = getStats();
         {/* STATS */}
         <div className="grid grid-cols-3 lg:grid-cols-5 gap-4">
           <StatsCard 
-            label="Total Addresses" 
+            label={t("Total Addresses")} 
             value={stats.total} 
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard 
-            label="Active" 
+            label={t("Active")} 
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard 
-            label="Inactive" 
+            label={t("Inactive")} 
             value={stats.inactive}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
             labelColor="text-red-600"
           />
           <StatsCard 
-            label="Delivery Default" 
+            label={t("Delivery Default")} 
             value={stats.defaultDelivery}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
           />
           <StatsCard 
-            label="Billing Default" 
+            label={t("Billing Default")} 
             value={stats.defaultBilling}
             gradient="from-purple-50 to-violet-50"
             borderColor="border-purple-100"
@@ -761,7 +762,7 @@ const stats = getStats();
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
-                placeholder="Search addresses by customer, city, state, or postal code..."
+                placeholder={t("Search addresses by customer, city, state, or postal code...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
@@ -774,9 +775,9 @@ const stats = getStats();
               value={customerFilter}
               onChange={(e) => setCustomerFilter(e.target.value)}
               className="w-full sm:w-56 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
-              aria-label="Filter by customer"
+              aria-label={t("Filter by customer")}
             >
-              <option value="">All customers</option>
+              <option value="">{t("All customers")}</option>
               {lookups.customers.map((c) => (
                 <option key={c.id} value={c.id}>{c.customerName}</option>
               ))}
@@ -788,7 +789,7 @@ const stats = getStats();
             className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
           >
             <FunnelIcon className="h-5 w-5 text-gray-600" />
-            <span className="text-sm text-gray-600">Filters</span>
+            <span className="text-sm text-gray-600">{t("Filters")}</span>
           </button>
         </div>
 
@@ -797,31 +798,31 @@ const stats = getStats();
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
+                {t("Status")}
               </label>
               <select
                 value={activeFilter}
                 onChange={(e) => setActiveFilter(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="ALL">All</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
+                <option value="ALL">{t("All")}</option>
+                <option value="ACTIVE">{t("Active")}</option>
+                <option value="INACTIVE">{t("Inactive")}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Default Address
+                {t("Default Address")}
               </label>
               <select
                 value={defaultFilter}
                 onChange={(e) => setDefaultFilter(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="ALL">All</option>
-                <option value="DELIVERY">Default Delivery</option>
-                <option value="BILLING">Default Billing</option>
+                <option value="ALL">{t("All")}</option>
+                <option value="DELIVERY">{t("Default Delivery")}</option>
+                <option value="BILLING">{t("Default Billing")}</option>
               </select>
             </div>
 
@@ -834,7 +835,7 @@ const stats = getStats();
                   }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium"
                 >
-                  ✕ Clear All Filters
+                  {t("✕ Clear All Filters")}
                 </button>
               )}
             </div>
@@ -854,17 +855,17 @@ const stats = getStats();
             <div className="flex flex-col items-center -mt-10">
               <MapPinIcon className="h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-500 text-sm mb-2">
-                {customer ? `No addresses found for ${customer.customerName}` : "No Addresses Found"}
+                {customer ? `No addresses found for ${customer.customerName}` : t("No Addresses Found")}
               </p>
               {search || activeFilter !== "ALL" || defaultFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : (
                 canCreate && <button
                   type="button"
                   onClick={handleAddAddress}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  {scopeId ? "Add first address for this customer" : "Add the first address"}
+                  {t(scopeId ? "Add first address for this customer" : "Add the first address")}
                 </button>
               )}
             </div>
@@ -893,7 +894,7 @@ const stats = getStats();
 
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <MapPinIcon className="h-6 w-6 text-cyan-600" />
-                {editingId ? "Edit Address" : "Add Customer Address"}
+                {t(editingId ? "Edit Address" : "Add Customer Address")}
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
@@ -902,15 +903,15 @@ const stats = getStats();
                   <div className={lookups.customers.length > 0 ? "" : "col-span-2"}>
                     {lookups.customers.length > 0 ? (
                       <>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t("Customer *")}</label>
                         <select
                           value={form.customerId || ""}
                           onChange={(e) => handleCustomerSelect(Number(e.target.value))}
                           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                           required
-                          aria-label="Customer"
+                          aria-label={t("Customer")}
                         >
-                          <option value="">Choose a customer</option>
+                          <option value="">{t("Choose a customer")}</option>
                           {lookups.customers.map((c) => (
                             <option key={c.id} value={c.id}>{c.customerName}</option>
                           ))}
@@ -919,8 +920,8 @@ const stats = getStats();
                     ) : (
                       // No access to the customer list: enter the customer by hand
                       <div className="grid grid-cols-2 gap-4">
-                        <FloatingInput label="Customer ID *" name="customerId" type="number" min={1} value={form.customerId || ""} onChange={handleChange} required />
-                        <FloatingInput label="Customer Name *" name="customerName" value={form.customerName} onChange={handleChange} required />
+                        <FloatingInput label={t("Customer ID *")} name="customerId" type="number" min={1} value={form.customerId || ""} onChange={handleChange} required />
+                        <FloatingInput label={t("Customer Name *")} name="customerName" value={form.customerName} onChange={handleChange} required />
                       </div>
                     )}
                   </div>
@@ -935,14 +936,14 @@ const stats = getStats();
                         {form.customerName || "No customer selected"}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Customer ID: #{form.customerId || "Not set"} • 
+                        {t("Customer ID: #")}{form.customerId || "Not set"} • 
                         Number: {form.customerNumber || "Not set"}
                       </p>
                     </div>
                   </div>
                   {selectedCustomer && (
                     <div className="mt-1 text-xs text-gray-400">
-                      Tax: {selectedCustomer.taxNumber || "N/A"} • 
+                      {t("Tax:")} {selectedCustomer.taxNumber || "N/A"} • 
                       Reg: {selectedCustomer.registrationNumber || "N/A"}
                     </div>
                   )}
@@ -951,7 +952,7 @@ const stats = getStats();
                 {/* Address Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address Type
+                    {t("Address Type")}
                   </label>
                   <select
                     name="type"
@@ -959,16 +960,16 @@ const stats = getStats();
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                   >
-                    <option value="SHIPPING">Shipping</option>
-                    <option value="BILLING">Billing</option>
-                    <option value="OFFICE">Office</option>
-                    <option value="HOME">Home</option>
-                    <option value="OTHER">Other</option>
+                    <option value="SHIPPING">{t("Shipping")}</option>
+                    <option value="BILLING">{t("Billing")}</option>
+                    <option value="OFFICE">{t("Office")}</option>
+                    <option value="HOME">{t("Home")}</option>
+                    <option value="OTHER">{t("Other")}</option>
                   </select>
                 </div>
 
                 <FloatingInput
-                  label="Address Line 1 *"
+                  label={t("Address Line 1 *")}
                   name="addressLine1"
                   value={form.addressLine1}
                   onChange={handleChange}
@@ -976,14 +977,14 @@ const stats = getStats();
                 />
 
                 <FloatingInput
-                  label="Address Line 2"
+                  label={t("Address Line 2")}
                   name="addressLine2"
                   value={form.addressLine2}
                   onChange={handleChange}
                 />
 
                 <FloatingInput
-                  label="City *"
+                  label={t("City *")}
                   name="city"
                   value={form.city}
                   onChange={handleChange}
@@ -991,7 +992,7 @@ const stats = getStats();
                 />
 
                 <FloatingInput
-                  label="State *"
+                  label={t("State *")}
                   name="state"
                   value={form.state}
                   onChange={handleChange}
@@ -999,14 +1000,14 @@ const stats = getStats();
                 />
 
                 <FloatingInput
-                  label="Country"
+                  label={t("Country")}
                   name="country"
                   value={form.country}
                   onChange={handleChange}
                 />
 
                 <FloatingInput
-                  label="Postal Code *"
+                  label={t("Postal Code *")}
                   name="postalCode"
                   value={form.postalCode}
                   onChange={handleChange}
@@ -1014,7 +1015,7 @@ const stats = getStats();
                 />
 
                 <FloatingInput
-                  label="Landmark"
+                  label={t("Landmark")}
                   name="landmark"
                   value={form.landmark}
                   onChange={handleChange}
@@ -1029,7 +1030,7 @@ const stats = getStats();
                       onChange={handleChange}
                       className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
                     />
-                    Active
+                    {t("Active")}
                   </label>
 
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -1040,7 +1041,7 @@ const stats = getStats();
                       onChange={handleChange}
                       className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
                     />
-                    Default Delivery
+                    {t("Default Delivery")}
                   </label>
 
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -1051,7 +1052,7 @@ const stats = getStats();
                       onChange={handleChange}
                       className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
                     />
-                    Default Billing
+                    {t("Default Billing")}
                   </label>
                 </div>
               </div>
@@ -1066,7 +1067,7 @@ const stats = getStats();
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
                   disabled={submitting}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
 
                 <button
@@ -1096,32 +1097,32 @@ const stats = getStats();
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <MapPinIcon className="h-6 w-6 text-cyan-600" />
-                  Address Details
+                  {t("Address Details")}
                 </h2>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-gray-500">Customer</label>
+                  <label className="text-xs text-gray-500">{t("Customer")}</label>
                   <p className="font-medium">{selectedAddress.customerName}</p>
                   <p className="text-sm text-gray-600">#{selectedAddress.customerNumber}</p>
                 </div>
 
                 <div className="border-t pt-4">
-                  <label className="text-xs text-gray-500">Address</label>
+                  <label className="text-xs text-gray-500">{t("Address")}</label>
                   <div className="bg-gray-50 p-3 rounded-lg mt-1">
                     <p className="font-medium">{selectedAddress.addressLine1}</p>
                     {selectedAddress.addressLine2 && <p>{selectedAddress.addressLine2}</p>}
                     <p>{selectedAddress.city}, {selectedAddress.state}</p>
                     <p>{selectedAddress.country} - {selectedAddress.postalCode}</p>
                     {selectedAddress.landmark && (
-                      <p className="text-sm text-gray-500">Landmark: {selectedAddress.landmark}</p>
+                      <p className="text-sm text-gray-500">{t("Landmark:")} {selectedAddress.landmark}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
-                  <label className="text-xs text-gray-500">Status</label>
+                  <label className="text-xs text-gray-500">{t("Status")}</label>
                   <div className="space-y-1 mt-1">
                     <p>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1129,18 +1130,18 @@ const stats = getStats();
                           ? "bg-green-100 text-green-700" 
                           : "bg-red-100 text-red-700"
                       }`}>
-                        {selectedAddress.active ? "Active" : "Inactive"}
+                        {t(selectedAddress.active ? "Active" : "Inactive")}
                       </span>
                     </p>
                     <div className="flex gap-2 flex-wrap">
                       {selectedAddress.defaultDelivery && (
                         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                          📦 Default Delivery
+                          {t("📦 Default Delivery")}
                         </span>
                       )}
                       {selectedAddress.defaultBilling && (
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                          💳 Default Billing
+                          {t("💳 Default Billing")}
                         </span>
                       )}
                     </div>
@@ -1156,7 +1157,7 @@ const stats = getStats();
                     className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 text-sm font-medium"
                   >
                     <PencilSquareIcon className="h-4 w-4 inline mr-1" />
-                    Edit
+                    {t("Edit")}
                   </button>)}
                   {canDelete && (<button
                     onClick={() => {
@@ -1166,7 +1167,7 @@ const stats = getStats();
                     className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm font-medium"
                   >
                     <TrashIcon className="h-4 w-4 inline mr-1" />
-                    Delete
+                    {t("Delete")}
                   </button>)}
                 </div>
               </div>
@@ -1194,14 +1195,14 @@ const stats = getStats();
                   <TrashIcon className="h-6 w-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Address</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">{t("Delete Address")}</h3>
                   <p className="text-sm text-gray-500">
-                    Are you sure you want to delete this address?
+                    {t("Are you sure you want to delete this address?")}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
                     {selectedAddress.addressLine1}, {selectedAddress.city}
                   </p>
-                  <p className="text-xs text-red-500 mt-2">⚠️ This action cannot be undone.</p>
+                  <p className="text-xs text-red-500 mt-2">{t("⚠️ This action cannot be undone.")}</p>
                 </div>
               </div>
 
@@ -1214,14 +1215,14 @@ const stats = getStats();
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmDelete}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
                 >
-                  Delete Address
+                  {t("Delete Address")}
                 </button>
               </div>
             </div>

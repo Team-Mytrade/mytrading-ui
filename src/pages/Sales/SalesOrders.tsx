@@ -30,6 +30,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatAmount, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type Address = {
   id: number;
   customerId: number;
@@ -1355,7 +1356,7 @@ const SalesOrders: React.FC = () => {
               );
             }}
             className="max-w-[220px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             {name}
           </button>
@@ -1386,7 +1387,7 @@ const SalesOrders: React.FC = () => {
               );
             }}
             className="max-w-[180px] truncate text-left text-sm text-cyan-700 hover:text-cyan-800 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
-            title={`View ${name}`}
+            title={`${t("View")} ${name}`}
           >
             {name}
           </button>
@@ -1429,7 +1430,7 @@ const SalesOrders: React.FC = () => {
       key: "paid",
       label: "Paid",
       sortable: true,
-      render: (order) => (order.paid ? "Yes" : "No"),
+      render: (order) => t(order.paid ? "Yes" : "No"),
     },
     {
       key: "actions",
@@ -1443,7 +1444,7 @@ const SalesOrders: React.FC = () => {
             type="button"
             onClick={() => openConfirm(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
-            title="Confirm order (reserve stock)"
+            title={t("Confirm order (reserve stock)")}
           >
             <CheckBadgeIcon className="h-4 w-4" />
           </button>)}
@@ -1451,7 +1452,7 @@ const SalesOrders: React.FC = () => {
             type="button"
             onClick={() => openDispatch(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400"
-            title="Dispatch goods"
+            title={t("Dispatch goods")}
           >
             <TruckIcon className="h-4 w-4" />
           </button>)}
@@ -1459,7 +1460,7 @@ const SalesOrders: React.FC = () => {
             type="button"
             onClick={() => openEdit(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -1467,7 +1468,7 @@ const SalesOrders: React.FC = () => {
             type="button"
             onClick={() => setDeleteOrder(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -1486,17 +1487,17 @@ const SalesOrders: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Sales Orders" description="Manage sales orders" />
+      <PageMeta title={t("Sales Orders")} description="Manage sales orders" />
       <PageBreadcrumb
         pageTitle="Sales Orders"
-        actions={<AddButton onClick={openCreate} label="Add Order" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Order")} />}
       />
 
       <div className="w-full max-w-none space-y-6 px-0 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Orders" value={stats.total} icon={<ShoppingCartIcon />} />
+          <StatsCard label={t("Orders")} value={stats.total} icon={<ShoppingCartIcon />} />
           <StatsCard
-            label="Draft"
+            label={t("Draft")}
             value={stats.draft}
             gradient="from-orange-50 to-yellow-50"
             borderColor="border-orange-100"
@@ -1504,7 +1505,7 @@ const SalesOrders: React.FC = () => {
             icon={<CalendarDaysIcon />}
           />
           <StatsCard
-            label="Paid"
+            label={t("Paid")}
             value={stats.paid}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -1512,7 +1513,7 @@ const SalesOrders: React.FC = () => {
             icon={<CheckCircleIcon />}
           />
           <StatsCard
-            label="Unpaid"
+            label={t("Unpaid")}
             value={stats.unpaid}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -1523,9 +1524,9 @@ const SalesOrders: React.FC = () => {
 
         {convertedQuotationId > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200">
-            <span>Showing the sales order created from quotation {convertedQuotationNumber || `#${convertedQuotationId}`}.</span>
+            <span>{t("Showing the sales order created from quotation")} {convertedQuotationNumber || `#${convertedQuotationId}`}.</span>
             <button type="button" onClick={() => navigate("/sales-orders")} className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100">
-              Show all orders
+              {t("Show all orders")}
             </button>
           </div>
         )}
@@ -1541,14 +1542,14 @@ const SalesOrders: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ShoppingCartIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No sales orders found
+                {t("No sales orders found")}
               </p>
               {canCreate && (<button
                 type="button"
                 onClick={openCreate}
                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
-                Create your first sales order
+                {t("Create your first sales order")}
               </button>)}
             </div>
           }
@@ -1557,7 +1558,7 @@ const SalesOrders: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Sales Order" : "Create Sales Order"}
+        title={t(editingId ? "Edit Sales Order" : "Create Sales Order")}
         subtitle={
           editingId
             ? `Status: ${form.status || "DRAFT"} — status changes are managed elsewhere, not from this form`
@@ -1566,7 +1567,7 @@ const SalesOrders: React.FC = () => {
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Sales Order" : "Create Sales Order"}
+        submitLabel={t(editingId ? "Update Sales Order" : "Create Sales Order")}
         maxWidthClassName="max-w-5xl"
         tabs={[
           {
@@ -1576,7 +1577,7 @@ const SalesOrders: React.FC = () => {
                 ? [
                     <FloatingInput
                       key="orderNumber"
-                      label="Order Number"
+                      label={t("Order Number")}
                       name="orderNumber"
                       value={form.orderNumber}
                       onChange={handleChange}
@@ -1586,7 +1587,7 @@ const SalesOrders: React.FC = () => {
                 : []),
               <FloatingSelect
                 key="quotationId"
-                label="Quotation"
+                label={t("Quotation")}
                 name="quotationId"
                 value={form.quotationId}
                 onChange={handleChange}
@@ -1604,7 +1605,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingInput
                 key="quotationVersionNo"
-                label="Quotation Version"
+                label={t("Quotation Version")}
                 name="quotationVersionNo"
                 type="number"
                 value={form.quotationVersionNo}
@@ -1613,7 +1614,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingDateRangePicker
                 key="quotationDates"
-                label="Quotation Date Range"
+                label={t("Quotation Date Range")}
                 startDate={toDateValue(form.quotationDate)}
                 endDate={toDateValue(form.quotationValidUntil)}
                 onChange={([start, end]) =>
@@ -1627,7 +1628,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingSelect
                 key="customerId"
-                label="Customer"
+                label={t("Customer")}
                 name="customerId"
                 value={form.customerId}
                 onChange={handleChange}
@@ -1645,8 +1646,7 @@ const SalesOrders: React.FC = () => {
                       key="customerLockedHint"
                       className="md:col-span-2 -mt-2 text-xs text-slate-400 dark:text-slate-500"
                     >
-                      Customer follows the selected quotation. Clear the Quotation above to pick a
-                      different customer.
+                      {t("Customer follows the selected quotation. Clear the Quotation above to pick a different customer.")}
                     </p>,
                   ]
                 : []),
@@ -1658,7 +1658,7 @@ const SalesOrders: React.FC = () => {
                       className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/60"
                     >
                       <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                        Existing orders for this customer
+                        {t("Existing orders for this customer")}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-300">
                         {customerOrders.length} order(s) · Outstanding balance{" "}
@@ -1673,12 +1673,12 @@ const SalesOrders: React.FC = () => {
               <div key="creditCheckBanner" className="md:col-span-2">
                 {creditCheck.status === "checking" && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    Checking available credit for this customer…
+                    {t("Checking available credit for this customer…")}
                   </div>
                 )}
                 {creditCheck.status === "ok" && (
                   <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-                    Credit check passed — {money(creditCheck.availableCredit)} available against
+                    {t("Credit check passed —")} {money(creditCheck.availableCredit)} available against
                     this order.
                   </div>
                 )}
@@ -1686,7 +1686,7 @@ const SalesOrders: React.FC = () => {
                   <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
                     <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
-                      Insufficient credit for this customer. Available:{" "}
+                      {t("Insufficient credit for this customer. Available:")}{" "}
                       {money(creditCheck.availableCredit)}, this order requires{" "}
                       {money(form.grandTotal)}. The backend will reject this order as-is — reduce
                       the order, clear outstanding balance, or raise the credit limit first.
@@ -1707,7 +1707,7 @@ const SalesOrders: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="quotationType"
-                label="Quotation Type"
+                label={t("Quotation Type")}
                 name="quotationType"
                 value={form.quotationType}
                 onChange={handleChange}
@@ -1716,7 +1716,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingDateRangePicker
                 key="orderDate"
-                label="Order Date"
+                label={t("Order Date")}
                 startDate={toDateValue(form.orderDate)}
                 endDate={toDateValue(form.orderDate)}
                 onChange={([start, end]) =>
@@ -1731,7 +1731,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingDateRangePicker
                 key="dueDate"
-                label="Due Date"
+                label={t("Due Date")}
                 startDate={toDateValue(form.dueDate)}
                 endDate={toDateValue(form.dueDate)}
                 onChange={([start, end]) =>
@@ -1745,7 +1745,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingSelect
                 key="salesChannelId"
-                label="Sales Channel"
+                label={t("Sales Channel")}
                 name="salesChannelId"
                 value={form.salesChannelId}
                 onChange={handleChange}
@@ -1765,7 +1765,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingSelect
                 key="salesPersonId"
-                label="Sales Person"
+                label={t("Sales Person")}
                 name="salesPersonId"
                 value={form.salesPersonId}
                 onChange={handleChange}
@@ -1785,14 +1785,14 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingInput
                 key="subject"
-                label="Subject"
+                label={t("Subject")}
                 name="subject"
                 value={form.subject}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="email"
-                label="Email (from customer/quotation)"
+                label={t("Email (from customer/quotation)")}
                 name="email"
                 type="email"
                 value={form.email}
@@ -1801,7 +1801,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingInput
                 key="currencyCode"
-                label="Currency Code (from customer)"
+                label={t("Currency Code (from customer)")}
                 name="currencyCode"
                 value={form.currencyCode}
                 onChange={handleChange}
@@ -1815,9 +1815,7 @@ const SalesOrders: React.FC = () => {
               <div key="itemsList" className="md:col-span-2 space-y-3">
                 {form.items.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
-                    Select a quotation on the Quotation tab to load its items here. Items are
-                    inherited from the quotation and cannot be swapped out — change the quotation
-                    instead.
+                    {t("Select a quotation on the Quotation tab to load its items here. Items are inherited from the quotation and cannot be swapped out — change the quotation instead.")}
                   </div>
                 ) : (
                   form.items.map((item, index) => {
@@ -1830,17 +1828,17 @@ const SalesOrders: React.FC = () => {
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                              Item {index + 1}
+                              {t("Item")} {index + 1}
                             </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">
-                              Quotation item #{item.quotationItemId}
+                              {t("Quotation item #")}{item.quotationItemId}
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => removeItem(index)}
                             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                            title="Remove item from this order"
+                            title={t("Remove item from this order")}
                           >
                             <TrashIcon className="h-4 w-4" />
                           </button>
@@ -1866,7 +1864,7 @@ const SalesOrders: React.FC = () => {
 
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
-                            <label className={miniLabelClass}>Quantity</label>
+                            <label className={miniLabelClass}>{t("Quantity")}</label>
                             <input
                               name="quantity"
                               type="number"
@@ -1877,13 +1875,13 @@ const SalesOrders: React.FC = () => {
                           </div>
                           <div>
                             <label className={miniLabelClass}>
-                              Unit Price (from quotation)
+                              {t("Unit Price (from quotation)")}
                             </label>
                             <input className={readOnlyClass} value={item.unitPrice} readOnly />
                           </div>
 
                           <div>
-                            <label className={miniLabelClass}>Discount %</label>
+                            <label className={miniLabelClass}>{t("Discount %")}</label>
                             <input
                               name="discountPercentage"
                               type="number"
@@ -1893,7 +1891,7 @@ const SalesOrders: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className={miniLabelClass}>Discount Amount</label>
+                            <label className={miniLabelClass}>{t("Discount Amount")}</label>
                             <input
                               name="discountAmount"
                               type="number"
@@ -1904,7 +1902,7 @@ const SalesOrders: React.FC = () => {
                           </div>
 
                           <div>
-                            <label className={miniLabelClass}>Additional Discount</label>
+                            <label className={miniLabelClass}>{t("Additional Discount")}</label>
                             <input
                               name="additionalDiscount"
                               type="number"
@@ -1914,7 +1912,7 @@ const SalesOrders: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className={miniLabelClass}>Tax Rate</label>
+                            <label className={miniLabelClass}>{t("Tax Rate")}</label>
                             <input
                               name="taxRate"
                               type="number"
@@ -1925,7 +1923,7 @@ const SalesOrders: React.FC = () => {
                           </div>
 
                           <div>
-                            <label className={miniLabelClass}>Tax Code</label>
+                            <label className={miniLabelClass}>{t("Tax Code")}</label>
                             <input
                               name="taxCode"
                               className={inputClass}
@@ -1934,12 +1932,12 @@ const SalesOrders: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className={miniLabelClass}>UOM</label>
+                            <label className={miniLabelClass}>{t("UOM")}</label>
                             <input className={readOnlyClass} value={item.uom} readOnly />
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className={miniLabelClass}>Remarks</label>
+                            <label className={miniLabelClass}>{t("Remarks")}</label>
                             <input
                               name="remarks"
                               className={inputClass}
@@ -1952,7 +1950,7 @@ const SalesOrders: React.FC = () => {
                         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                           <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800">
                             <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                              Gross
+                              {t("Gross")}
                             </div>
                             <div className="font-semibold text-slate-700 dark:text-slate-200">
                               {money(lineTotals.grossAmount)}
@@ -1960,7 +1958,7 @@ const SalesOrders: React.FC = () => {
                           </div>
                           <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800">
                             <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                              Taxable
+                              {t("Taxable")}
                             </div>
                             <div className="font-semibold text-slate-700 dark:text-slate-200">
                               {money(lineTotals.taxableAmount)}
@@ -1968,7 +1966,7 @@ const SalesOrders: React.FC = () => {
                           </div>
                           <div className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800">
                             <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                              Tax
+                              {t("Tax")}
                             </div>
                             <div className="font-semibold text-slate-700 dark:text-slate-200">
                               {money(lineTotals.taxAmount)}
@@ -1976,7 +1974,7 @@ const SalesOrders: React.FC = () => {
                           </div>
                           <div className="rounded-lg bg-cyan-50 px-2.5 py-1.5 text-xs dark:bg-cyan-950/40">
                             <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-400">
-                              Line Total
+                              {t("Line Total")}
                             </div>
                             <div className="font-semibold text-cyan-800 dark:text-cyan-300">
                               {money(lineTotals.lineTotal)}
@@ -1989,8 +1987,7 @@ const SalesOrders: React.FC = () => {
                 )}
 
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Items are inherited from the selected quotation. To change which products appear
-                  on this order, change the quotation — not the rows below.
+                  {t("Items are inherited from the selected quotation. To change which products appear on this order, change the quotation — not the rows below.")}
                 </p>
               </div>,
 
@@ -1999,12 +1996,12 @@ const SalesOrders: React.FC = () => {
                 className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60"
               >
                 <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                  Order totals (summed from all items above)
+                  {t("Order totals (summed from all items above)")}
                 </div>
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                   <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
                     <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                      Sub Total
+                      {t("Sub Total")}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                       {money(form.subTotal)}
@@ -2020,7 +2017,7 @@ const SalesOrders: React.FC = () => {
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
                     <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                      Tax
+                      {t("Tax")}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                       {money(form.taxAmount)}
@@ -2028,7 +2025,7 @@ const SalesOrders: React.FC = () => {
                   </div>
                   <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-2.5 dark:border-cyan-800 dark:bg-cyan-950/40">
                     <div className="text-[10px] uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-400">
-                      Grand Total
+                      {t("Grand Total")}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-cyan-800 dark:text-cyan-300">
                       {money(form.grandTotal)}
@@ -2043,14 +2040,14 @@ const SalesOrders: React.FC = () => {
             fields: [
               <FloatingInput
                 key="paymentTerms"
-                label="Payment Terms"
+                label={t("Payment Terms")}
                 name="paymentTerms"
                 value={form.paymentTerms}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="creditDays"
-                label="Credit Days"
+                label={t("Credit Days")}
                 name="creditDays"
                 type="number"
                 value={form.creditDays}
@@ -2058,7 +2055,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingSelect
                 key="paid"
-                label="Paid"
+                label={t("Paid")}
                 name="paid"
                 value={form.paid}
                 onChange={handleChange}
@@ -2072,13 +2069,11 @@ const SalesOrders: React.FC = () => {
                 key="settlementNote"
                 className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400"
               >
-                Paid Amount and Balance Amount follow this setting automatically. True partial
-                payments would need a real payment-status field from backend rather than a strict
-                yes/no flag.
+                {t("Paid Amount and Balance Amount follow this setting automatically. True partial payments would need a real payment-status field from backend rather than a strict yes/no flag.")}
               </div>,
               <FloatingInput
                 key="paidAmount"
-                label="Paid Amount"
+                label={t("Paid Amount")}
                 name="paidAmount"
                 type="number"
                 value={form.paidAmount}
@@ -2087,7 +2082,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingInput
                 key="balanceAmount"
-                label="Balance Amount"
+                label={t("Balance Amount")}
                 name="balanceAmount"
                 type="number"
                 value={form.balanceAmount}
@@ -2103,104 +2098,102 @@ const SalesOrders: React.FC = () => {
                 key="addressesHint"
                 className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400"
               >
-                Both addresses belong to the customer — Billing is where the invoice is addressed,
-                Shipping is where goods/services are delivered. Neither is your company's own
-                address.
+                {t("Both addresses belong to the customer — Billing is where the invoice is addressed, Shipping is where goods/services are delivered. Neither is your company's own address.")}
               </p>,
               <FloatingInput
                 key="billingAddressLine1"
-                label="Billing Address"
+                label={t("Billing Address")}
                 name="billingAddressLine1"
                 value={form.billingAddressLine1}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingAddressLine1"
-                label="Shipping Address"
+                label={t("Shipping Address")}
                 name="shippingAddressLine1"
                 value={form.shippingAddressLine1}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="billingAddressLine2"
-                label="Billing Address Line 2"
+                label={t("Billing Address Line 2")}
                 name="billingAddressLine2"
                 value={form.billingAddressLine2}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingAddressLine2"
-                label="Shipping Address Line 2"
+                label={t("Shipping Address Line 2")}
                 name="shippingAddressLine2"
                 value={form.shippingAddressLine2}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="billingStreet"
-                label="Billing Street"
+                label={t("Billing Street")}
                 name="billingStreet"
                 value={form.billingStreet}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingStreet"
-                label="Shipping Street"
+                label={t("Shipping Street")}
                 name="shippingStreet"
                 value={form.shippingStreet}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="billingCity"
-                label="Billing City"
+                label={t("Billing City")}
                 name="billingCity"
                 value={form.billingCity}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingCity"
-                label="Shipping City"
+                label={t("Shipping City")}
                 name="shippingCity"
                 value={form.shippingCity}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="billingState"
-                label="Billing State"
+                label={t("Billing State")}
                 name="billingState"
                 value={form.billingState}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingState"
-                label="Shipping State"
+                label={t("Shipping State")}
                 name="shippingState"
                 value={form.shippingState}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="billingCountry"
-                label="Billing Country"
+                label={t("Billing Country")}
                 name="billingCountry"
                 value={form.billingCountry}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingCountry"
-                label="Shipping Country"
+                label={t("Shipping Country")}
                 name="shippingCountry"
                 value={form.shippingCountry}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="billingPostalCode"
-                label="Billing Postal Code"
+                label={t("Billing Postal Code")}
                 name="billingPostalCode"
                 value={form.billingPostalCode}
                 onChange={handleChange}
               />,
               <FloatingInput
                 key="shippingPostalCode"
-                label="Shipping Postal Code"
+                label={t("Shipping Postal Code")}
                 name="shippingPostalCode"
                 value={form.shippingPostalCode}
                 onChange={handleChange}
@@ -2212,7 +2205,7 @@ const SalesOrders: React.FC = () => {
             fields: [
               <FloatingTextarea
                 key="remarks"
-                label="Remarks"
+                label={t("Remarks")}
                 name="remarks"
                 value={form.remarks}
                 onChange={handleChange}
@@ -2220,7 +2213,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingTextarea
                 key="termsAndConditions"
-                label="Terms and Conditions"
+                label={t("Terms and Conditions")}
                 name="termsAndConditions"
                 value={form.termsAndConditions}
                 onChange={handleChange}
@@ -2228,7 +2221,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingTextarea
                 key="internalNotes"
-                label="Internal Notes"
+                label={t("Internal Notes")}
                 name="internalNotes"
                 value={form.internalNotes}
                 onChange={handleChange}
@@ -2236,7 +2229,7 @@ const SalesOrders: React.FC = () => {
               />,
               <FloatingTextarea
                 key="customerNotes"
-                label="Customer Notes"
+                label={t("Customer Notes")}
                 name="customerNotes"
                 value={form.customerNotes}
                 onChange={handleChange}
@@ -2249,24 +2242,24 @@ const SalesOrders: React.FC = () => {
 
       <PaginatedPopup
         isOpen={!!confirmOrder}
-        title="Confirm Sales Order"
+        title={t("Confirm Sales Order")}
         subtitle={`Select the fulfilment warehouse for ${confirmOrder?.orderNumber || "this sales order"}.`}
         onClose={() => {
           setConfirmOrder(null);
           setConfirmWarehouseId("");
         }}
         onSubmit={confirmSalesOrder}
-        submitLabel="Confirm Order"
+        submitLabel={t("Confirm Order")}
         submitting={confirming}
         maxWidthClassName="max-w-md"
         fields={[
           <FloatingSelect
             key="warehouseId"
-            label="Warehouse"
+            label={t("Warehouse")}
             name="warehouseId"
             value={confirmWarehouseId}
             onChange={(event) => setConfirmWarehouseId(event.target.value)}
-            emptyOptionLabel="Select warehouse"
+            emptyOptionLabel={t("Select warehouse")}
             options={warehouses.filter((warehouse) => warehouse.active === true).map((warehouse) => ({
               id: String(warehouse.id),
               name: warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`,
@@ -2278,7 +2271,7 @@ const SalesOrders: React.FC = () => {
 
       <PaginatedPopup
         isOpen={!!dispatchOrder}
-        title="Dispatch Goods"
+        title={t("Dispatch Goods")}
         subtitle={`Ship items of ${dispatchOrder?.orderNumber || "this sales order"}. A confirmed dispatch issues the stock and is ready to invoice.`}
         onClose={closeDispatch}
         maxWidthClassName="max-w-3xl"
@@ -2287,15 +2280,15 @@ const SalesOrders: React.FC = () => {
             <div className="space-y-5 px-4 py-4 sm:px-5">
               {orderDispatches.length > 0 && (
                 <section>
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Dispatches so far</h4>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t("Dispatches so far")}</h4>
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-slate-800">
                         <tr>
-                          <th className="px-3 py-2 font-medium">Dispatch</th>
-                          <th className="px-3 py-2 font-medium">Date</th>
-                          <th className="px-3 py-2 font-medium">Items</th>
-                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2 font-medium">{t("Dispatch")}</th>
+                          <th className="px-3 py-2 font-medium">{t("Date")}</th>
+                          <th className="px-3 py-2 font-medium">{t("Items")}</th>
+                          <th className="px-3 py-2 font-medium">{t("Status")}</th>
                           <th className="px-3 py-2" />
                         </tr>
                       </thead>
@@ -2328,7 +2321,7 @@ const SalesOrders: React.FC = () => {
                                   onClick={() => confirmDraftDispatch(dispatch)}
                                   className="rounded-lg border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
                                 >
-                                  Confirm
+                                  {t("Confirm")}
                                 </button>
                               )}
                             </td>
@@ -2341,7 +2334,7 @@ const SalesOrders: React.FC = () => {
               )}
 
               <section>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">New dispatch</h4>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t("New dispatch")}</h4>
                 {dispatchableItems.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-gray-200 px-3 py-4 text-sm text-gray-500">
                     {orderDispatches.some((dispatch) => dispatch.status === "DRAFT")
@@ -2353,11 +2346,11 @@ const SalesOrders: React.FC = () => {
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-slate-800">
                         <tr>
-                          <th className="px-3 py-2 font-medium">Item</th>
-                          <th className="px-3 py-2 text-right font-medium">Ordered</th>
-                          <th className="px-3 py-2 text-right font-medium">Dispatched</th>
-                          <th className="px-3 py-2 text-right font-medium">Left</th>
-                          <th className="px-3 py-2 text-right font-medium">Dispatch now</th>
+                          <th className="px-3 py-2 font-medium">{t("Item")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t("Ordered")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t("Dispatched")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t("Left")}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t("Dispatch now")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -2403,32 +2396,32 @@ const SalesOrders: React.FC = () => {
               {dispatchableItems.length > 0 && (
                 <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <FloatingInput
-                    label="Delivery Note / Reference"
+                    label={t("Delivery Note / Reference")}
                     name="deliveryReference"
                     value={dispatchDetails.deliveryReference}
                     onChange={(event) => setDispatchDetails((current) => ({ ...current, deliveryReference: event.target.value }))}
                   />
                   <FloatingInput
-                    label="Transporter"
+                    label={t("Transporter")}
                     name="transporterName"
                     value={dispatchDetails.transporterName}
                     onChange={(event) => setDispatchDetails((current) => ({ ...current, transporterName: event.target.value }))}
                   />
                   <FloatingInput
-                    label="Vehicle Number"
+                    label={t("Vehicle Number")}
                     name="vehicleNumber"
                     value={dispatchDetails.vehicleNumber}
                     onChange={(event) => setDispatchDetails((current) => ({ ...current, vehicleNumber: event.target.value }))}
                   />
                   <FloatingInput
-                    label="Tracking Number"
+                    label={t("Tracking Number")}
                     name="trackingNumber"
                     value={dispatchDetails.trackingNumber}
                     onChange={(event) => setDispatchDetails((current) => ({ ...current, trackingNumber: event.target.value }))}
                   />
                   <div className="md:col-span-2">
                     <FloatingTextarea
-                      label="Remarks"
+                      label={t("Remarks")}
                       name="remarks"
                       value={dispatchDetails.remarks}
                       onChange={(event) => setDispatchDetails((current) => ({ ...current, remarks: event.target.value }))}
@@ -2443,7 +2436,7 @@ const SalesOrders: React.FC = () => {
                         onChange={(event) => setConfirmDispatchNow(event.target.checked)}
                         className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                       />
-                      Confirm now: the goods are leaving, issue the stock and make it ready to invoice
+                      {t("Confirm now: the goods are leaving, issue the stock and make it ready to invoice")}
                     </label>
                   )}
                 </section>
@@ -2456,7 +2449,7 @@ const SalesOrders: React.FC = () => {
                 onClick={closeDispatch}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:text-slate-200"
               >
-                Close
+                {t("Close")}
               </button>
               {dispatchableItems.length > 0 && (
                 <button
@@ -2464,7 +2457,7 @@ const SalesOrders: React.FC = () => {
                   disabled={dispatching}
                   className="rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {dispatching ? "Saving..." : confirmDispatchNow && canApprove ? "Dispatch & Confirm" : "Create Dispatch"}
+                  {t(dispatching ? "Saving..." : confirmDispatchNow && canApprove ? "Dispatch & Confirm" : "Create Dispatch")}
                 </button>
               )}
             </div>
@@ -2479,14 +2472,14 @@ const SalesOrders: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Sales Order"
+        innerText={t("Delete Sales Order")}
         subText={
           deleteOrder
             ? `Are you sure you want to delete order #${deleteOrder.id}?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteOrder(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

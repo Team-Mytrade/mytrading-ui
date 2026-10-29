@@ -11,6 +11,7 @@ import {
   useDashboardSources,
 } from "./dashboardKit";
 
+import { t } from "../../i18n/i18n";
 // Live stock overview from the inventory and common services.
 
 interface WarehouseRef { id: number; code?: string; name?: string; active?: boolean }
@@ -131,19 +132,19 @@ export default function InventoryDashboard() {
       <ModuleTiles tiles={tiles} loading={loading} />
 
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Stock Value" value={data.stock && data.products ? formatMoney(totals.value, null, true) : "—"}
-          hint={totals.unpriced ? `${totals.unpriced} record(s) have no standard cost` : "On hand × standard cost"} icon={IndianRupee} tone="emerald" loading={loading} />
-        <KpiCard label="Units on Hand" value={data.stock ? formatNumber(totals.onHand) : "—"}
+        <KpiCard label={t("Stock Value")} value={data.stock && data.products ? formatMoney(totals.value, null, true) : "—"}
+          hint={totals.unpriced ? t("{count} record(s) have no standard cost", { count: totals.unpriced }) : t("On hand × standard cost")} icon={IndianRupee} tone="emerald" loading={loading} />
+        <KpiCard label={t("Units on Hand")} value={data.stock ? formatNumber(totals.onHand) : "—"}
           hint={`${formatNumber(totals.reserved)} reserved · ${formatNumber(totals.products)} products`} icon={Boxes} tone="blue" loading={loading} />
-        <KpiCard label="Low Stock" value={data.stock ? formatNumber(lowStock.length) : "—"} hint="At or below reorder level" icon={AlertTriangle} tone="amber" loading={loading} />
-        <KpiCard label="Out of Stock" value={data.stock ? formatNumber(outOfStock.length) : "—"}
+        <KpiCard label={t("Low Stock")} value={data.stock ? formatNumber(lowStock.length) : "—"} hint={t("At or below reorder level")} icon={AlertTriangle} tone="amber" loading={loading} />
+        <KpiCard label={t("Out of Stock")} value={data.stock ? formatNumber(outOfStock.length) : "—"}
           hint={data.batches ? `${expiring.length} batch(es) expire within 30 days` : undefined} icon={PackageX} tone="red" loading={loading} />
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Stock In and Out" subtitle="Quantity received and issued per month (last 6 months)" icon={ArrowLeftRight} iconClass="text-cyan-500">
+        <Panel title={t("Stock In and Out")} subtitle={t("Quantity received and issued per month (last 6 months)")} icon={ArrowLeftRight} iconClass="text-cyan-500">
           {movements.length === 0 ? (
-            <EmptyState loading={loading}>No stock movements yet.</EmptyState>
+            <EmptyState loading={loading}>{t("No stock movements yet.")}</EmptyState>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={movementTrend}>
@@ -159,9 +160,9 @@ export default function InventoryDashboard() {
           )}
         </Panel>
 
-        <Panel title="Stock by Warehouse" subtitle="Units on hand (top 6 warehouses)" icon={Warehouse} iconClass="text-blue-500">
+        <Panel title={t("Stock by Warehouse")} subtitle={t("Units on hand (top 6 warehouses)")} icon={Warehouse} iconClass="text-blue-500">
           {byWarehouse.length === 0 ? (
-            <EmptyState loading={loading}>No stock recorded yet.</EmptyState>
+            <EmptyState loading={loading}>{t("No stock recorded yet.")}</EmptyState>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={byWarehouse} layout="vertical" margin={{ left: 40 }}>
@@ -179,20 +180,20 @@ export default function InventoryDashboard() {
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Reorder Needed" subtitle="Low stock, largest shortfall first" bodyClass="overflow-x-auto">
+        <Panel title={t("Reorder Needed")} subtitle={t("Low stock, largest shortfall first")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Product</th>
-                <th className={TABLE_HEAD}>Warehouse</th>
-                <th className={TABLE_HEAD}>Available</th>
-                <th className={TABLE_HEAD}>Reorder at</th>
-                <th className={TABLE_HEAD}>Shortfall</th>
+                <th className={TABLE_HEAD}>{t("Product")}</th>
+                <th className={TABLE_HEAD}>{t("Warehouse")}</th>
+                <th className={TABLE_HEAD}>{t("Available")}</th>
+                <th className={TABLE_HEAD}>{t("Reorder at")}</th>
+                <th className={TABLE_HEAD}>{t("Shortfall")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {lowStock.length === 0 && (
-                <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "Nothing is below its reorder level."}</td></tr>
+                <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "Nothing is below its reorder level.")}</td></tr>
               )}
               {lowStock.slice(0, 6).map((s) => (
                 <tr key={s.id} onClick={() => navigate("/stock-level")} className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -207,20 +208,20 @@ export default function InventoryDashboard() {
           </table>
         </Panel>
 
-        <Panel title="Recent Stock Movements" subtitle="Latest receipts, issues and transfers" bodyClass="overflow-x-auto">
+        <Panel title={t("Recent Stock Movements")} subtitle={t("Latest receipts, issues and transfers")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Date</th>
-                <th className={TABLE_HEAD}>Type</th>
-                <th className={TABLE_HEAD}>Product</th>
-                <th className={TABLE_HEAD}>Quantity</th>
-                <th className={TABLE_HEAD}>Reference</th>
+                <th className={TABLE_HEAD}>{t("Date")}</th>
+                <th className={TABLE_HEAD}>{t("Type")}</th>
+                <th className={TABLE_HEAD}>{t("Product")}</th>
+                <th className={TABLE_HEAD}>{t("Quantity")}</th>
+                <th className={TABLE_HEAD}>{t("Reference")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {recentMovements.length === 0 && (
-                <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No stock movements yet."}</td></tr>
+                <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "No stock movements yet.")}</td></tr>
               )}
               {recentMovements.map((m) => (
                 <tr key={m.id} onClick={() => navigate("/stock-movement")} className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -237,14 +238,14 @@ export default function InventoryDashboard() {
       </div>
 
       {expiring.length > 0 && (
-        <Panel title="Batches Expiring" subtitle="Expired or expiring within 30 days" icon={AlertTriangle} iconClass="text-red-500" bodyClass="overflow-x-auto">
+        <Panel title={t("Batches Expiring")} subtitle={t("Expired or expiring within 30 days")} icon={AlertTriangle} iconClass="text-red-500" bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
-                <th className={TABLE_HEAD}>Batch</th>
-                <th className={TABLE_HEAD}>Product</th>
-                <th className={TABLE_HEAD}>Expiry</th>
-                <th className={TABLE_HEAD}>Status</th>
+                <th className={TABLE_HEAD}>{t("Batch")}</th>
+                <th className={TABLE_HEAD}>{t("Product")}</th>
+                <th className={TABLE_HEAD}>{t("Expiry")}</th>
+                <th className={TABLE_HEAD}>{t("Status")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -255,7 +256,7 @@ export default function InventoryDashboard() {
                     <td className={`${TABLE_CELL} font-mono font-medium text-gray-900 dark:text-white`}>{b.batchNumber || `Batch #${b.id}`}</td>
                     <td className={TABLE_CELL}>{productLabel(b.productId)}</td>
                     <td className={TABLE_CELL}>{formatDate(b.expiryDate)}</td>
-                    <td className={`${TABLE_CELL} font-semibold ${expired ? "text-red-600" : "text-amber-600"}`}>{expired ? "Expired" : "Expiring soon"}</td>
+                    <td className={`${TABLE_CELL} font-semibold ${expired ? "text-red-600" : "text-amber-600"}`}>{t(expired ? "Expired" : "Expiring soon")}</td>
                   </tr>
                 );
               })}

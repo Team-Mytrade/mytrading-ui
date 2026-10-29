@@ -206,7 +206,7 @@ const TaxRecords: React.FC = () => {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard label={t("Tax collected")} value={money(collected)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
           <StatsCard label={t("Tax paid")} value={money(paid)} gradient="from-blue-50 to-indigo-50" borderColor="border-blue-100" labelColor="text-blue-600" />
-          <StatsCard label={collected >= paid ? "Net payable" : "Net credit"} value={money(Math.abs(collected - paid))} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t(collected >= paid ? "Net payable" : "Net credit")} value={money(Math.abs(collected - paid))} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
           <StatsCard label={t("Records")} value={inPeriod.length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" />
         </div>
 

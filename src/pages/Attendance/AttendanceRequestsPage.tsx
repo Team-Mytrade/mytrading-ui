@@ -13,8 +13,9 @@ import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { apiError, CalendarDay, fetchMonth, timeOf, withBrowserOffset } from './attendanceApi';
-import { leadingDays, weekdayLabels } from "../../company/format";
+import { leadingDays, weekdayLabels, liveMonthNames, liveWeekdayNames } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // On-duty visits and work-from-home days. Missed punches are corrected on the regularization page.
 const BASE_REQUESTS_URL = '/v1/api/attendance/requests';
 
@@ -79,7 +80,7 @@ interface ReviewDay {
 }
 
 const DEFAULT_SHIFT = { start: '09:00', end: '18:00' };
-const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAY = liveWeekdayNames("short");
 
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -140,7 +141,7 @@ const AttendanceRequestsPage: React.FC = () => {
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthNames = liveMonthNames("long");
 
   const fetchMyRequests = useCallback(async () => {
     if (!currentUser.hasEmployee) return;
@@ -416,7 +417,7 @@ const AttendanceRequestsPage: React.FC = () => {
             type="button"
             onClick={() => setViewingRequest(row)}
             className="p-1.5 bg-gray-50 dark:bg-[#222222] hover:bg-gray-100 dark:hover:bg-[#2a2a2a] border border-gray-200 dark:!border-transparent rounded-lg text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
-            title="View request"
+            title={t("View request")}
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
@@ -425,7 +426,7 @@ const AttendanceRequestsPage: React.FC = () => {
               type="button"
               onClick={() => handleCancelRequest(row)}
               className="p-1.5 bg-rose-50 dark:bg-[#222222] hover:bg-rose-100 dark:hover:bg-[#2a2a2a] border border-rose-200 dark:!border-transparent rounded-lg text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
-              title="Withdraw request"
+              title={t("Withdraw request")}
             >
               <XCircle className="w-3.5 h-3.5" />
             </button>
@@ -439,13 +440,13 @@ const AttendanceRequestsPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="On Duty & Work From Home Requests" description="Request on-duty visits and work-from-home days" />
+      <PageMeta title={t("On Duty & Work From Home Requests")} description="Request on-duty visits and work-from-home days" />
       <PageBreadcrumb
         pageTitle="On Duty Requests"
         actions={
           <button type="button" onClick={() => setActiveTab(activeTab === 'history' ? 'apply' : 'history')} className={TOOL_BUTTON}>
             <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            {activeTab === 'history' ? 'Back to Apply' : `Request History (${requests.length})`}
+            {activeTab === 'history' ? t('Back to Apply') : `${t("Request History")} (${requests.length})`}
           </button>
         }
       />
@@ -481,7 +482,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   {TYPE_LABEL[form.requestType]} · {formatDateDisplay(form.fromDate)}{form.toDate !== form.fromDate ? ` to ${formatDateDisplay(form.toDate)}` : ''}
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-gray-400">
-                  Check each day and change the shift or working times if needed. Weekly offs and holidays are highlighted and left out unless you tick them.
+                  {t("Check each day and change the shift or working times if needed. Weekly offs and holidays are highlighted and left out unless you tick them.")}
                 </p>
               </div>
               <span className="rounded-lg bg-[#e0f7fa] px-2.5 py-1 text-xs font-bold text-[#006f7a]">
@@ -493,11 +494,11 @@ const AttendanceRequestsPage: React.FC = () => {
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-[1] bg-[#e8f3dc] text-left text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-gray-800/70 dark:text-gray-200">
                   <tr>
-                    <th className="w-10 px-2 py-2 text-center">Include</th>
-                    <th className="px-2 py-2">Date</th>
-                    <th className="px-2 py-2">Day type</th>
-                    <th className="px-2 py-2">Shift in</th>
-                    <th className="px-2 py-2">Shift out</th>
+                    <th className="w-10 px-2 py-2 text-center">{t("Include")}</th>
+                    <th className="px-2 py-2">{t("Date")}</th>
+                    <th className="px-2 py-2">{t("Day type")}</th>
+                    <th className="px-2 py-2">{t("Shift in")}</th>
+                    <th className="px-2 py-2">{t("Shift out")}</th>
                     <th className="px-2 py-2">{form.requestType === 'ON_DUTY' ? 'On duty from' : 'Work from'}</th>
                     <th className="px-2 py-2">{form.requestType === 'ON_DUTY' ? 'On duty to' : 'Work to'}</th>
                   </tr>
@@ -526,10 +527,10 @@ const AttendanceRequestsPage: React.FC = () => {
                         <td className="px-2 py-1.5">
                           {d.off ? (
                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${holiday ? 'border-orange-200 bg-orange-100 text-orange-800' : 'border-slate-300 bg-slate-200 text-slate-700'}`}>
-                              {holiday ? `Holiday · ${d.off}` : 'Weekly off'}
+                              {holiday ? `Holiday · ${d.off}` : t('Weekly off')}
                             </span>
                           ) : (
-                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Working day</span>
+                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{t("Working day")}</span>
                           )}
                         </td>
                         <td className="px-2 py-1.5">{time('shiftIn')}</td>
@@ -545,12 +546,12 @@ const AttendanceRequestsPage: React.FC = () => {
 
             <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-[#2a2a2a]">
               <button type="button" onClick={() => setStep('details')} className={TOOL_BUTTON}>
-                <ChevronLeft className="h-3.5 w-3.5" /> Back to details
+                <ChevronLeft className="h-3.5 w-3.5" /> {t("Back to details")}
               </button>
               <button type="button" onClick={handleConfirm} disabled={isSubmitting || includedDays.length === 0}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50">
                 <Send className="h-3.5 w-3.5" />
-                {isSubmitting ? 'Submitting...' : `Confirm & submit (${includedDays.length} ${includedDays.length === 1 ? 'day' : 'days'})`}
+                {isSubmitting ? t('Submitting...') : `Confirm & submit (${includedDays.length} ${includedDays.length === 1 ? 'day' : 'days'})`}
               </button>
             </div>
           </div>
@@ -574,7 +575,7 @@ const AttendanceRequestsPage: React.FC = () => {
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <span className="text-[10px] font-medium text-slate-400 dark:text-gray-500">Pick Date Range</span>
+                    <span className="text-[10px] font-medium text-slate-400 dark:text-gray-500">{t("Pick Date Range")}</span>
                   </div>
 
                   <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase mb-1.5">
@@ -587,7 +588,7 @@ const AttendanceRequestsPage: React.FC = () => {
                 </div>
 
                 <div className="mt-2 pt-2 border-t border-slate-100 dark:!border-transparent text-[10px] text-slate-400 dark:text-gray-500">
-                  Struck-out days are weekly offs or holidays and are not marked. Double click a date to select just that day.
+                  {t("Struck-out days are weekly offs or holidays and are not marked. Double click a date to select just that day.")}
                 </div>
               </div>
 
@@ -595,20 +596,20 @@ const AttendanceRequestsPage: React.FC = () => {
                 <div className="space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                     <div className="sm:col-span-7">
-                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Request Type *</label>
+                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Request Type *")}</label>
                       <select
                         value={form.requestType}
                         onChange={(e) => setForm((p) => ({ ...p, requestType: e.target.value as RequestType }))}
                         className={`${inputClass} font-semibold cursor-pointer`}
                         required
                       >
-                        <option value="ON_DUTY" className="dark:bg-[#222222]">On duty visit</option>
-                        <option value="WORK_FROM_HOME" className="dark:bg-[#222222]">Work from home</option>
+                        <option value="ON_DUTY" className="dark:bg-[#222222]">{t("On duty visit")}</option>
+                        <option value="WORK_FROM_HOME" className="dark:bg-[#222222]">{t("Work from home")}</option>
                       </select>
                     </div>
                     <div className="sm:col-span-5">
                       <div className="h-8 px-2.5 bg-slate-50/80 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent flex items-center justify-between">
-                        <span className="text-[10.5px] text-slate-500 dark:text-gray-400 font-medium truncate">Working days</span>
+                        <span className="text-[10.5px] text-slate-500 dark:text-gray-400 font-medium truncate">{t("Working days")}</span>
                         <span className="px-2 py-0.5 bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:!border-transparent rounded-md text-[10px] font-bold font-mono shadow-2xs shrink-0">
                           {totalDays} {totalDays === 1 ? 'Day' : 'Days'}
                         </span>
@@ -618,12 +619,12 @@ const AttendanceRequestsPage: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">From Date *</label>
+                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("From Date *")}</label>
                       <input type="date" value={form.fromDate} onChange={(e) => setForm((p) => ({ ...p, fromDate: e.target.value }))}
                         className={`${inputClass} font-mono cursor-pointer`} required />
                     </div>
                     <div>
-                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">To Date *</label>
+                      <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("To Date *")}</label>
                       <input type="date" value={form.toDate} min={form.fromDate} onChange={(e) => setForm((p) => ({ ...p, toDate: e.target.value }))}
                         className={`${inputClass} font-mono cursor-pointer`} required />
                     </div>
@@ -633,63 +634,63 @@ const AttendanceRequestsPage: React.FC = () => {
                     <div className="p-2 bg-slate-50/50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">Client Name</label>
+                          <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">{t("Client Name")}</label>
                           <input type="text" value={form.clientName} maxLength={200} onChange={(e) => setForm((p) => ({ ...p, clientName: e.target.value }))}
-                            className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500" placeholder="e.g. Acme Corp" />
+                            className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500" placeholder={t("e.g. Acme Corp")} />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">Visit Location</label>
+                          <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">{t("Visit Location")}</label>
                           <input type="text" value={form.visitLocation} maxLength={200} onChange={(e) => setForm((p) => ({ ...p, visitLocation: e.target.value }))}
-                            className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500" placeholder="e.g. Pune office" />
+                            className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500" placeholder={t("e.g. Pune office")} />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">Visit Purpose</label>
+                          <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-0.5 truncate">{t("Visit Purpose")}</label>
                           <input type="text" value={form.purpose} maxLength={500} onChange={(e) => setForm((p) => ({ ...p, purpose: e.target.value }))}
-                            className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500" placeholder="e.g. Product demo" />
+                            className="w-full h-7.5 px-2 bg-white dark:bg-[#191919] border border-slate-200 dark:!border-transparent rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-cyan-500" placeholder={t("e.g. Product demo")} />
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Task ID</label>
+                        <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Task ID")}</label>
                         <input type="number" min={1} value={form.projectTaskId} onChange={(e) => setForm((p) => ({ ...p, projectTaskId: e.target.value }))}
-                          className={`${inputClass} font-mono`} placeholder="Optional" />
+                          className={`${inputClass} font-mono`} placeholder={t("Optional")} />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Work / project (optional)</label>
+                        <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Work / project (optional)")}</label>
                         <input type="text" value={form.projectTaskName} maxLength={200} onChange={(e) => setForm((p) => ({ ...p, projectTaskName: e.target.value }))}
-                          className={inputClass} placeholder="What you will work on" />
+                          className={inputClass} placeholder={t("What you will work on")} />
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Reason *</label>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Reason *")}</label>
                     <input type="text" value={form.reason} maxLength={1000} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
-                      className={inputClass} placeholder="Why you need this" required />
+                      className={inputClass} placeholder={t("Why you need this")} required />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">Remarks (optional)</label>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Remarks (optional)")}</label>
                     <input type="text" value={form.remarks} maxLength={1000} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))}
-                      className={inputClass} placeholder="Anything else the approver should know" />
+                      className={inputClass} placeholder={t("Anything else the approver should know")} />
                   </div>
 
                   <p className="text-[10.5px] text-slate-400 dark:text-gray-500">
-                    Forgot to punch? Use <Link to="/att_timesheetManagement" className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline">Attendance Regularization</Link> instead.
+                    {t("Forgot to punch? Use")} <Link to="/att_timesheetManagement" className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline">{t("Attendance Regularization")}</Link> {t("instead.")}
                   </p>
                 </div>
 
                 <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:!border-transparent shrink-0 mt-1.5">
                   <button type="button" onClick={() => { setForm(emptyForm()); setReviewDays([]); }}
                     className="px-3 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer">
-                    Clear Form
+                    {t("Clear Form")}
                   </button>
                   <button type="submit" disabled={!form.fromDate || !form.toDate || form.toDate < form.fromDate}
                     className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50">
                     <ChevronRight className="w-3.5 h-3.5" />
-                    Review days & times
+                    {t("Review days & times")}
                   </button>
                 </div>
               </div>
@@ -700,7 +701,7 @@ const AttendanceRequestsPage: React.FC = () => {
         {activeTab === 'history' && (
           <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xs border border-slate-200/80 dark:!border-transparent p-4 sm:p-5 animate-in fade-in duration-150 overflow-x-auto">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">My Requests</h3>
+              <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">{t("My Requests")}</h3>
               <TableToolbar onRefresh={() => fetchMyRequests()} />
             </div>
             <ReusableTable
@@ -729,7 +730,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">Request #{viewingRequest.id}</h3>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{t("Request #")}{viewingRequest.id}</h3>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase shrink-0 ${statusClass(status)}`}>
                         {status.replace(/_/g, ' ')}
                       </span>
@@ -745,14 +746,14 @@ const AttendanceRequestsPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
                 <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                   <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
-                    <Tag className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Request Type
+                    <Tag className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> {t("Request Type")}
                   </span>
                   <span className="font-bold text-slate-800 dark:text-white">{TYPE_LABEL[detail.requestType] || detail.requestType}</span>
                 </div>
 
                 <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent">
                   <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
-                    <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Dates
+                    <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> {t("Dates")}
                   </span>
                   <span className="font-mono font-bold text-slate-800 dark:text-white">{rangeText(viewingRequest)}</span>
                 </div>
@@ -761,7 +762,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   <div className="col-span-1 sm:col-span-2 overflow-hidden rounded-xl border border-slate-200/80 dark:!border-transparent">
                     <table className="w-full text-[11px]">
                       <thead className="bg-slate-50 text-left font-semibold text-slate-600 dark:bg-[#222222] dark:text-gray-300">
-                        <tr><th className="px-2 py-1.5">Date</th><th className="px-2 py-1.5">Shift</th><th className="px-2 py-1.5">Working</th><th className="px-2 py-1.5">Status</th></tr>
+                        <tr><th className="px-2 py-1.5">{t("Date")}</th><th className="px-2 py-1.5">{t("Shift")}</th><th className="px-2 py-1.5">{t("Working")}</th><th className="px-2 py-1.5">{t("Status")}</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
                         {[...(viewingRequest.responseDetails || [])].sort((a, b) => a.fromDate.localeCompare(b.fromDate)).map((d: any) => (
@@ -780,7 +781,7 @@ const AttendanceRequestsPage: React.FC = () => {
                 {detail.projectTaskName && (
                   <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
-                      <Briefcase className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Work / project
+                      <Briefcase className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> {t("Work / project")}
                     </span>
                     <span className="font-bold text-slate-800 dark:text-white">
                       {detail.projectTaskId ? <span className="font-mono text-slate-500 dark:text-gray-400 mr-1.5">#{detail.projectTaskId}</span> : null}
@@ -792,29 +793,29 @@ const AttendanceRequestsPage: React.FC = () => {
                 {(detail.clientName || detail.visitLocation || detail.purpose) && (
                   <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2 space-y-1">
                     <span className="text-slate-500 dark:text-gray-400 font-semibold flex items-center gap-1 text-[11px] mb-1">
-                      <MapPin className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Visit
+                      <MapPin className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> {t("Visit")}
                     </span>
-                    {detail.clientName && <p className="text-slate-800 dark:text-white font-semibold text-[11px]">Client: <span className="font-bold">{detail.clientName}</span></p>}
-                    {detail.visitLocation && <p className="text-slate-800 dark:text-white font-semibold text-[11px]">Location: <span className="font-bold">{detail.visitLocation}</span></p>}
-                    {detail.purpose && <p className="text-slate-800 dark:text-white font-semibold text-[11px]">Purpose: <span className="font-normal text-slate-700 dark:text-gray-300">{detail.purpose}</span></p>}
+                    {detail.clientName && <p className="text-slate-800 dark:text-white font-semibold text-[11px]">{t("Client:")} <span className="font-bold">{detail.clientName}</span></p>}
+                    {detail.visitLocation && <p className="text-slate-800 dark:text-white font-semibold text-[11px]">{t("Location:")} <span className="font-bold">{detail.visitLocation}</span></p>}
+                    {detail.purpose && <p className="text-slate-800 dark:text-white font-semibold text-[11px]">{t("Purpose:")} <span className="font-normal text-slate-700 dark:text-gray-300">{detail.purpose}</span></p>}
                   </div>
                 )}
 
                 <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
-                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">Reason</span>
+                  <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">{t("Reason")}</span>
                   <p className="font-semibold text-slate-800 dark:text-white leading-relaxed text-xs">{detail.reason || '—'}</p>
                 </div>
 
                 {detail.remarks && (
                   <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
-                    <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">Remarks</span>
+                    <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">{t("Remarks")}</span>
                     <p className="text-slate-800 dark:text-white leading-relaxed text-xs">{detail.remarks}</p>
                   </div>
                 )}
 
                 {viewingRequest.approverRemarks && (
                   <div className="p-3 bg-slate-50 dark:bg-[#222222] rounded-xl border border-slate-200/80 dark:!border-transparent col-span-1 sm:col-span-2">
-                    <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">Approver's remarks</span>
+                    <span className="text-slate-500 dark:text-gray-400 font-semibold block text-[11px] mb-1">{t("Approver's remarks")}</span>
                     <p className="text-slate-800 dark:text-white text-xs">{viewingRequest.approverRemarks}</p>
                   </div>
                 )}
@@ -823,7 +824,7 @@ const AttendanceRequestsPage: React.FC = () => {
               <div className="pt-3 border-t border-slate-100 dark:!border-transparent flex items-center justify-end">
                 <button type="button" onClick={() => setViewingRequest(null)}
                   className="w-full sm:w-auto px-4 py-2 bg-slate-100 dark:bg-[#222222] hover:bg-slate-200 dark:hover:bg-[#2a2a2a] text-slate-700 dark:text-gray-200 rounded-xl text-xs font-bold transition-colors text-center cursor-pointer">
-                  Close
+                  {t("Close")}
                 </button>
               </div>
             </div>

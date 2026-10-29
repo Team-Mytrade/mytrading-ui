@@ -1,3 +1,4 @@
+import { t } from "../../i18n/i18n";
 import React from "react";
 
 // Status Badge Component
@@ -8,7 +9,7 @@ export const StatusBadge = ({ active }: { active: boolean }) => (
     <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
       active ? 'bg-green-500' : 'bg-red-500'
     }`} />
-    {active ? 'Active' : 'Inactive'}
+    {t(active ? 'Active' : 'Inactive')}
   </span>
 );
 

@@ -20,6 +20,7 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect, FloatingTextarea } fr
 import { ToasterService } from '../../Services/ToasterService';
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { apiError } from "../../utils/apiError";
+import { t } from "../../i18n/i18n";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, STATS_ROW, TOOL_BUTTON } from './hrmsUi';
 
 const EXIT_REASONS = [
@@ -214,16 +215,16 @@ const ExitManagementPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Exit Management" description="Manage your resignation and offboarding" />
+            <PageMeta title={t("Exit Management")} description="Manage your resignation and offboarding" />
             <PageBreadcrumb
                 pageTitle="Exit Management"
                 actions={
                     canStart ? (
-                        <AddButton label="Start Resignation" permission={null} disabled={loading} onClick={() => setIsResigning(true)} />
+                        <AddButton label={t("Start Resignation")} permission={null} disabled={loading} onClick={() => setIsResigning(true)} />
                     ) : isOpen && !resignation?.withdrawalRequested ? (
                         <button type="button" className={TOOL_BUTTON} disabled={loading} onClick={() => setWithdrawing(true)}>
                             <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
-                            Withdraw Resignation
+                            {t("Withdraw Resignation")}
                         </button>
                     ) : undefined
                 }
@@ -233,8 +234,8 @@ const ExitManagementPage: React.FC = () => {
                 {/* This page is the user's own resignation; approvers handle everyone's on Exit Approvals */}
                 {canApprove && (
                     <p className="mb-3 rounded-lg border border-[#b2ebf2] bg-[#e0f7fa] px-3 py-2 text-xs text-slate-700">
-                        This page is for your own resignation. To review, edit or approve employees' exit requests, open{' '}
-                        <Link to="/exitApprovals" className="font-semibold text-[#006f7a] hover:underline">Exit Approvals</Link>.
+                        {t("This page is for your own resignation. To review, edit or approve employees' exit requests, open")}{' '}
+                        <Link to="/exitApprovals" className="font-semibold text-[#006f7a] hover:underline">{t("Exit Approvals")}</Link>.
                     </p>
                 )}
                 {notLinked || !isOpen ? (
@@ -245,7 +246,7 @@ const ExitManagementPage: React.FC = () => {
                             <p className="text-sm text-gray-500 dark:text-slate-400">{notLinked}</p>
                         ) : (
                             <>
-                                <p className="text-sm font-semibold text-slate-900 dark:text-white">No open resignation</p>
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">{t("No open resignation")}</p>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
                                     {resignation
                                         ? <>Your last resignation ({showDate(resignation.resignationDate)}) was{' '}
@@ -255,7 +256,7 @@ const ExitManagementPage: React.FC = () => {
                                 </p>
                                 {canStart && (
                                     <button type="button" onClick={() => setIsResigning(true)} className="mt-3 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
-                                        Start resignation
+                                        {t("Start resignation")}
                                     </button>
                                 )}
                             </>
@@ -265,21 +266,21 @@ const ExitManagementPage: React.FC = () => {
                     <>
                         <div className={STATS_ROW}>
                             <StatsCard
-                                label="Status"
+                                label={t("Status")}
                                 value={resignation.withdrawalRequested ? 'Withdrawal requested' : (STATUS_LABEL[resignation.status] || resignation.status)}
                                 gradient={resignation.status === 'APPROVED' || resignation.status === 'NOTICE_PERIOD' ? "from-green-50 to-emerald-50" : "from-amber-50 to-yellow-50"}
                                 borderColor={resignation.status === 'APPROVED' || resignation.status === 'NOTICE_PERIOD' ? "border-green-100" : "border-amber-100"}
                                 labelColor={resignation.status === 'APPROVED' || resignation.status === 'NOTICE_PERIOD' ? "text-green-600" : "text-amber-600"}
                                 icon={<FlagIcon className="h-5 w-5" />}
                             />
-                            <StatsCard label="Applied On" value={showDate(resignation.resignationDate)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<CalendarDaysIcon className="h-5 w-5" />} />
-                            <StatsCard label="Notice Period" value={resignation.noticeDays != null ? `${resignation.noticeDays} days` : '-'} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ClockIcon className="h-5 w-5" />} />
-                            <StatsCard label="Last Working Day" value={showDate(resignation.lastWorkingDay)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<CalendarDaysIcon className="h-5 w-5" />} onRefresh={fetchMyRequests} />
+                            <StatsCard label={t("Applied On")} value={showDate(resignation.resignationDate)} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<CalendarDaysIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Notice Period")} value={resignation.noticeDays != null ? `${resignation.noticeDays} days` : '-'} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ClockIcon className="h-5 w-5" />} />
+                            <StatsCard label={t("Last Working Day")} value={showDate(resignation.lastWorkingDay)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<CalendarDaysIcon className="h-5 w-5" />} onRefresh={fetchMyRequests} />
                         </div>
 
                         {withdrawing && (
                             <div className={`${CARD} mb-4 p-4`}>
-                                <h3 className={CARD_TITLE}>Withdraw your resignation</h3>
+                                <h3 className={CARD_TITLE}>{t("Withdraw your resignation")}</h3>
                                 <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">
                                     {resignation.status === 'SUBMITTED' || resignation.status === 'UNDER_REVIEW'
                                         ? 'HR hasn\'t decided yet, so it is withdrawn at once.'
@@ -287,7 +288,7 @@ const ExitManagementPage: React.FC = () => {
                                 </p>
                                 <div className="mt-3">
                                     <FloatingTextarea
-                                        label="Why are you withdrawing? (optional)"
+                                        label={t("Why are you withdrawing? (optional)")}
                                         rows={2}
                                         value={withdrawReason}
                                         onChange={e => setWithdrawReason(e.target.value)}
@@ -295,10 +296,10 @@ const ExitManagementPage: React.FC = () => {
                                 </div>
                                 <div className="mt-3 flex justify-end gap-2">
                                     <button type="button" className={SECONDARY_BUTTON} onClick={() => { setWithdrawing(false); setWithdrawReason(''); }}>
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                     <button type="button" className={PRIMARY_BUTTON} disabled={loading} onClick={handleWithdraw}>
-                                        Confirm Withdrawal
+                                        {t("Confirm Withdrawal")}
                                     </button>
                                 </div>
                             </div>
@@ -308,7 +309,7 @@ const ExitManagementPage: React.FC = () => {
                             {/* Exit steps, as HR records them */}
                             <div className={`${CARD} p-4 lg:col-span-2`}>
                                 <div className="mb-3 flex items-center justify-between">
-                                    <h3 className={CARD_TITLE}>Exit Steps</h3>
+                                    <h3 className={CARD_TITLE}>{t("Exit Steps")}</h3>
                                     <span className="text-xs font-medium text-slate-500 dark:text-gray-400">
                                         {steps.filter(s => s.done).length} of {steps.length} done
                                     </span>
@@ -330,26 +331,26 @@ const ExitManagementPage: React.FC = () => {
 
                             {/* The request itself */}
                             <div className={`${CARD} p-4`}>
-                                <h3 className={`${CARD_TITLE} mb-3`}>Your Request</h3>
+                                <h3 className={`${CARD_TITLE} mb-3`}>{t("Your Request")}</h3>
                                 <dl className="space-y-3 text-sm">
                                     <div>
-                                        <dt className="text-xs text-slate-500 dark:text-gray-400">Reason</dt>
+                                        <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Reason")}</dt>
                                         <dd className="text-slate-900 dark:text-white">{resignation.reason || '-'}</dd>
                                     </div>
                                     {resignation.approvedDate && (
                                         <div>
-                                            <dt className="text-xs text-slate-500 dark:text-gray-400">Approved On</dt>
+                                            <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Approved On")}</dt>
                                             <dd className="text-slate-900 dark:text-white">{showDate(resignation.approvedDate)}</dd>
                                         </div>
                                     )}
                                     {resignation.withdrawalRequested && (
                                         <p className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-transparent dark:bg-blue-950/40 dark:text-blue-300">
-                                            Your withdrawal is waiting for HR.
+                                            {t("Your withdrawal is waiting for HR.")}
                                         </p>
                                     )}
                                     {resignation.rejectedReason && (
                                         <div>
-                                            <dt className="text-xs text-slate-500 dark:text-gray-400">HR's note</dt>
+                                            <dt className="text-xs text-slate-500 dark:text-gray-400">{t("HR's note")}</dt>
                                             <dd className="text-slate-900 dark:text-white">{resignation.rejectedReason}</dd>
                                         </div>
                                     )}
@@ -362,7 +363,7 @@ const ExitManagementPage: React.FC = () => {
                 {/* Every resignation so far, including withdrawn and rejected ones */}
                 {!notLinked && requests.length > 0 && (
                     <div className={`${CARD} mt-4 p-4`}>
-                        <h3 className={`${CARD_TITLE} mb-3`}>Request History ({requests.length})</h3>
+                        <h3 className={`${CARD_TITLE} mb-3`}>{t("Request History")} ({requests.length})</h3>
                         <ReusableTable
                             data={requests}
                             columns={HISTORY_COLUMNS}
@@ -371,7 +372,7 @@ const ExitManagementPage: React.FC = () => {
                             defaultSortKey="resignationDate"
                             defaultSortOrder="desc"
                             rowDetailsTitle={(r) => `Resignation of ${showDate(r.resignationDate)}`}
-                            rowDetailsSubtitle="Your resignation"
+                            rowDetailsSubtitle={t("Your resignation")}
                         />
                     </div>
                 )}
@@ -379,23 +380,23 @@ const ExitManagementPage: React.FC = () => {
 
             <PaginatedPopup
                 isOpen={isResigning}
-                title="Resignation"
-                subtitle="Your request goes to HR for approval"
+                title={t("Resignation")}
+                subtitle={t("Your request goes to HR for approval")}
                 onClose={() => setIsResigning(false)}
                 onSubmit={handleResignSubmit}
                 submitting={loading}
-                submitLabel="Submit Resignation"
+                submitLabel={t("Submit Resignation")}
                 maxWidthClassName="max-w-2xl"
                 tabs={[
                     {
                         label: "Details",
                         fields: [
-                            <FloatingInput key="resignationDate" label="Resignation Date" name="resignationDate" type="date" value={formData.resignationDate} onChange={handleChange} required />,
-                            <FloatingInput key="noticePeriod" label="Notice Period (days)" name="noticePeriod" type="number" min={0} value={formData.noticePeriod} onChange={handleChange} required />,
-                            <FloatingInput key="lastWorkingDay" label="Last Working Day" name="lastWorkingDay" type="date" min={formData.resignationDate} value={effectiveLWD} onChange={handleChange} required />,
-                            <FloatingSelect key="reason" label="Reason" name="reason" value={formData.reason} onChange={handleChange} options={EXIT_REASONS.map(r => ({ id: r, name: r }))} required />,
+                            <FloatingInput key="resignationDate" label={t("Resignation Date")} name="resignationDate" type="date" value={formData.resignationDate} onChange={handleChange} required />,
+                            <FloatingInput key="noticePeriod" label={t("Notice Period (days)")} name="noticePeriod" type="number" min={0} value={formData.noticePeriod} onChange={handleChange} required />,
+                            <FloatingInput key="lastWorkingDay" label={t("Last Working Day")} name="lastWorkingDay" type="date" min={formData.resignationDate} value={effectiveLWD} onChange={handleChange} required />,
+                            <FloatingSelect key="reason" label={t("Reason")} name="reason" value={formData.reason} onChange={handleChange} options={EXIT_REASONS.map(r => ({ id: r, name: r }))} required />,
                             <div key="comment" className="md:col-span-2">
-                                <FloatingTextarea label="Comment / handover details" name="comment" rows={3} value={formData.comment} onChange={handleChange} required />
+                                <FloatingTextarea label={t("Comment / handover details")} name="comment" rows={3} value={formData.comment} onChange={handleChange} required />
                             </div>,
                         ],
                     },

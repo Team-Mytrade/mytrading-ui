@@ -45,6 +45,7 @@ import { COUNTRY_OPTIONS, ALL_CURRENCIES } from "../../shared/utils/country-list
 import type { ICity, IState } from "country-state-city";
 import { formatNumber, formatDate, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // The city/state dataset is several MB, so it is downloaded after the page opens rather than with it
 type GeoData = {
   State: { getStatesOfCountry: (countryCode: string) => IState[] };
@@ -865,7 +866,7 @@ const AddEmployeePage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-gray-200 border-t-cyan-600 rounded-full animate-spin"></div>
-          <div className="text-sm text-gray-500">Loading employee data...</div>
+          <div className="text-sm text-gray-500">{t("Loading employee data...")}</div>
         </div>
       </div>
     );
@@ -930,7 +931,7 @@ const AddEmployeePage: React.FC = () => {
   return (
     <>
       <PageMeta
-        title={editId ? "Update Profile" : "Add Employee"}
+        title={t(editId ? "Update Profile" : "Add Employee")}
         description="Employee onboarding and management"
       />
 
@@ -940,7 +941,7 @@ const AddEmployeePage: React.FC = () => {
         actions={
           <button type="button" onClick={() => navigate(-1)} className={TOOL_BUTTON}>
             <X className="h-3.5 w-3.5" />
-            Cancel
+            {t("Cancel")}
           </button>
         }
       />
@@ -997,7 +998,7 @@ const AddEmployeePage: React.FC = () => {
                   {steps[currentStep - 1].label}
                 </span>
               </div>
-              <div className="text-[11px] text-gray-500 dark:text-gray-400">Step {currentStep} of {steps.length}</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">{t("Step")} {currentStep} of {steps.length}</div>
             </div>
             <div className="mt-2 h-1 bg-gray-200 dark:bg-[#2a2a2a] rounded-full overflow-hidden">
               <div
@@ -1023,15 +1024,15 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 1 && (
                 <div className="space-y-3">
                   <div className="mb-2">
-                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">Personal Information</h2>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Basic employee details</p>
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t("Personal Information")}</h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("Basic employee details")}</p>
                   </div>
 
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          First Name <span className="text-red-500">*</span>
+                          {t("First Name")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1043,7 +1044,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Last Name <span className="text-red-500">*</span>
+                          {t("Last Name")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1057,7 +1058,7 @@ const AddEmployeePage: React.FC = () => {
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                        Father's Name <span className="text-red-500">*</span>
+                        {t("Father's Name")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1071,22 +1072,22 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Gender <span className="text-red-500">*</span>
+                          {t("Gender")} <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={form.gender}
                           onChange={(e) => handleChange("gender", e.target.value)}
                           className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.gender ? "border-red-500" : "border-gray-300"}`}
                         >
-                          <option value="MALE">Male</option>
-                          <option value="FEMALE">Female</option>
-                          <option value="OTHER">Other</option>
+                          <option value="MALE">{t("Male")}</option>
+                          <option value="FEMALE">{t("Female")}</option>
+                          <option value="OTHER">{t("Other")}</option>
                         </select>
                         <ErrorMessage message={errors.gender} />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Date of Birth <span className="text-red-500">*</span>
+                          {t("Date of Birth")} <span className="text-red-500">*</span>
                         </label>
                         <DatePicker
                           selected={form.dateOfBirth}
@@ -1106,24 +1107,24 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Marital Status
+                          {t("Marital Status")}
                         </label>
                         <select
                           value={form.maritalStatus}
                           onChange={(e) => handleChange("maritalStatus", e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
                         >
-                          <option value="SINGLE">Single</option>
-                          <option value="MARRIED">Married</option>
-                          <option value="DIVORCED">Divorced</option>
-                          <option value="WIDOWED">Widowed</option>
+                          <option value="SINGLE">{t("Single")}</option>
+                          <option value="MARRIED">{t("Married")}</option>
+                          <option value="DIVORCED">{t("Divorced")}</option>
+                          <option value="WIDOWED">{t("Widowed")}</option>
                         </select>
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                        Phone Number <span className="text-red-500">*</span>
+                        {t("Phone Number")} <span className="text-red-500">*</span>
                       </label>
                       <style>{`
                         .react-tel-input .form-control {
@@ -1146,7 +1147,7 @@ const AddEmployeePage: React.FC = () => {
                         buttonClass="!border !border-gray-300 !rounded-l-lg"
                         dropdownClass="!z-50"
                         enableSearch
-                        searchPlaceholder="Search country..."
+                        searchPlaceholder={t("Search country...")}
                       />
                       <ErrorMessage message={errors.phone} />
                     </div>
@@ -1154,7 +1155,7 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Personal Email <span className="text-red-500">*</span>
+                          {t("Personal Email")} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <Mail className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
@@ -1169,7 +1170,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Official Email <span className="text-red-500">*</span>
+                          {t("Official Email")} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <Mail className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
@@ -1182,7 +1183,7 @@ const AddEmployeePage: React.FC = () => {
                         </div>
                         <ErrorMessage message={errors.officialEmail} />
                         {!editId && !errors.officialEmail && (
-                          <p className="mt-0.5 text-[11px] text-gray-500">The employee signs in with this email</p>
+                          <p className="mt-0.5 text-[11px] text-gray-500">{t("The employee signs in with this email")}</p>
                         )}
                       </div>
                     </div>
@@ -1194,25 +1195,25 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 2 && (
                 <div className="space-y-3">
                   <div className="mb-2">
-                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">Employment Details</h2>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Job role and department information</p>
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t("Employment Details")}</h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("Job role and department information")}</p>
                   </div>
 
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Designation <span className="text-red-500">*</span>
+                          {t("Designation")} <span className="text-red-500">*</span>
                         </label>
                         {/* Pay is split by designation, so only designations with pay components can be chosen */}
                         <div className="flex gap-1.5">
                           <select
                             value={form.designation}
                             onChange={(e) => handleChange("designation", e.target.value)}
-                            aria-label="Designation"
+                            aria-label={t("Designation")}
                             className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.designation ? "border-red-500" : "border-gray-300"}`}
                           >
-                            <option value="">{designationOptions.length ? "Select designation" : "No designations set up yet"}</option>
+                            <option value="">{t(designationOptions.length ? "Select designation" : "No designations set up yet")}</option>
                             {designationMissingSetup && (
                               <option value={form.designation}>{form.designation} (no pay set-up)</option>
                             )}
@@ -1223,7 +1224,7 @@ const AddEmployeePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={fetchPayComponents}
-                            title="Reload designations (after adding one on the Compensation page)"
+                            title={t("Reload designations (after adding one on the Compensation page)")}
                             className="shrink-0 rounded-lg border border-gray-300 px-2 text-xs text-gray-500 hover:bg-gray-50 hover:text-cyan-600"
                           >
                             ↻
@@ -1238,9 +1239,9 @@ const AddEmployeePage: React.FC = () => {
                                 ? "Add designations and their pay split on "
                                 : "Missing one? Add it with its pay split on "}
                             <Link to="/employeeCompensation" target="_blank" rel="noreferrer" className="font-medium text-cyan-600 hover:underline">
-                              the Compensation page
+                              {t("the Compensation page")}
                             </Link>
-                            , then reload the list.
+                            {t(", then reload the list.")}
                           </p>
                         )}
                       </div>
@@ -1250,7 +1251,7 @@ const AddEmployeePage: React.FC = () => {
 
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Login Role
+                          {t("Login Role")}
                         </label>
                         <select
                           value={form.role}
@@ -1258,7 +1259,7 @@ const AddEmployeePage: React.FC = () => {
                           disabled={rolesUnavailable && !form.role}
                           className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${errors.role ? "border-red-500" : "border-gray-300"}`}
                         >
-                          <option value="">{editId ? "Keep the current role" : "No role yet"}</option>
+                          <option value="">{t(editId ? "Keep the current role" : "No role yet")}</option>
                           {roleOptions.map((role) => (
                             <option key={role.name} value={role.name} disabled={!role.grantable}>
                               {role.grantable ? role.name : `${role.name} (you can't grant this)`}
@@ -1279,18 +1280,18 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Department <span className="text-red-500">*</span>
+                          {t("Department")} <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={isOtherDepartment ? -1 : form.department.id || ""}
                           onChange={(e) => handleDepartmentChange(Number(e.target.value))}
                           className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.department ? "border-red-500" : "border-gray-300"}`}
                         >
-                          <option value="">Select Department</option>
+                          <option value="">{t("Select Department")}</option>
                           {departments.map((dept) => (
                             <option key={dept.id} value={dept.id}>{dept.name}</option>
                           ))}
-                          <option value="-1">Other (new department)</option>
+                          <option value="-1">{t("Other (new department)")}</option>
                         </select>
                         {isOtherDepartment && (
                           <input
@@ -1300,7 +1301,7 @@ const AddEmployeePage: React.FC = () => {
                               setCustomDepartment(e.target.value);
                               handleChange("department", { id: -1, name: e.target.value });
                             }}
-                            placeholder="New department name (created when you save)"
+                            placeholder={t("New department name (created when you save)")}
                             className="mt-1.5 w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                           />
                         )}
@@ -1308,17 +1309,17 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Employment Type <span className="text-red-500">*</span>
+                          {t("Employment Type")} <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={form.employmentType}
                           onChange={(e) => handleChange("employmentType", e.target.value)}
                           className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white ${errors.employmentType ? "border-red-500" : "border-gray-300"}`}
                         >
-                          <option value="FULL_TIME">Full Time</option>
-                          <option value="PART_TIME">Part Time</option>
-                          <option value="CONTRACT">Contract</option>
-                          <option value="INTERN">Intern</option>
+                          <option value="FULL_TIME">{t("Full Time")}</option>
+                          <option value="PART_TIME">{t("Part Time")}</option>
+                          <option value="CONTRACT">{t("Contract")}</option>
+                          <option value="INTERN">{t("Intern")}</option>
                         </select>
                         <ErrorMessage message={errors.employmentType} />
                       </div>
@@ -1327,7 +1328,7 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Location <span className="text-red-500">*</span>
+                          {t("Location")} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <MapPin className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
@@ -1336,14 +1337,14 @@ const AddEmployeePage: React.FC = () => {
                             value={form.location}
                             onChange={(e) => handleChange("location", e.target.value)}
                             className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.location ? "border-red-500" : "border-gray-300"}`}
-                            placeholder="Bangalore"
+                            placeholder={t("Bangalore")}
                           />
                         </div>
                         <ErrorMessage message={errors.location} />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-0.5">
-                          Joining Date <span className="text-red-500">*</span>
+                          {t("Joining Date")} <span className="text-red-500">*</span>
                         </label>
                         <DatePicker
                           selected={form.joiningDate}
@@ -1358,7 +1359,7 @@ const AddEmployeePage: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">Manager</label>
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">{t("Manager")}</label>
                         <div className="relative">
                           <Users className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
                           <select
@@ -1366,7 +1367,7 @@ const AddEmployeePage: React.FC = () => {
                             onChange={(e) => handleChange("managerId", e.target.value || null)}
                             className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
                           >
-                            <option value="">Select Manager</option>
+                            <option value="">{t("Select Manager")}</option>
                             {managers.map((manager) => (
                               <option key={manager.id} value={manager.id}>
                                 {manager.firstName} {manager.lastName} - {manager.designation}
@@ -1376,7 +1377,7 @@ const AddEmployeePage: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">Exit Date</label>
+                        <label className="block text-xs font-semibold text-gray-700 mb-0.5">{t("Exit Date")}</label>
                         <DatePicker
                           selected={form.exitDate}
                           onChange={(date) => handleChange("exitDate", date)}
@@ -1394,20 +1395,20 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Address Information</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Residential addresses</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("Address Information")}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("Residential addresses")}</p>
                   </div>
 
                   {/* Permanent Address */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-4">
                       <Home className="w-4 h-4 text-cyan-600 dark:text-gray-400" />
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Permanent Address</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t("Permanent Address")}</h3>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Country <span className="text-red-500">*</span>
+                        {t("Country")} <span className="text-red-500">*</span>
                       </label>
                       <Select classNames={customClassNames}
                         options={COUNTRY_OPTIONS}
@@ -1415,13 +1416,13 @@ const AddEmployeePage: React.FC = () => {
                         onChange={(option) => handleCountryChange("permanentAddress", option)}
                         className="react-select-container"
                         classNamePrefix="react-select"
-                        placeholder="Select country"
+                        placeholder={t("Select country")}
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Address Line 1 <span className="text-red-500">*</span>
+                        {t("Address Line 1")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1433,7 +1434,7 @@ const AddEmployeePage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Address Line 2</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("Address Line 2")}</label>
                       <input
                         type="text"
                         value={form.permanentAddress.line2}
@@ -1445,7 +1446,7 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          State <span className="text-red-500">*</span>
+                          {t("State")} <span className="text-red-500">*</span>
                         </label>
                         {State.getStatesOfCountry(form.permanentAddress.country?.code || '').length > 0 ? (
                           <Select classNames={customClassNames}
@@ -1457,14 +1458,14 @@ const AddEmployeePage: React.FC = () => {
                             }}
                             className={`react-select-container ${errors["permanentAddress.state"] ? "border-red-500 rounded border" : ""}`}
                             classNamePrefix="react-select"
-                            placeholder="Select State"
+                            placeholder={t("Select State")}
                           />
                         ) : (
                           <input
                             type="text"
                             value={form.permanentAddress.state}
                             onChange={(e) => handleChange("permanentAddress.state", e.target.value)}
-                            placeholder="Enter state / province"
+                            placeholder={t("Enter state / province")}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["permanentAddress.state"] ? "border-red-500" : "border-gray-300"}`}
                           />
                         )}
@@ -1472,7 +1473,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          City <span className="text-red-500">*</span>
+                          {t("City")} <span className="text-red-500">*</span>
                         </label>
                         {(() => {
                             const cCode = form.permanentAddress.country?.code || '';
@@ -1485,14 +1486,14 @@ const AddEmployeePage: React.FC = () => {
                                 onChange={(option: any) => handleChange("permanentAddress.city", option ? option.value : "")}
                                 className={`react-select-container ${errors["permanentAddress.city"] ? "border-red-500 rounded border" : ""}`}
                                 classNamePrefix="react-select"
-                                placeholder="Select City"
+                                placeholder={t("Select City")}
                               />
                             ) : (
                               <input
                                 type="text"
                                 value={form.permanentAddress.city}
                                 onChange={(e) => handleChange("permanentAddress.city", e.target.value)}
-                                placeholder="Enter city"
+                                placeholder={t("Enter city")}
                                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["permanentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
                               />
                             );
@@ -1501,7 +1502,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Postal Code <span className="text-red-500">*</span>
+                          {t("Postal Code")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1519,7 +1520,7 @@ const AddEmployeePage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-cyan-600" />
-                        <h3 className="text-sm font-semibold text-gray-900">Current Address</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">{t("Current Address")}</h3>
                       </div>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1528,13 +1529,13 @@ const AddEmployeePage: React.FC = () => {
                           onChange={(e) => setSameAsPermanent(e.target.checked)}
                           className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
                         />
-                        <span className="text-sm text-gray-700">Same as Permanent Address</span>
+                        <span className="text-sm text-gray-700">{t("Same as Permanent Address")}</span>
                       </label>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Country <span className="text-red-500">*</span>
+                        {t("Country")} <span className="text-red-500">*</span>
                       </label>
                       <Select classNames={customClassNames}
                         options={COUNTRY_OPTIONS}
@@ -1543,13 +1544,13 @@ const AddEmployeePage: React.FC = () => {
                         isDisabled={sameAsPermanent}
                         className="react-select-container"
                         classNamePrefix="react-select"
-                        placeholder="Select country"
+                        placeholder={t("Select country")}
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Address Line 1 <span className="text-red-500">*</span>
+                        {t("Address Line 1")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1562,7 +1563,7 @@ const AddEmployeePage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Address Line 2</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("Address Line 2")}</label>
                       <input
                         type="text"
                         value={form.currentAddress.line2}
@@ -1575,7 +1576,7 @@ const AddEmployeePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          State <span className="text-red-500">*</span>
+                          {t("State")} <span className="text-red-500">*</span>
                         </label>
                         {State.getStatesOfCountry(form.currentAddress.country?.code || '').length > 0 ? (
                           <Select classNames={customClassNames}
@@ -1588,7 +1589,7 @@ const AddEmployeePage: React.FC = () => {
                             isDisabled={sameAsPermanent}
                             className={`react-select-container ${errors["currentAddress.state"] ? "border-red-500 rounded border" : ""}`}
                             classNamePrefix="react-select"
-                            placeholder="Select State"
+                            placeholder={t("Select State")}
                           />
                         ) : (
                           <input
@@ -1596,7 +1597,7 @@ const AddEmployeePage: React.FC = () => {
                             value={form.currentAddress.state}
                             onChange={(e) => handleChange("currentAddress.state", e.target.value)}
                             disabled={sameAsPermanent}
-                            placeholder="Enter state / province"
+                            placeholder={t("Enter state / province")}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.state"] ? "border-red-500" : "border-gray-300"}`}
                           />
                         )}
@@ -1604,7 +1605,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          City <span className="text-red-500">*</span>
+                          {t("City")} <span className="text-red-500">*</span>
                         </label>
                         {(() => {
                             const cCode = form.currentAddress.country?.code || '';
@@ -1618,7 +1619,7 @@ const AddEmployeePage: React.FC = () => {
                                 isDisabled={sameAsPermanent}
                                 className={`react-select-container ${errors["currentAddress.city"] ? "border-red-500 rounded border" : ""}`}
                                 classNamePrefix="react-select"
-                                placeholder="Select City"
+                                placeholder={t("Select City")}
                               />
                             ) : (
                               <input
@@ -1626,7 +1627,7 @@ const AddEmployeePage: React.FC = () => {
                                 value={form.currentAddress.city}
                                 onChange={(e) => handleChange("currentAddress.city", e.target.value)}
                                 disabled={sameAsPermanent}
-                                placeholder="Enter city"
+                                placeholder={t("Enter city")}
                                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed ${errors["currentAddress.city"] ? "border-red-500" : "border-gray-300"}`}
                               />
                             );
@@ -1635,7 +1636,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Postal Code <span className="text-red-500">*</span>
+                          {t("Postal Code")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1655,34 +1656,34 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 4 && (
                 <div className="space-y-8">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Banking & Salary Details</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Compensation and bank information</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("Banking & Salary Details")}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("Compensation and bank information")}</p>
                   </div>
 
                   {/* Banking */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-4">
                       <CreditCard className="w-4 h-4 text-cyan-600 dark:text-gray-400" />
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Bank Account Details</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t("Bank Account Details")}</h3>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Bank Name <span className="text-red-500">*</span>
+                          {t("Bank Name")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={form.bankName}
                           onChange={(e) => handleChange("bankName", e.target.value)}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.bankName ? "border-red-500" : "border-gray-300"}`}
-                          placeholder="HDFC Bank"
+                          placeholder={t("HDFC Bank")}
                         />
                         <ErrorMessage message={errors.bankName} />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Account Number <span className="text-red-500">*</span>
+                          {t("Account Number")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1699,20 +1700,20 @@ const AddEmployeePage: React.FC = () => {
                       {isIndia && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            IFSC Code <span className="text-red-500">*</span>
+                            {t("IFSC Code")} <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
                             value={form.ifscCode}
                             onChange={(e) => handleChange("ifscCode", e.target.value.toUpperCase())}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.ifscCode ? "border-red-500" : "border-gray-300"}`}
-                            placeholder="HDFC0001234"
+                            placeholder={t("HDFC0001234")}
                           />
                           <ErrorMessage message={errors.ifscCode} />
                         </div>
                       )}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("Branch")}</label>
                         <input
                           type="text"
                           value={form.branch}
@@ -1728,18 +1729,18 @@ const AddEmployeePage: React.FC = () => {
                     <div className="space-y-4 pt-6 border-t border-gray-100">
                       <div className="flex items-center gap-2 mb-4">
                         <Shield className="w-4 h-4 text-cyan-600" />
-                        <h3 className="text-sm font-semibold text-gray-900">Statutory Details</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">{t("Statutory Details")}</h3>
                       </div>
                       
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Tax Regime</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("Tax Regime")}</label>
                         <select
                           value={form.taxRegime}
                           onChange={(e) => handleChange("taxRegime", e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                         >
-                          <option value="New Regime">New Regime</option>
-                          <option value="Old Regime">Old Regime</option>
+                          <option value="New Regime">{t("New Regime")}</option>
+                          <option value="Old Regime">{t("Old Regime")}</option>
                         </select>
                       </div>
 
@@ -1752,8 +1753,8 @@ const AddEmployeePage: React.FC = () => {
                             className="mt-1 w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
                           />
                           <div>
-                            <div className="text-sm font-medium text-gray-900">ESI Applicable</div>
-                            <div className="text-xs text-gray-500">Employee State Insurance Corporation</div>
+                            <div className="text-sm font-medium text-gray-900">{t("ESI Applicable")}</div>
+                            <div className="text-xs text-gray-500">{t("Employee State Insurance Corporation")}</div>
                           </div>
                         </label>
                         <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition">
@@ -1764,26 +1765,26 @@ const AddEmployeePage: React.FC = () => {
                             className="mt-1 w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
                           />
                           <div>
-                            <div className="text-sm font-medium text-gray-900">Metro City</div>
-                            <div className="text-xs text-gray-500">Applicable for HRA calculations</div>
+                            <div className="text-sm font-medium text-gray-900">{t("Metro City")}</div>
+                            <div className="text-xs text-gray-500">{t("Applicable for HRA calculations")}</div>
                           </div>
                         </label>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PAN Number</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("PAN Number")}</label>
                           <input
                             type="text"
                             value={form.panNumber}
                             onChange={(e) => handleChange("panNumber", e.target.value.toUpperCase())}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${(errors as any).panNumber ? "border-red-500" : "border-gray-300"}`}
-                            placeholder="ABCDE1234F"
+                            placeholder={t("ABCDE1234F")}
                           />
                           <ErrorMessage message={(errors as any).panNumber} />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Aadhaar Number</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("Aadhaar Number")}</label>
                           <input
                             type="text"
                             value={form.aadhaarNumber}
@@ -1802,21 +1803,21 @@ const AddEmployeePage: React.FC = () => {
                           />
                           <ErrorMessage message={(errors as any).aadhaarNumber} />
                           {storedAadhaar && !(errors as any).aadhaarNumber && (
-                            <p className="mt-1 text-xs text-gray-500">Saved as {storedAadhaar}. Type the full number only to change it.</p>
+                            <p className="mt-1 text-xs text-gray-500">{t("Saved as")} {storedAadhaar}. Type the full number only to change it.</p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PF Number</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("PF Number")}</label>
                           <input
                             type="text"
                             value={form.pfNumber}
                             onChange={(e) => handleChange("pfNumber", e.target.value.toUpperCase())}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                            placeholder="KN1234567890"
+                            placeholder={t("KN1234567890")}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">UAN</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("UAN")}</label>
                           <input
                             type="text"
                             value={form.uan}
@@ -1834,17 +1835,17 @@ const AddEmployeePage: React.FC = () => {
                   <div className="space-y-4 pt-6 border-t border-gray-100">
                     <div className="flex items-center gap-2 mb-4">
                       <Users className="w-4 h-4 text-cyan-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Additional User Details</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">{t("Additional User Details")}</h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">About Me</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("About Me")}</label>
                         <textarea
                           value={form.userDetails.aboutMe}
                           onChange={(e) => handleChange("userDetails.aboutMe", e.target.value)}
                           rows={2}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                          placeholder="Brief description about the employee"
+                          placeholder={t("Brief description about the employee")}
                         />
                       </div>
                     </div>
@@ -1854,7 +1855,7 @@ const AddEmployeePage: React.FC = () => {
                   <div className="space-y-4 pt-6 border-t border-gray-100">
                     <div className="flex items-center gap-2 mb-4">
                       <DollarSign className="w-4 h-4 text-cyan-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">CTC Details</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">{t("CTC Details")}</h3>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1862,7 +1863,7 @@ const AddEmployeePage: React.FC = () => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Yearly CTC <span className="text-red-500">*</span>
+                          {t("Yearly CTC")} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <span className="absolute left-3 top-2.5 text-gray-500">
@@ -1874,7 +1875,7 @@ const AddEmployeePage: React.FC = () => {
                             value={form.salary.ctc === 0 ? "" : form.salary.ctc}
                             onChange={(e) => handleChange("salary.ctc", Number(e.target.value))}
                             className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["salary.ctc"] ? "border-red-500" : "border-gray-300"}`}
-                            placeholder="e.g. 1200000"
+                            placeholder={t("e.g. 1200000")}
                           />
                         </div>
                         <ErrorMessage message={errors["salary.ctc"]} />
@@ -1883,7 +1884,7 @@ const AddEmployeePage: React.FC = () => {
                       {/* The split the service stores, from the designation's pay components */}
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs" data-testid="ctc-split">
                         {!form.designation ? (
-                          <p className="text-gray-500">Choose a designation (Employment step) to see the basic / HRA split.</p>
+                          <p className="text-gray-500">{t("Choose a designation (Employment step) to see the basic / HRA split.")}</p>
                         ) : basicAmount == null || hraAmount == null ? (
                           <p className="text-amber-700">
                             {form.designation} has no basic % and HRA % yet. Set them on the Compensation page.
@@ -1892,8 +1893,8 @@ const AddEmployeePage: React.FC = () => {
                           <div className="space-y-1">
                             <div className="flex justify-between"><span className="text-gray-600">Basic ({basicPercent}% of CTC)</span><span className="font-medium text-gray-900">{money(basicAmount)}</span></div>
                             <div className="flex justify-between"><span className="text-gray-600">HRA ({hraPercent}% of basic)</span><span className="font-medium text-gray-900">{money(hraAmount)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Earnings below</span><span className="font-medium text-gray-900">{money(totalEarnings)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Benefits below</span><span className="font-medium text-gray-900">{money(totalBenefits)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">{t("Earnings below")}</span><span className="font-medium text-gray-900">{money(totalEarnings)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">{t("Benefits below")}</span><span className="font-medium text-gray-900">{money(totalBenefits)}</span></div>
                             {unallocated != null && totalCTC > 0 && unallocated !== 0 && (
                               <div className={`flex items-center justify-between gap-2 border-t border-gray-200 pt-1 ${unallocated > 0 ? "text-amber-700" : "text-red-600"}`}>
                                 <span>
@@ -1903,7 +1904,7 @@ const AddEmployeePage: React.FC = () => {
                                 </span>
                                 {unallocated > 0 && (
                                   <button type="button" onClick={addUnallocatedAsSpecialAllowance} className="shrink-0 text-cyan-700 hover:underline">
-                                    Add as Special Allowance
+                                    {t("Add as Special Allowance")}
                                   </button>
                                 )}
                               </div>
@@ -1919,11 +1920,11 @@ const AddEmployeePage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-green-600" />
-                        <h3 className="text-sm font-semibold text-gray-900">Earnings</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">{t("Earnings")}</h3>
                       </div>
                       <button type="button" onClick={addEarning} className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 w-fit">
                         <PlusIcon className="h-4 w-4" />
-                        Add Earning
+                        {t("Add Earning")}
                       </button>
                     </div>
 
@@ -1938,7 +1939,7 @@ const AddEmployeePage: React.FC = () => {
                                 type="text"
                                 value={earning.name}
                                 onChange={(e) => handleEarningChange(idx, "name", e.target.value)}
-                                placeholder="Earning name (e.g., Bonus, Incentive)"
+                                placeholder={t("Earning name (e.g., Bonus, Incentive)")}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                               />
                             </div>
@@ -1949,7 +1950,7 @@ const AddEmployeePage: React.FC = () => {
                                   type="number"
                                   value={earning.amount === 0 ? "" : earning.amount}
                                   onChange={(e) => handleEarningChange(idx, "amount", e.target.value)}
-                                  placeholder="Yearly amount"
+                                  placeholder={t("Yearly amount")}
                                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                                 />
                               </div>
@@ -1968,16 +1969,16 @@ const AddEmployeePage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-green-600" />
-                        <h3 className="text-sm font-semibold text-gray-900">Additional Benefits</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">{t("Additional Benefits")}</h3>
                       </div>
                       <button type="button" onClick={addAdditionalBenefits} className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 w-fit">
                         <PlusIcon className="h-4 w-4" />
-                        Add Additional Benefit
+                        {t("Add Additional Benefit")}
                       </button>
                     </div>
 
                     {form.salary.additionalBenefits.length === 0 ? (
-                      <div className="text-center py-4 text-gray-500 text-sm">No additional benefits added.</div>
+                      <div className="text-center py-4 text-gray-500 text-sm">{t("No additional benefits added.")}</div>
                     ) : (
                       <div className="space-y-3">
                         {form.salary.additionalBenefits.map((benefit, idx) => (
@@ -1987,7 +1988,7 @@ const AddEmployeePage: React.FC = () => {
                                 type="text"
                                 value={benefit.name}
                                 onChange={(e) => handleAdditionalBenefitsChange(idx, "name", e.target.value)}
-                                placeholder="Benefit name (e.g., Mobile, Internet)"
+                                placeholder={t("Benefit name (e.g., Mobile, Internet)")}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                               />
                             </div>
@@ -1998,7 +1999,7 @@ const AddEmployeePage: React.FC = () => {
                                   type="number"
                                   value={benefit.amount === 0 ? "" : benefit.amount}
                                   onChange={(e) => handleAdditionalBenefitsChange(idx, "amount", e.target.value)}
-                                  placeholder="Yearly amount"
+                                  placeholder={t("Yearly amount")}
                                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                                 />
                               </div>
@@ -2017,20 +2018,19 @@ const AddEmployeePage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-1">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-violet-600" />
-                        <h3 className="text-sm font-semibold text-gray-900">Variable Pay</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">{t("Variable Pay")}</h3>
                       </div>
                       <button type="button" onClick={addVariablePay} className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 w-fit">
                         <PlusIcon className="h-4 w-4" />
-                        Add Variable Pay
+                        {t("Add Variable Pay")}
                       </button>
                     </div>
                     <p className="text-[11px] text-gray-500">
-                      Yearly targets such as commission or a performance bonus. They are shown in the CTC on top of the
-                      fixed CTC above, but are not paid through payroll runs.
+                      {t("Yearly targets such as commission or a performance bonus. They are shown in the CTC on top of the fixed CTC above, but are not paid through payroll runs.")}
                     </p>
 
                     {variablePayRows.length === 0 ? (
-                      <div className="text-center py-4 text-gray-500 text-sm">No variable pay added.</div>
+                      <div className="text-center py-4 text-gray-500 text-sm">{t("No variable pay added.")}</div>
                     ) : (
                       <div className="space-y-3">
                         {variablePayRows.map((row, idx) => (
@@ -2039,8 +2039,8 @@ const AddEmployeePage: React.FC = () => {
                               type="text"
                               value={row.name}
                               onChange={(e) => handleVariablePayChange(idx, "name", e.target.value)}
-                              placeholder="Component (e.g., Sales commission)"
-                              aria-label="Variable pay component"
+                              placeholder={t("Component (e.g., Sales commission)")}
+                              aria-label={t("Variable pay component")}
                               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                             />
                             <div className="relative">
@@ -2050,15 +2050,15 @@ const AddEmployeePage: React.FC = () => {
                                 min={0}
                                 value={row.targetAmount === 0 ? "" : row.targetAmount}
                                 onChange={(e) => handleVariablePayChange(idx, "targetAmount", e.target.value)}
-                                placeholder="Yearly target"
-                                aria-label="Yearly target"
+                                placeholder={t("Yearly target")}
+                                aria-label={t("Yearly target")}
                                 className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                               />
                             </div>
                             <select
                               value={row.frequency}
                               onChange={(e) => handleVariablePayChange(idx, "frequency", e.target.value)}
-                              aria-label="Payout frequency"
+                              aria-label={t("Payout frequency")}
                               className="w-full px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500"
                             >
                               {VARIABLE_FREQUENCIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
@@ -2066,19 +2066,19 @@ const AddEmployeePage: React.FC = () => {
                             <select
                               value={row.payoutBasis}
                               onChange={(e) => handleVariablePayChange(idx, "payoutBasis", e.target.value)}
-                              aria-label="Payout basis"
+                              aria-label={t("Payout basis")}
                               className="w-full px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500"
                             >
                               {VARIABLE_BASES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                             </select>
-                            <button type="button" onClick={() => removeVariablePay(idx)} className="p-2 text-red-500 hover:text-red-700 w-fit" title="Remove">
+                            <button type="button" onClick={() => removeVariablePay(idx)} className="p-2 text-red-500 hover:text-red-700 w-fit" title={t("Remove")}>
                               <TrashIcon className="h-4 w-4" />
                             </button>
                           </div>
                         ))}
                         <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 text-xs text-gray-600">
-                          <span>Variable target: <b className="text-gray-900">{money(totalVariable)}</b></span>
-                          <span>CTC incl. variable: <b className="text-gray-900">{money(totalCTC + totalVariable)}</b></span>
+                          <span>{t("Variable target:")} <b className="text-gray-900">{money(totalVariable)}</b></span>
+                          <span>{t("CTC incl. variable:")} <b className="text-gray-900">{money(totalCTC + totalVariable)}</b></span>
                         </div>
                       </div>
                     )}
@@ -2093,8 +2093,8 @@ const AddEmployeePage: React.FC = () => {
               {currentStep === 5 && (
                 <div className="space-y-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Review & Confirm</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Verify all information before submitting</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("Review & Confirm")}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("Verify all information before submitting")}</p>
                   </div>
 
                   <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-5 mb-6">
@@ -2114,23 +2114,23 @@ const AddEmployeePage: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h4 className="text-sm font-semibold text-gray-900">Contact Details</h4>
+                      <h4 className="text-sm font-semibold text-gray-900">{t("Contact Details")}</h4>
                       <div className="space-y-3">
                         <div className="text-sm break-all">
-                          <div className="text-gray-500">Official Email</div>
+                          <div className="text-gray-500">{t("Official Email")}</div>
                           <div className="text-gray-900">{form.officialEmail}</div>
                         </div>
                         <div className="text-sm">
-                          <div className="text-gray-500">Phone</div>
+                          <div className="text-gray-500">{t("Phone")}</div>
                           <div className="text-gray-900">+{form.phone}</div>
                         </div>
                         <div className="text-sm">
-                          <div className="text-gray-500">Location</div>
+                          <div className="text-gray-500">{t("Location")}</div>
                           <div className="text-gray-900">{form.location}</div>
                         </div>
                         {!editId && (
                           <div className="text-sm break-all">
-                            <div className="text-gray-500">Signs in as</div>
+                            <div className="text-gray-500">{t("Signs in as")}</div>
                             <div className="text-gray-900">{(form.officialEmail || form.personalEmail).trim().toLowerCase()}</div>
                           </div>
                         )}
@@ -2138,19 +2138,19 @@ const AddEmployeePage: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-sm font-semibold text-gray-900">Employment</h4>
+                      <h4 className="text-sm font-semibold text-gray-900">{t("Employment")}</h4>
                       <div className="space-y-3">
                         <div className="text-sm">
-                          <div className="text-gray-500">Joining Date</div>
+                          <div className="text-gray-500">{t("Joining Date")}</div>
                           <div className="text-gray-900">{formatDate(form.joiningDate)}</div>
                         </div>
                         <div className="text-sm">
-                          <div className="text-gray-500">Department</div>
+                          <div className="text-gray-500">{t("Department")}</div>
                           <div className="text-gray-900">{form.department.name}</div>
                         </div>
                         {form.managerId && (
                           <div className="text-sm">
-                            <div className="text-gray-500">Manager</div>
+                            <div className="text-gray-500">{t("Manager")}</div>
                             <div className="text-gray-900">
                               {managers.find((m) => m.id.toString() === form.managerId)?.firstName}{" "}
                               {managers.find((m) => m.id.toString() === form.managerId)?.lastName}
@@ -2158,7 +2158,7 @@ const AddEmployeePage: React.FC = () => {
                           </div>
                         )}
                         <div className="text-sm">
-                          <div className="text-gray-500">Login Role</div>
+                          <div className="text-gray-500">{t("Login Role")}</div>
                           <div className="text-gray-900">
                             {form.role || (editId ? "Unchanged" : "None yet (assign on the Users page)")}
                           </div>
@@ -2167,19 +2167,19 @@ const AddEmployeePage: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-sm font-semibold text-gray-900">Banking</h4>
+                      <h4 className="text-sm font-semibold text-gray-900">{t("Banking")}</h4>
                       <div className="space-y-3">
                         <div className="text-sm">
-                          <div className="text-gray-500">Bank</div>
+                          <div className="text-gray-500">{t("Bank")}</div>
                           <div className="text-gray-900">{form.bankName}</div>
                         </div>
                         <div className="text-sm break-all">
-                          <div className="text-gray-500">Account Number</div>
+                          <div className="text-gray-500">{t("Account Number")}</div>
                           <div className="text-gray-900">{form.bankAccountNumber}</div>
                         </div>
                         {isIndia && form.ifscCode && (
                           <div className="text-sm">
-                            <div className="text-gray-500">IFSC</div>
+                            <div className="text-gray-500">{t("IFSC")}</div>
                             <div className="text-gray-900">{form.ifscCode}</div>
                           </div>
                         )}
@@ -2187,16 +2187,16 @@ const AddEmployeePage: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-sm font-semibold text-gray-900">Salary Summary</h4>
+                      <h4 className="text-sm font-semibold text-gray-900">{t("Salary Summary")}</h4>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Yearly CTC</span>
+                          <span className="text-gray-600">{t("Yearly CTC")}</span>
                           <span className="font-semibold text-gray-900">{money(totalCTC)}</span>
                         </div>
                         {basicAmount != null && hraAmount != null && (
                           <div className="text-sm">
-                            <div className="flex justify-between text-xs"><span>Basic</span><span>{money(basicAmount)}</span></div>
-                            <div className="flex justify-between text-xs"><span>HRA</span><span>{money(hraAmount)}</span></div>
+                            <div className="flex justify-between text-xs"><span>{t("Basic")}</span><span>{money(basicAmount)}</span></div>
+                            <div className="flex justify-between text-xs"><span>{t("HRA")}</span><span>{money(hraAmount)}</span></div>
                           </div>
                         )}
                         {unallocated != null && unallocated > 0 && (
@@ -2204,7 +2204,7 @@ const AddEmployeePage: React.FC = () => {
                         )}
                         {form.salary.earnings.length > 0 && (
                           <div className="text-sm">
-                            <div className="text-gray-500 mb-1">Earnings:</div>
+                            <div className="text-gray-500 mb-1">{t("Earnings:")}</div>
                             {form.salary.earnings.map((earning, idx) => (
                               <div key={idx} className="flex justify-between text-xs">
                                 <span>{earning.name}</span>
@@ -2215,7 +2215,7 @@ const AddEmployeePage: React.FC = () => {
                         )}
                         {form.salary.additionalBenefits.length > 0 && (
                           <div className="text-sm">
-                            <div className="text-gray-500 mb-1">Additional Benefits:</div>
+                            <div className="text-gray-500 mb-1">{t("Additional Benefits:")}</div>
                             {form.salary.additionalBenefits.map((benefit, idx) => (
                               <div key={idx} className="flex justify-between text-xs">
                                 <span>{benefit.name}</span>
@@ -2236,7 +2236,7 @@ const AddEmployeePage: React.FC = () => {
                               </div>
                             ))}
                             <div className="mt-1 flex justify-between border-t border-gray-100 pt-1 text-xs font-semibold">
-                              <span>CTC incl. variable</span>
+                              <span>{t("CTC incl. variable")}</span>
                               <span>{money(totalCTC + totalVariable)}</span>
                             </div>
                           </div>
@@ -2247,43 +2247,43 @@ const AddEmployeePage: React.FC = () => {
 
                     {isIndia && (
                       <div className="space-y-4">
-                        <h4 className="text-sm font-semibold text-gray-900">Statutory Details</h4>
+                        <h4 className="text-sm font-semibold text-gray-900">{t("Statutory Details")}</h4>
                         <div className="space-y-3">
                           <div className="text-sm">
-                            <div className="text-gray-500">Tax Regime</div>
+                            <div className="text-gray-500">{t("Tax Regime")}</div>
                             <div className="text-gray-900">{form.taxRegime}</div>
                           </div>
                           <div className="flex gap-4">
                             <div className="text-sm">
-                              <div className="text-gray-500">ESI Applicable</div>
-                              <div className="text-gray-900">{form.esiApplicable ? "Yes" : "No"}</div>
+                              <div className="text-gray-500">{t("ESI Applicable")}</div>
+                              <div className="text-gray-900">{t(form.esiApplicable ? "Yes" : "No")}</div>
                             </div>
                             <div className="text-sm">
-                              <div className="text-gray-500">Metro City</div>
-                              <div className="text-gray-900">{form.metroCity ? "Yes" : "No"}</div>
+                              <div className="text-gray-500">{t("Metro City")}</div>
+                              <div className="text-gray-900">{t(form.metroCity ? "Yes" : "No")}</div>
                             </div>
                           </div>
                           {form.panNumber && (
                             <div className="text-sm break-all">
-                              <div className="text-gray-500">PAN Number</div>
+                              <div className="text-gray-500">{t("PAN Number")}</div>
                               <div className="text-gray-900">{form.panNumber}</div>
                             </div>
                           )}
                           {form.aadhaarNumber && (
                             <div className="text-sm break-all">
-                              <div className="text-gray-500">Aadhaar Number</div>
+                              <div className="text-gray-500">{t("Aadhaar Number")}</div>
                               <div className="text-gray-900">{form.aadhaarNumber}</div>
                             </div>
                           )}
                           {form.pfNumber && (
                             <div className="text-sm break-all">
-                              <div className="text-gray-500">PF Number</div>
+                              <div className="text-gray-500">{t("PF Number")}</div>
                               <div className="text-gray-900">{form.pfNumber}</div>
                             </div>
                           )}
                           {form.uan && (
                             <div className="text-sm break-all">
-                              <div className="text-gray-500">UAN</div>
+                              <div className="text-gray-500">{t("UAN")}</div>
                               <div className="text-gray-900">{form.uan}</div>
                             </div>
                           )}
@@ -2296,9 +2296,9 @@ const AddEmployeePage: React.FC = () => {
                     <div className="flex items-start gap-3">
                       <CheckCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-cyan-900 dark:text-white">Ready to submit</p>
+                        <p className="text-sm font-medium text-cyan-900 dark:text-white">{t("Ready to submit")}</p>
                         <p className="text-sm text-cyan-700 dark:text-gray-300 mt-1">
-                          Verify all information is correct before creating employee record.
+                          {t("Verify all information is correct before creating employee record.")}
                         </p>
                       </div>
                     </div>
@@ -2317,7 +2317,7 @@ const AddEmployeePage: React.FC = () => {
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Previous
+            {t("Previous")}
           </button>
 
           {currentStep < 5 ? (
@@ -2325,7 +2325,7 @@ const AddEmployeePage: React.FC = () => {
               onClick={nextStep}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 transition w-full sm:w-auto justify-center shadow-2xs cursor-pointer"
             >
-              Continue
+              {t("Continue")}
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (

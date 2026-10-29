@@ -16,8 +16,9 @@ import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from '../../access/usePermissions';
 import { useTheme } from '../../context/ThemeContext';
 import { apiError, ATTENDANCE_API, fetchLeaveBalances, formatDays, LeaveBalance, leaveTypeLabel } from './attendanceApi';
-import { formatDate } from "../../company/format";
+import { formatDate, liveMonthNames } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 interface ManagerDashboardModel {
   totalEmployees?: number;
   activeEmployees?: number;
@@ -53,7 +54,7 @@ interface TrendPoint {
   earned: number;
 }
 
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_SHORT = liveMonthNames("short");
 
 const LeaveManagerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -259,7 +260,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
       <p className="text-[11px] text-gray-600 dark:text-gray-400">{text}</p>
       <div className={`flex items-center gap-1 text-xs font-bold ${TONES[tone].link} dark:text-gray-300 group-hover:translate-x-0.5 transition-all pt-1`}>
-        <span>Open queue</span>
+        <span>{t("Open queue")}</span>
         <ArrowRight className="w-3.5 h-3.5" />
       </div>
     </div>
@@ -267,39 +268,39 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-3 pb-2 animate-in fade-in duration-200">
-      <PageMeta title="Manager Leave Dashboard | MyTrading" description="Team leave overview and approval queues" />
+      <PageMeta title={t("Manager Leave Dashboard | MyTrading")} description="Team leave overview and approval queues" />
       <PageBreadcrumb
         pageTitle="Manager Leave Dashboard"
         actions={
-          <button type="button" onClick={loadData} className={TOOL_BUTTON} title="Refresh">
+          <button type="button" onClick={loadData} className={TOOL_BUTTON} title={t("Refresh")}>
             <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-            Refresh
+            {t("Refresh")}
           </button>
         }
       />
 
       {!currentUser.hasEmployee && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          No employee record is linked to your account, so team figures are empty. Approval queues cover the whole company.
+          {t("No employee record is linked to your account, so team figures are empty. Approval queues cover the whole company.")}
         </p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatsCard label="Team Members" value={String(dashboard?.totalEmployees ?? 0)} icon={<Users className="w-5 h-5 text-cyan-700" />} />
-        <StatsCard label="Pending Approvals" value={String(pendingQueueCounts.leave + pendingQueueCounts.regularization + pendingQueueCounts.onDuty)} icon={<Clock className="w-5 h-5 text-amber-600" />} />
-        <StatsCard label="Team On Leave Today" value={String(dashboard?.employeesOnLeaveToday ?? 0)} icon={<Briefcase className="w-5 h-5 text-emerald-600" />} />
-        <StatsCard label="Team Leaves Starting This Week" value={String(dashboard?.upcomingLeavesThisWeek ?? 0)} icon={<Calendar className="w-5 h-5 text-purple-600" />} />
+        <StatsCard label={t("Team Members")} value={String(dashboard?.totalEmployees ?? 0)} icon={<Users className="w-5 h-5 text-cyan-700" />} />
+        <StatsCard label={t("Pending Approvals")} value={String(pendingQueueCounts.leave + pendingQueueCounts.regularization + pendingQueueCounts.onDuty)} icon={<Clock className="w-5 h-5 text-amber-600" />} />
+        <StatsCard label={t("Team On Leave Today")} value={String(dashboard?.employeesOnLeaveToday ?? 0)} icon={<Briefcase className="w-5 h-5 text-emerald-600" />} />
+        <StatsCard label={t("Team Leaves Starting This Week")} value={String(dashboard?.upcomingLeavesThisWeek ?? 0)} icon={<Calendar className="w-5 h-5 text-purple-600" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         <div className="lg:col-span-5 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-2">
           <div className="flex items-center gap-2 border-b border-gray-100 dark:border-[#2a2a2a] pb-2">
             <PieChart className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Team Leave Requests</h3>
+            <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">{t("Team Leave Requests")}</h3>
           </div>
           <div className="pt-2">
             {statusTotal === 0 ? (
-              <div className="h-[200px] flex items-center justify-center text-xs text-gray-400">No leave requests from your team yet</div>
+              <div className="h-[200px] flex items-center justify-center text-xs text-gray-400">{t("No leave requests from your team yet")}</div>
             ) : (
               <Chart
                 type="donut"
@@ -334,7 +335,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
         <div className="lg:col-span-7 bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-2">
           <div className="flex items-center gap-2 border-b border-gray-100 dark:border-[#2a2a2a] pb-2">
             <BarChart3 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Team Leave Days, Last 6 Months</h3>
+            <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">{t("Team Leave Days, Last 6 Months")}</h3>
           </div>
           <div className="pt-2">
             <Chart
@@ -374,14 +375,14 @@ const LeaveManagerDashboardPage: React.FC = () => {
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Pending Approval Queues</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Leave, regularization and on-duty requests waiting for a decision</p>
+              <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">{t("Pending Approval Queues")}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t("Leave, regularization and on-duty requests waiting for a decision")}</p>
             </div>
           </div>
           {canApprove && (
             <button type="button" onClick={openAdjustment}
               className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
-              <Plus className="w-3.5 h-3.5" /> Adjust Leave Balance
+              <Plus className="w-3.5 h-3.5" /> {t("Adjust Leave Balance")}
             </button>
           )}
         </div>
@@ -396,8 +397,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
       <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4 space-y-3">
         <div className="flex items-center justify-between border-b border-gray-100 dark:!border-transparent pb-2.5">
           <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Leave Adjustments Log</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Manual changes to leave balances, newest first</p>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">{t("Leave Adjustments Log")}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t("Manual changes to leave balances, newest first")}</p>
           </div>
           <TableToolbar onRefresh={loadData} />
         </div>
@@ -408,7 +409,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
           pageSize={10}
           defaultSortKey="adjustedDate"
           defaultSortOrder="desc"
-          emptyState={<p className="text-xs text-slate-400 dark:text-gray-500 py-6 text-center">No adjustments yet.</p>}
+          emptyState={<p className="text-xs text-slate-400 dark:text-gray-500 py-6 text-center">{t("No adjustments yet.")}</p>}
         />
       </div>
 
@@ -418,7 +419,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
             <div className="p-4 bg-cyan-600 !text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2 !text-white">
                 <Plus className="w-4 h-4" />
-                <span>Adjust Leave Balance</span>
+                <span>{t("Adjust Leave Balance")}</span>
               </h3>
               <button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="p-1 rounded-lg !text-white hover:bg-white/15 transition-colors cursor-pointer">
                 <X className="w-4 h-4" />
@@ -427,13 +428,13 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
             <form onSubmit={handlePostAdjustment} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Employee</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">{t("Employee")}</label>
                 <select
                   value={adjustmentForm.employeeId || ''}
                   onChange={(e) => setAdjustmentForm((p) => ({ ...p, employeeId: Number(e.target.value) }))}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer"
                 >
-                  <option value="" disabled>Choose an employee</option>
+                  <option value="" disabled>{t("Choose an employee")}</option>
                   {employees.filter((e) => e.id !== currentUser.id).map((e) => (
                     <option key={e.id} value={e.id} className="dark:bg-[#222222]">{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
                   ))}
@@ -442,14 +443,14 @@ const LeaveManagerDashboardPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Leave type</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">{t("Leave type")}</label>
                   <select
                     value={adjustmentForm.leaveType}
                     onChange={(e) => setAdjustmentForm((p) => ({ ...p, leaveType: e.target.value }))}
                     disabled={employeeBalances.length === 0}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer disabled:opacity-50"
                   >
-                    {employeeBalances.length === 0 && <option value="">No leave policy</option>}
+                    {employeeBalances.length === 0 && <option value="">{t("No leave policy")}</option>}
                     {employeeBalances.map((b) => (
                       <option key={b.id} value={b.leaveType} className="dark:bg-[#222222]">{leaveTypeLabel(b.leaveType)}</option>
                     ))}
@@ -463,27 +464,27 @@ const LeaveManagerDashboardPage: React.FC = () => {
                     value={adjustmentForm.adjustmentLeaves}
                     onChange={(e) => setAdjustmentForm((p) => ({ ...p, adjustmentLeaves: Number(e.target.value) }))}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-mono font-bold text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 outline-none"
-                    placeholder="e.g. 2 or -1"
+                    placeholder={t("e.g. 2 or -1")}
                   />
                 </div>
               </div>
 
               {selectedBalance && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Available now: <strong>{formatDays(selectedBalance.availableLeaves)}</strong> day(s) →
+                  {t("Available now:")} <strong>{formatDays(selectedBalance.availableLeaves)}</strong> day(s) →
                   after: <strong>{formatDays(selectedBalance.availableLeaves + Number(adjustmentForm.adjustmentLeaves || 0))}</strong>
                 </p>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">Reason</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">{t("Reason")}</label>
                 <textarea
                   rows={3}
                   value={adjustmentForm.remarks}
                   maxLength={1000}
                   onChange={(e) => setAdjustmentForm((p) => ({ ...p, remarks: e.target.value }))}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-[#222222] border border-gray-300 dark:border-[#303030] rounded-xl text-xs text-gray-900 dark:text-white focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
-                  placeholder="e.g. Compensatory off for working on 12 Oct"
+                  placeholder={t("e.g. Compensatory off for working on 12 Oct")}
                   required
                 />
               </div>
@@ -491,11 +492,11 @@ const LeaveManagerDashboardPage: React.FC = () => {
               <div className="pt-3 border-t border-gray-100 dark:border-[#303030] flex items-center justify-end gap-2">
                 <button type="button" onClick={() => setIsAdjustmentModalOpen(false)}
                   className="px-4 py-2 border border-gray-300 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#222222] transition-colors cursor-pointer">
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button type="submit" disabled={isSubmitting || !adjustmentForm.leaveType}
                   className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-50 transition-all cursor-pointer">
-                  {isSubmitting ? 'Posting...' : 'Adjust Balance'}
+                  {t(isSubmitting ? 'Posting...' : 'Adjust Balance')}
                 </button>
               </div>
             </form>

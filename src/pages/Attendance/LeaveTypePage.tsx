@@ -31,6 +31,7 @@ import PaginatedPopup from "../../components/common/unpopup";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface LeaveType {
@@ -277,14 +278,14 @@ const LeaveTypePage: React.FC = () => {
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
           {canUpdate && (<button
             onClick={() => editLeaveType(row)}
-            title="Edit"
+            title={t("Edit")}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
-            title="Delete"
+            title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
@@ -296,21 +297,21 @@ const LeaveTypePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Leave Types" description="Manage leave types and policies" />
+      <PageMeta title={t("Leave Types")} description="Manage leave types and policies" />
       <PageBreadcrumb pageTitle="Leave Types" />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
           <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-            <AddButton label="Add Leave Type" onClick={openCreateForm} />
+            <AddButton label={t("Add Leave Type")} onClick={openCreateForm} />
           </div>
 
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-          <StatsCard label="Total Types" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-6 w-6" />} />
-          <StatsCard label="Paid Leaves" value={totalPaid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-          <StatsCard label="Carry Forward" value={totalCarryForward} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowPathIcon className="h-6 w-6" />} />
-          <StatsCard label="Encashment" value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<BanknotesIcon className="h-6 w-6" />} />
+          <StatsCard label={t("Total Types")} value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-6 w-6" />} />
+          <StatsCard label={t("Paid Leaves")} value={totalPaid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+          <StatsCard label={t("Carry Forward")} value={totalCarryForward} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowPathIcon className="h-6 w-6" />} />
+          <StatsCard label={t("Encashment")} value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<BanknotesIcon className="h-6 w-6" />} />
         </div>
 
         {/* Reusable Table */}
@@ -319,14 +320,14 @@ const LeaveTypePage: React.FC = () => {
           columns={columns}
           loading={loading}
           searchable={true}
-          searchPlaceholder="Search by name, code, or eligibility rule..."
+          searchPlaceholder={t("Search by name, code, or eligibility rule...")}
           searchFields={["name", "code", "eligibilityRule"]}
           pageSize={PAGE_SIZE}
           defaultSortKey="name"
           defaultSortOrder="asc"
           toolbar={
             <FilterPopover
-              title="Filter Leave Types"
+              title={t("Filter Leave Types")}
               buttonLabel="Filter"
               onReset={() => {
                 setSelectedUnit("");
@@ -336,28 +337,28 @@ const LeaveTypePage: React.FC = () => {
             >
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Unit</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Unit")}</label>
                   <select
                     value={selectedUnit}
                     onChange={e => setSelectedUnit(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Units</option>
+                    <option value="">{t("All Units")}</option>
                     {uniqueUnits.map(unit => (
                       <option key={unit} value={unit}>{unit}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Paid Status</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Paid Status")}</label>
                   <select
                     value={selectedPaid}
                     onChange={e => setSelectedPaid(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All</option>
-                    <option value="true">Paid</option>
-                    <option value="false">Unpaid</option>
+                    <option value="">{t("All")}</option>
+                    <option value="true">{t("Paid")}</option>
+                    <option value="false">{t("Unpaid")}</option>
                   </select>
                 </div>
               </div>
@@ -368,13 +369,13 @@ const LeaveTypePage: React.FC = () => {
               <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <TagIcon className="h-8 w-8 text-gray-400" />
               </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No leave types found</p>
+              <p className="text-gray-500 text-sm font-medium mb-2">{t("No leave types found")}</p>
               {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
-                Add your first leave type
+                {t("Add your first leave type")}
               </button>)}
             </div>
           }
@@ -383,15 +384,15 @@ const LeaveTypePage: React.FC = () => {
         {/* Leave Type Form Modal */}
         <PaginatedPopup
           isOpen={showForm}
-          title={editingLeaveType ? "Edit Leave Type" : "Add Leave Type"}
-          subtitle={editingLeaveType ? "Update leave type details" : "Configure a new leave type"}
+          title={t(editingLeaveType ? "Edit Leave Type" : "Add Leave Type")}
+          subtitle={t(editingLeaveType ? "Update leave type details" : "Configure a new leave type")}
           onClose={resetForm}
           onSubmit={submitForm}
-          submitLabel={editingLeaveType ? "Update Leave Type" : "Add Leave Type"}
+          submitLabel={t(editingLeaveType ? "Update Leave Type" : "Add Leave Type")}
           fields={[
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Leave Name <span className="text-red-500">*</span>
+                {t("Leave Name")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -404,37 +405,37 @@ const LeaveTypePage: React.FC = () => {
                     handleChange("code", generateCode(name));
                   }
                 }}
-                placeholder="e.g. Casual Leave"
+                placeholder={t("e.g. Casual Leave")}
                 className={inputCls}
               />
             </div>,
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Code <span className="text-red-500">*</span>
+                {t("Code")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={form.code}
                 required
                 onChange={e => handleChange("code", e.target.value.toUpperCase())}
-                placeholder="e.g. CL"
+                placeholder={t("e.g. CL")}
                 className={inputCls}
               />
-              <p className="mt-1 text-xs text-gray-500">Unique identifier for this leave type</p>
+              <p className="mt-1 text-xs text-gray-500">{t("Unique identifier for this leave type")}</p>
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Unit")}</label>
               <select
                 value={form.unit}
                 onChange={e => handleChange("unit", e.target.value as "DAY" | "HOUR")}
                 className={inputCls}
               >
-                <option value="DAY">Day</option>
-                <option value="HOUR">Hour</option>
+                <option value="DAY">{t("Day")}</option>
+                <option value="HOUR">{t("Hour")}</option>
               </select>
             </div>,
             <div className="md:col-span-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Policy Settings</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{t("Policy Settings")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {([
                   { key: "paid", label: "Paid Leave" },
@@ -456,13 +457,13 @@ const LeaveTypePage: React.FC = () => {
             </div>,
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Eligibility Rule <span className="text-gray-400 font-normal">(optional)</span>
+                {t("Eligibility Rule")} <span className="text-gray-400 font-normal">(optional)</span>
               </label>
               <textarea
                 value={form.eligibilityRule}
                 onChange={e => handleChange("eligibilityRule", e.target.value)}
                 rows={3}
-                placeholder="Describe eligibility conditions..."
+                placeholder={t("Describe eligibility conditions...")}
                 className={inputCls}
               />
             </div>

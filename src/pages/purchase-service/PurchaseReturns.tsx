@@ -21,6 +21,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { apiError, dateLabel, money, todayInput } from "../Invoice/invoiceShared";
 import { DialogFooter } from "../Invoice/invoiceUi";
 
+import { t } from "../../i18n/i18n";
 const API = "/v1/api/purchase";
 const PAGE_SIZE = 10;
 
@@ -395,15 +396,15 @@ const PurchaseReturns: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Purchase Returns" description="Goods sent back to vendors for a debit note or a replacement" />
-      <PageBreadcrumb pageTitle="Purchase Returns" actions={canCreate ? <AddButton onClick={openCreate} label="New Return" /> : undefined} />
+      <PageMeta title={t("Purchase Returns")} description="Goods sent back to vendors for a debit note or a replacement" />
+      <PageBreadcrumb pageTitle="Purchase Returns" actions={canCreate ? <AddButton onClick={openCreate} label={t("New Return")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Drafts" value={stats.drafts} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
-          <StatsCard label="Awaiting replacement" value={stats.awaiting} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
-          <StatsCard label="Credited by debit notes" value={money(stats.credited)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label="Debit notes not recorded" value={stats.failed} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Drafts")} value={stats.drafts} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
+          <StatsCard label={t("Awaiting replacement")} value={stats.awaiting} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" />
+          <StatsCard label={t("Credited by debit notes")} value={money(stats.credited)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
+          <StatsCard label={t("Debit notes not recorded")} value={stats.failed} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -423,8 +424,8 @@ const PurchaseReturns: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <ArrowUturnLeftIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-1 text-sm text-gray-500">No purchase returns here</p>
-              <p className="text-xs text-gray-400">Returns are raised against a goods receipt whose goods are in stock.</p>
+              <p className="mb-1 text-sm text-gray-500">{t("No purchase returns here")}</p>
+              <p className="text-xs text-gray-400">{t("Returns are raised against a goods receipt whose goods are in stock.")}</p>
             </div>
           }
         />
@@ -432,15 +433,15 @@ const PurchaseReturns: React.FC = () => {
 
       <PaginatedPopup
         isOpen={formOpen}
-        title={editing ? `Edit ${editing.returnNumber}` : "New purchase return"}
-        subtitle="Saved as a draft; nothing leaves stock until you send it back"
+        title={editing ? `${t("Edit")} ${editing.returnNumber}` : t("New purchase return")}
+        subtitle={t("Saved as a draft; nothing leaves stock until you send it back")}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-3xl"
         content={
           <form onSubmit={save} className="flex flex-col">
             <div className="space-y-4 px-4 py-4 sm:px-5">
               <FloatingSelect1
-                label="Goods receipt"
+                label={t("Goods receipt")}
                 name="grnId"
                 value={grnId}
                 disabled={Boolean(editing)}
@@ -448,18 +449,18 @@ const PurchaseReturns: React.FC = () => {
                 options={grns.map((grn) => ({ id: String(grn.id), name: `${grn.receiptNumber} · ${grn.vendorName ?? "—"} · ${grn.poNumber ?? ""}` }))}
                 required
               />
-              {!editing && grns.length === 0 && <p className="text-xs text-slate-500">No goods receipt has goods in stock to return.</p>}
+              {!editing && grns.length === 0 && <p className="text-xs text-slate-500">{t("No goods receipt has goods in stock to return.")}</p>}
 
               {lines.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                       <tr>
-                        <th className="px-3 py-2 text-left">Item</th>
-                        <th className="px-3 py-2 text-right">Accepted</th>
-                        <th className="px-3 py-2 text-right">Can return</th>
-                        <th className="px-3 py-2 text-right">Unit value</th>
-                        <th className="px-3 py-2 text-right">Return qty</th>
+                        <th className="px-3 py-2 text-left">{t("Item")}</th>
+                        <th className="px-3 py-2 text-right">{t("Accepted")}</th>
+                        <th className="px-3 py-2 text-right">{t("Can return")}</th>
+                        <th className="px-3 py-2 text-right">{t("Unit value")}</th>
+                        <th className="px-3 py-2 text-right">{t("Return qty")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -496,7 +497,7 @@ const PurchaseReturns: React.FC = () => {
                     </tbody>
                     <tfoot className="bg-slate-50">
                       <tr>
-                        <td colSpan={4} className="px-3 py-2 text-right text-slate-500">Value going back (PO price incl. tax)</td>
+                        <td colSpan={4} className="px-3 py-2 text-right text-slate-500">{t("Value going back (PO price incl. tax)")}</td>
                         <td className="px-3 py-2 text-right font-bold text-slate-900">{money(formTotal)}</td>
                       </tr>
                     </tfoot>
@@ -505,17 +506,17 @@ const PurchaseReturns: React.FC = () => {
               )}
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <FloatingSelect1 label="Reason" name="reason" value={form.reason} options={REASONS} includeEmptyOption={false}
+                <FloatingSelect1 label={t("Reason")} name="reason" value={form.reason} options={REASONS} includeEmptyOption={false}
                   onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} />
-                <FloatingSelect1 label="Settled by" name="resolution" value={form.resolution} options={RESOLUTIONS} includeEmptyOption={false}
+                <FloatingSelect1 label={t("Settled by")} name="resolution" value={form.resolution} options={RESOLUTIONS} includeEmptyOption={false}
                   onChange={(event) => setForm((current) => ({ ...current, resolution: event.target.value }))} />
-                <FloatingInput label="Return date" name="returnDate" type="date" value={form.returnDate}
+                <FloatingInput label={t("Return date")} name="returnDate" type="date" value={form.returnDate}
                   onChange={(event) => setForm((current) => ({ ...current, returnDate: event.target.value }))} />
-                <FloatingInput label="Notes" name="notes" value={form.notes}
+                <FloatingInput label={t("Notes")} name="notes" value={form.notes}
                   onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
               </div>
             </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save draft" : "Create draft"} busy={busy} />
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save draft" : "Create draft")} busy={busy} />
           </form>
         }
       />
@@ -543,22 +544,22 @@ const PurchaseReturns: React.FC = () => {
           viewing && (
             <div className="space-y-3 px-4 py-4 text-sm sm:px-5">
               <div className="grid gap-2 sm:grid-cols-3">
-                <div><span className="block text-xs text-slate-400">Status</span>{STATUS_STYLE[viewing.status]?.label}</div>
-                <div><span className="block text-xs text-slate-400">Settled by</span>{viewing.resolution === "DEBIT_NOTE" ? `Debit note ${viewing.debitNoteNumber ?? ""}` : "Replacement"}</div>
-                <div><span className="block text-xs text-slate-400">Value</span>{money(viewing.totalAmount)}</div>
-                <div><span className="block text-xs text-slate-400">Sent back</span>{viewing.returnedAt ? dateLabel(viewing.returnedAt.slice(0, 10)) : "—"}</div>
-                <div><span className="block text-xs text-slate-400">Replacement received</span>{viewing.replacedAt ? dateLabel(viewing.replacedAt.slice(0, 10)) : "—"}</div>
-                <div><span className="block text-xs text-slate-400">Warehouse</span>{viewing.warehouseId ?? "—"}</div>
+                <div><span className="block text-xs text-slate-400">{t("Status")}</span>{STATUS_STYLE[viewing.status]?.label}</div>
+                <div><span className="block text-xs text-slate-400">{t("Settled by")}</span>{viewing.resolution === "DEBIT_NOTE" ? `Debit note ${viewing.debitNoteNumber ?? ""}` : t("Replacement")}</div>
+                <div><span className="block text-xs text-slate-400">{t("Value")}</span>{money(viewing.totalAmount)}</div>
+                <div><span className="block text-xs text-slate-400">{t("Sent back")}</span>{viewing.returnedAt ? dateLabel(viewing.returnedAt.slice(0, 10)) : "—"}</div>
+                <div><span className="block text-xs text-slate-400">{t("Replacement received")}</span>{viewing.replacedAt ? dateLabel(viewing.replacedAt.slice(0, 10)) : "—"}</div>
+                <div><span className="block text-xs text-slate-400">{t("Warehouse")}</span>{viewing.warehouseId ?? "—"}</div>
               </div>
-              {viewing.debitNoteError && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">Debit note not recorded: {viewing.debitNoteError}</p>}
+              {viewing.debitNoteError && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{t("Debit note not recorded:")} {viewing.debitNoteError}</p>}
               {viewing.notes && <p className="text-slate-600">{viewing.notes}</p>}
               <table className="min-w-full">
                 <thead className="text-xs uppercase text-slate-500">
                   <tr className="border-b border-slate-100">
-                    <th className="py-2 text-left">Item</th>
-                    <th className="py-2 text-right">Qty</th>
-                    <th className="py-2 text-right">Value</th>
-                    <th className="py-2 pl-3 text-left">Stock</th>
+                    <th className="py-2 text-left">{t("Item")}</th>
+                    <th className="py-2 text-right">{t("Qty")}</th>
+                    <th className="py-2 text-right">{t("Value")}</th>
+                    <th className="py-2 pl-3 text-left">{t("Stock")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">

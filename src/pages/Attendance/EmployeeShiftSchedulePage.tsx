@@ -14,6 +14,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // Relative API Base URL (routing via Vite dev proxy)
 const BASE_SCHEDULE_URL = '/v1/api/attendance/shiftShedules';
 
@@ -313,7 +314,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
       sortable: true,
       render: (row) => (
         <span className="text-xs font-mono font-semibold text-slate-700 dark:text-gray-300">
-          {row.effectiveFrom} <span className="text-gray-400 dark:text-gray-500">to</span> {row.effectiveTo || 'ongoing'}
+          {row.effectiveFrom} <span className="text-gray-400 dark:text-gray-500">{t("to")}</span> {row.effectiveTo || 'ongoing'}
         </span>
       )
     },
@@ -326,7 +327,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors cursor-pointer"
-            title="Edit Assignment"
+            title={t("Edit Assignment")}
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>)}
@@ -337,16 +338,16 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Employee Shift Schedule" description="Assign and manage work shifts for employees" />
+      <PageMeta title={t("Employee Shift Schedule")} description="Assign and manage work shifts for employees" />
       <PageBreadcrumb
         pageTitle="Employee Shift Schedule"
         actions={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => loadEmployeeSchedules(selectedEmployeeId)} className={TOOL_BUTTON} title="Refresh Roster">
+            <button type="button" onClick={() => loadEmployeeSchedules(selectedEmployeeId)} className={TOOL_BUTTON} title={t("Refresh Roster")}>
               <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
-              Refresh
+              {t("Refresh")}
             </button>
-            {canCreate && <AddButton onClick={openCreateModal} label="Assign Shift" />}
+            {canCreate && <AddButton onClick={openCreateModal} label={t("Assign Shift")} />}
           </div>
         }
       />
@@ -356,7 +357,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
         {/* Employee Selector Bar & Active Shift Status Card */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           <div className="bg-white dark:bg-[#191919] p-4 rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent space-y-2">
-            <label className="block text-xs font-bold text-slate-800 dark:text-gray-300 uppercase tracking-wider">Select Employee</label>
+            <label className="block text-xs font-bold text-slate-800 dark:text-gray-300 uppercase tracking-wider">{t("Select Employee")}</label>
             <select
               value={selectedEmployeeId}
               onChange={(e) => handleSelectEmployee(Number(e.target.value))}
@@ -378,16 +379,16 @@ const EmployeeShiftSchedulePage: React.FC = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Active Current Shift</span>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">{t("Active Current Shift")}</span>
                   {currentShiftInfo ? (
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent text-[10px] font-bold uppercase">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Active
+                      {t("Active")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent text-[10px] font-bold uppercase">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      Unassigned / Out of Shift
+                      {t("Unassigned / Out of Shift")}
                     </span>
                   )}
                 </div>
@@ -398,17 +399,17 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                   <div className="flex items-center gap-3 mt-1 text-[11px] font-mono flex-wrap">
                     {currentShiftInfo.shiftCode && (
                       <span className="px-1.5 py-0.5 bg-cyan-50 dark:bg-transparent text-cyan-800 dark:text-gray-300 border border-cyan-200 dark:border-transparent rounded-md text-[10px] font-bold">
-                        Code: {currentShiftInfo.shiftCode}
+                        {t("Code:")} {currentShiftInfo.shiftCode}
                       </span>
                     )}
                     {currentShiftInfo.startTime && (
                       <span className="text-cyan-700 dark:text-gray-300 font-semibold">
-                        Timings: {currentShiftInfo.startTime} - {currentShiftInfo.endTime}
+                        {t("Timings:")} {currentShiftInfo.startTime} - {currentShiftInfo.endTime}
                       </span>
                     )}
                     {currentShiftInfo.effectiveTo && (
                       <span className="text-slate-500 dark:text-gray-400">
-                        Effective till: <span className="font-bold text-slate-700 dark:text-gray-200">{currentShiftInfo.effectiveTo}</span>
+                        {t("Effective till:")} <span className="font-bold text-slate-700 dark:text-gray-200">{currentShiftInfo.effectiveTo}</span>
                       </span>
                     )}
                   </div>
@@ -421,7 +422,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
         {/* Assignments Master Table */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Shift Roster</h3>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("Shift Roster")}</h3>
             <TableToolbar onRefresh={() => loadEmployeeSchedules(selectedEmployeeId)} />
           </div>
           <ReusableTable
@@ -444,7 +445,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                  {editingAssignment ? 'Edit Shift Schedule' : 'Assign Shift to Employee'}
+                  {t(editingAssignment ? 'Edit Shift Schedule' : 'Assign Shift to Employee')}
                 </h3>
               </div>
               <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer">
@@ -454,7 +455,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
             <form onSubmit={handleSubmitAssignment} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Employee *</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Employee *")}</label>
                 <select
                   value={form.employeeId}
                   onChange={(e) => setForm(p => ({ ...p, employeeId: Number(e.target.value) }))}
@@ -470,7 +471,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Select Shift *</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Select Shift *")}</label>
                 <select
                   value={form.shiftId}
                   onChange={(e) => setForm(p => ({ ...p, shiftId: Number(e.target.value) }))}
@@ -487,7 +488,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">Effective From *</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("Effective From *")}</label>
                   <input
                     type="date"
                     value={form.effectiveFrom}
@@ -517,7 +518,7 @@ const EmployeeShiftSchedulePage: React.FC = () => {
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 border border-gray-200 dark:border-[#303030] rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"

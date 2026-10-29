@@ -13,6 +13,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
 import { apiError, LEAVE_TYPE_LABELS, leaveTypeLabel } from "./attendanceApi";
 
+import { t } from "../../i18n/i18n";
 const LEAVE_POLICY_ENDPOINT = '/v1/api/attendance/leave-policies';
 const ASSIGN_POLICY_ENDPOINT = '/v1/api/attendance/employee-leave-balances/assign-policy';
 
@@ -421,7 +422,7 @@ const LeavePolicyPage: React.FC = () => {
               : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            {isActive ? 'Active' : 'Inactive'}
+            {t(isActive ? 'Active' : 'Inactive')}
           </span>
         );
       }
@@ -435,7 +436,7 @@ const LeavePolicyPage: React.FC = () => {
             type="button"
             onClick={() => setViewingPolicy((row as LeavePolicyModel)._raw || row)}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-transparent dark:hover:bg-[#222222] border border-gray-200/80 dark:border-transparent rounded-lg text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-            title="View Policy Details"
+            title={t("View Policy Details")}
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
@@ -443,7 +444,7 @@ const LeavePolicyPage: React.FC = () => {
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200 dark:border-transparent text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 rounded-lg transition-colors"
-            title="Edit Policy"
+            title={t("Edit Policy")}
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>)}
@@ -456,8 +457,8 @@ const LeavePolicyPage: React.FC = () => {
               setSelectedEmployeeIds([]);
             }}
             className="p-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-transparent dark:hover:bg-[#222222] border border-purple-200 dark:border-transparent text-purple-700 dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors"
-            title="Assign Policy to Employees"
-            aria-label="Assign Policy to Employees"
+            title={t("Assign Policy to Employees")}
+            aria-label={t("Assign Policy to Employees")}
           >
             <Users className="w-3.5 h-3.5" />
           </button>
@@ -466,7 +467,7 @@ const LeavePolicyPage: React.FC = () => {
               type="button"
               onClick={() => handleDeletePolicy(row.id!)}
               className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] border border-rose-200 dark:border-transparent text-rose-700 dark:text-gray-400 dark:hover:text-rose-400 rounded-lg transition-colors"
-              title="Delete Policy"
+              title={t("Delete Policy")}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -478,10 +479,10 @@ const LeavePolicyPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Leave Policy Management" description="Create, edit, and assign leave policies to employees" />
+      <PageMeta title={t("Leave Policy Management")} description="Create, edit, and assign leave policies to employees" />
       <PageBreadcrumb
         pageTitle="Leave Policy Management"
-        actions={canCreate ? <AddButton onClick={openCreateModal} label="Create Leave Policy" /> : undefined}
+        actions={canCreate ? <AddButton onClick={openCreateModal} label={t("Create Leave Policy")} /> : undefined}
       />
 
       <div className="max-w-6xl mx-auto pb-6 animate-in fade-in duration-200 space-y-4">
@@ -489,7 +490,7 @@ const LeavePolicyPage: React.FC = () => {
         {/* Policy List Table */}
         <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:border-transparent p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">All Leave Policies</h3>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("All Leave Policies")}</h3>
             <TableToolbar onRefresh={fetchPolicies} />
           </div>
           <ReusableTable
@@ -500,7 +501,7 @@ const LeavePolicyPage: React.FC = () => {
             defaultSortKey="policyCode"
             defaultSortOrder="asc"
             rowDetailsTitle={(row) => `${row.policyName} (${row.policyCode})`}
-            rowDetailsSubtitle="Leave allocations, quotas, and validity period"
+            rowDetailsSubtitle={t("Leave allocations, quotas, and validity period")}
           />
         </div>
 
@@ -513,7 +514,7 @@ const LeavePolicyPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                    {editingPolicy ? `Edit Leave Policy #${editingPolicy.id}` : "Create Leave Policy"}
+                    {editingPolicy ? `Edit Leave Policy #${editingPolicy.id}` : t("Create Leave Policy")}
                   </h3>
                 </div>
                 <button type="button" onClick={() => { setIsModalOpen(false); setEditingPolicy(null); }} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -524,23 +525,23 @@ const LeavePolicyPage: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Policy Code *</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Policy Code *")}</label>
                     <input
                       type="text"
                       value={form.policyCode}
                       onChange={(e) => setForm(p => ({ ...p, policyCode: e.target.value }))}
-                      placeholder="e.g. FY2026_STD"
+                      placeholder={t("e.g. FY2026_STD")}
                       className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-semibold uppercase text-gray-800 dark:text-white outline-none focus:border-cyan-500"
                       required
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Policy Name *</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Policy Name *")}</label>
                     <input
                       type="text"
                       value={form.policyName}
                       onChange={(e) => setForm(p => ({ ...p, policyName: e.target.value }))}
-                      placeholder="e.g. FY 2026 Standard Policy"
+                      placeholder={t("e.g. FY 2026 Standard Policy")}
                       className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:border-[#303030] rounded-md text-xs font-semibold text-gray-800 dark:text-white outline-none focus:border-cyan-500"
                       required
                     />
@@ -549,7 +550,7 @@ const LeavePolicyPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Financial Year</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Financial Year")}</label>
                     <input
                       type="number"
                       value={form.financialYear}
@@ -558,7 +559,7 @@ const LeavePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective From *</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Effective From *")}</label>
                     <input
                       type="date"
                       value={form.effectiveFrom}
@@ -568,7 +569,7 @@ const LeavePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective To *</label>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Effective To *")}</label>
                     <input
                       type="date"
                       value={form.effectiveTo}
@@ -582,30 +583,30 @@ const LeavePolicyPage: React.FC = () => {
                 {/* Leave types in the policy: one row each, removable; other types can be added */}
                 <div className="rounded-xl border border-slate-200 dark:border-[#303030]">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 dark:border-[#303030]">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">Leave types in this policy</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">{t("Leave types in this policy")}</h4>
                     {availableLeaveTypes.length > 0 && (
                       <select
                         value=""
                         onChange={(e) => e.target.value && addLeaveType(e.target.value)}
                         className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-gray-700 dark:bg-[#222222] dark:text-white"
-                        aria-label="Add a leave type"
+                        aria-label={t("Add a leave type")}
                       >
-                        <option value="">+ Add leave type</option>
+                        <option value="">{t("+ Add leave type")}</option>
                         {availableLeaveTypes.map((t) => <option key={t} value={t}>{leaveTypeLabel(t)}</option>)}
                       </select>
                     )}
                   </div>
                   {form.policyDetails.length === 0 ? (
-                    <p className="px-3 py-4 text-center text-xs text-slate-400">No leave types yet. Add at least one.</p>
+                    <p className="px-3 py-4 text-center text-xs text-slate-400">{t("No leave types yet. Add at least one.")}</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead className="bg-[#e8f3dc] text-left text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-gray-800/70 dark:text-gray-200">
                         <tr>
-                          <th className="px-3 py-2">Leave type</th>
-                          <th className="px-3 py-2">Days per year</th>
-                          <th className="px-3 py-2">Carry forward</th>
-                          <th className="px-3 py-2">Max carry forward</th>
-                          <th className="w-12 px-3 py-2 text-center">Remove</th>
+                          <th className="px-3 py-2">{t("Leave type")}</th>
+                          <th className="px-3 py-2">{t("Days per year")}</th>
+                          <th className="px-3 py-2">{t("Carry forward")}</th>
+                          <th className="px-3 py-2">{t("Max carry forward")}</th>
+                          <th className="w-12 px-3 py-2 text-center">{t("Remove")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
@@ -625,7 +626,7 @@ const LeavePolicyPage: React.FC = () => {
                                   <input type="checkbox" checked={detail.carryForwardAllowed}
                                     onChange={(e) => update({ carryForwardAllowed: e.target.checked, maxCarryForward: e.target.checked ? detail.maxCarryForward : 0 })}
                                     className="h-4 w-4 accent-[#0097a7]" />
-                                  Allowed
+                                  {t("Allowed")}
                                 </label>
                               </td>
                               <td className="px-3 py-2">
@@ -634,7 +635,7 @@ const LeavePolicyPage: React.FC = () => {
                                   className="h-8 w-24 rounded-lg border border-slate-300 bg-white px-2 text-xs disabled:bg-slate-50 disabled:text-slate-400 dark:border-gray-700 dark:bg-[#191919] dark:text-white" />
                               </td>
                               <td className="px-3 py-2 text-center">
-                                <button type="button" onClick={() => removeLeaveType(detail.leaveType)} title={`Remove ${leaveTypeLabel(detail.leaveType)} leave`}
+                                <button type="button" onClick={() => removeLeaveType(detail.leaveType)} title={`${t("Remove")} ${leaveTypeLabel(detail.leaveType)} leave`}
                                   className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
@@ -655,7 +656,7 @@ const LeavePolicyPage: React.FC = () => {
                       onChange={(e) => setForm(p => ({ ...p, active: e.target.checked }))}
                       className="rounded text-cyan-600"
                     />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Active Policy Status</span>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Active Policy Status")}</span>
                   </label>
 
                   <div className="flex items-center gap-2">
@@ -664,7 +665,7 @@ const LeavePolicyPage: React.FC = () => {
                       onClick={() => { setIsModalOpen(false); setEditingPolicy(null); }}
                       className="px-4 py-2 border border-gray-200 dark:border-[#303030] bg-white dark:bg-[#222222] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] rounded-lg text-xs font-semibold transition-colors"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="submit"
@@ -690,7 +691,7 @@ const LeavePolicyPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                    Assign Policy ({assigningPolicy.policyCode})
+                    {t("Assign Policy")} ({assigningPolicy.policyCode})
                   </h3>
                 </div>
                 <button type="button" onClick={() => setAssigningPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -702,16 +703,16 @@ const LeavePolicyPage: React.FC = () => {
                 <div className="bg-[#e0f7fa] dark:bg-cyan-950/30 p-3 rounded-lg border border-[#b2ebf2] dark:border-cyan-800/60 text-xs">
                   <span className="font-bold text-slate-900 dark:text-cyan-200 block">{assigningPolicy.policyName}</span>
                   <span className="text-slate-600 dark:text-cyan-300/80">
-                    The chosen employees get this policy's leave balances
+                    {t("The chosen employees get this policy's leave balances")}
                     {assigningPolicy.policyDetails?.length ? `: ${assigningPolicy.policyDetails.map((d) => `${d.allocatedLeaves} ${leaveTypeLabel(d.leaveType)}`).join(', ')}` : ''}.
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Select Employees</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Select Employees")}</label>
                   <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-[#303030] rounded-lg p-2 space-y-1 bg-gray-50 dark:bg-[#222222]">
                     {employees.length === 0 ? (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 italic p-2">Loading employee list...</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 italic p-2">{t("Loading employee list...")}</p>
                     ) : (
                       employees.map(emp => (
                         <label key={emp.id} className="flex items-center justify-between p-1.5 hover:bg-white dark:hover:bg-[#191919] rounded cursor-pointer text-xs">
@@ -740,7 +741,7 @@ const LeavePolicyPage: React.FC = () => {
                   onClick={handleAssignPolicySubmit}
                   className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-60"
                 >
-                  {isAssignSubmitting ? "Assigning..." : `Assign Policy to (${selectedEmployeeIds.length}) Employee(s)`}
+                  {isAssignSubmitting ? t("Assigning...") : `Assign Policy to (${selectedEmployeeIds.length}) Employee(s)`}
                 </button>
               </div>
 
@@ -762,27 +763,27 @@ const LeavePolicyPage: React.FC = () => {
                     {viewingPolicy.policyName} ({viewingPolicy.policyCode})
                   </h3>
                 </div>
-                <button type="button" onClick={() => setViewingPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close">
+                <button type="button" onClick={() => setViewingPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={t("Close")}>
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <dl className="grid grid-cols-2 gap-3 text-xs mb-4">
                 <div>
-                  <dt className="text-gray-500 dark:text-gray-400">Financial year</dt>
+                  <dt className="text-gray-500 dark:text-gray-400">{t("Financial year")}</dt>
                   <dd className="font-semibold">{viewingPolicy.financialYear || '-'}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500 dark:text-gray-400">Status</dt>
-                  <dd className="font-semibold">{viewingPolicy.active !== false ? 'Active' : 'Inactive'}</dd>
+                  <dt className="text-gray-500 dark:text-gray-400">{t("Status")}</dt>
+                  <dd className="font-semibold">{t(viewingPolicy.active !== false ? 'Active' : 'Inactive')}</dd>
                 </div>
                 <div className="col-span-2">
-                  <dt className="text-gray-500 dark:text-gray-400">Effective period</dt>
+                  <dt className="text-gray-500 dark:text-gray-400">{t("Effective period")}</dt>
                   <dd className="font-semibold">{viewingPolicy.effectiveFrom || '-'} to {viewingPolicy.effectiveTo || '-'}</dd>
                 </div>
                 {viewingPolicy.description && (
                   <div className="col-span-2">
-                    <dt className="text-gray-500 dark:text-gray-400">Description</dt>
+                    <dt className="text-gray-500 dark:text-gray-400">{t("Description")}</dt>
                     <dd>{viewingPolicy.description}</dd>
                   </div>
                 )}
@@ -791,9 +792,9 @@ const LeavePolicyPage: React.FC = () => {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-[#303030]">
-                    <th className="py-1.5 font-semibold">Leave type</th>
-                    <th className="py-1.5 font-semibold text-right">Days / year</th>
-                    <th className="py-1.5 font-semibold text-right">Carry forward</th>
+                    <th className="py-1.5 font-semibold">{t("Leave type")}</th>
+                    <th className="py-1.5 font-semibold text-right">{t("Days / year")}</th>
+                    <th className="py-1.5 font-semibold text-right">{t("Carry forward")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -801,11 +802,11 @@ const LeavePolicyPage: React.FC = () => {
                     <tr key={d.id ?? i} className="border-b border-gray-50 dark:border-[#2a2a2a]">
                       <td className="py-1.5 font-semibold">{leaveTypeLabel(d.leaveType)}</td>
                       <td className="py-1.5 text-right font-mono">{d.allocatedLeaves}</td>
-                      <td className="py-1.5 text-right">{d.carryForwardAllowed ? `Up to ${d.maxCarryForward ?? 0}` : 'No'}</td>
+                      <td className="py-1.5 text-right">{d.carryForwardAllowed ? `Up to ${d.maxCarryForward ?? 0}` : t('No')}</td>
                     </tr>
                   ))}
                   {!(viewingPolicy.policyDetails ?? []).length && (
-                    <tr><td colSpan={3} className="py-3 text-center text-gray-400">No leave types in this policy.</td></tr>
+                    <tr><td colSpan={3} className="py-3 text-center text-gray-400">{t("No leave types in this policy.")}</td></tr>
                   )}
                 </tbody>
               </table>

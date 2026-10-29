@@ -190,12 +190,12 @@ const BankReconciliation: React.FC = () => {
   return (
     <>
       <PageMeta title={t("Bank Reconciliation")} description="Bank statement against the books" />
-      <PageBreadcrumb pageTitle={account ? `Reconcile ${account.accountName}` : "Bank Reconciliation"} />
+      <PageBreadcrumb pageTitle={account ? `${t("Reconcile")} ${account.accountName}` : t("Bank Reconciliation")} />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="text-sm text-slate-600">
-            <Link to="/bankAccounts" className="text-cyan-700 hover:underline">Bank &amp; Cash</Link>
+            <Link to="/bankAccounts" className="text-cyan-700 hover:underline">{t("Bank & Cash")}</Link>
             {account && (
               <span className="text-slate-500"> · {bankAccountLabel(account)} · ledger {account.generalAccountCode} · from {dateLabel(account.openingDate)}</span>
             )}
@@ -252,7 +252,7 @@ const BankReconciliation: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2">
               <span className="text-sm font-semibold text-slate-800">{t("Bank statement")}</span>
               <div className="flex gap-1">
-                {([["OPEN", `Open (${openCount})`], ["MATCHED", "Matched"], ["ALL", "All"]] as [LineFilter, string][]).map(([value, label]) => (
+                {([["OPEN", `${t("Open")} (${openCount})`], ["MATCHED", "Matched"], ["ALL", "All"]] as [LineFilter, string][]).map(([value, label]) => (
                   <button key={value} type="button" onClick={() => setFilter(value)}
                     className={`rounded-full border px-2.5 py-0.5 text-xs ${filter === value ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
                     {label}
@@ -295,7 +295,7 @@ const BankReconciliation: React.FC = () => {
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         {line.matched ? (
                           <span className="flex items-center justify-end gap-2">
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">{line.posted ? "Posted" : "Matched"}</span>
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">{t(line.posted ? "Posted" : "Matched")}</span>
                             {canUpdate && <button type="button" disabled={busy} onClick={() => unmatch(line)} className="text-xs text-slate-500 hover:text-rose-600 hover:underline">{t("Unmatch")}</button>}
                           </span>
                         ) : (
@@ -327,7 +327,7 @@ const BankReconciliation: React.FC = () => {
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-slate-100">
                   {(data?.unmatchedBookLines.length ?? 0) === 0 && (
-                    <tr><td className="px-3 py-6 text-center text-slate-400">{loading ? "Loading…" : "Everything in the books is matched"}</td></tr>
+                    <tr><td className="px-3 py-6 text-center text-slate-400">{t(loading ? "Loading…" : "Everything in the books is matched")}</td></tr>
                   )}
                   {[...(data?.unmatchedBookLines ?? [])].reverse().map((book) => (
                     <tr key={book.id} className={data && book.date > data.asOf ? "opacity-60" : ""}>
@@ -356,7 +356,7 @@ const BankReconciliation: React.FC = () => {
         content={
           <form onSubmit={saveMatch} className="flex flex-col">
             <div className="max-h-[60dvh] overflow-y-auto px-4 py-4 sm:px-5">
-              <p className="mb-2 text-xs text-slate-500">Tick the ledger lines this bank line clears; a deposit of several receipts can clear many.</p>
+              <p className="mb-2 text-xs text-slate-500">{t("Tick the ledger lines this bank line clears; a deposit of several receipts can clear many.")}</p>
               {candidates.length === 0 && <p className="py-4 text-center text-sm text-slate-400">{t("No open lines in the books. Post it instead.")}</p>}
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
                 {candidates.map((book: BookLine) => (
@@ -397,7 +397,7 @@ const BankReconciliation: React.FC = () => {
         content={
           <form onSubmit={savePost} className="flex flex-col">
             <div className="space-y-3 px-4 py-4 sm:px-5">
-              <FloatingSelect1 label={posting && posting.amount < 0 ? "Expense or account it paid" : "Income or account it came from"} name="accountId"
+              <FloatingSelect1 label={t(posting && posting.amount < 0 ? "Expense or account it paid" : "Income or account it came from")} name="accountId"
                 required value={postForm.accountId} options={postOptions} onChange={(e) => setPostForm((f) => ({ ...f, accountId: e.target.value }))} />
               <FloatingInput label={t("Description")} name="description" value={postForm.description}
                 onChange={(e) => setPostForm((f) => ({ ...f, description: e.target.value }))} />
@@ -555,7 +555,7 @@ const ImportStatementDialog: React.FC<{ bankAccountId: string; currency?: string
               </>
             )}
           </div>
-          <DialogFooter onCancel={onClose} submitLabel={usable.length ? `Import ${usable.length} line(s)` : "Import"} busy={busy}
+          <DialogFooter onCancel={onClose} submitLabel={usable.length ? `Import ${usable.length} line(s)` : t("Import")} busy={busy}
             disabled={!columns || usable.length === 0} />
         </form>
       }

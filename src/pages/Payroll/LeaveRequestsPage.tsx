@@ -35,6 +35,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type LeaveRequest = {
     id: number;
     employeeId: string;
@@ -243,7 +244,7 @@ const LeaveRequestsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Leave Requests" description="Manage employee leave requests and approvals" />
+            <PageMeta title={t("Leave Requests")} description="Manage employee leave requests and approvals" />
             <PageBreadcrumb pageTitle="Approval Queue" />
 
             <div className="max-w-7xl mx-auto p-6">
@@ -252,7 +253,7 @@ const LeaveRequestsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Total Requests</p>
+                                <p className="text-sm text-gray-600">{t("Total Requests")}</p>
                                 <p className="text-2xl font-semibold text-gray-900">{requests.length}</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-full">
@@ -264,7 +265,7 @@ const LeaveRequestsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Pending</p>
+                                <p className="text-sm text-gray-600">{t("Pending")}</p>
                                 <p className="text-2xl font-semibold text-yellow-600">{pendingCount}</p>
                             </div>
                             <div className="p-3 bg-yellow-100 rounded-full">
@@ -276,7 +277,7 @@ const LeaveRequestsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Approved</p>
+                                <p className="text-sm text-gray-600">{t("Approved")}</p>
                                 <p className="text-2xl font-semibold text-green-600">{approvedCount}</p>
                             </div>
                             <div className="p-3 bg-green-100 rounded-full">
@@ -288,7 +289,7 @@ const LeaveRequestsPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Total Days</p>
+                                <p className="text-sm text-gray-600">{t("Total Days")}</p>
                                 <p className="text-2xl font-semibold text-purple-600">{totalDays}</p>
                             </div>
                             <div className="p-3 bg-purple-100 rounded-full">
@@ -305,7 +306,7 @@ const LeaveRequestsPage: React.FC = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by employee or leave type..."
+                                placeholder={t("Search by employee or leave type...")}
                                 value={search}
                                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -331,14 +332,14 @@ const LeaveRequestsPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
+                                        {t("Export PDF")}
                                     </button>
                                     <button
                                         onClick={exportExcel}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
+                                        {t("Export Excel")}
                                     </button>
                                 </div>
                             )}
@@ -379,26 +380,26 @@ const LeaveRequestsPage: React.FC = () => {
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex flex-wrap gap-4">
                             <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Status")}</label>
                                 <select
                                     value={statusFilter}
                                     onChange={e => { setStatusFilter(e.target.value as any); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="All">All Status</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
+                                    <option value="All">{t("All Status")}</option>
+                                    <option value="Pending">{t("Pending")}</option>
+                                    <option value="Approved">{t("Approved")}</option>
+                                    <option value="Rejected">{t("Rejected")}</option>
                                 </select>
                             </div>
                             <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Leave Type")}</label>
                                 <select
                                     value={leaveTypeFilter}
                                     onChange={e => { setLeaveTypeFilter(e.target.value); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="">All Types</option>
+                                    <option value="">{t("All Types")}</option>
                                     {uniqueLeaveTypes.map(type => (
                                         <option key={type} value={type}>{type}</option>
                                     ))}
@@ -412,7 +413,7 @@ const LeaveRequestsPage: React.FC = () => {
                                     }}
                                     className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
                                 >
-                                    Clear Filters
+                                    {t("Clear Filters")}
                                 </button>
                             )}
                         </div>
@@ -454,7 +455,7 @@ const LeaveRequestsPage: React.FC = () => {
                                         <td colSpan={7} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading leave requests...</p>
+                                                <p className="text-gray-500 text-sm">{t("Loading leave requests...")}</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -529,7 +530,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
+                                                                {t("View Details")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>
@@ -546,7 +547,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                                         className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-green-600`}
                                                                     >
                                                                         <CheckCircleIcon className="h-4 w-4" />
-                                                                        Approve
+                                                                        {t("Approve")}
                                                                     </button>
                                                                 )}
                                                             </Menu.Item>
@@ -561,7 +562,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                                         className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
                                                                     >
                                                                         <XCircleIcon className="h-4 w-4" />
-                                                                        Reject
+                                                                        {t("Reject")}
                                                                     </button>
                                                                 )}
                                                             </Menu.Item>
@@ -576,8 +577,8 @@ const LeaveRequestsPage: React.FC = () => {
                                         <td colSpan={7} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No leave requests found</p>
-                                                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                                                <p className="text-gray-500 text-sm mb-2">{t("No leave requests found")}</p>
+                                                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -595,41 +596,41 @@ const LeaveRequestsPage: React.FC = () => {
                                     disabled={page === 1}
                                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Previous
+                                    {t("Previous")}
                                 </button>
                                 <button
                                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                                     disabled={page === totalPages}
                                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Next
+                                    {t("Next")}
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
+                                        {t("Showing")} <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> {t("to")}{' '}
                                         <span className="font-medium">
                                             {Math.min(page * PAGE_SIZE, filtered.length)}
                                         </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
+                                        of <span className="font-medium">{filtered.length}</span> {t("results")}
                                     </p>
                                 </div>
                                 <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label={t("Pagination")}>
                                         <button
                                             onClick={() => setPage(1)}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            First
+                                            {t("First")}
                                         </button>
                                         <button
                                             onClick={() => setPage(Math.max(1, page - 1))}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Previous
+                                            {t("Previous")}
                                         </button>
                                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                                             let pageNum: number;
@@ -660,14 +661,14 @@ const LeaveRequestsPage: React.FC = () => {
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Next
+                                            {t("Next")}
                                         </button>
                                         <button
                                             onClick={() => setPage(totalPages)}
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Last
+                                            {t("Last")}
                                         </button>
                                     </nav>
                                 </div>
@@ -687,7 +688,7 @@ const LeaveRequestsPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                    Leave Request Details
+                                                    {t("Leave Request Details")}
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
@@ -698,15 +699,15 @@ const LeaveRequestsPage: React.FC = () => {
                                             </div>
                                             
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Employee Information</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Employee Information")}</h4>
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <span className="text-gray-500">Name:</span>
+                                                    <span className="text-gray-500">{t("Name:")}</span>
                                                     <span className="font-medium">{selectedRequest.employeeName || selectedRequest.employeeId}</span>
-                                                    <span className="text-gray-500">Employee Code:</span>
+                                                    <span className="text-gray-500">{t("Employee Code:")}</span>
                                                     <span className="font-medium">{selectedRequest.employeeCode || "—"}</span>
-                                                    <span className="text-gray-500">Leave Type:</span>
+                                                    <span className="text-gray-500">{t("Leave Type:")}</span>
                                                     <span className="font-medium">{selectedRequest.leaveType}</span>
-                                                    <span className="text-gray-500">Status:</span>
+                                                    <span className="text-gray-500">{t("Status:")}</span>
                                                     <span className={`font-medium ${selectedRequest.status === "Approved" ? "text-green-600" : selectedRequest.status === "Pending" ? "text-yellow-600" : "text-red-600"}`}>
                                                         {selectedRequest.status}
                                                     </span>
@@ -714,25 +715,25 @@ const LeaveRequestsPage: React.FC = () => {
                                             </div>
 
                                             <div className="mb-6">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Leave Period</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Leave Period")}</h4>
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Start Date:</span>
+                                                        <span className="text-gray-500">{t("Start Date:")}</span>
                                                         <span className="font-medium">{formatDate(selectedRequest.startDate)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">End Date:</span>
+                                                        <span className="text-gray-500">{t("End Date:")}</span>
                                                         <span className="font-medium">{formatDate(selectedRequest.endDate)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Total Days:</span>
+                                                        <span className="text-gray-500">{t("Total Days:")}</span>
                                                         <span className="font-medium">{selectedRequest.days}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="mb-6">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Reason</h4>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Reason")}</h4>
                                                 <div className="p-4 bg-gray-50 rounded-lg">
                                                     <p className="text-sm text-gray-700">{selectedRequest.reason || "No reason provided"}</p>
                                                 </div>
@@ -740,7 +741,7 @@ const LeaveRequestsPage: React.FC = () => {
 
                                             {selectedRequest.remarks && (
                                                 <div className="mb-6">
-                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Remarks</h4>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-2">{t("Remarks")}</h4>
                                                     <div className="p-4 bg-gray-50 rounded-lg">
                                                         <p className="text-sm text-gray-700">{selectedRequest.remarks}</p>
                                                     </div>
@@ -749,7 +750,7 @@ const LeaveRequestsPage: React.FC = () => {
 
                                             {selectedRequest.createdAt && (
                                                 <div className="text-xs text-gray-400 mt-4">
-                                                    Created: {formatDateTime(selectedRequest.createdAt)}
+                                                    {t("Created:")} {formatDateTime(selectedRequest.createdAt)}
                                                 </div>
                                             )}
                                         </div>
@@ -768,7 +769,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
                                             >
                                                 <CheckCircleIcon className="h-4 w-4 mr-2" />
-                                                Approve
+                                                {t("Approve")}
                                             </button>
                                             <button
                                                 type="button"
@@ -780,7 +781,7 @@ const LeaveRequestsPage: React.FC = () => {
                                                 className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-red-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                             >
                                                 <XCircleIcon className="h-4 w-4 mr-2" />
-                                                Reject
+                                                {t("Reject")}
                                             </button>
                                         </>
                                     )}
@@ -789,7 +790,7 @@ const LeaveRequestsPage: React.FC = () => {
                                         onClick={() => setViewModalOpen(false)}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>
@@ -815,17 +816,17 @@ const LeaveRequestsPage: React.FC = () => {
                                             
                                             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                                                 <div className="text-sm">
-                                                    <p><span className="font-medium">Employee:</span> {selectedRequest.employeeName || selectedRequest.employeeId}</p>
-                                                    <p><span className="font-medium">Leave Type:</span> {selectedRequest.leaveType}</p>
-                                                    <p><span className="font-medium">Duration:</span> {formatDate(selectedRequest.startDate)} - {formatDate(selectedRequest.endDate)}</p>
-                                                    <p><span className="font-medium">Days:</span> {selectedRequest.days}</p>
-                                                    <p className="mt-2"><span className="font-medium">Reason:</span> {selectedRequest.reason}</p>
+                                                    <p><span className="font-medium">{t("Employee:")}</span> {selectedRequest.employeeName || selectedRequest.employeeId}</p>
+                                                    <p><span className="font-medium">{t("Leave Type:")}</span> {selectedRequest.leaveType}</p>
+                                                    <p><span className="font-medium">{t("Duration:")}</span> {formatDate(selectedRequest.startDate)} - {formatDate(selectedRequest.endDate)}</p>
+                                                    <p><span className="font-medium">{t("Days:")}</span> {selectedRequest.days}</p>
+                                                    <p className="mt-2"><span className="font-medium">{t("Reason:")}</span> {selectedRequest.reason}</p>
                                                 </div>
                                             </div>
 
                                             <div className="space-y-3">
                                                 <label className="block text-sm font-medium text-gray-700">
-                                                    Remarks (Optional)
+                                                    {t("Remarks (Optional)")}
                                                 </label>
                                                 <textarea
                                                     className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500"
@@ -858,7 +859,7 @@ const LeaveRequestsPage: React.FC = () => {
                                         }}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                 </div>
                             </div>

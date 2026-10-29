@@ -14,6 +14,7 @@ import {
   CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
 
+import { t } from "../../i18n/i18n";
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
 const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300";
@@ -149,7 +150,7 @@ export default function UsersPage() {
     {
       key: "roles", label: "Roles",
       render: (u) => u.roles.length === 0
-        ? <span className="text-[11px] text-amber-600">No role (can only use self-service)</span>
+        ? <span className="text-[11px] text-amber-600">{t("No role (can only use self-service)")}</span>
         : (
           <div className="flex flex-wrap gap-1">
             {u.roles.map((r) => (
@@ -172,19 +173,19 @@ export default function UsersPage() {
     {
       key: "actions", label: "Actions",
       render: (u) => !u.manageable ? (
-        <span className="text-[11px] text-slate-400" title="This user has permissions beyond yours, so only a higher administrator can change their account">Restricted</span>
+        <span className="text-[11px] text-slate-400" title={t("This user has permissions beyond yours, so only a higher administrator can change their account")}>{t("Restricted")}</span>
       ) : (
         <div className="flex items-center gap-1">
-          {canUpdate && <button type="button" title="Edit" className={ROW_ICON_BUTTON} onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></button>}
+          {canUpdate && <button type="button" title={t("Edit")} className={ROW_ICON_BUTTON} onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></button>}
           {canUpdate && u.active && (
-            <button type="button" title={u.invitePending ? "Resend invite" : "Email a set-password link"} className={ROW_ICON_BUTTON} onClick={() => sendInvite(u)}>
+            <button type="button" title={t(u.invitePending ? "Resend invite" : "Email a set-password link")} className={ROW_ICON_BUTTON} onClick={() => sendInvite(u)}>
               <Mail className="h-4 w-4" />
             </button>
           )}
           {canUpdate && u.userId !== user?.userId && (
             u.active
-              ? <button type="button" title="Deactivate" className={ROW_ICON_BUTTON_DANGER} onClick={() => toggleActive(u)}><UserX className="h-4 w-4" /></button>
-              : <button type="button" title="Activate" className={ROW_ICON_BUTTON} onClick={() => toggleActive(u)}><UserCheck className="h-4 w-4" /></button>
+              ? <button type="button" title={t("Deactivate")} className={ROW_ICON_BUTTON_DANGER} onClick={() => toggleActive(u)}><UserX className="h-4 w-4" /></button>
+              : <button type="button" title={t("Activate")} className={ROW_ICON_BUTTON} onClick={() => toggleActive(u)}><UserCheck className="h-4 w-4" /></button>
           )}
         </div>
       ),
@@ -197,21 +198,21 @@ export default function UsersPage() {
 
   return (
     <>
-      <PageMeta title="Users" description="Company users, their roles and invites" />
-      <PageBreadcrumb pageTitle="Users" actions={canCreate ? <AddButton label="Add user" onClick={openNew} /> : undefined} />
+      <PageMeta title={t("Users")} description="Company users, their roles and invites" />
+      <PageBreadcrumb pageTitle="Users" actions={canCreate ? <AddButton label={t("Add user")} onClick={openNew} /> : undefined} />
 
       <div className={PAGE_BODY}>
         <div className={STATS_ROW}>
-          <StatsCard label="Users" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Users />} loading={loading} />
-          <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserCheck />} loading={loading} />
-          <StatsCard label="Invite pending" value={stats.pending} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<MailWarning />} loading={loading} />
-          <StatsCard label="Inactive" value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<UserX />} loading={loading} />
+          <StatsCard label={t("Users")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Users />} loading={loading} />
+          <StatsCard label={t("Active")} value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserCheck />} loading={loading} />
+          <StatsCard label={t("Invite pending")} value={stats.pending} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<MailWarning />} loading={loading} />
+          <StatsCard label={t("Inactive")} value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<UserX />} loading={loading} />
         </div>
 
         {filtered && (
           <div className="mb-3 flex items-center gap-2 text-xs text-slate-600 dark:text-gray-300">
-            Showing one user.
-            <button type="button" className="font-semibold text-cyan-600 hover:underline" onClick={() => setSearchParams({})}>Show all users</button>
+            {t("Showing one user.")}
+            <button type="button" className="font-semibold text-cyan-600 hover:underline" onClick={() => setSearchParams({})}>{t("Show all users")}</button>
           </div>
         )}
         <ReusableTable
@@ -223,7 +224,7 @@ export default function UsersPage() {
           pageSize={10}
           defaultSortKey="name"
           searchable
-          searchPlaceholder="Search name, username or email"
+          searchPlaceholder={t("Search name, username or email")}
           enableRowDetails={false}
         />
       </div>
@@ -233,46 +234,46 @@ export default function UsersPage() {
           <form onSubmit={save} className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                {editing === "new" ? "Add user" : `Edit ${editing.firstName} ${editing.lastName}`}
+                {editing === "new" ? t("Add user") : `Edit ${editing.firstName} ${editing.lastName}`}
               </h3>
               <button type="button" onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={LABEL}>First name *</label>
+                <label className={LABEL}>{t("First name *")}</label>
                 <input className={INPUT} value={form.firstName} maxLength={100} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
               </div>
               <div>
-                <label className={LABEL}>Last name *</label>
+                <label className={LABEL}>{t("Last name *")}</label>
                 <input className={INPUT} value={form.lastName} maxLength={100} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
               </div>
               <div>
                 <label className={LABEL}>Username (to sign in) *</label>
                 <input className={INPUT} value={form.username} disabled={editing !== "new"} maxLength={150}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="e.g. asha.rao@company.com" />
+                  onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder={t("e.g. asha.rao@company.com")} />
               </div>
               <div>
-                <label className={LABEL}>Email *</label>
+                <label className={LABEL}>{t("Email *")}</label>
                 <input className={INPUT} type="email" value={form.email} maxLength={150} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <label className={LABEL}>Designation</label>
+                <label className={LABEL}>{t("Designation")}</label>
                 <input className={INPUT} value={form.designation ?? ""} maxLength={100} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
               </div>
             </div>
 
             <div>
-              <label className={LABEL}>Roles</label>
+              <label className={LABEL}>{t("Roles")}</label>
               <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-gray-700">
-                {roles.length === 0 && <p className="text-xs text-slate-400">No roles yet.</p>}
+                {roles.length === 0 && <p className="text-xs text-slate-400">{t("No roles yet.")}</p>}
                 {roles.map((r) => (
                   <label key={r.id} className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs ${r.grantable ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#222222]" : "opacity-50"}`}
                     title={r.grantable ? r.permissions.join(", ") : "You can't grant this role: it includes permissions you may not hand out"}>
                     <span className="flex items-center gap-2">
                       <input type="checkbox" checked={assignedIds.has(r.id)} disabled={!r.grantable} onChange={() => toggleRole(r.id)} />
                       <span className="font-medium text-slate-800 dark:text-gray-200">{r.roleName}</span>
-                      {r.systemRole && <span className="rounded bg-slate-100 px-1.5 text-[10px] text-slate-500 dark:bg-[#2a2a2a]">system</span>}
+                      {r.systemRole && <span className="rounded bg-slate-100 px-1.5 text-[10px] text-slate-500 dark:bg-[#2a2a2a]">{t("system")}</span>}
                     </span>
                     <span className="text-[10px] text-slate-400">{r.permissions.length} permission(s)</span>
                   </label>
@@ -280,13 +281,13 @@ export default function UsersPage() {
               </div>
               {editing === "new" && (
                 <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
-                  No password is set here: the user gets an email to choose their own.
+                  {t("No password is set here: the user gets an email to choose their own.")}
                 </p>
               )}
             </div>
 
             <div className="flex justify-end gap-2">
-              <button type="button" className={SECONDARY_BUTTON} onClick={() => setEditing(null)}>Cancel</button>
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => setEditing(null)}>{t("Cancel")}</button>
               <button type="submit" className={PRIMARY_BUTTON} disabled={saving}>
                 {saving ? "Saving..." : editing === "new" ? "Add and send invite" : "Save"}
               </button>

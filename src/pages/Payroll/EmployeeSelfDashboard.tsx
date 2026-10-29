@@ -1,3 +1,4 @@
+import { dateLocale } from "../../company/format";
 import React, { useState, useEffect, useContext, useMemo } from "react";
 import {
     Clock,
@@ -29,6 +30,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { Employee } from "../../shared/types/employee.types";
 import { AttendanceRecord } from "../../shared/types/attendance.types";
 
+import { t } from "../../i18n/i18n";
 const ATTENDANCE_API_URL = "/v1/api/payroll/attendance";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const LEAVE_BALANCE_API_URL = "/v1/api/payroll/leave-balances";
@@ -161,7 +163,7 @@ const EmployeeSelfDashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 font-sans text-gray-900">
-            <PageMeta title="Dashboard" description="Employee Workspace" />
+            <PageMeta title={t("Dashboard")} description="Employee Workspace" />
 
             {/* Premium Header */}
             <header className="px-6 md:px-12 pt-8 pb-6">
@@ -172,8 +174,8 @@ const EmployeeSelfDashboard: React.FC = () => {
                                 <LayoutDashboard size={24} className="text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-semibold text-gray-900">Workspace</h1>
-                                <p className="text-sm text-gray-500">{format(currentTime, 'EEEE, MMMM dd, yyyy')}</p>
+                                <h1 className="text-2xl font-semibold text-gray-900">{t("Workspace")}</h1>
+                                <p className="text-sm text-gray-500">{currentTime.toLocaleDateString(dateLocale("en-US"), { weekday: "long", month: "long", day: "2-digit", year: "numeric" })}</p>
                             </div>
                         </div>
 
@@ -195,7 +197,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                         <h2 className="text-4xl md:text-5xl font-light text-gray-900 mb-2">
                             {greeting}, <span className="font-medium">{user?.fullName?.split(' ')[0] || "There"}</span>
                         </h2>
-                        <p className="text-gray-500">Here's your overview for today</p>
+                        <p className="text-gray-500">{t("Here's your overview for today")}</p>
                     </div>
                 </div>
             </header>
@@ -215,7 +217,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                         >
                             <div className="flex items-center justify-between mb-8">
                                 <div>
-                                    <h3 className="text-sm font-medium text-gray-500 mb-1">Attendance</h3>
+                                    <h3 className="text-sm font-medium text-gray-500 mb-1">{t("Attendance")}</h3>
                                     <p className="text-2xl font-semibold text-gray-900">
                                         {todayRecord ? (todayRecord.checkOutTime ? 'Completed' : 'Active') : 'Ready'}
                                     </p>
@@ -225,7 +227,7 @@ const EmployeeSelfDashboard: React.FC = () => {
 
                             <div className="mb-8">
                                 <div className="text-center py-8">
-                                    <div className="text-sm text-gray-500 mb-2">Duration</div>
+                                    <div className="text-sm text-gray-500 mb-2">{t("Duration")}</div>
                                     <div className="text-4xl font-light text-gray-900 tabular-nums">
                                         {todayRecord?.checkInTime && !todayRecord.checkOutTime ? workDuration :
                                             (todayRecord?.checkOutTime ? "08h 00m 00s" : "00h 00m 00s")}
@@ -234,13 +236,13 @@ const EmployeeSelfDashboard: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
                                     <div>
-                                        <div className="text-xs text-gray-500 mb-1">Check In</div>
+                                        <div className="text-xs text-gray-500 mb-1">{t("Check In")}</div>
                                         <div className="text-sm font-medium text-gray-900">
                                             {todayRecord?.checkInTime ? format(new Date(todayRecord.checkInTime), "HH:mm") : "--:--"}
                                         </div>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-gray-500 mb-1">Check Out</div>
+                                        <div className="text-xs text-gray-500 mb-1">{t("Check Out")}</div>
                                         <div className="text-sm font-medium text-gray-900">
                                             {todayRecord?.checkOutTime ? format(new Date(todayRecord.checkOutTime), "HH:mm") : "--:--"}
                                         </div>
@@ -282,7 +284,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                                 ) : (
                                     <div className="w-full h-12 bg-gray-50 text-gray-500 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
                                         <CheckCircle2 size={18} />
-                                        Day Complete
+                                        {t("Day Complete")}
                                     </div>
                                 )}
                             </div>
@@ -297,7 +299,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                         >
                             <div className="flex items-center justify-between mb-8">
                                 <div>
-                                    <h3 className="text-sm font-medium text-gray-500 mb-1">Time Off</h3>
+                                    <h3 className="text-sm font-medium text-gray-500 mb-1">{t("Time Off")}</h3>
                                     <p className="text-2xl font-semibold text-gray-900">
                                         {(leaveBalances?.annual || 0) + (leaveBalances?.sick || 0) + (leaveBalances?.casual || 0)} days
                                     </p>
@@ -306,9 +308,9 @@ const EmployeeSelfDashboard: React.FC = () => {
                             </div>
 
                             <div className="space-y-4 mb-8">
-                                <BalanceBar label="Annual Leave" value={leaveBalances?.annual || 0} max={15} color="gray" />
-                                <BalanceBar label="Sick Leave" value={leaveBalances?.sick || 0} max={10} color="gray" />
-                                <BalanceBar label="Casual Leave" value={leaveBalances?.casual || 0} max={7} color="gray" />
+                                <BalanceBar label={t("Annual Leave")} value={leaveBalances?.annual || 0} max={15} color="gray" />
+                                <BalanceBar label={t("Sick Leave")} value={leaveBalances?.sick || 0} max={10} color="gray" />
+                                <BalanceBar label={t("Casual Leave")} value={leaveBalances?.casual || 0} max={7} color="gray" />
                             </div>
 
                             <button
@@ -316,7 +318,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                                 className="w-full h-12 bg-white border border-gray-900 hover:bg-gray-50 text-gray-900 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
                             >
                                 <Plus size={18} />
-                                Apply for Leave
+                                {t("Apply for Leave")}
                             </button>
                         </motion.div>
 
@@ -332,8 +334,8 @@ const EmployeeSelfDashboard: React.FC = () => {
                             <div className="relative z-10">
                                 <div className="flex items-center justify-between mb-8">
                                     <div>
-                                        <h3 className="text-sm font-medium text-white/60 mb-1">Performance</h3>
-                                        <p className="text-2xl font-semibold text-white">Excellent</p>
+                                        <h3 className="text-sm font-medium text-white/60 mb-1">{t("Performance")}</h3>
+                                        <p className="text-2xl font-semibold text-white">{t("Excellent")}</p>
                                     </div>
                                     <Award size={20} className="text-white/60" />
                                 </div>
@@ -345,18 +347,18 @@ const EmployeeSelfDashboard: React.FC = () => {
                                     </div>
                                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-lg backdrop-blur-sm">
                                         <TrendingUp size={14} className="text-emerald-400" />
-                                        <span className="text-xs font-medium text-emerald-400">Top 15% Performer</span>
+                                        <span className="text-xs font-medium text-emerald-400">{t("Top 15% Performer")}</span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-white/5 rounded-xl p-4 backdrop-blur-sm">
-                                        <div className="text-xs text-white/60 mb-1">Last Review</div>
-                                        <div className="text-sm font-medium text-white">Dec 2025</div>
+                                        <div className="text-xs text-white/60 mb-1">{t("Last Review")}</div>
+                                        <div className="text-sm font-medium text-white">{t("Dec 2025")}</div>
                                     </div>
                                     <div className="bg-white/5 rounded-xl p-4 backdrop-blur-sm">
-                                        <div className="text-xs text-white/60 mb-1">Next Review</div>
-                                        <div className="text-sm font-medium text-white">Jun 2026</div>
+                                        <div className="text-xs text-white/60 mb-1">{t("Next Review")}</div>
+                                        <div className="text-sm font-medium text-white">{t("Jun 2026")}</div>
                                     </div>
                                 </div>
                             </div>
@@ -365,16 +367,16 @@ const EmployeeSelfDashboard: React.FC = () => {
 
                     {/* Quick Actions */}
                     <div className="bg-white rounded-3xl p-8 border border-gray-200">
-                        <h3 className="text-sm font-medium text-gray-500 mb-6">Quick Actions</h3>
+                        <h3 className="text-sm font-medium text-gray-500 mb-6">{t("Quick Actions")}</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                            <ActionButton label="Attendance" icon={<Fingerprint />} href="/attendance-management" />
-                            <ActionButton label="Time Off" icon={<Coffee />} href="/leave-management" />
-                            <ActionButton label="Payroll" icon={<Wallet />} href="/employeePayroll" />
-                            <ActionButton label="Documents" icon={<FileText />} href="/document-management" />
-                            <ActionButton label="Tax Info" icon={<ShieldCheck />} href="/it-declaration" />
-                            <ActionButton label="Performance" icon={<Award />} href="/performance-management" />
-                            <ActionButton label="Profile" icon={<LayoutDashboard />} href={`/employee-view/${resolvedEmployeeId}`} />
-                            <ActionButton label="Exit" icon={<LogOut />} href="/exit-management" />
+                            <ActionButton label={t("Attendance")} icon={<Fingerprint />} href="/attendance-management" />
+                            <ActionButton label={t("Time Off")} icon={<Coffee />} href="/leave-management" />
+                            <ActionButton label={t("Payroll")} icon={<Wallet />} href="/employeePayroll" />
+                            <ActionButton label={t("Documents")} icon={<FileText />} href="/document-management" />
+                            <ActionButton label={t("Tax Info")} icon={<ShieldCheck />} href="/it-declaration" />
+                            <ActionButton label={t("Performance")} icon={<Award />} href="/performance-management" />
+                            <ActionButton label={t("Profile")} icon={<LayoutDashboard />} href={`/employee-view/${resolvedEmployeeId}`} />
+                            <ActionButton label={t("Exit")} icon={<LogOut />} href="/exit-management" />
                         </div>
                     </div>
                 </div>
@@ -476,8 +478,8 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                     >
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <div>
-                                <h3 className="text-xl font-semibold text-gray-900">Apply for Leave</h3>
-                                <p className="text-sm text-gray-500 mt-0.5">Submit your time off request</p>
+                                <h3 className="text-xl font-semibold text-gray-900">{t("Apply for Leave")}</h3>
+                                <p className="text-sm text-gray-500 mt-0.5">{t("Submit your time off request")}</p>
                             </div>
                             <button
                                 onClick={onClose}
@@ -489,21 +491,21 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-5">
                             <div>
-                                <label className="text-xs font-medium text-gray-700 mb-2 block">Leave Type</label>
+                                <label className="text-xs font-medium text-gray-700 mb-2 block">{t("Leave Type")}</label>
                                 <select
                                     value={formData.leaveType}
                                     onChange={e => setFormData({ ...formData, leaveType: e.target.value })}
                                     className="w-full h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none focus:border-gray-900 transition-colors text-sm"
                                 >
-                                    <option value="Annual">Annual Leave</option>
-                                    <option value="Sick">Sick Leave</option>
-                                    <option value="Casual">Casual Leave</option>
+                                    <option value="Annual">{t("Annual Leave")}</option>
+                                    <option value="Sick">{t("Sick Leave")}</option>
+                                    <option value="Casual">{t("Casual Leave")}</option>
                                 </select>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs font-medium text-gray-700 mb-2 block">Start Date</label>
+                                    <label className="text-xs font-medium text-gray-700 mb-2 block">{t("Start Date")}</label>
                                     <input
                                         type="date"
                                         value={formData.startDate}
@@ -512,7 +514,7 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium text-gray-700 mb-2 block">End Date</label>
+                                    <label className="text-xs font-medium text-gray-700 mb-2 block">{t("End Date")}</label>
                                     <input
                                         type="date"
                                         value={formData.endDate}
@@ -523,12 +525,12 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                             </div>
 
                             <div>
-                                <label className="text-xs font-medium text-gray-700 mb-2 block">Reason</label>
+                                <label className="text-xs font-medium text-gray-700 mb-2 block">{t("Reason")}</label>
                                 <textarea
                                     value={formData.reason}
                                     onChange={e => setFormData({ ...formData, reason: e.target.value })}
                                     className="w-full h-24 bg-white border border-gray-200 rounded-xl p-4 outline-none focus:border-gray-900 transition-colors text-sm resize-none"
-                                    placeholder="Please provide a reason for your leave..."
+                                    placeholder={t("Please provide a reason for your leave...")}
                                     required
                                 />
                             </div>
@@ -538,7 +540,7 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                                 disabled={loading}
                                 className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {loading ? "Submitting..." : "Submit Request"}
+                                {t(loading ? "Submitting..." : "Submit Request")}
                             </button>
                         </form>
                     </motion.div>

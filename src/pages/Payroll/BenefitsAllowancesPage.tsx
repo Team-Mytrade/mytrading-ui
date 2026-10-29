@@ -38,6 +38,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type Allowance = {
     id: number;
     code: string;
@@ -251,7 +252,7 @@ const BenefitsAllowancesPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Benefits & Allowances" description="Manage employee benefits and allowances" />
+            <PageMeta title={t("Benefits & Allowances")} description="Manage employee benefits and allowances" />
             <PageBreadcrumb pageTitle="Benefits Matrix" />
 
             <div className="max-w-7xl mx-auto p-6">
@@ -260,7 +261,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Total Components</p>
+                                <p className="text-sm text-gray-600">{t("Total Components")}</p>
                                 <p className="text-2xl font-semibold text-gray-900">{totalAllowances}</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-full">
@@ -272,7 +273,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Taxable</p>
+                                <p className="text-sm text-gray-600">{t("Taxable")}</p>
                                 <p className="text-2xl font-semibold text-red-600">{taxableCount}</p>
                             </div>
                             <div className="p-3 bg-red-100 rounded-full">
@@ -284,7 +285,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Partially Taxable</p>
+                                <p className="text-sm text-gray-600">{t("Partially Taxable")}</p>
                                 <p className="text-2xl font-semibold text-yellow-600">{partiallyTaxableCount}</p>
                             </div>
                             <div className="p-3 bg-yellow-100 rounded-full">
@@ -296,7 +297,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-gray-600">Non-Taxable</p>
+                                <p className="text-sm text-gray-600">{t("Non-Taxable")}</p>
                                 <p className="text-2xl font-semibold text-green-600">{nonTaxableCount}</p>
                             </div>
                             <div className="p-3 bg-green-100 rounded-full">
@@ -313,7 +314,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by code or description..."
+                                placeholder={t("Search by code or description...")}
                                 value={search}
                                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
@@ -339,14 +340,14 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600" />
-                                        Export PDF
+                                        {t("Export PDF")}
                                     </button>
                                     <button
                                         onClick={exportExcel}
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50"
                                     >
                                         <TableCellsIcon className="h-4 w-4 text-green-600" />
-                                        Export Excel
+                                        {t("Export Excel")}
                                     </button>
                                 </div>
                             )}
@@ -386,7 +387,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                             className={`px-4 !mb-0 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${ADD_BUTTON_COLORS}`}
                         >
                             <PlusIcon className="h-5 w-5" />
-                            <span className="hidden sm:inline">New Allowance</span>
+                            <span className="hidden sm:inline">{t("New Allowance")}</span>
                         </button>)}
                     </div>
                 </div>
@@ -396,16 +397,16 @@ const BenefitsAllowancesPage: React.FC = () => {
                     <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex flex-wrap gap-4">
                             <div className="flex-1 min-w-[200px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t("Category")}</label>
                                 <select
                                     value={categoryFilter}
                                     onChange={e => { setCategoryFilter(e.target.value as any); setPage(1); }}
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                                 >
-                                    <option value="All">All Categories</option>
-                                    <option value="Taxable">Taxable</option>
-                                    <option value="Partially Taxable">Partially Taxable</option>
-                                    <option value="Non-Taxable">Non-Taxable</option>
+                                    <option value="All">{t("All Categories")}</option>
+                                    <option value="Taxable">{t("Taxable")}</option>
+                                    <option value="Partially Taxable">{t("Partially Taxable")}</option>
+                                    <option value="Non-Taxable">{t("Non-Taxable")}</option>
                                 </select>
                             </div>
                             {categoryFilter !== "All" && (
@@ -413,7 +414,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                     onClick={() => setCategoryFilter("All")}
                                     className="self-end mb-1 text-sm text-red-600 hover:text-red-800"
                                 >
-                                    Clear Filter
+                                    {t("Clear Filter")}
                                 </button>
                             )}
                         </div>
@@ -453,7 +454,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         <td colSpan={5} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600 mb-3"></div>
-                                                <p className="text-gray-500 text-sm">Loading allowances...</p>
+                                                <p className="text-gray-500 text-sm">{t("Loading allowances...")}</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -483,7 +484,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-600">
-                                                {allowance.taxLimit ? `${formatMoney(allowance.taxLimit)}/yr` : "No Limit"}
+                                                {allowance.taxLimit ? `${formatMoney(allowance.taxLimit)}/yr` : t("No Limit")}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right relative">
@@ -502,7 +503,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <EyeIcon className="h-4 w-4 text-blue-600" />
-                                                                View Details
+                                                                {t("View Details")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>
@@ -517,7 +518,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700`}
                                                             >
                                                                 <PencilSquareIcon className="h-4 w-4 text-cyan-600" />
-                                                                Edit
+                                                                {t("Edit")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -528,7 +529,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                                                 className={`${active ? "bg-gray-50" : ""} w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600`}
                                                             >
                                                                 <TrashIcon className="h-4 w-4" />
-                                                                Delete
+                                                                {t("Delete")}
                                                             </button>
                                                         )}
                                                     </Menu.Item>)}
@@ -541,7 +542,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         <td colSpan={5} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center">
                                                 <GiftIcon className="h-12 w-12 text-gray-400 mb-3" />
-                                                <p className="text-gray-500 text-sm mb-2">No allowances found</p>
+                                                <p className="text-gray-500 text-sm mb-2">{t("No allowances found")}</p>
                                                 <p className="text-gray-400 text-xs">Click "New Allowance" to create one</p>
                                             </div>
                                         </td>
@@ -560,41 +561,41 @@ const BenefitsAllowancesPage: React.FC = () => {
                                     disabled={page === 1}
                                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Previous
+                                    {t("Previous")}
                                 </button>
                                 <button
                                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                                     disabled={page === totalPages}
                                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Next
+                                    {t("Next")}
                                 </button>
                             </div>
                             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> to{' '}
+                                        {t("Showing")} <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> {t("to")}{' '}
                                         <span className="font-medium">
                                             {Math.min(page * PAGE_SIZE, filtered.length)}
                                         </span>{' '}
-                                        of <span className="font-medium">{filtered.length}</span> results
+                                        of <span className="font-medium">{filtered.length}</span> {t("results")}
                                     </p>
                                 </div>
                                 <div>
-                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label={t("Pagination")}>
                                         <button
                                             onClick={() => setPage(1)}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            First
+                                            {t("First")}
                                         </button>
                                         <button
                                             onClick={() => setPage(Math.max(1, page - 1))}
                                             disabled={page === 1}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Previous
+                                            {t("Previous")}
                                         </button>
                                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                                             let pageNum: number;
@@ -625,14 +626,14 @@ const BenefitsAllowancesPage: React.FC = () => {
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Next
+                                            {t("Next")}
                                         </button>
                                         <button
                                             onClick={() => setPage(totalPages)}
                                             disabled={page === totalPages}
                                             className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Last
+                                            {t("Last")}
                                         </button>
                                     </nav>
                                 </div>
@@ -652,7 +653,7 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                                    Allowance Details
+                                                    {t("Allowance Details")}
                                                 </h3>
                                                 <button
                                                     onClick={() => setViewModalOpen(false)}
@@ -665,29 +666,29 @@ const BenefitsAllowancesPage: React.FC = () => {
                                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Code</p>
+                                                        <p className="text-xs text-gray-500">{t("Code")}</p>
                                                         <p className="text-sm font-medium text-gray-900">{selectedAllowance.code}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-500">Category</p>
+                                                        <p className="text-xs text-gray-500">{t("Category")}</p>
                                                         <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full mt-1 ${getCategoryBadge(selectedAllowance.category)}`}>
                                                             {getCategoryIcon(selectedAllowance.category)}
                                                             {selectedAllowance.category}
                                                         </span>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-xs text-gray-500">Description</p>
+                                                        <p className="text-xs text-gray-500">{t("Description")}</p>
                                                         <p className="text-sm text-gray-700">{selectedAllowance.description}</p>
                                                     </div>
                                                     {selectedAllowance.taxLimit && (
                                                         <div>
-                                                            <p className="text-xs text-gray-500">Annual Threshold</p>
+                                                            <p className="text-xs text-gray-500">{t("Annual Threshold")}</p>
                                                             <p className="text-sm font-medium text-cyan-600">{formatMoney(selectedAllowance.taxLimit)}/yr</p>
                                                         </div>
                                                     )}
                                                     {selectedAllowance.createdAt && (
                                                         <div>
-                                                            <p className="text-xs text-gray-500">Created At</p>
+                                                            <p className="text-xs text-gray-500">{t("Created At")}</p>
                                                             <p className="text-sm text-gray-600">{formatDate(selectedAllowance.createdAt)}</p>
                                                         </div>
                                                     )}
@@ -696,7 +697,7 @@ const BenefitsAllowancesPage: React.FC = () => {
 
                                             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                                 <p className="text-sm text-blue-800">
-                                                    <strong>Tax Note:</strong> {selectedAllowance.category === "Taxable" 
+                                                    <strong>{t("Tax Note:")}</strong> {selectedAllowance.category === "Taxable" 
                                                         ? "This allowance is fully taxable and will be included in gross income calculation."
                                                         : selectedAllowance.category === "Partially Taxable"
                                                         ? `This allowance has a tax exemption up to ${formatMoney(selectedAllowance.taxLimit)}/yr. Amounts exceeding this limit are taxable.`
@@ -718,14 +719,14 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
                                         <PencilSquareIcon className="h-4 w-4 mr-2" />
-                                        Edit
+                                        {t("Edit")}
                                     </button>)}
                                     <button
                                         type="button"
                                         onClick={() => setViewModalOpen(false)}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
                                     >
-                                        Close
+                                        {t("Close")}
                                     </button>
                                 </div>
                             </div>
@@ -743,61 +744,61 @@ const BenefitsAllowancesPage: React.FC = () => {
                                     <div className="sm:flex sm:items-start">
                                         <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                                             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                                                {editingId ? "Edit Allowance" : "New Allowance"}
+                                                {t(editingId ? "Edit Allowance" : "New Allowance")}
                                             </h3>
                                             <form onSubmit={handleSubmit} className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Unique Code</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Unique Code")}</label>
                                                     <input
                                                         type="text"
                                                         value={form.code}
                                                         onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="e.g., HRA, CONV, MA"
+                                                        placeholder={t("e.g., HRA, CONV, MA")}
                                                         required
                                                     />
-                                                    <p className="text-xs text-gray-500 mt-1">Unique identifier for this allowance</p>
+                                                    <p className="text-xs text-gray-500 mt-1">{t("Unique identifier for this allowance")}</p>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Description")}</label>
                                                     <input
                                                         type="text"
                                                         value={form.description}
                                                         onChange={e => setForm({ ...form, description: e.target.value })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                        placeholder="Full name of the allowance"
+                                                        placeholder={t("Full name of the allowance")}
                                                         required
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Category</label>
+                                                    <label className="block text-sm font-medium text-gray-700">{t("Category")}</label>
                                                     <select
                                                         value={form.category}
                                                         onChange={e => setForm({ ...form, category: e.target.value as any })}
                                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
                                                     >
-                                                        <option value="Taxable">Taxable</option>
-                                                        <option value="Partially Taxable">Partially Taxable</option>
-                                                        <option value="Non-Taxable">Non-Taxable</option>
+                                                        <option value="Taxable">{t("Taxable")}</option>
+                                                        <option value="Partially Taxable">{t("Partially Taxable")}</option>
+                                                        <option value="Non-Taxable">{t("Non-Taxable")}</option>
                                                     </select>
                                                 </div>
                                                 {form.category === 'Partially Taxable' && (
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700">Annual Exemption Threshold ({companyCurrency()})</label>
+                                                        <label className="block text-sm font-medium text-gray-700">{t("Annual Exemption Threshold")} ({companyCurrency()})</label>
                                                         <input
                                                             type="number"
                                                             value={form.taxLimit || ''}
                                                             onChange={e => setForm({ ...form, taxLimit: Number(e.target.value) })}
                                                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                                            placeholder="e.g., 120000"
+                                                            placeholder={t("e.g., 120000")}
                                                         />
-                                                        <p className="text-xs text-gray-500 mt-1">Maximum amount exempt from tax per year</p>
+                                                        <p className="text-xs text-gray-500 mt-1">{t("Maximum amount exempt from tax per year")}</p>
                                                     </div>
                                                 )}
 
                                                 <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                                                     <p className="text-sm text-yellow-800">
-                                                        <strong>Note:</strong> Once saved, this allowance will be available for assignment in the Salary Structure Designer. 
+                                                        <strong>{t("Note:")}</strong> Once saved, this allowance will be available for assignment in the Salary Structure Designer. 
                                                         Verification for IT Act compliance is advised.
                                                     </p>
                                                 </div>
@@ -811,14 +812,14 @@ const BenefitsAllowancesPage: React.FC = () => {
                                         onClick={handleSubmit}
                                         className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        {editingId ? "Update" : "Create"}
+                                        {t(editingId ? "Update" : "Create")}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={closeForm}
                                         className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </button>
                                 </div>
                             </div>

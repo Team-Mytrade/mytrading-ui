@@ -43,6 +43,7 @@ import {
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate as companyFormatDate } from "../../company/format";
+import { t } from "../../i18n/i18n";
 interface CommunicationEntry {
   id: number;
   type: string;
@@ -83,7 +84,7 @@ const safeText = (v?: string | null) => v?.trim() || "";
 const getCustomerLabel = (c?: Customer | null) =>
   c?.customerName || c?.name || "";
 
-const typeLabel = (type: string) => COMMUNICATION_TYPE_OPTIONS.find((o) => o.id === type)?.name ?? type;
+const typeLabel = (type: string) => t(String(COMMUNICATION_TYPE_OPTIONS.find((o) => o.id === type)?.name ?? type ?? ""));
 
 const Interactions: React.FC = () => {
   const navigate = useNavigate();
@@ -439,7 +440,7 @@ const Interactions: React.FC = () => {
         const customerId = entry.customer?.id;
         return <div className="flex items-center text-xs text-gray-600">
           <BuildingOfficeIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          {customerId && customerName !== "N/A" ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/customer-management?customerIds=${customerId}&customerName=${encodeURIComponent(customerName)}`); }} className="max-w-[150px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${customerName}`}>
+          {customerId && customerName !== "N/A" ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/customer-management?customerIds=${customerId}&customerName=${encodeURIComponent(customerName)}`); }} className="max-w-[150px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`${t("View")} ${customerName}`}>
             {customerName}
           </button> : <span className="truncate max-w-[150px]">{customerName}</span>}
         </div>;
@@ -454,7 +455,7 @@ const Interactions: React.FC = () => {
         const leadId = entry.lead?.id;
         return <div className="flex items-center text-xs text-gray-600">
           <UsersIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          {leadId && leadName !== "N/A" ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/leads?leadId=${leadId}&leadName=${encodeURIComponent(leadName)}`); }} className="max-w-[150px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`View ${leadName}`}>
+          {leadId && leadName !== "N/A" ? <button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/leads?leadId=${leadId}&leadName=${encodeURIComponent(leadName)}`); }} className="max-w-[150px] truncate text-left text-cyan-700 hover:text-cyan-800 hover:underline" title={`${t("View")} ${leadName}`}>
             {leadName}
           </button> : <span className="truncate max-w-[150px]">{leadName}</span>}
         </div>;
@@ -476,7 +477,7 @@ const Interactions: React.FC = () => {
               type="button"
               onClick={() => handleEdit(entry)}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-              title="Edit"
+              title={t("Edit")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -485,7 +486,7 @@ const Interactions: React.FC = () => {
             type="button"
             onClick={() => openNotesModal(entry)}
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-            title="View Notes"
+            title={t("View Notes")}
           >
             <DocumentTextIcon className="h-4 w-4" />
           </button>
@@ -497,7 +498,7 @@ const Interactions: React.FC = () => {
                 setShowDeletePopup(true);
               }}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-              title="Delete"
+              title={t("Delete")}
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -510,7 +511,7 @@ const Interactions: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="Communication History"
+        title={t("Communication History")}
         description="Manage your communication history"
       />
       <PageBreadcrumb
@@ -531,7 +532,7 @@ const Interactions: React.FC = () => {
               });
               setShowFormModal(true);
             }}
-            label="New Communication"
+            label={t("New Communication")}
           />
         }
       />
@@ -539,37 +540,37 @@ const Interactions: React.FC = () => {
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         {isScoped && (
           <div className="mb-4 mx-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
-            <span>Showing communications with <strong>{scope.name || "the selected record"}</strong></span>
+            <span>{t("Showing communications with")} <strong>{scope.name || "the selected record"}</strong></span>
             <button type="button" onClick={() => navigate("/communication-history")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">
-              View all communications
+              {t("View all communications")}
             </button>
           </div>
         )}
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard
-              label="Total Communications"
+              label={t("Total Communications")}
               value={filteredEntries.length}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
               labelColor="text-cyan-600"
             />
             <StatsCard
-              label="Emails"
+              label={t("Emails")}
               value={filteredEntries.filter((e) => e.type === "EMAIL").length}
               gradient="from-green-50 to-emerald-50"
               borderColor="border-green-100"
               labelColor="text-green-600"
             />
             <StatsCard
-              label="Calls"
+              label={t("Calls")}
               value={filteredEntries.filter((e) => e.type === "CALL").length}
               gradient="from-purple-50 to-pink-50"
               borderColor="border-purple-100"
               labelColor="text-purple-600"
             />
             <StatsCard
-              label="Meetings"
+              label={t("Meetings")}
               value={filteredEntries.filter((e) => e.type === "MEETING").length}
               gradient="from-orange-50 to-yellow-50"
               borderColor="border-orange-100"
@@ -585,14 +586,14 @@ const Interactions: React.FC = () => {
             defaultSortOrder="desc"
              enableRowDetails={true}
             rowDetailsTitle={(row) => row.subject || `Communication #${row.id}`}
-             rowDetailsSubtitle="Communication details"
+             rowDetailsSubtitle={t("Communication details")}
              hiddenDetailKeys={["id", "tenantId",]}
 
             emptyState={
               <div className="flex flex-col items-center justify-center py-12">
                 <ChatBubbleLeftIcon className="h-12 w-12 text-gray-400 mb-3" />
                 <p className="text-gray-500 text-sm mb-2">
-                  No communications found
+                  {t("No communications found")}
                 </p>
                 {canCreate && (
                   <button
@@ -600,7 +601,7 @@ const Interactions: React.FC = () => {
                     onClick={() => setShowFormModal(true)}
                     className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                   >
-                    Add your first communication
+                    {t("Add your first communication")}
                   </button>
                 )}
               </div>
@@ -610,15 +611,15 @@ const Interactions: React.FC = () => {
 
         <PaginatedPopup
   isOpen={showFormModal}
-  title={editingId ? "Edit Communication" : "Add New Communication"}
-  subtitle={
+  title={t(editingId ? "Edit Communication" : "Add New Communication")}
+  subtitle={t(
     editingId
       ? "Update communication details"
       : "Record a new communication with a contact"
-  }
+  )}
   onClose={resetForm}
   onSubmit={handleSubmit}
-  submitLabel={editingId ? "Update Communication" : "Add Communication"}
+  submitLabel={t(editingId ? "Update Communication" : "Add Communication")}
   submitting={isSaving}
   maxWidthClassName="max-w-3xl"
   tabs={[
@@ -627,7 +628,7 @@ const Interactions: React.FC = () => {
       fields: [
         <FloatingSelect
           key="leadId"
-          label="Lead (or Customer below)"
+          label={t("Lead (or Customer below)")}
           name="leadId"
           value={form.leadId}
           onChange={handleChange}
@@ -635,7 +636,7 @@ const Interactions: React.FC = () => {
         />,
         <FloatingSelect
           key="customerId"
-          label="Customer (or Lead above)"
+          label={t("Customer (or Lead above)")}
           name="customerId"
           value={form.customerId}
           onChange={handleChange}
@@ -646,7 +647,7 @@ const Interactions: React.FC = () => {
         />,
         <div key="contact" className="md:col-span-2">
           <FloatingSelect
-            label="Contact (optional)"
+            label={t("Contact (optional)")}
             name="contactId"
             value={form.contactId}
             onChange={handleChange}
@@ -663,7 +664,7 @@ const Interactions: React.FC = () => {
       fields: [
         <FloatingSelect
           key="type"
-          label="Type"
+          label={t("Type")}
           name="type"
           value={form.type}
           onChange={handleChange}
@@ -673,7 +674,7 @@ const Interactions: React.FC = () => {
         <FloatingInput
           key="communicationTime"
           type="datetime-local"
-          label="Date & Time"
+          label={t("Date & Time")}
           name="communicationTime"
           value={String(form.communicationTime || "")}
           onChange={(e) =>
@@ -686,7 +687,7 @@ const Interactions: React.FC = () => {
         />,
         <div key="subject" className="md:col-span-2">
           <FloatingInput
-            label="Subject"
+            label={t("Subject")}
             name="subject"
             value={form.subject}
             onChange={handleChange}
@@ -695,7 +696,7 @@ const Interactions: React.FC = () => {
         </div>,
         <div key="notes" className="md:col-span-2">
           <FloatingTextarea
-            label="Notes"
+            label={t("Notes")}
             name="notes"
             value={form.notes}
             onChange={handleChange}
@@ -713,7 +714,7 @@ const Interactions: React.FC = () => {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Communication Notes
+                  {t("Communication Notes")}
                 </h3>
                 <button
                   onClick={() => setShowNotesModal(false)}
@@ -748,15 +749,15 @@ const Interactions: React.FC = () => {
                 <div className="mt-4 space-y-2 text-xs text-gray-500">
                   <div className="flex items-center gap-2">
                     <UserIcon className="h-3.5 w-3.5" />
-                    <span>Contact: {getContactName(selectedEntry)}</span>
+                    <span>{t("Contact:")} {getContactName(selectedEntry)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <BuildingOfficeIcon className="h-3.5 w-3.5" />
-                    <span>Customer: {getCustomerName(selectedEntry)}</span>
+                    <span>{t("Customer:")} {getCustomerName(selectedEntry)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <UsersIcon className="h-3.5 w-3.5" />
-                    <span>Lead: {getLeadName(selectedEntry)}</span>
+                    <span>{t("Lead:")} {getLeadName(selectedEntry)}</span>
                   </div>
                 </div>
               </div>
@@ -765,7 +766,7 @@ const Interactions: React.FC = () => {
                   onClick={() => setShowNotesModal(false)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
                 >
-                  Close
+                  {t("Close")}
                 </button>
               </div>
             </div>
@@ -778,17 +779,17 @@ const Interactions: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Communication"
+        innerText={t("Delete Communication")}
         subText={
           deleteId
-            ? `Are you sure you want to delete "${
+            ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String((
                 entries.find((e) => e.id === deleteId)?.subject ||
                 "this communication"
-              }"? This action cannot be undone.`
+              ) ?? "") })
             : "Are you sure you want to delete this communication?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={() => deleteId !== null && handleDelete(deleteId)}
         onCancel={() => setDeleteId(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

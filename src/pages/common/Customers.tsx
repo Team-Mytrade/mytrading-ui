@@ -27,6 +27,7 @@ import { todayIso } from "../../utils/localDate";
 import { COMMUNICATION_TYPE_OPTIONS, apiError, toDateTimeInput, toLocalDateTime } from "../CRM/crmShared";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 // Enums
 enum CustomerStatus {
   LEAD = "LEAD",
@@ -327,7 +328,7 @@ const Customers: React.FC = () => {
               {customer.customerName}
             </span>
             {customer.tradeName && (
-              <span className="text-xs text-slate-400 truncate">Trade: {customer.tradeName}</span>
+              <span className="text-xs text-slate-400 truncate">{t("Trade:")} {customer.tradeName}</span>
             )}
           </div>
         </div>
@@ -393,11 +394,11 @@ const Customers: React.FC = () => {
                 statusColors[customer.status]
               } ${statusUpdatingId === customer.id ? "cursor-not-allowed opacity-70" : ""}`}
             >
-              <option value={CustomerStatus.LEAD}>Lead</option>
-              <option value={CustomerStatus.ACTIVE}>Active</option>
-              <option value={CustomerStatus.CREDIT_HOLD}>Credit Hold</option>
-              <option value={CustomerStatus.BLOCKED}>Blocked</option>
-              <option value={CustomerStatus.INACTIVE}>Inactive</option>
+              <option value={CustomerStatus.LEAD}>{t("Lead")}</option>
+              <option value={CustomerStatus.ACTIVE}>{t("Active")}</option>
+              <option value={CustomerStatus.CREDIT_HOLD}>{t("Credit Hold")}</option>
+              <option value={CustomerStatus.BLOCKED}>{t("Blocked")}</option>
+              <option value={CustomerStatus.INACTIVE}>{t("Inactive")}</option>
             </select>
           </div>
         );
@@ -413,7 +414,7 @@ const Customers: React.FC = () => {
         <div className="flex items-center gap-1">
           <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
           <span className="text-sm text-slate-600">
-            {getAddressCount(customer)} address{getAddressCount(customer) !== 1 ? "es" : ""}
+            {getAddressCount(customer) === 1 ? t("1 address") : t("{count} addresses", { count: getAddressCount(customer) })}
           </span>
         </div>
       ),
@@ -430,7 +431,7 @@ const Customers: React.FC = () => {
             type="button"
             onClick={() => handleViewCustomer(customer)}
             className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-            title="View Customer"
+            title={t("View Customer")}
           >
             <EyeIcon className="h-4 w-4" />
           </button>
@@ -439,7 +440,7 @@ const Customers: React.FC = () => {
               type="button"
               onClick={() => handleEditCustomer(customer)}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-cyan-50 hover:text-cyan-600"
-              title="Edit Customer"
+              title={t("Edit Customer")}
             >
               <PencilSquareIcon className="h-4 w-4" />
             </button>
@@ -451,7 +452,7 @@ const Customers: React.FC = () => {
                 type="button"
                 onClick={() => openCommModal(customer)}
                 className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-                title="Add Communication"
+                title={t("Add Communication")}
               >
                 <LinkIcon className="h-4 w-4" />
               </button>
@@ -460,7 +461,7 @@ const Customers: React.FC = () => {
                 type="button"
                 onClick={() => openSegmentModal(customer)}
                 className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600"
-                title="Add to Segment"
+                title={t("Add to Segment")}
               >
                 <UsersIcon className="h-4 w-4" />
               </button>
@@ -475,7 +476,7 @@ const Customers: React.FC = () => {
                 setShowDeleteModal(true);
               }}
               className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600"
-              title="Delete Customer"
+              title={t("Delete Customer")}
             >
               <TrashIcon className="h-4 w-4" />
             </button>
@@ -487,35 +488,35 @@ const Customers: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Customers" description="Manage your Customers" />
+      <PageMeta title={t("Customers")} description="Manage your Customers" />
       <PageBreadcrumb pageTitle="Customers" showAddButton addButtonLabel="Add Customer" onAddClick={handleAddCustomer} />
 
       <div className="min-w-0 w-full max-w-full px-3 py-8 ">
-        {isCustomerScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>{segmentId ? <>Showing customers in segment: <strong>{segmentName}</strong></> : <>Showing customer: <strong>{customers.length === 1 ? customers[0].customerName : customerName}</strong></>}</span><button type="button" onClick={() => navigate("/customer-management")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">View all customers</button></div>}
+        {isCustomerScoped && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900"><span>{segmentId ? <>Showing customers in segment: <strong>{segmentName}</strong></> : <>Showing customer: <strong>{customers.length === 1 ? customers[0].customerName : customerName}</strong></>}</span><button type="button" onClick={() => navigate("/customer-management")} className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline">{t("View all customers")}</button></div>}
         <div className="my-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            label="Total Customers"
+            label={t("Total Customers")}
             value={customers.length}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
             labelColor="text-cyan-600"
           />
           <StatsCard
-            label="Active"
+            label={t("Active")}
             value={customers.filter((c) => c.status === CustomerStatus.ACTIVE).length}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Leads"
+            label={t("Leads")}
             value={customers.filter((c) => c.status === CustomerStatus.LEAD).length}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
             labelColor="text-blue-600"
           />
           <StatsCard
-            label="Credit Hold"
+            label={t("Credit Hold")}
             value={customers.filter((c) => c.status === CustomerStatus.CREDIT_HOLD).length}
             gradient="from-yellow-50 to-orange-50"
             borderColor="border-yellow-100"
@@ -538,16 +539,16 @@ const Customers: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center">
               <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-500 text-sm mb-2">No customers found</p>
+              <p className="text-gray-500 text-sm mb-2">{t("No customers found")}</p>
               {search || activeFilter !== "ALL" ? (
-                <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-xs">{t("Try adjusting your search or filters")}</p>
               ) : canCreate && (
                 <button
                   type="button"
                   onClick={handleAddCustomer}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Add your first customer
+                  {t("Add your first customer")}
                 </button>
               )}
             </div>
@@ -560,8 +561,8 @@ const Customers: React.FC = () => {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Add to Segment</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Select a segment for {selectedCustomer?.customerName}</p>
+                  <h3 className="text-lg font-semibold text-gray-900">{t("Add to Segment")}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{t("Select a segment for")} {selectedCustomer?.customerName}</p>
                 </div>
                 <button onClick={() => setShowSegmentModal(false)} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="h-5 w-5" />
@@ -583,7 +584,7 @@ const Customers: React.FC = () => {
                       </button>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500 text-center py-4">No segments available</p>
+                    <p className="text-sm text-gray-500 text-center py-4">{t("No segments available")}</p>
                   )}
                 </div>
                 <div className="flex justify-end">
@@ -591,7 +592,7 @@ const Customers: React.FC = () => {
                     onClick={() => setShowSegmentModal(false)}
                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                 </div>
               </div>
@@ -605,8 +606,8 @@ const Customers: React.FC = () => {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Record Communication</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Add communication history for {selectedCustomer?.customerName}</p>
+                  <h3 className="text-lg font-semibold text-gray-900">{t("Record Communication")}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{t("Add communication history for")} {selectedCustomer?.customerName}</p>
                 </div>
                 <button onClick={() => setShowCommModal(false)} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="h-5 w-5" />
@@ -633,14 +634,14 @@ const Customers: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Subject"
+                  placeholder={t("Subject")}
                   value={commForm.subject}
                   onChange={(e) => setCommForm({ ...commForm, subject: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                   required
                 />
                 <textarea
-                  placeholder="Notes"
+                  placeholder={t("Notes")}
                   value={commForm.notes}
                   onChange={(e) => setCommForm({ ...commForm, notes: e.target.value })}
                   rows={3}
@@ -652,14 +653,14 @@ const Customers: React.FC = () => {
                     onClick={() => setShowCommModal(false)}
                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 shadow-sm flex items-center gap-2"
                   >
                     <CheckIcon className="h-4 w-4" />
-                    Save Communication
+                    {t("Save Communication")}
                   </button>
                 </div>
               </form>
@@ -673,14 +674,14 @@ const Customers: React.FC = () => {
           setIsPopupOpen={setShowDeleteModal}
           icon={<TrashIcon className="h-6 w-6 text-red-600" />}
           iconBg="bg-red-100"
-          innerText="Delete Customer?"
+          innerText={t("Delete Customer?")}
           subText={
             selectedCustomer
               ? `Are you sure you want to delete ${selectedCustomer.customerName}? This action cannot be undone and will remove all associated data.`
               : "Are you sure you want to delete this customer?"
           }
-          confirmLabel="Delete Customer"
-          cancelLabel="Cancel"
+          confirmLabel={t("Delete Customer")}
+          cancelLabel={t("Cancel")}
           onConfirm={handleDeleteCustomer}
           confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         />

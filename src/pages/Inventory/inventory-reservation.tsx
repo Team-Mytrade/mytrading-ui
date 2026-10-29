@@ -30,6 +30,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /**
  * =====================================================================================
  * WHY "Unknown customer" APPEARS — checked against the confirmed schema:
@@ -637,11 +638,11 @@ const InventoryReservationManager: React.FC = () => {
     return (
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Reservation No" full>
+          <Field label={t("Reservation No")} full>
             {reservation.reservationNo || "--"}
           </Field>
 
-          <Field label="Customer" full>
+          <Field label={t("Customer")} full>
             {customerId ? (
               <button
                 type="button"
@@ -655,7 +656,7 @@ const InventoryReservationManager: React.FC = () => {
             )}
           </Field>
 
-          <Field label="Sales Order">
+          <Field label={t("Sales Order")}>
             {reservation.salesOrderId ? (
               <button
                 type="button"
@@ -669,7 +670,7 @@ const InventoryReservationManager: React.FC = () => {
             )}
           </Field>
 
-          <Field label="Warehouse">
+          <Field label={t("Warehouse")}>
             {reservation.warehouseId ? (
               <button
                 type="button"
@@ -683,7 +684,7 @@ const InventoryReservationManager: React.FC = () => {
             )}
           </Field>
 
-          <Field label="Status" full>
+          <Field label={t("Status")} full>
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getStatusColor(
                 reservation.status
@@ -694,16 +695,16 @@ const InventoryReservationManager: React.FC = () => {
             </span>
           </Field>
 
-          <Field label="Reservation Date">
+          <Field label={t("Reservation Date")}>
             {reservation.reservationDate || "--"}
           </Field>
-          <Field label="Total Items">{reservation.items?.length || 0}</Field>
+          <Field label={t("Total Items")}>{reservation.items?.length || 0}</Field>
         </div>
 
         {reservation.items && reservation.items.length > 0 && (
           <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
             <div className="mb-2 text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-              Items
+              {t("Items")}
             </div>
             <div className="space-y-2">
               {reservation.items.map((item, idx) => (
@@ -719,7 +720,7 @@ const InventoryReservationManager: React.FC = () => {
                     {item.productName || `Product #${item.productId}`}
                   </button>
                   <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Qty: {item.reservedQty}
+                    {t("Qty:")} {item.reservedQty}
                   </span>
                 </div>
               ))}
@@ -764,7 +765,7 @@ const InventoryReservationManager: React.FC = () => {
               e.stopPropagation();
               if (customerId) goToCustomer(reservation);
             }}
-            title={customerId ? `View ${customerName}` : customerName}
+            title={customerId ? `${t("View")} ${customerName}` : customerName}
           >
             <UserIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <span>{customerName}</span>
@@ -888,7 +889,7 @@ const InventoryReservationManager: React.FC = () => {
                 setActionType("release");
               }}
               className="rounded-lg p-1.5 text-green-600 transition hover:bg-green-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
-              title="Release"
+              title={t("Release")}
             >
               <ArrowPathIcon className="h-4 w-4" />
             </button>
@@ -902,7 +903,7 @@ const InventoryReservationManager: React.FC = () => {
                 setActionType("consume");
               }}
               className="rounded-lg p-1.5 text-purple-600 transition hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/40"
-              title="Consume"
+              title={t("Consume")}
             >
               <CheckCircleIcon className="h-4 w-4" />
             </button>
@@ -924,7 +925,7 @@ const InventoryReservationManager: React.FC = () => {
                 ? "text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                 : "cursor-not-allowed text-gray-300 dark:text-slate-600"
             }`}
-            title={canDelete(reservation.status) ? "Delete" : "Cannot delete"}
+            title={t(canDelete(reservation.status) ? "Delete" : "Cannot delete")}
             disabled={!canDelete(reservation.status)}
           >
             <TrashIcon className="h-4 w-4" />
@@ -936,16 +937,16 @@ const InventoryReservationManager: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Inventory Reservations" description="Manage inventory reservations" />
+      <PageMeta title={t("Inventory Reservations")} description="Manage inventory reservations" />
       <PageBreadcrumb
         pageTitle="Inventory Reservations"
-        actions={<AddButton onClick={openCreate} label="Add Reservation" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Reservation")} />}
       />
 
       <div className="w-full max-w-none space-y-6 px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Reservations"
+            label={t("Total Reservations")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -953,7 +954,7 @@ const InventoryReservationManager: React.FC = () => {
             icon={<ClockIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="RESERVED"
+            label={t("RESERVED")}
             value={stats.reserved}
             gradient="from-blue-50 to-indigo-50"
             borderColor="border-blue-100"
@@ -961,7 +962,7 @@ const InventoryReservationManager: React.FC = () => {
             icon={<ClockIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="RELEASED"
+            label={t("RELEASED")}
             value={stats.released}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -969,7 +970,7 @@ const InventoryReservationManager: React.FC = () => {
             icon={<CheckCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="CONSUMED / CANCELLED"
+            label={t("CONSUMED / CANCELLED")}
             value={stats.consumed + stats.cancelled}
             gradient="from-gray-50 to-red-50"
             borderColor="border-gray-100"
@@ -981,8 +982,8 @@ const InventoryReservationManager: React.FC = () => {
         {/* CORRECTED: PDF export added — previously missing entirely. */}
         <div className="mb-4 flex items-center justify-end">
           <ListingPdfExportButton
-            title="Inventory Reservations"
-            subtitle="Current inventory reservations listing"
+            title={t("Inventory Reservations")}
+            subtitle={t("Current inventory reservations listing")}
             reportLabel="Inventory Reservations Report"
             data={reservations}
             fileName="Inventory_Reservations"
@@ -1037,7 +1038,7 @@ const InventoryReservationManager: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-12">
               <ClockIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
-                No reservations found
+                {t("No reservations found")}
               </p>
               <button
                 type="button"
@@ -1045,7 +1046,7 @@ const InventoryReservationManager: React.FC = () => {
                 className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload all reservations
+                {t("Reload all reservations")}
               </button>
             </div>
           }
@@ -1054,12 +1055,12 @@ const InventoryReservationManager: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Reservation" : "Create Reservation"}
-        subtitle="Reserve stock for a customer order"
+        title={t(editingId ? "Edit Reservation" : "Create Reservation")}
+        subtitle={t("Reserve stock for a customer order")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Reservation" : "Create Reservation"}
+        submitLabel={t(editingId ? "Update Reservation" : "Create Reservation")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -1067,7 +1068,7 @@ const InventoryReservationManager: React.FC = () => {
             fields: [
               <FloatingSelect
                 key="salesOrderId"
-                label="Sales Order"
+                label={t("Sales Order")}
                 name="salesOrderId"
                 value={form.salesOrderId}
                 onChange={handleChange}
@@ -1079,7 +1080,7 @@ const InventoryReservationManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="warehouseId"
-                label="Warehouse"
+                label={t("Warehouse")}
                 name="warehouseId"
                 value={form.warehouseId}
                 onChange={handleChange}
@@ -1091,7 +1092,7 @@ const InventoryReservationManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="status"
-                label="Status"
+                label={t("Status")}
                 name="status"
                 value={form.status}
                 onChange={handleChange}
@@ -1100,7 +1101,7 @@ const InventoryReservationManager: React.FC = () => {
               />,
               <FloatingInput
                 key="reservationDate"
-                label="Reservation Date"
+                label={t("Reservation Date")}
                 name="reservationDate"
                 type="date"
                 value={form.reservationDate}
@@ -1109,7 +1110,7 @@ const InventoryReservationManager: React.FC = () => {
               />,
               <FloatingSelect
                 key="productId"
-                label="Product"
+                label={t("Product")}
                 name="productId"
                 value={form.productId}
                 onChange={handleChange}
@@ -1121,7 +1122,7 @@ const InventoryReservationManager: React.FC = () => {
               />,
               <FloatingInput
                 key="reservedQty"
-                label="Reserved Quantity"
+                label={t("Reserved Quantity")}
                 name="reservedQty"
                 type="number"
                 min={1}
@@ -1161,7 +1162,7 @@ const InventoryReservationManager: React.FC = () => {
             : "Are you sure you want to release this reservation? Items will be available again."
         }
         confirmLabel={actionType === "consume" ? "Consume" : "Release"}
-        cancelLabel="Cancel"
+        cancelLabel={t("Cancel")}
         onConfirm={actionType === "consume" ? handleConsume : handleRelease}
         confirmBtnClass={
           actionType === "consume"
@@ -1177,10 +1178,10 @@ const InventoryReservationManager: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Reservation"
-        subText="Are you sure you want to delete this reservation?"
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        innerText={t("Delete Reservation")}
+        subText={t("Are you sure you want to delete this reservation?")}
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteId(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

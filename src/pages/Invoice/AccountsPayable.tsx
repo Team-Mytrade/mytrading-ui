@@ -241,8 +241,8 @@ const AccountsPayable: React.FC = () => {
 
       <PaginatedPopup
         isOpen={Boolean(paying)}
-        title={`Pay ${paying?.vendor?.name ?? "vendor"}`}
-        subtitle={`Bill ${paying?.purchaseInvoice?.invoiceNumber ?? ""} · ${money(paying?.balance, paying?.purchaseInvoice?.currency)} due ${dateLabel(paying?.dueDate)}`}
+        title={`${t("Pay")} ${paying?.vendor?.name ?? "vendor"}`}
+        subtitle={`${t("Bill")} ${paying?.purchaseInvoice?.invoiceNumber ?? ""} · ${money(paying?.balance, paying?.purchaseInvoice?.currency)} due ${dateLabel(paying?.dueDate)}`}
         onClose={() => setPaying(null)}
         maxWidthClassName="max-w-lg"
         content={

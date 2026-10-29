@@ -1,4 +1,5 @@
 import axios from "axios";
+import { t } from "../../i18n/i18n";
 
 // Shared calls and labels for the attendance pages (attendance service under /v1/api/attendance).
 export const ATTENDANCE_API = "/v1/api/attendance";
@@ -105,7 +106,7 @@ export const dayKind = (d?: CalendarDay | null): DayKind => {
   }
 };
 
-export const DAY_KIND_LABEL: Record<DayKind, string> = {
+const DAY_KIND_TEXT: Record<DayKind, string> = {
   PRESENT: "Present",
   LATE: "Late",
   HALF_DAY: "Half day",
@@ -118,6 +119,11 @@ export const DAY_KIND_LABEL: Record<DayKind, string> = {
   CHECKED_IN: "Checked in",
   NONE: "",
 };
+
+// Read in the screen language (a Proxy, so every DAY_KIND_LABEL[kind] translates without changing callers)
+export const DAY_KIND_LABEL = new Proxy(DAY_KIND_TEXT, {
+  get: (labels, kind) => (typeof kind === "string" && kind in labels ? t(labels[kind as DayKind]) : undefined),
+}) as Record<DayKind, string>;
 
 export const DAY_KIND_BADGE: Record<DayKind, string> = {
   PRESENT: "P",

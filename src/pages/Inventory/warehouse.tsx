@@ -24,6 +24,7 @@ import {
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 type WarehouseLocationType = string;
 type WarehouseStatus = string;
 
@@ -529,7 +530,7 @@ const WarehousePage: React.FC = () => {
               {warehouse.code}
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500">
-              ID: #{warehouse.id}
+              {t("ID: #")}{warehouse.id}
             </p>
           </div>
         </div>
@@ -593,7 +594,7 @@ const WarehousePage: React.FC = () => {
             className={`w-[100px] rounded-lg border px-2.5 py-1 text-xs font-medium outline-none ${getStatusColor(
               status
             )}`}
-            title="Active warehouses can receive and issue stock"
+            title={t("Active warehouses can receive and issue stock")}
           >
             {statusOptions.map((s) => (
               <option key={s} value={s}>
@@ -629,7 +630,7 @@ const WarehousePage: React.FC = () => {
             type="button"
             onClick={() => openEdit(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
-            title="Edit"
+            title={t("Edit")}
             aria-label={`Edit ${warehouse.name}`}
           >
             <PencilSquareIcon className="h-4 w-4" />
@@ -638,7 +639,7 @@ const WarehousePage: React.FC = () => {
             type="button"
             onClick={() => setDeleteWarehouse(warehouse)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-            title="Delete"
+            title={t("Delete")}
             aria-label={`Delete ${warehouse.name}`}
           >
             <TrashIcon className="h-4 w-4" />
@@ -650,10 +651,10 @@ const WarehousePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Warehouses" description="Manage warehouses" />
+      <PageMeta title={t("Warehouses")} description="Manage warehouses" />
       <PageBreadcrumb
         pageTitle="Warehouses"
-        actions={<AddButton onClick={openCreate} label="Add Warehouse" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Warehouse")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
@@ -663,7 +664,7 @@ const WarehousePage: React.FC = () => {
             <div className="flex items-center gap-2">
               <FunnelIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <span>
-                Showing warehouse:{" "}
+                {t("Showing warehouse:")}{" "}
                 <strong>
                   {filterWarehouseName || `#${filterWarehouseId}`}
                 </strong>
@@ -674,14 +675,14 @@ const WarehousePage: React.FC = () => {
               onClick={() => navigate(WAREHOUSE_ROUTE)}
               className="font-semibold text-cyan-700 hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
             >
-              View all warehouses
+              {t("View all warehouses")}
             </button>
           </div>
         )}
 
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatsCard
-            label="Total Warehouses"
+            label={t("Total Warehouses")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -689,7 +690,7 @@ const WarehousePage: React.FC = () => {
             icon={<BuildingOffice2Icon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Active"
+            label={t("Active")}
             value={stats.active}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -697,7 +698,7 @@ const WarehousePage: React.FC = () => {
             icon={<CheckCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Inactive"
+            label={t("Inactive")}
             value={stats.inactive}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -705,7 +706,7 @@ const WarehousePage: React.FC = () => {
             icon={<XCircleIcon className="h-5 w-5" />}
           />
           <StatsCard
-            label="Main / Distribution"
+            label={t("Main / Distribution")}
             value={`${stats.main} / ${stats.distribution}`}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
@@ -737,7 +738,7 @@ const WarehousePage: React.FC = () => {
                   onClick={() => navigate(WAREHOUSE_ROUTE)}
                   className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
-                  View all warehouses →
+                  {t("View all warehouses →")}
                 </button>
               ) : (
                 <button
@@ -746,7 +747,7 @@ const WarehousePage: React.FC = () => {
                   className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                 >
                   <ArrowPathIcon className="h-3.5 w-3.5" />
-                  Reload all warehouses
+                  {t("Reload all warehouses")}
                 </button>
               )}
             </div>
@@ -756,12 +757,12 @@ const WarehousePage: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Warehouse" : "Create Warehouse"}
-        subtitle="Enter warehouse information"
+        title={t(editingId ? "Edit Warehouse" : "Create Warehouse")}
+        subtitle={t("Enter warehouse information")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Warehouse" : "Create Warehouse"}
+        submitLabel={t(editingId ? "Update Warehouse" : "Create Warehouse")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -769,7 +770,7 @@ const WarehousePage: React.FC = () => {
             fields: [
               <FloatingInput
                 key="code"
-                label="Warehouse Code"
+                label={t("Warehouse Code")}
                 name="code"
                 value={form.code}
                 onChange={handleChange}
@@ -777,7 +778,7 @@ const WarehousePage: React.FC = () => {
               />,
               <FloatingInput
                 key="name"
-                label="Name"
+                label={t("Name")}
                 name="name"
                 value={form.name}
                 onChange={handleChange}
@@ -785,7 +786,7 @@ const WarehousePage: React.FC = () => {
               />,
               <FloatingSelect
                 key="locationType"
-                label="Location Type"
+                label={t("Location Type")}
                 name="locationType"
                 value={form.locationType}
                 onChange={handleChange}
@@ -794,7 +795,7 @@ const WarehousePage: React.FC = () => {
               />,
               <FloatingSelect
                 key="status"
-                label="Status"
+                label={t("Status")}
                 name="status"
                 value={form.status}
                 onChange={handleChange}
@@ -813,14 +814,14 @@ const WarehousePage: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
         iconBg="bg-red-100 dark:bg-red-950/40"
-        innerText="Delete Warehouse"
+        innerText={t("Delete Warehouse")}
         subText={
           deleteWarehouse
             ? `Are you sure you want to delete "${deleteWarehouse.name}"?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteWarehouse(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

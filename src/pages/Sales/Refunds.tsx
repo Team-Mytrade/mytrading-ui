@@ -25,6 +25,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { formatAmount, formatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 type Refund = {
   id: number;
   amount: number;
@@ -366,8 +367,8 @@ const Refunds: React.FC = () => {
       sortable: true,
       render: (refund) => (
         <div>
-          <div className="font-medium text-cyan-700">Refund #{refund.id}</div>
-          <div className="text-xs text-slate-500">Return #{refund.returnRequestId}</div>
+          <div className="font-medium text-cyan-700">{t("Refund #")}{refund.id}</div>
+          <div className="text-xs text-slate-500">{t("Return #")}{refund.returnRequestId}</div>
         </div>
       ),
     },
@@ -423,7 +424,7 @@ const Refunds: React.FC = () => {
             type="button"
             onClick={() => openEdit(refund)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
-            title="Edit"
+            title={t("Edit")}
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
@@ -431,7 +432,7 @@ const Refunds: React.FC = () => {
             type="button"
             onClick={() => setDeleteRefund(refund)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-            title="Delete"
+            title={t("Delete")}
           >
             <TrashIcon className="h-4 w-4" />
           </button>)}
@@ -442,17 +443,17 @@ const Refunds: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Refunds" description="Manage sales refunds" />
+      <PageMeta title={t("Refunds")} description="Manage sales refunds" />
       <PageBreadcrumb
         pageTitle="Refunds"
-        actions={<AddButton onClick={openCreate} label="Add Refund" />}
+        actions={<AddButton onClick={openCreate} label={t("Add Refund")} />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
         <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatsCard label="Refunds" value={stats.total} icon={<ReceiptRefundIcon />} />
+          <StatsCard label={t("Refunds")} value={stats.total} icon={<ReceiptRefundIcon />} />
           <StatsCard
-            label="Pending"
+            label={t("Pending")}
             value={stats.pending}
             icon={<BanknotesIcon />}
             gradient="from-orange-50 to-yellow-50"
@@ -460,7 +461,7 @@ const Refunds: React.FC = () => {
             labelColor="text-orange-600"
           />
           <StatsCard
-            label="Processed"
+            label={t("Processed")}
             value={stats.processed}
             icon={<CheckCircleIcon />}
             gradient="from-green-50 to-emerald-50"
@@ -468,7 +469,7 @@ const Refunds: React.FC = () => {
             labelColor="text-green-600"
           />
           <StatsCard
-            label="Failed"
+            label={t("Failed")}
             value={stats.failed}
             icon={<XCircleIcon />}
             gradient="from-red-50 to-rose-50"
@@ -487,14 +488,14 @@ const Refunds: React.FC = () => {
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <ReceiptRefundIcon className="mb-3 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">No refunds found</p>
+              <p className="mb-2 text-sm text-gray-500">{t("No refunds found")}</p>
               <button
                 type="button"
                 onClick={() => fetchRefunds()}
                 className="inline-flex items-center gap-1 text-xs font-medium text-cyan-600 hover:text-cyan-700"
               >
                 <ArrowPathIcon className="h-3.5 w-3.5" />
-                Reload all refunds
+                {t("Reload all refunds")}
               </button>
             </div>
           }
@@ -503,12 +504,12 @@ const Refunds: React.FC = () => {
 
       <PaginatedPopup
         isOpen={showFormModal}
-        title={editingId ? "Edit Refund" : "Create Refund"}
-        subtitle="Enter the refund details"
+        title={t(editingId ? "Edit Refund" : "Create Refund")}
+        subtitle={t("Enter the refund details")}
         onClose={closeForm}
         onSubmit={handleSubmit}
         submitting={submitting}
-        submitLabel={editingId ? "Update Refund" : "Create Refund"}
+        submitLabel={t(editingId ? "Update Refund" : "Create Refund")}
         maxWidthClassName="max-w-2xl"
         tabs={[
           {
@@ -516,7 +517,7 @@ const Refunds: React.FC = () => {
             fields: [
               <FloatingInput
                 key="amount"
-                label="Amount"
+                label={t("Amount")}
                 name="amount"
                 type="number"
                 min={0}
@@ -526,7 +527,7 @@ const Refunds: React.FC = () => {
               />,
               <FloatingDateRangePicker
                 key="refundDate"
-                label="Refund Date"
+                label={t("Refund Date")}
                 startDate={toDateValue(form.refundDate)}
                 endDate={toDateValue(form.refundDate)}
                 onChange={([start, end]) =>
@@ -544,7 +545,7 @@ const Refunds: React.FC = () => {
               />,
               <FloatingSelect
                 key="status"
-                label="Status"
+                label={t("Status")}
                 name="status"
                 value={form.status}
                 onChange={handleChange}
@@ -553,7 +554,7 @@ const Refunds: React.FC = () => {
               />,
               <FloatingSelect
                 key="paymentMethod"
-                label="Payment Method"
+                label={t("Payment Method")}
                 name="paymentMethod"
                 value={form.paymentMethod}
                 onChange={handleChange}
@@ -568,15 +569,15 @@ const Refunds: React.FC = () => {
               <div key="returnRequestBlock" className="md:col-span-2">
                 <FloatingSelect
                   key="returnRequestId"
-                  label="Return Request (only APPROVED, not yet refunded)"
+                  label={t("Return Request (only APPROVED, not yet refunded)")}
                   name="returnRequestId"
                   value={form.returnRequestId}
                   onChange={handleChange}
-                  emptyOptionLabel={
+                  emptyOptionLabel={t(
                     returnRequestOptions.length === 0
                       ? "No eligible returns available"
                       : ""
-                  }
+                  )}
                   options={returnRequestOptions}
                   required
                 />
@@ -599,14 +600,14 @@ const Refunds: React.FC = () => {
         }}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText="Delete Refund"
+        innerText={t("Delete Refund")}
         subText={
           deleteRefund
             ? `Are you sure you want to delete refund #${deleteRefund.id}?`
             : "Are you sure?"
         }
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Cancel")}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteRefund(null)}
         confirmBtnClass="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"

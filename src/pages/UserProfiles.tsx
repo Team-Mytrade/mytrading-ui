@@ -4,11 +4,12 @@ import UserInfoCard from "../components/UserProfile/UserInfoCard";
 import UserAddressCard from "../components/UserProfile/UserAddressCard";
 import PageMeta from "../components/common/PageMeta";
 
+import { t } from "../i18n/i18n";
 export default function UserProfiles() {
   return (
     <>
       <PageMeta
-        title="My Profile"
+        title={t("My Profile")}
         description="MyTrade - User Profile Page"
       />
       <PageBreadcrumb pageTitle="My Profile" />

@@ -23,6 +23,7 @@ import {
 } from "../Dashboard/dashboardKit";
 import { companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 // Live procurement overview built from the purchase and common services.
 
 interface Requisition {
@@ -170,7 +171,7 @@ const ProcurementDashboard: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Procurement Dashboard" description="Procurement and purchasing overview" />
+      <PageMeta title={t("Procurement Dashboard")} description="Procurement and purchasing overview" />
       <PageBreadcrumb pageTitle="Procurement Dashboard" />
 
       <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
@@ -178,16 +179,16 @@ const ProcurementDashboard: React.FC = () => {
         <ModuleTiles tiles={tiles} loading={loading} />
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Open Requisitions" value={formatNumber(openRequisitions.length)} hint={`${formatNumber(requisitions.length)} in total`} icon={FileText} tone="blue" loading={loading} />
-          <KpiCard label="Open Purchase Orders" value={formatNumber(openOrders.length)} hint={`${formatNumber(orders.length)} in total`} icon={ShoppingCart} tone="emerald" loading={loading} />
-          <KpiCard label="Active Suppliers" value={vendors ? formatNumber(vendors.filter((v) => v.active !== false).length) : "—"} hint={vendors ? `${formatNumber(vendors.length)} vendors` : undefined} icon={Truck} tone="orange" loading={loading} />
-          <KpiCard label="Receipts in Draft" value={formatNumber(draftReceipts.length)} hint={`${formatNumber(receipts.length)} receipts`} icon={Receipt} tone="purple" loading={loading} />
+          <KpiCard label={t("Open Requisitions")} value={formatNumber(openRequisitions.length)} hint={`${formatNumber(requisitions.length)} in total`} icon={FileText} tone="blue" loading={loading} />
+          <KpiCard label={t("Open Purchase Orders")} value={formatNumber(openOrders.length)} hint={`${formatNumber(orders.length)} in total`} icon={ShoppingCart} tone="emerald" loading={loading} />
+          <KpiCard label={t("Active Suppliers")} value={vendors ? formatNumber(vendors.filter((v) => v.active !== false).length) : "—"} hint={vendors ? `${formatNumber(vendors.length)} vendors` : undefined} icon={Truck} tone="orange" loading={loading} />
+          <KpiCard label={t("Receipts in Draft")} value={formatNumber(draftReceipts.length)} hint={`${formatNumber(receipts.length)} receipts`} icon={Receipt} tone="purple" loading={loading} />
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Purchase Trend" subtitle="Purchase orders per month (last 6 months)" icon={TrendingUp} iconClass="text-emerald-500">
+          <Panel title={t("Purchase Trend")} subtitle={t("Purchase orders per month (last 6 months)")} icon={TrendingUp} iconClass="text-emerald-500">
             {liveOrders.length === 0 ? (
-              <EmptyState loading={loading}>No purchase orders yet.</EmptyState>
+              <EmptyState loading={loading}>{t("No purchase orders yet.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={trend}>
@@ -207,9 +208,9 @@ const ProcurementDashboard: React.FC = () => {
             )}
           </Panel>
 
-          <Panel title="Supplier Performance" subtitle="Purchase orders by supplier (top 5)" icon={Truck} iconClass="text-orange-500">
+          <Panel title={t("Supplier Performance")} subtitle={t("Purchase orders by supplier (top 5)")} icon={Truck} iconClass="text-orange-500">
             {suppliers.length === 0 ? (
-              <EmptyState loading={loading}>No purchase orders yet.</EmptyState>
+              <EmptyState loading={loading}>{t("No purchase orders yet.")}</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={suppliers} layout="vertical" margin={{ left: 60 }}>
@@ -228,20 +229,20 @@ const ProcurementDashboard: React.FC = () => {
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Panel title="Top Products Ordered" subtitle="By order value" bodyClass="overflow-x-auto">
+          <Panel title={t("Top Products Ordered")} subtitle={t("By order value")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  <th className={TABLE_HEAD}>Product</th>
-                  <th className={TABLE_HEAD}>SKU</th>
-                  <th className={TABLE_HEAD}>Orders</th>
-                  <th className={TABLE_HEAD}>Quantity</th>
-                  <th className={TABLE_HEAD}>Value</th>
+                  <th className={TABLE_HEAD}>{t("Product")}</th>
+                  <th className={TABLE_HEAD}>{t("SKU")}</th>
+                  <th className={TABLE_HEAD}>{t("Orders")}</th>
+                  <th className={TABLE_HEAD}>{t("Quantity")}</th>
+                  <th className={TABLE_HEAD}>{t("Value")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {topProducts.length === 0 && (
-                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "No order lines yet."}</td></tr>
+                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "No order lines yet.")}</td></tr>
                 )}
                 {topProducts.map((p) => (
                   <tr key={p.name + p.sku} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -256,20 +257,20 @@ const ProcurementDashboard: React.FC = () => {
             </table>
           </Panel>
 
-          <Panel title="Pending Approvals" subtitle="Requisitions and orders awaiting approval, receipts in draft" bodyClass="overflow-x-auto">
+          <Panel title={t("Pending Approvals")} subtitle={t("Requisitions and orders awaiting approval, receipts in draft")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
-                  <th className={TABLE_HEAD}>Type</th>
-                  <th className={TABLE_HEAD}>Reference</th>
-                  <th className={TABLE_HEAD}>Details</th>
-                  <th className={TABLE_HEAD}>Amount</th>
-                  <th className={TABLE_HEAD}>Date</th>
+                  <th className={TABLE_HEAD}>{t("Type")}</th>
+                  <th className={TABLE_HEAD}>{t("Reference")}</th>
+                  <th className={TABLE_HEAD}>{t("Details")}</th>
+                  <th className={TABLE_HEAD}>{t("Amount")}</th>
+                  <th className={TABLE_HEAD}>{t("Date")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {approvals.length === 0 && (
-                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{loading ? "Loading…" : "Nothing is waiting for approval."}</td></tr>
+                  <tr><td colSpan={5} className={`${TABLE_CELL} text-center`}>{t(loading ? "Loading…" : "Nothing is waiting for approval.")}</td></tr>
                 )}
                 {approvals.map((a) => (
                   <tr key={a.key} onClick={() => navigate(a.route)} className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -285,7 +286,7 @@ const ProcurementDashboard: React.FC = () => {
           </Panel>
         </div>
 
-        <Panel title="Procurement Pipeline" subtitle="Where open work currently sits">
+        <Panel title={t("Procurement Pipeline")} subtitle={t("Where open work currently sits")}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {pipeline.map((stage) => (
               <button key={stage.title} type="button" onClick={() => navigate(stage.route)}

@@ -6,6 +6,7 @@ import { todayIso } from "../../utils/localDate";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 
+import { t } from "../../i18n/i18n";
 const GRN_API = "/v1/api/purchase/grns";
 
 const asArray = <T,>(value: unknown): T[] => {
@@ -166,9 +167,9 @@ export default function GoodsReceiptSyncAction({
     <>
     {canReceive && <button type="button" disabled={busy}
       onClick={(event) => { event.stopPropagation(); receive(); }}
-      title="Receive Pending Goods — create a new receipt" aria-label="Receive Pending Goods"
+      title={t("Receive Pending Goods — create a new receipt")} aria-label={t("Receive Pending Goods")}
       className="inline-flex items-center gap-1 rounded-lg p-2 text-xs font-medium text-cyan-600 hover:bg-cyan-50 disabled:opacity-50">
-      <PencilSquareIcon className="h-4 w-4" aria-hidden="true" /> Receive Pending
+      <PencilSquareIcon className="h-4 w-4" aria-hidden="true" /> {t("Receive Pending")}
     </button>}
     {sync !== "SYNCED" && <button
       type="button"
@@ -177,8 +178,8 @@ export default function GoodsReceiptSyncAction({
         event.stopPropagation();
         retry();
       }}
-      title="Retry posting to Inventory"
-      aria-label="Retry posting to Inventory"
+      title={t("Retry posting to Inventory")}
+      aria-label={t("Retry posting to Inventory")}
       className="rounded-lg p-2 text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50 dark:text-amber-400 dark:hover:bg-amber-950/40"
     >
       <ArrowPathIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} aria-hidden="true" />

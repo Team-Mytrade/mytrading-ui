@@ -23,6 +23,7 @@ import { formatMoney } from "../Dashboard/dashboardKit";
 import { usePermissions } from "../../access/usePermissions";
 import { formatTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
@@ -225,7 +226,7 @@ const leadStatusColor = (status: string): string => {
 };
 
 // Lead statuses use the Leads page's wording (DISQUALIFIED is "Lost")
-const leadStatusLabel = (status: string) => LEAD_STATUS_LABELS[status] ?? titleCase(status);
+const leadStatusLabel = (status: string) => t(LEAD_STATUS_LABELS[status] ?? titleCase(status));
 
 const activityTypeColor = (type: string): string => {
   switch (type.toUpperCase()) {
@@ -272,7 +273,7 @@ const CompactBarList: React.FC<{
         {title}
       </h4>
       {entries.length === 0 ? (
-        <p className="text-[11px] text-slate-400 italic">No data available</p>
+        <p className="text-[11px] text-slate-400 italic">{t("No data available")}</p>
       ) : (
         <div className="flex flex-col gap-1.5 overflow-hidden">
           {entries
@@ -330,7 +331,7 @@ const CompactModule: React.FC<{
           key={label}
           className="flex items-center justify-between text-[11px]"
         >
-          <span className="text-slate-500 truncate">{label}</span>
+          <span className="text-slate-500 truncate">{t(label)}</span>
           <span className="font-semibold text-slate-900">
             {loading ? "—" : value}
           </span>
@@ -356,7 +357,7 @@ const TrendTile: React.FC<{
       <span className="text-[11px] font-semibold truncate">{title}</span>
     </div>
     <p className="text-lg font-bold text-slate-900 truncate">{value}</p>
-    <p className="text-[10px] text-slate-500 truncate">{subtitle}</p>
+    <p className="text-[10px] text-slate-500 truncate">{typeof subtitle === "string" ? t(subtitle) : subtitle}</p>
   </div>
 );
 
@@ -478,7 +479,7 @@ const Reports: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="CRM Reports"
+        title={t("CRM Reports")}
         description="Analytics and performance overview"
       />
 
@@ -496,7 +497,7 @@ const Reports: React.FC = () => {
               <ArrowPathIcon
                 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
               />
-              Refresh
+              {t("Refresh")}
             </button>
             {canExport && (
               <>
@@ -541,37 +542,37 @@ const Reports: React.FC = () => {
           {/* -------- Row 1: Primary KPIs + Trend tiles (one strip) -------- */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 shrink-0">
             <KpiTile
-              label="Total Leads"
+              label={t("Total Leads")}
               value={loading ? "—" : safeNumber(report.totalLeads)}
             />
             <KpiTile
-              label="Total Deals"
+              label={t("Total Deals")}
               value={loading ? "—" : safeNumber(report.totalDeals)}
             />
             <KpiTile
-              label="Pipeline"
+              label={t("Pipeline")}
               value={
                 loading ? "—" : formatCurrency(safeNumber(report.pipelineValue))
               }
               accent="text-cyan-700"
             />
             <KpiTile
-              label="Won Value"
+              label={t("Won Value")}
               value={
                 loading ? "—" : formatCurrency(safeNumber(report.wonValue))
               }
               accent="text-green-700"
             />
             <KpiTile
-              label="Conversion"
+              label={t("Conversion")}
               value={loading ? "—" : formatPercent(conversionRate)}
             />
             <KpiTile
-              label="Win Rate"
+              label={t("Win Rate")}
               value={loading ? "—" : formatPercent(winRate)}
             />
             <KpiTile
-              label="Avg Deal"
+              label={t("Avg Deal")}
               value={
                 loading
                   ? "—"
@@ -579,7 +580,7 @@ const Reports: React.FC = () => {
               }
             />
             <KpiTile
-              label="Customers"
+              label={t("Customers")}
               value={loading ? "—" : safeNumber(report.totalCustomers)}
             />
           </div>
@@ -590,11 +591,11 @@ const Reports: React.FC = () => {
               icon={<ArrowTrendingUpIcon className="h-3.5 w-3.5" />}
               iconClass="text-green-700"
               accentClass="border-l-green-500"
-              title="Won Deals"
+              title={t("Won Deals")}
               value={loading ? "—" : safeNumber(report.wonDeals)}
               subtitle={
                 report.totalDeals
-                  ? `${formatPercent(winRate)} win rate`
+                  ? t("{rate} win rate", { rate: formatPercent(winRate) })
                   : "No deals yet"
               }
             />
@@ -602,11 +603,11 @@ const Reports: React.FC = () => {
               icon={<ChartBarIcon className="h-3.5 w-3.5" />}
               iconClass="text-amber-700"
               accentClass="border-l-amber-500"
-              title="Open Deals"
+              title={t("Open Deals")}
               value={loading ? "—" : safeNumber(report.openDeals)}
               subtitle={
                 report.averageSalesCycleDays
-                  ? `Avg cycle: ${report.averageSalesCycleDays} days`
+                  ? t("Avg cycle: {days} days", { days: report.averageSalesCycleDays })
                   : "Cycle time unavailable"
               }
             />
@@ -614,11 +615,11 @@ const Reports: React.FC = () => {
               icon={<ArrowTrendingDownIcon className="h-3.5 w-3.5" />}
               iconClass="text-red-600"
               accentClass="border-l-red-500"
-              title="Lost Deals"
+              title={t("Lost Deals")}
               value={loading ? "—" : safeNumber(report.lostDeals)}
               subtitle={
                 report.totalDeals
-                  ? `${formatPercent(1 - winRate)} of closed lost`
+                  ? t("{rate} of closed lost", { rate: formatPercent(1 - winRate) })
                   : "No deals yet"
               }
             />
@@ -627,23 +628,23 @@ const Reports: React.FC = () => {
           {/* -------- Row 3: Charts (4 up, equal height, min-h-0) -------- */}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 min-h-0 flex-1">
             <CompactBarList
-              title="Deals by Stage"
+              title={t("Deals by Stage")}
               data={report.dealsByStage || {}}
               colorFn={stageColor}
             />
             <CompactBarList
-              title="Leads by Status"
+              title={t("Leads by Status")}
               data={report.leadsByStatus || {}}
               colorFn={leadStatusColor}
               labelFn={leadStatusLabel}
             />
             <CompactBarList
-              title="Activities by Type"
+              title={t("Activities by Type")}
               data={report.activitiesByType || {}}
               colorFn={activityTypeColor}
             />
             <CompactBarList
-              title="Communications"
+              title={t("Communications")}
               data={report.communicationsByType || {}}
               colorFn={activityTypeColor}
             />
@@ -653,7 +654,7 @@ const Reports: React.FC = () => {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 shrink-0">
             <CompactModule
               icon={<UserGroupIcon className="h-3.5 w-3.5 text-blue-600" />}
-              title="Leads"
+              title={t("Leads")}
               rows={[
                 ["Total", safeNumber(report.totalLeads)],
                 ["Qualified", safeNumber(report.qualifiedLeads)],
@@ -664,7 +665,7 @@ const Reports: React.FC = () => {
             />
             <CompactModule
               icon={<BriefcaseIcon className="h-3.5 w-3.5 text-amber-600" />}
-              title="Deals"
+              title={t("Deals")}
               rows={[
                 ["Total", safeNumber(report.totalDeals)],
                 ["Open", safeNumber(report.openDeals)],
@@ -675,7 +676,7 @@ const Reports: React.FC = () => {
             />
             <CompactModule
               icon={<UsersIcon className="h-3.5 w-3.5 text-green-600" />}
-              title="Customers"
+              title={t("Customers")}
               rows={[
                 ["Total", safeNumber(report.totalCustomers)],
                 ["Active", safeNumber(report.activeCustomers)],
@@ -685,7 +686,7 @@ const Reports: React.FC = () => {
             />
             <CompactModule
               icon={<TagIcon className="h-3.5 w-3.5 text-cyan-600" />}
-              title="Segments"
+              title={t("Segments")}
               rows={[
                 ["Total", safeNumber(report.totalSegments)],
                 ["Active", safeNumber(report.activeSegments)],
@@ -696,7 +697,7 @@ const Reports: React.FC = () => {
               icon={
                 <CalendarDaysIcon className="h-3.5 w-3.5 text-purple-600" />
               }
-              title="Activities"
+              title={t("Activities")}
               rows={[
                 ["Total", safeNumber(report.totalActivities)],
                 ["Pending", safeNumber(report.pendingActivities)],
@@ -709,7 +710,7 @@ const Reports: React.FC = () => {
               icon={
                 <ChatBubbleLeftRightIcon className="h-3.5 w-3.5 text-indigo-600" />
               }
-              title="Comms"
+              title={t("Comms")}
               rows={[["Total", safeNumber(report.totalCommunications)]]}
               loading={loading}
             />
@@ -720,20 +721,12 @@ const Reports: React.FC = () => {
             <div className="flex items-center gap-2 min-w-0">
               <TrophyIcon className="h-4 w-4 text-yellow-500 shrink-0" />
               <p className="text-[11px] text-slate-600 truncate">
-                {loading
-                  ? "Loading insights..."
-                  : report.totalDeals
-                  ? `${safeNumber(
-                      report.openDeals
-                    )} open deal(s) worth ${formatCurrency(
-                      safeNumber(report.pipelineValue)
-                    )} · Win rate ${formatPercent(winRate)}`
-                  : "Add deals to see sales insights here."}
+                {loading ? t("Loading insights...") : report.totalDeals ? t("{count} open deal(s) worth {value} · Win rate {rate}", { count: safeNumber(report.openDeals), value: formatCurrency(safeNumber(report.pipelineValue)), rate: formatPercent(winRate) }) : t("Add deals to see sales insights here.")}
               </p>
             </div>
             {lastUpdated && (
               <span className="text-[10px] text-slate-400 shrink-0 ml-2">
-                Updated {formatTime(lastUpdated)}
+                {t("Updated")} {formatTime(lastUpdated)}
               </span>
             )}
           </div>

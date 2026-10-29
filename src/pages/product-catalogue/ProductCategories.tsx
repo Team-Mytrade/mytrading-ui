@@ -11,6 +11,7 @@ import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { ToasterService } from "../../Services/ToasterService";
 import DynamicPopup from "../../components/common/Popup";
 
+import { t } from "../../i18n/i18n";
 const CATEGORIES = "/v1/api/common/product-categories";
 
 /** Trimmed string, or null when empty (so the API stores NULL instead of ""). */
@@ -136,7 +137,7 @@ const productCategoryConfig: PurchaseResourceConfig = {
       label: "Parent",
       // A main category has no parent: show a light dash, never "null".
       render: (row) =>
-        row.parentName || <span className="text-gray-300 dark:text-gray-600" title="Main category">—</span>,
+        row.parentName || <span className="text-gray-300 dark:text-gray-600" title={t("Main category")}>—</span>,
       exportValue: (row) => String(row.parentName || ""),
       // Click → show only the parent category.
       link: (row) => recordLink(APP_ROUTES.productCategories, "categoryId", row.parentId, "categoryName", row.parentName),
@@ -235,7 +236,7 @@ export default function ProductCategories() {
     const name = String(row.categoryName || "this category");
     try {
       await axios.patch(`${CATEGORIES}/${row.id}/${activate ? "activate" : "deactivate"}`);
-      ToasterService.success(`${name} ${activate ? "activated" : "deactivated"}`);
+      ToasterService.success(t(activate ? "{name} activated" : "{name} deactivated", { name }));
       setReloadKey((current) => current + 1);
     } catch (error: any) {
       ToasterService.error(
@@ -295,9 +296,9 @@ export default function ProductCategories() {
         icon={<NoSymbolIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100 dark:bg-red-950/50"
         innerText={`Deactivate ${String(deactivateRow?.categoryName || "this category")}?`}
-        subText="New products can't be added to this category. Existing products stay as they are. You can activate it again any time."
-        confirmLabel="Deactivate"
-        cancelLabel="Cancel"
+        subText={t("New products can't be added to this category. Existing products stay as they are. You can activate it again any time.")}
+        confirmLabel={t("Deactivate")}
+        cancelLabel={t("Cancel")}
         onConfirm={async () => {
           const row = deactivateRow;
           setDeactivateRow(null);

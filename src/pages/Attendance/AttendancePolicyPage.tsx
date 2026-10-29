@@ -11,6 +11,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "./attendanceApi";
 
+import { t } from "../../i18n/i18n";
 const ATTENDANCE_POLICY_URL = '/v1/api/attendance/attendance-policies';
 const ASSIGNMENT_API_URL = '/v1/api/attendance/employee-attendance-policy-assignments';
 
@@ -304,7 +305,7 @@ const AttendancePolicyPage: React.FC = () => {
       render: (row) => (
         <div>
           <span className="font-bold text-xs text-gray-900 dark:text-white block">{row.policyName}</span>
-          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">ID: #{row.id || 1}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{t("ID: #")}{row.id || 1}</span>
         </div>
       ) 
     },
@@ -343,9 +344,9 @@ const AttendancePolicyPage: React.FC = () => {
       label: 'Permissions (WFH/OD)', 
       render: (row) => (
         <div className="flex items-center gap-1 flex-wrap">
-          {row.allowWorkFromHome && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 dark:bg-transparent text-blue-700 dark:text-gray-300 border border-blue-200 dark:border-transparent rounded">WFH</span>}
-          {row.allowOnDuty && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 dark:bg-transparent text-purple-700 dark:text-gray-300 border border-purple-200 dark:border-transparent rounded">OD</span>}
-          {row.allowRegularization && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-50 dark:bg-transparent text-emerald-700 dark:text-gray-300 border border-emerald-200 dark:border-transparent rounded">REG</span>}
+          {row.allowWorkFromHome && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 dark:bg-transparent text-blue-700 dark:text-gray-300 border border-blue-200 dark:border-transparent rounded">{t("WFH")}</span>}
+          {row.allowOnDuty && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-50 dark:bg-transparent text-purple-700 dark:text-gray-300 border border-purple-200 dark:border-transparent rounded">{t("OD")}</span>}
+          {row.allowRegularization && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-50 dark:bg-transparent text-emerald-700 dark:text-gray-300 border border-emerald-200 dark:border-transparent rounded">{t("REG")}</span>}
         </div>
       ) 
     },
@@ -359,7 +360,7 @@ const AttendancePolicyPage: React.FC = () => {
             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-transparent dark:text-gray-300 dark:border-transparent' 
             : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-transparent dark:text-gray-400 dark:border-transparent'
         }`}>
-          {row.active ? 'Company default' : 'Assignable'}
+          {t(row.active ? 'Company default' : 'Assignable')}
         </span>
       ) 
     },
@@ -372,7 +373,7 @@ const AttendancePolicyPage: React.FC = () => {
             type="button"
             onClick={() => setViewingPolicy(row)}
             className="p-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-transparent dark:hover:bg-[#222222] border border-gray-200/80 dark:!border-transparent rounded-lg text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-            title="View Policy Details"
+            title={t("View Policy Details")}
           >
             <Eye className="w-3.5 h-3.5" />
           </button>
@@ -380,7 +381,7 @@ const AttendancePolicyPage: React.FC = () => {
             type="button"
             onClick={() => openEditModal(row)}
             className="p-1.5 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] border border-cyan-200/80 dark:!border-transparent rounded-lg text-cyan-700 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors"
-            title="Edit Policy"
+            title={t("Edit Policy")}
           >
             <Edit className="w-3.5 h-3.5" />
           </button>)}
@@ -389,9 +390,9 @@ const AttendancePolicyPage: React.FC = () => {
               type="button"
               onClick={() => handleMakeDefault(row)}
               className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-[#222222] border border-emerald-200/80 dark:!border-transparent rounded-lg text-emerald-700 dark:text-gray-400 text-[10px] font-bold transition-colors"
-              title="Use this policy for everyone without an assigned policy"
+              title={t("Use this policy for everyone without an assigned policy")}
             >
-              Make default
+              {t("Make default")}
             </button>
           )}
           {row.active && (
@@ -399,7 +400,7 @@ const AttendancePolicyPage: React.FC = () => {
               type="button"
               onClick={() => handleSoftDelete(row)}
               className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] border border-rose-200/80 dark:!border-transparent rounded-lg text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 transition-colors"
-              title="Stop using as the company default"
+              title={t("Stop using as the company default")}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -431,7 +432,7 @@ const AttendancePolicyPage: React.FC = () => {
             <span className="font-bold text-xs text-gray-900 dark:text-white block">
               {employeeName(row.employeeId)}
             </span>
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">ID: {row.employeeId}</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{t("ID:")} {row.employeeId}</span>
           </div>
         </div>
       )
@@ -447,7 +448,7 @@ const AttendancePolicyPage: React.FC = () => {
             <span className="font-bold text-xs text-cyan-900 dark:text-cyan-300 block">
               {row.attendancePolicyName || matchedPol?.policyName || `Policy #${row.attendancePolicyId}`}
             </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">Policy ID: #{row.attendancePolicyId}</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{t("Policy ID: #")}{row.attendancePolicyId}</span>
           </div>
         );
       }
@@ -473,9 +474,9 @@ const AttendancePolicyPage: React.FC = () => {
           type="button"
           onClick={() => row.id && setDeletingAssignmentId(row.id)}
           className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:hover:bg-[#222222] text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 border border-rose-200/80 dark:!border-transparent rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
-          title="Delete Assignment"
+          title={t("Delete Assignment")}
         >
-          <Trash2 className="w-3.5 h-3.5" /> Remove
+          <Trash2 className="w-3.5 h-3.5" /> {t("Remove")}
         </button>
       )
     }
@@ -484,7 +485,7 @@ const AttendancePolicyPage: React.FC = () => {
   return (
     <>
       <PageMeta
-        title="Employee Attendance Policy Assignments"
+        title={t("Employee Attendance Policy Assignments")}
         description="Assign and manage employee attendance policies"
       />
       <PageBreadcrumb pageTitle="Attendance Policy & Assignments" />
@@ -502,7 +503,7 @@ const AttendancePolicyPage: React.FC = () => {
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              <UserCheck className="w-3 h-3" /> Policy Assignments
+              <UserCheck className="w-3 h-3" /> {t("Policy Assignments")}
             </button>
             <button
               type="button"
@@ -513,7 +514,7 @@ const AttendancePolicyPage: React.FC = () => {
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              <Clock className="w-3 h-3" /> Policy Master
+              <Clock className="w-3 h-3" /> {t("Policy Master")}
             </button>
         </div>
 
@@ -534,7 +535,7 @@ const AttendancePolicyPage: React.FC = () => {
                       onChange={(e) => setSearchEmployeeId(e.target.value)}
                       className="w-full pl-9 pr-3 h-8 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-[#191919] focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all"
                     >
-                      <option value="">Choose an employee to look up...</option>
+                      <option value="">{t("Choose an employee to look up...")}</option>
                       {employees.map((e) => (
                         <option key={e.id} value={e.id}>{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
                       ))}
@@ -547,10 +548,10 @@ const AttendancePolicyPage: React.FC = () => {
                       onClick={handleFetchEmployeeAssignments}
                       disabled={isQuerying}
                       className="h-8 px-3 bg-cyan-50 hover:bg-cyan-100 dark:bg-transparent dark:hover:bg-[#222222] text-cyan-700 dark:text-gray-300 border border-cyan-200/80 dark:!border-transparent rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
-                      title="Fetch All Policy History for Employee ID"
+                      title={t("Fetch All Policy History for Employee ID")}
                     >
                       <FileText className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                      <span>All History</span>
+                      <span>{t("All History")}</span>
                     </button>
 
                     <button
@@ -558,10 +559,10 @@ const AttendancePolicyPage: React.FC = () => {
                       onClick={handleFetchCurrentEmployeePolicy}
                       disabled={isQuerying}
                       className="h-8 px-3 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-[#222222] text-emerald-700 dark:text-gray-300 border border-emerald-200/80 dark:!border-transparent rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
-                      title="Fetch Active Policy Today for Employee ID"
+                      title={t("Fetch Active Policy Today for Employee ID")}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Current Active</span>
+                      <span>{t("Current Active")}</span>
                     </button>
 
                     {(queriedAssignments || currentPolicyResult || queryError) && (
@@ -574,7 +575,7 @@ const AttendancePolicyPage: React.FC = () => {
                           setSearchEmployeeId('');
                         }}
                         className="h-8 w-8 flex items-center justify-center text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-lg transition-all"
-                        title="Clear Filter"
+                        title={t("Clear Filter")}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -598,7 +599,7 @@ const AttendancePolicyPage: React.FC = () => {
                     className="h-8 px-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Assign Policy to Employee</span>
+                    <span>{t("Assign Policy to Employee")}</span>
                   </button>
                 )}
 
@@ -609,25 +610,25 @@ const AttendancePolicyPage: React.FC = () => {
                 <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200 dark:!border-transparent rounded-xl space-y-2 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Current policy of {employeeName(currentPolicyResult.employeeId)}
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> {t("Current policy of")} {employeeName(currentPolicyResult.employeeId)}
                     </div>
-                    <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold uppercase">Active Today</span>
+                    <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold uppercase">{t("Active Today")}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-white dark:bg-[#222222] p-3 rounded-lg border border-emerald-100 dark:!border-transparent font-mono">
                     <div>
-                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">ASSIGNMENT ID</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("ASSIGNMENT ID")}</span>
                       <span className="font-bold text-slate-800 dark:text-white">#{currentPolicyResult.id}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">EMPLOYEE ID</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("EMPLOYEE ID")}</span>
                       <span className="font-bold text-slate-800 dark:text-white">#{currentPolicyResult.employeeId}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">POLICY ID</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("POLICY ID")}</span>
                       <span className="font-bold text-emerald-700 dark:text-emerald-400">{currentPolicyResult.attendancePolicyName || `#${currentPolicyResult.attendancePolicyId}`}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">EFFECTIVE DATES</span>
+                      <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("EFFECTIVE DATES")}</span>
                       <span className="font-bold text-slate-800 dark:text-white">{currentPolicyResult.effectiveFrom} to {currentPolicyResult.effectiveTo || 'ongoing'}</span>
                     </div>
                   </div>
@@ -647,11 +648,11 @@ const AttendancePolicyPage: React.FC = () => {
             <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">
-                  {queriedAssignments ? `Filtered Assignments (${queriedAssignments.length})` : 'All Employee Policy Assignments'}
+                  {queriedAssignments ? `${t("Filtered Assignments")} (${queriedAssignments.length})` : t('All Employee Policy Assignments')}
                 </h3>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                    Total: {(queriedAssignments || assignments).length} record(s)
+                    {t("Total:")} {(queriedAssignments || assignments).length} record(s)
                   </span>
                   <TableToolbar onRefresh={loadAssignments} />
                 </div>
@@ -675,8 +676,8 @@ const AttendancePolicyPage: React.FC = () => {
           <div className="space-y-4 animate-in fade-in duration-150">
             <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4 flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">Configured Policy Rules</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">Define working hours, grace period, overtime, and permission parameters</p>
+                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">{t("Configured Policy Rules")}</h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("Define working hours, grace period, overtime, and permission parameters")}</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -686,14 +687,14 @@ const AttendancePolicyPage: React.FC = () => {
                     onClick={openCreateModal}
                     className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
                   >
-                    <Plus className="w-4 h-4" /> Create Policy
+                    <Plus className="w-4 h-4" /> {t("Create Policy")}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={loadPolicies}
                   className="p-2 bg-gray-50 hover:bg-gray-100 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border border-gray-200 dark:!border-transparent rounded-lg transition-all"
-                  title="Refresh Policies"
+                  title={t("Refresh Policies")}
                 >
                   <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : ''}`} />
                 </button>
@@ -702,7 +703,7 @@ const AttendancePolicyPage: React.FC = () => {
 
             <div className="bg-white dark:bg-[#191919] rounded-xl shadow-2xs border border-gray-200/80 dark:!border-transparent p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">Configured Policy Rules</h3>
+                <h3 className="text-xs font-bold uppercase text-gray-800 dark:text-white tracking-wider">{t("Configured Policy Rules")}</h3>
                 <TableToolbar onRefresh={loadPolicies} />
               </div>
               <ReusableTable
@@ -727,7 +728,7 @@ const AttendancePolicyPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                  Assign Attendance Policy
+                  {t("Assign Attendance Policy")}
                 </h3>
               </div>
               <button type="button" onClick={() => setIsAssignModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -738,14 +739,14 @@ const AttendancePolicyPage: React.FC = () => {
             <form onSubmit={handleAssignPolicySubmit} className="space-y-3.5 text-xs">
               
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Employee *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Employee *")}</label>
                 <select
                   value={assignForm.employeeId}
                   onChange={(e) => setAssignForm(p => ({ ...p, employeeId: e.target.value }))}
                   className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
                   required
                 >
-                  <option value="">Choose an employee</option>
+                  <option value="">{t("Choose an employee")}</option>
                   {employees.map((e) => (
                     <option key={e.id} value={e.id}>{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
                   ))}
@@ -753,7 +754,7 @@ const AttendancePolicyPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Select Attendance Policy *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Select Attendance Policy *")}</label>
                 <select
                   value={assignForm.attendancePolicyId}
                   onChange={(e) => setAssignForm(p => ({ ...p, attendancePolicyId: e.target.value }))}
@@ -770,7 +771,7 @@ const AttendancePolicyPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Effective From *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Effective From *")}</label>
                   <input
                     type="date"
                     value={assignForm.effectiveFrom}
@@ -797,14 +798,14 @@ const AttendancePolicyPage: React.FC = () => {
                   onClick={() => setIsAssignModalOpen(false)}
                   className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
                 >
-                  {isSubmitting ? "Assigning..." : "Assign Policy"}
+                  {t(isSubmitting ? "Assigning..." : "Assign Policy")}
                 </button>
               </div>
             </form>
@@ -820,7 +821,7 @@ const AttendancePolicyPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
-                  {editingPolicy ? 'Edit Attendance Policy' : 'Create Attendance Policy'}
+                  {t(editingPolicy ? 'Edit Attendance Policy' : 'Create Attendance Policy')}
                 </h3>
               </div>
               <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -833,13 +834,13 @@ const AttendancePolicyPage: React.FC = () => {
               {/* Basic Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Policy Name *</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Policy Name *")}</label>
                   <input
                     type="text"
                     value={form.policyName}
                     onChange={(e) => setForm(p => ({ ...p, policyName: e.target.value }))}
                     className="w-full py-2 px-3 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-md text-xs font-bold text-gray-800 dark:text-white focus:bg-white dark:focus:bg-[#191919] outline-none"
-                    placeholder="e.g. Standard HQ Policy"
+                    placeholder={t("e.g. Standard HQ Policy")}
                     required
                   />
                 </div>
@@ -852,17 +853,17 @@ const AttendancePolicyPage: React.FC = () => {
                       onChange={(e) => setForm(p => ({ ...p, active: e.target.checked }))}
                       className="rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Active Policy</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{t("Active Policy")}</span>
                   </label>
                 </div>
               </div>
 
               {/* Time Thresholds */}
               <div className="space-y-2 pt-2 border-t border-gray-100 dark:!border-transparent">
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">Time Thresholds (Minutes)</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">{t("Time Thresholds (Minutes)")}</span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Full Day Min (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">{t("Full Day Min (mins)")}</label>
                     <input
                       type="number"
                       value={form.fullDayMinimumMinutes}
@@ -871,7 +872,7 @@ const AttendancePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Half Day Min (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">{t("Half Day Min (mins)")}</label>
                     <input
                       type="number"
                       value={form.halfDayMinimumMinutes}
@@ -880,7 +881,7 @@ const AttendancePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Grace Period (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">{t("Grace Period (mins)")}</label>
                     <input
                       type="number"
                       value={form.gracePeriodMinutes}
@@ -889,7 +890,7 @@ const AttendancePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Max Break (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">{t("Max Break (mins)")}</label>
                     <input
                       type="number"
                       value={form.maxBreakMinutes}
@@ -898,7 +899,7 @@ const AttendancePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Overtime After (mins)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">{t("Overtime After (mins)")}</label>
                     <input
                       type="number"
                       value={form.overtimeAfterMinutes}
@@ -907,7 +908,7 @@ const AttendancePolicyPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Permission (Hrs/Mo)</label>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">{t("Permission (Hrs/Mo)")}</label>
                     <input
                       type="number"
                       value={form.permissionHoursPerMonth}
@@ -920,7 +921,7 @@ const AttendancePolicyPage: React.FC = () => {
 
               {/* Rules & Permissions */}
               <div className="space-y-2 pt-2 border-t border-gray-100 dark:!border-transparent">
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">Rules & Permissions</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider block">{t("Rules & Permissions")}</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg cursor-pointer">
                     <input
@@ -929,7 +930,7 @@ const AttendancePolicyPage: React.FC = () => {
                       onChange={(e) => setForm(p => ({ ...p, allowWorkFromHome: e.target.checked }))}
                       className="rounded text-cyan-600 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-800 dark:text-white">Allow WFH</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-white">{t("Allow WFH")}</span>
                   </label>
 
                   <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg cursor-pointer">
@@ -939,7 +940,7 @@ const AttendancePolicyPage: React.FC = () => {
                       onChange={(e) => setForm(p => ({ ...p, allowRegularization: e.target.checked }))}
                       className="rounded text-cyan-600 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-800 dark:text-white">Allow Regularization</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-white">{t("Allow Regularization")}</span>
                   </label>
 
                   <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-[#222222] border border-gray-200 dark:!border-transparent rounded-lg cursor-pointer">
@@ -949,7 +950,7 @@ const AttendancePolicyPage: React.FC = () => {
                       onChange={(e) => setForm(p => ({ ...p, allowOnDuty: e.target.checked }))}
                       className="rounded text-cyan-600 w-4 h-4"
                     />
-                    <span className="text-xs font-bold text-gray-800 dark:text-white">Allow On Duty</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-white">{t("Allow On Duty")}</span>
                   </label>
                 </div>
               </div>
@@ -960,14 +961,14 @@ const AttendancePolicyPage: React.FC = () => {
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222]"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
                 >
-                  {isSubmitting ? "Saving..." : "Save Policy"}
+                  {t(isSubmitting ? "Saving..." : "Save Policy")}
                 </button>
               </div>
             </form>
@@ -984,7 +985,7 @@ const AttendancePolicyPage: React.FC = () => {
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">{viewingPolicy.policyName}</h3>
-                  <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">ID: #{viewingPolicy.id || 1}</span>
+                  <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">{t("ID: #")}{viewingPolicy.id || 1}</span>
                 </div>
               </div>
               <button type="button" onClick={() => setViewingPolicy(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -995,19 +996,19 @@ const AttendancePolicyPage: React.FC = () => {
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:!border-transparent font-mono">
                 <div>
-                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">FULL DAY MIN</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("FULL DAY MIN")}</span>
                   <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.fullDayMinimumMinutes / 60}h ({viewingPolicy.fullDayMinimumMinutes}m)</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">HALF DAY MIN</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("HALF DAY MIN")}</span>
                   <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.halfDayMinimumMinutes / 60}h ({viewingPolicy.halfDayMinimumMinutes}m)</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">GRACE PERIOD</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("GRACE PERIOD")}</span>
                   <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.gracePeriodMinutes} mins</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">MAX BREAK</span>
+                  <span className="text-gray-400 dark:text-gray-500 block text-[10px]">{t("MAX BREAK")}</span>
                   <span className="font-bold text-gray-900 dark:text-white">{viewingPolicy.maxBreakMinutes} mins</span>
                 </div>
               </div>
@@ -1015,21 +1016,21 @@ const AttendancePolicyPage: React.FC = () => {
               <div className="bg-gray-50 dark:bg-[#222222] p-3 rounded-lg border border-gray-200/70 dark:!border-transparent space-y-1.5">
                 <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">PERMISSIONS & ALLOWANCES</span>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Work From Home (WFH)</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{t("Work From Home (WFH)")}</span>
                   <span className={`font-bold ${viewingPolicy.allowWorkFromHome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                    {viewingPolicy.allowWorkFromHome ? 'Allowed' : 'Not Allowed'}
+                    {t(viewingPolicy.allowWorkFromHome ? 'Allowed' : 'Not Allowed')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Attendance Regularization</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{t("Attendance Regularization")}</span>
                   <span className={`font-bold ${viewingPolicy.allowRegularization ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                    {viewingPolicy.allowRegularization ? 'Allowed' : 'Not Allowed'}
+                    {t(viewingPolicy.allowRegularization ? 'Allowed' : 'Not Allowed')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">On Duty (OD) Request</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{t("On Duty (OD) Request")}</span>
                   <span className={`font-bold ${viewingPolicy.allowOnDuty ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                    {viewingPolicy.allowOnDuty ? 'Allowed' : 'Not Allowed'}
+                    {t(viewingPolicy.allowOnDuty ? 'Allowed' : 'Not Allowed')}
                   </span>
                 </div>
               </div>
@@ -1041,7 +1042,7 @@ const AttendancePolicyPage: React.FC = () => {
                 onClick={() => setViewingPolicy(null)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold border border-gray-200 dark:!border-transparent"
               >
-                Close
+                {t("Close")}
               </button>
             </div>
           </div>
@@ -1057,9 +1058,9 @@ const AttendancePolicyPage: React.FC = () => {
             </div>
             
             <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Remove Policy Assignment?</h3>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">{t("Remove Policy Assignment?")}</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Are you sure you want to remove policy assignment <span className="font-mono font-bold text-slate-800 dark:text-white">#{deletingAssignmentId}</span>? This action cannot be undone.
+                {t("Are you sure you want to remove policy assignment")} <span className="font-mono font-bold text-slate-800 dark:text-white">#{deletingAssignmentId}</span>{t("? This action cannot be undone.")}
               </p>
             </div>
 
@@ -1069,14 +1070,14 @@ const AttendancePolicyPage: React.FC = () => {
                 onClick={() => setDeletingAssignmentId(null)}
                 className="px-4 py-2 border border-gray-200 dark:!border-transparent rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] transition-all"
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteAssignment}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Remove
+                <Trash2 className="w-3.5 h-3.5" /> {t("Remove")}
               </button>
             </div>
           </div>

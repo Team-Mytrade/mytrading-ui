@@ -2,6 +2,7 @@ import React from "react";
 import KeyMetrics from "./KeyMetrics";
 import RecentInteractions from "./RecentInteractions";
 
+import { t } from "../../i18n/i18n";
 type Activity = {
   id: number;
   type: string;
@@ -22,10 +23,10 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       {/* Heading */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          <span aria-hidden="true">📋</span> CRM Dashboard
+          <span aria-hidden="true">📋</span> {t("CRM Dashboard")}
         </h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Overview of your CRM performance and recent activity
+          {t("Overview of your CRM performance and recent activity")}
         </p>
       </div>
 
@@ -40,7 +41,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Upcoming Activities */}
         <div className="bg-white dark:bg-gray-900 shadow rounded p-6">
           <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
-            <span aria-hidden="true">📅</span> Upcoming Activities
+            <span aria-hidden="true">📅</span> {t("Upcoming Activities")}
           </h2>
           <ul className="divide-y divide-gray-200 dark:divide-gray-700">
             {upcomingActivities.map((a) => (
@@ -48,7 +49,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <div className="flex justify-between">
                   <div>
                     <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {a.title}
+                      {t(a.title)}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {a.type} on {a.date}
@@ -62,7 +63,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             ))}
             {upcomingActivities.length === 0 && (
               <li className="py-3 text-gray-400 dark:text-gray-500 text-sm">
-                No upcoming activities.
+                {t("No upcoming activities.")}
               </li>
             )}
           </ul>

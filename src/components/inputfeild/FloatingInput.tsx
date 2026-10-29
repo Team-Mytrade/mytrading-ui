@@ -912,9 +912,9 @@ export const FloatingSelect: React.FC<FloatingSelectProps> = ({
         id={props.id ?? name}
         {...props}
       >
-        <option value="">Select</option>
+        <option value="">{t("Select")}</option>
         {options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
+          <option key={opt} value={opt}>{t(opt)}</option>
         ))}
       </select>
       {error && <span className="error-text">{error}</span>}
@@ -970,7 +970,7 @@ export const FloatingSelect1: React.FC<FloatingSelectProps1> = ({
         {includeEmptyOption && <option value="">{t(emptyOptionLabel ?? "Select")}</option>}
         {options.map((opt) => (
           <option key={opt.id} value={opt.id}>
-            {opt.name}
+            {t(String(opt.name ?? ""))}
           </option>
         ))}
       </select>

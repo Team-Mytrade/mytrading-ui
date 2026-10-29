@@ -402,8 +402,8 @@ const NotificationPage: React.FC = () => {
     {
       key: "isRead", label: "Status", sortable: true,
       render: (_: Notification, v: unknown) => v
-        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />Read</span>
-        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><XCircleIcon className="h-3 w-3" />Unread</span>,
+        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />{t("Read")}</span>
+        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><XCircleIcon className="h-3 w-3" />{t("Unread")}</span>,
     },
     {
       key: "actions", label: "Actions",
@@ -413,7 +413,7 @@ const NotificationPage: React.FC = () => {
           {!row.isRead && (
             canUpdate && <button
               onClick={() => markAsRead(row.id!)}
-              title="Mark as Read"
+              title={t("Mark as Read")}
               className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
             >
               <CheckCircleIcon className="h-4 w-4" />
@@ -421,14 +421,14 @@ const NotificationPage: React.FC = () => {
           )}
           {canUpdate && (<button
             onClick={() => openEditForm(row)}
-            title="Edit"
+            title={t("Edit")}
             className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
           >
             <PencilSquareIcon className="h-4 w-4" />
           </button>)}
           {canDelete && (<button
             onClick={() => handleDelete(row.id!)}
-            title="Delete"
+            title={t("Delete")}
             className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
           >
             <TrashIcon className="h-4 w-4" />
@@ -440,23 +440,23 @@ const NotificationPage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="Notifications" description="Manage employee notifications" />
+      <PageMeta title={t("Notifications")} description="Manage employee notifications" />
       <PageBreadcrumb pageTitle="Notifications" />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Create and manage employee notifications</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("Notifications")}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{t("Create and manage employee notifications")}</p>
           </div>
-          <AddButton label="Add Notification" onClick={openCreateForm} />
+          <AddButton label={t("Add Notification")} onClick={openCreateForm} />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatsCard
-            label="Total"
+            label={t("Total")}
             value={stats.total}
             gradient="from-cyan-50 to-blue-50"
             borderColor="border-cyan-100"
@@ -464,7 +464,7 @@ const NotificationPage: React.FC = () => {
             icon={<BellIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Unread"
+            label={t("Unread")}
             value={stats.unread}
             gradient="from-red-50 to-rose-50"
             borderColor="border-red-100"
@@ -472,7 +472,7 @@ const NotificationPage: React.FC = () => {
             icon={<XCircleIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="High Priority"
+            label={t("High Priority")}
             value={stats.high}
             gradient="from-amber-50 to-yellow-50"
             borderColor="border-amber-100"
@@ -480,7 +480,7 @@ const NotificationPage: React.FC = () => {
             icon={<BellAlertIcon className="h-6 w-6" />}
           />
           <StatsCard
-            label="Read"
+            label={t("Read")}
             value={stats.read}
             gradient="from-green-50 to-emerald-50"
             borderColor="border-green-100"
@@ -495,14 +495,14 @@ const NotificationPage: React.FC = () => {
           columns={columns}
           loading={loading}
           searchable={true}
-          searchPlaceholder="Search by title, message, or employee..."
+          searchPlaceholder={t("Search by title, message, or employee...")}
           searchFields={["title", "message", "employeeName"]}
           pageSize={PAGE_SIZE}
           defaultSortKey="createdAt"
           defaultSortOrder="desc"
           toolbar={
             <FilterPopover
-              title="Filter Notifications"
+              title={t("Filter Notifications")}
               buttonLabel="Filter"
               onReset={() => {
                 setSelectedEmployeeFilter("");
@@ -516,58 +516,58 @@ const NotificationPage: React.FC = () => {
             >
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Employee")}</label>
                   <select
                     value={selectedEmployeeFilter}
                     onChange={e => setSelectedEmployeeFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Employees</option>
+                    <option value="">{t("All Employees")}</option>
                     {uniqueEmployees.map(emp => (
                       <option key={emp.id} value={emp.id.toString()}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Type")}</label>
                   <select
                     value={selectedTypeFilter}
                     onChange={e => setSelectedTypeFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Types</option>
+                    <option value="">{t("All Types")}</option>
                     {typeOptions.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Priority</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Priority")}</label>
                   <select
                     value={selectedPriorityFilter}
                     onChange={e => setSelectedPriorityFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Priorities</option>
+                    <option value="">{t("All Priorities")}</option>
                     {priorityOptions.map(priority => (
                       <option key={priority} value={priority}>{priority}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Status")}</label>
                   <select
                     value={selectedStatusFilter}
                     onChange={e => setSelectedStatusFilter(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                   >
-                    <option value="">All Status</option>
-                    <option value="read">Read</option>
-                    <option value="unread">Unread</option>
+                    <option value="">{t("All Status")}</option>
+                    <option value="read">{t("Read")}</option>
+                    <option value="unread">{t("Unread")}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Date Range</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Date Range")}</label>
                   <div className="flex gap-2">
                     <DatePicker
                       selected={dateRange.from}
@@ -593,13 +593,13 @@ const NotificationPage: React.FC = () => {
               <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <BellIcon className="h-8 w-8 text-gray-400" />
               </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">No notifications found</p>
+              <p className="text-gray-500 text-sm font-medium mb-2">{t("No notifications found")}</p>
               {canCreate && (<button
                 onClick={openCreateForm}
                 className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
-                Add your first notification
+                {t("Add your first notification")}
               </button>)}
             </div>
           }
@@ -608,15 +608,15 @@ const NotificationPage: React.FC = () => {
         {/* Notification Form Modal */}
         <PaginatedPopup
           isOpen={showForm}
-          title={editingNotification ? "Edit Notification" : "Add Notification"}
-          subtitle={editingNotification ? "Update notification details" : "Create a new notification"}
+          title={t(editingNotification ? "Edit Notification" : "Add Notification")}
+          subtitle={t(editingNotification ? "Update notification details" : "Create a new notification")}
           onClose={resetForm}
           onSubmit={submitForm}
-          submitLabel={editingNotification ? "Update Notification" : "Send Notification"}
+          submitLabel={t(editingNotification ? "Update Notification" : "Send Notification")}
           fields={[
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Employee <span className="text-red-500">*</span>
+                {t("Employee")} <span className="text-red-500">*</span>
               </label>
               <select
                 value={form.employeeId || ""}
@@ -630,7 +630,7 @@ const NotificationPage: React.FC = () => {
                 className={inputCls}
                 disabled={!!editingNotification}
               >
-                <option value="">Select Employee</option>
+                <option value="">{t("Select Employee")}</option>
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>
                     {emp.firstName} {emp.lastName} - {emp.employeeCode || `ID: ${emp.id}`}
@@ -640,19 +640,19 @@ const NotificationPage: React.FC = () => {
             </div>,
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Title <span className="text-red-500">*</span>
+                {t("Title")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={form.title}
                 required
                 onChange={e => handleChange("title", e.target.value)}
-                placeholder="Notification title"
+                placeholder={t("Notification title")}
                 className={inputCls}
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Type")}</label>
               <select
                 value={form.type}
                 onChange={e => handleChange("type", e.target.value as NotificationType)}
@@ -664,7 +664,7 @@ const NotificationPage: React.FC = () => {
               </select>
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Channel</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Channel")}</label>
               <select
                 value={form.channel}
                 onChange={e => handleChange("channel", e.target.value as NotificationChannel)}
@@ -676,7 +676,7 @@ const NotificationPage: React.FC = () => {
               </select>
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Priority")}</label>
               <select
                 value={form.priority}
                 onChange={e => handleChange("priority", e.target.value as NotificationPriority)}
@@ -695,39 +695,39 @@ const NotificationPage: React.FC = () => {
                   onChange={e => handleChange("isRead", e.target.checked)}
                   className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                 />
-                <span className="text-sm font-medium text-gray-700">Mark as Read</span>
+                <span className="text-sm font-medium text-gray-700">{t("Mark as Read")}</span>
               </label>
             </div>,
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message <span className="text-red-500">*</span>
+                {t("Message")} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={form.message}
                 required
                 onChange={e => handleChange("message", e.target.value)}
                 rows={3}
-                placeholder="Enter notification message..."
+                placeholder={t("Enter notification message...")}
                 className={inputCls}
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reference ID</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Reference ID")}</label>
               <input
                 type="number"
                 value={form.referenceId || ""}
                 onChange={e => handleChange("referenceId", e.target.value ? Number(e.target.value) : null)}
-                placeholder="Associated record ID"
+                placeholder={t("Associated record ID")}
                 className={inputCls}
               />
             </div>,
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reference Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Reference Type")}</label>
               <input
                 type="text"
                 value={form.referenceType || ""}
                 onChange={e => handleChange("referenceType", e.target.value)}
-                placeholder="e.g., AttendanceRecord, PayrollRecord"
+                placeholder={t("e.g., AttendanceRecord, PayrollRecord")}
                 className={inputCls}
               />
             </div>
@@ -754,4 +754,5 @@ import { ClockIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDateTime as companyFormatDateTime } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 export default NotificationPage;

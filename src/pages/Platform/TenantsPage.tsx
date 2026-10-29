@@ -14,6 +14,7 @@ import {
 } from "../Payroll/hrmsUi";
 import { formatDate } from "../../company/format";
 
+import { t as tr } from "../../i18n/i18n";
 const OPTIONAL_MODULES = APP_MODULES.filter((m) => m !== "USERS");
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
@@ -195,7 +196,7 @@ export default function TenantsPage() {
           </label>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-slate-500">Users is a core module and is always on.</p>
+      <p className="mt-1 text-[11px] text-slate-500">{tr("Users is a core module and is always on.")}</p>
     </div>
   );
 
@@ -206,7 +207,7 @@ export default function TenantsPage() {
         <div>
           <span className="block text-xs font-semibold text-slate-900 dark:text-white">
             {t.tenantName}
-            {selected === t.tenantId && <span className="ml-2 rounded bg-cyan-50 px-1.5 text-[10px] font-semibold text-cyan-700">working here</span>}
+            {selected === t.tenantId && <span className="ml-2 rounded bg-cyan-50 px-1.5 text-[10px] font-semibold text-cyan-700">{tr("working here")}</span>}
           </span>
           <span className="text-[11px] text-slate-500 dark:text-gray-400">{t.tenantId}</span>
         </div>
@@ -226,12 +227,12 @@ export default function TenantsPage() {
     },
     {
       key: "admins", label: "Tenant admin",
-      render: (t) => t.admins.length === 0 ? <span className="text-[11px] text-amber-600">None</span> : (
+      render: (t) => t.admins.length === 0 ? <span className="text-[11px] text-amber-600">{tr("None")}</span> : (
         <div className="space-y-1">
           {t.admins.map((a) => (
             <div key={a.userId} className="flex items-start gap-1">
               {a.active && (
-                <button type="button" title={a.invitePending ? "Resend invite" : "Email a set-password link"} className={`${ROW_ICON_BUTTON} shrink-0`}
+                <button type="button" title={tr(a.invitePending ? "Resend invite" : "Email a set-password link")} className={`${ROW_ICON_BUTTON} shrink-0`}
                   onClick={() => inviteAdmin(t, a)}>
                   <Mail className="h-4 w-4" />
                 </button>
@@ -239,8 +240,8 @@ export default function TenantsPage() {
               <div className="min-w-0">
                 <span className="block truncate text-xs text-slate-800 dark:text-gray-200">{a.fullName}</span>
                 <span className="block truncate text-[11px] text-slate-500">{a.email}</span>
-                {a.invitePending && <span className="mt-0.5 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Invite pending</span>}
-                {!a.active && <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Inactive</span>}
+                {a.invitePending && <span className="mt-0.5 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{tr("Invite pending")}</span>}
+                {!a.active && <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">{tr("Inactive")}</span>}
               </div>
             </div>
           ))}
@@ -260,7 +261,7 @@ export default function TenantsPage() {
                 {t.statusReason}
               </span>
             )}
-            {t.statusChangedAt && <span className="block text-[10px] text-slate-400">since {changedOn(t.statusChangedAt)}</span>}
+            {t.statusChangedAt && <span className="block text-[10px] text-slate-400">{tr("since")} {changedOn(t.statusChangedAt)}</span>}
           </div>
         );
       },
@@ -269,12 +270,12 @@ export default function TenantsPage() {
       key: "actions", label: "Actions",
       render: (t) => (
         <div className="flex items-center gap-1">
-          <button type="button" title="Edit name and modules" className={ROW_ICON_BUTTON} onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></button>
-          <button type="button" title={selected === t.tenantId ? "Already working here" : "Work in this tenant"} className={ROW_ICON_BUTTON}
+          <button type="button" title={tr("Edit name and modules")} className={ROW_ICON_BUTTON} onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></button>
+          <button type="button" title={tr(selected === t.tenantId ? "Already working here" : "Work in this tenant")} className={ROW_ICON_BUTTON}
             disabled={selected === t.tenantId || !t.active} onClick={() => workIn(t.tenantId)}>
             <LogIn className="h-4 w-4" />
           </button>
-          <button type="button" title="Change status (suspend, close or reactivate)" className={t.active ? ROW_ICON_BUTTON_DANGER : ROW_ICON_BUTTON}
+          <button type="button" title={tr("Change status (suspend, close or reactivate)")} className={t.active ? ROW_ICON_BUTTON_DANGER : ROW_ICON_BUTTON}
             onClick={() => openStatus(t)}>
             <Power className="h-4 w-4" />
           </button>
@@ -285,22 +286,22 @@ export default function TenantsPage() {
 
   return (
     <>
-      <PageMeta title="Tenants & Modules" description="Companies on the platform and the modules they use" />
-      <PageBreadcrumb pageTitle="Tenants & Modules" actions={<AddButton label="New tenant" permission={null} onClick={() => setCreating(true)} />} />
+      <PageMeta title={tr("Tenants & Modules")} description="Companies on the platform and the modules they use" />
+      <PageBreadcrumb pageTitle="Tenants & Modules" actions={<AddButton label={tr("New tenant")} permission={null} onClick={() => setCreating(true)} />} />
 
       <div className={PAGE_BODY}>
         <div className={STATS_ROW}>
-          <StatsCard label="Tenants" value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Building2 />} loading={loading} />
-          <StatsCard label="Active" value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircle2 />} loading={loading} />
-          <StatsCard label="Suspended" value={stats.suspended} gradient="from-amber-50 to-orange-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<PauseCircle />} loading={loading} />
-          <StatsCard label="Inactive" value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<PowerOff />} loading={loading} />
+          <StatsCard label={tr("Tenants")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Building2 />} loading={loading} />
+          <StatsCard label={tr("Active")} value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircle2 />} loading={loading} />
+          <StatsCard label={tr("Suspended")} value={stats.suspended} gradient="from-amber-50 to-orange-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<PauseCircle />} loading={loading} />
+          <StatsCard label={tr("Inactive")} value={stats.inactive} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" icon={<PowerOff />} loading={loading} />
         </div>
 
         <div className="mb-3 text-xs text-slate-600 dark:text-gray-300">
           {selected ? (
             <>
               Working in <b>{tenants.find((t) => t.tenantId === selected)?.tenantName ?? selected}</b>.{" "}
-              <button type="button" className="font-semibold text-cyan-600 hover:underline" onClick={() => workIn(null)}>Switch to all tenants</button>
+              <button type="button" className="font-semibold text-cyan-600 hover:underline" onClick={() => workIn(null)}>{tr("Switch to all tenants")}</button>
             </>
           ) : (
             "Working across all tenants. Use the sign-in icon on a row to work inside one company."
@@ -314,7 +315,7 @@ export default function TenantsPage() {
           pageSize={10}
           defaultSortKey="tenantName"
           searchable
-          searchPlaceholder="Search company or tenant id"
+          searchPlaceholder={tr("Search company or tenant id")}
           enableRowDetails={false}
         />
       </div>
@@ -323,20 +324,20 @@ export default function TenantsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Edit {editing.tenantName}</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Edit")} {editing.tenantName}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <div>
-              <label className={LABEL} htmlFor="tenant-edit-name">Company name</label>
+              <label className={LABEL} htmlFor="tenant-edit-name">{tr("Company name")}</label>
               <input id="tenant-edit-name" className={INPUT} value={editName} maxLength={255} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div>
-              <label className={LABEL}>Modules</label>
+              <label className={LABEL}>{tr("Modules")}</label>
               {moduleChecklist(editModules, setEditModules)}
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" className={SECONDARY_BUTTON} onClick={() => setEditing(null)}>Cancel</button>
-              <button type="button" className={PRIMARY_BUTTON} disabled={saving} onClick={saveEdit}>{saving ? "Saving..." : "Save"}</button>
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => setEditing(null)}>{tr("Cancel")}</button>
+              <button type="button" className={PRIMARY_BUTTON} disabled={saving} onClick={saveEdit}>{tr(saving ? "Saving..." : "Save")}</button>
             </div>
           </div>
         </div>
@@ -346,16 +347,16 @@ export default function TenantsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className={`${CARD} w-full max-w-lg space-y-4 p-5`} role="dialog" aria-labelledby="tenant-status-title">
             <div className="flex items-center justify-between">
-              <h3 id="tenant-status-title" className="text-sm font-semibold text-slate-900 dark:text-white">Status of {statusFor.tenantName}</h3>
+              <h3 id="tenant-status-title" className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Status of")} {statusFor.tenantName}</h3>
               <button type="button" onClick={() => setStatusFor(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <p className="text-xs text-slate-600 dark:text-gray-300">
-              Now <b>{STATUS[tenantStatusOf(statusFor)].label}</b>
+              {tr("Now")} <b>{STATUS[tenantStatusOf(statusFor)].label}</b>
               {statusFor.statusChangedAt && <> since {changedOn(statusFor.statusChangedAt)}</>}
               {statusFor.statusReason && <>: {statusFor.statusReason}</>}
             </p>
             <div>
-              <label className={LABEL} htmlFor="tenant-status">New status</label>
+              <label className={LABEL} htmlFor="tenant-status">{tr("New status")}</label>
               <select id="tenant-status" className={INPUT} value={nextStatus} onChange={(e) => setNextStatus(e.target.value as TenantStatus)}>
                 {(Object.keys(STATUS) as TenantStatus[]).map((s) => <option key={s} value={s}>{STATUS[s].label}</option>)}
               </select>
@@ -370,7 +371,7 @@ export default function TenantsPage() {
                 onChange={(e) => setReason(e.target.value)} />
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" className={SECONDARY_BUTTON} onClick={() => setStatusFor(null)}>Cancel</button>
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => setStatusFor(null)}>{tr("Cancel")}</button>
               <button type="button" className={PRIMARY_BUTTON} disabled={saving || (nextStatus === "ACTIVE" && tenantStatusOf(statusFor) === "ACTIVE")}
                 onClick={saveStatus}>
                 {saving ? "Saving..." : nextStatus === "ACTIVE" ? "Make active" : nextStatus === "SUSPENDED" ? "Suspend" : "Deactivate"}
@@ -384,28 +385,28 @@ export default function TenantsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <form onSubmit={provision} className={`${CARD} max-h-full w-full max-w-lg space-y-4 overflow-y-auto p-5`}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">New tenant</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("New tenant")}</h3>
               <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <div>
-              <label className={LABEL} htmlFor="tenant-name">Company name *</label>
+              <label className={LABEL} htmlFor="tenant-name">{tr("Company name *")}</label>
               <input id="tenant-name" className={INPUT} value={form.tenantName} maxLength={255}
                 onChange={(e) => setForm({ ...form, tenantName: e.target.value })} />
             </div>
             <div>
-              <label className={LABEL}>Modules</label>
+              <label className={LABEL}>{tr("Modules")}</label>
               {moduleChecklist(form.modules, (modules) => setForm({ ...form, modules }))}
             </div>
             <div>
-              <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-gray-200">Tenant Administrator</p>
+              <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-gray-200">{tr("Tenant Administrator")}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={LABEL} htmlFor="tenant-admin-first">First name *</label>
+                  <label className={LABEL} htmlFor="tenant-admin-first">{tr("First name *")}</label>
                   <input id="tenant-admin-first" className={INPUT} value={form.firstName} maxLength={100}
                     onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                 </div>
                 <div>
-                  <label className={LABEL} htmlFor="tenant-admin-last">Last name *</label>
+                  <label className={LABEL} htmlFor="tenant-admin-last">{tr("Last name *")}</label>
                   <input id="tenant-admin-last" className={INPUT} value={form.lastName} maxLength={100}
                     onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                 </div>
@@ -416,12 +417,12 @@ export default function TenantsPage() {
                 </div>
               </div>
               <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
-                They get an email to set their own password, then fill in the company details under Company Settings.
+                {tr("They get an email to set their own password, then fill in the company details under Company Settings.")}
               </p>
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" className={SECONDARY_BUTTON} onClick={() => setCreating(false)}>Cancel</button>
-              <button type="submit" className={PRIMARY_BUTTON} disabled={saving}>{saving ? "Creating..." : "Create and send invite"}</button>
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => setCreating(false)}>{tr("Cancel")}</button>
+              <button type="submit" className={PRIMARY_BUTTON} disabled={saving}>{tr(saving ? "Creating..." : "Create and send invite")}</button>
             </div>
           </form>
         </div>

@@ -22,6 +22,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { formatMoney } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const SALARY_API = "/v1/api/payroll/employee-salaries";
 
 const PAGE_SIZE = 10;
@@ -316,23 +317,23 @@ const EmployeeSalaryPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Employee Salaries" description="View employee salary records" />
+            <PageMeta title={t("Employee Salaries")} description="View employee salary records" />
             <PageBreadcrumb
                 pageTitle="Employee Salaries"
                 actions={
                     <button type="button" onClick={fetchAllSalaries} disabled={loading} className={TOOL_BUTTON}>
                         <ArrowPathIcon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                        Refresh
+                        {t("Refresh")}
                     </button>
                 }
             />
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Employees" value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
-                    <StatsCard label="Yearly Gross Payroll" value={lakhs(yearlyPayroll)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Monthly Gross Payroll" value={lakhs(monthlyPayroll)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                    <StatsCard label="Average Monthly Gross" value={formatMoney(averageMonthly, { whole: true })} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Employees")} value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Yearly Gross Payroll")} value={lakhs(yearlyPayroll)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Monthly Gross Payroll")} value={lakhs(monthlyPayroll)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Average Monthly Gross")} value={formatMoney(averageMonthly, { whole: true })} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Table */}
@@ -346,11 +347,11 @@ const EmployeeSalaryPage: React.FC = () => {
                     defaultSortKey="month"
                     defaultSortOrder="desc"
                     rowDetailsTitle={(row) => `${row.employeeName || 'Employee'} - ${row.month}`}
-                    rowDetailsSubtitle="Salary structure in yearly amounts; each month pays one twelfth (see Payslips for what was paid)"
+                    rowDetailsSubtitle={t("Salary structure in yearly amounts; each month pays one twelfth (see Payslips for what was paid)")}
                     emptyState={
                         <div className="flex flex-col items-center">
                             <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mb-3" />
-                            <p className="text-gray-500 text-sm mb-2">No salary records found</p>
+                            <p className="text-gray-500 text-sm mb-2">{t("No salary records found")}</p>
                         </div>
                     }
                 />

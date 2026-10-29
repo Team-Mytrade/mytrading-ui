@@ -536,7 +536,7 @@ const PurchaseInvoices: React.FC = () => {
                   onClick={() => openCreate()}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
-                  Create your first purchase invoice
+                  {t("Create your first purchase invoice")}
                 </button>
               )}
             </div>
@@ -545,12 +545,12 @@ const PurchaseInvoices: React.FC = () => {
 
         <PaginatedPopup
           isOpen={showFormModal}
-          title={editingId !== null ? "Edit Purchase Invoice" : "Create New Purchase Invoice"}
-          subtitle={editingId !== null ? "Update your invoice details" : "Add a new purchase invoice"}
+          title={t(editingId !== null ? "Edit Purchase Invoice" : "Create New Purchase Invoice")}
+          subtitle={t(editingId !== null ? "Update your invoice details" : "Add a new purchase invoice")}
           onClose={closeModal}
           onSubmit={handleSubmit}
           submitting={submitting}
-          submitLabel={editingId !== null ? "Update Invoice" : "Create Invoice"}
+          submitLabel={t(editingId !== null ? "Update Invoice" : "Create Invoice")}
           maxWidthClassName="max-w-2xl"
           tabs={[
             {
@@ -598,7 +598,7 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="totalAmount"
-                  label={form.grnId ? `Bill amount (from ${form.grnNumber}; correct it with a debit note)` : "Bill amount (incl. tax)"}
+                  label={form.grnId ? `Bill amount (from ${form.grnNumber}; correct it with a debit note)` : t("Bill amount (incl. tax)")}
                   name="totalAmount"
                   type="number"
                   value={form.totalAmount ?? ""}
@@ -608,7 +608,7 @@ const PurchaseInvoices: React.FC = () => {
                 />,
                 <FloatingInput
                   key="taxAmount"
-                  label={form.reverseCharge ? "VAT you account for (reverse charge)" : "VAT on the bill (input VAT)"}
+                  label={t(form.reverseCharge ? "VAT you account for (reverse charge)" : "VAT on the bill (input VAT)")}
                   name="taxAmount"
                   type="number"
                   value={form.taxAmount ?? ""}

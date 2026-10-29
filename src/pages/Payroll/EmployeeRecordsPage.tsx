@@ -43,6 +43,7 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
 const PAGE_SIZE = 10;
@@ -309,12 +310,12 @@ const EmployeeRecordsPage: React.FC = () => {
             render: (row) => row.active ? (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
-                    Active
+                    {t("Active")}
                 </span>
             ) : (
                 <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-transparent dark:text-gray-400 dark:border dark:border-transparent">
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-500 mr-1.5 shrink-0" />
-                    Inactive
+                    {t("Inactive")}
                 </span>
             )
         },
@@ -329,7 +330,7 @@ const EmployeeRecordsPage: React.FC = () => {
                         type="button"
                         onClick={() => navigate(`/employee-view/${row.id}`)}
                         className={ROW_ICON_BUTTON}
-                        title="View Details"
+                        title={t("View Details")}
                     >
                         <EyeIcon className="h-4 w-4" />
                     </button>
@@ -337,7 +338,7 @@ const EmployeeRecordsPage: React.FC = () => {
                         type="button"
                         onClick={() => navigate(`/addEmployee?editId=${row.id}`)}
                         className={ROW_ICON_BUTTON}
-                        title="Edit"
+                        title={t("Edit")}
                     >
                         <PencilSquareIcon className="h-4 w-4" />
                     </button>)}
@@ -345,7 +346,7 @@ const EmployeeRecordsPage: React.FC = () => {
                         type="button"
                         onClick={() => handleDelete(row.id)}
                         className={ROW_ICON_BUTTON_DANGER}
-                        title="Delete"
+                        title={t("Delete")}
                     >
                         <TrashIcon className="h-4 w-4" />
                     </button>)}
@@ -356,7 +357,7 @@ const EmployeeRecordsPage: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Employee Records" description="Manage employee records and workforce" />
+            <PageMeta title={t("Employee Records")} description="Manage employee records and workforce" />
             <PageBreadcrumb
                 pageTitle="Employee Records"
                 actions={
@@ -367,10 +368,10 @@ const EmployeeRecordsPage: React.FC = () => {
                                 type="button"
                                 onClick={() => setShowExportMenu(!showExportMenu)}
                                 className={TOOL_BUTTON}
-                                title="Export"
+                                title={t("Export")}
                             >
                                 <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                Export
+                                {t("Export")}
                             </button>)}
 
                             {showExportMenu && (
@@ -384,7 +385,7 @@ const EmployeeRecordsPage: React.FC = () => {
                                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#222222] cursor-pointer"
                                     >
                                         <DocumentArrowDownIcon className="h-4 w-4 text-red-600 dark:text-gray-400" />
-                                        PDF
+                                        {t("PDF")}
                                     </button>
                                     <button
                                         type="button"
@@ -400,23 +401,23 @@ const EmployeeRecordsPage: React.FC = () => {
                                         ) : (
                                             <TableCellsIcon className="h-4 w-4 text-green-600 dark:text-gray-400" />
                                         )}
-                                        {loading ? 'Exporting...' : 'Export Excel'}
+                                        {t(loading ? 'Exporting...' : 'Export Excel')}
                                     </button>
                                 </div>
                             )}
                         </div>
-                        <AddButton label="Add Employee" onClick={() => navigate("/addEmployee")} />
+                        <AddButton label={t("Add Employee")} onClick={() => navigate("/addEmployee")} />
                     </div>
                 }
             />
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label="Total Employees" value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
-                    <StatsCard label="Active Employees" value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-                    <StatsCard label="Departments" value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Total Employees")} value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Active Employees")} value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Departments")} value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
                     <StatsCard
-                        label="Onboarded (30d)"
+                        label={t("Onboarded (30d)")}
                         value={safeEmployees.filter(e => {
                             if (!e.createdAt) return false;
                             const thirtyDaysAgo = new Date();
@@ -442,7 +443,7 @@ const EmployeeRecordsPage: React.FC = () => {
                     emptyState={
                         <div className="flex flex-col items-center">
                             <UserGroupIcon className="h-12 w-12 text-gray-400 mb-3" />
-                            <p className="text-gray-500 text-sm mb-2">No employees found</p>
+                            <p className="text-gray-500 text-sm mb-2">{t("No employees found")}</p>
                         </div>
                     }
                 />

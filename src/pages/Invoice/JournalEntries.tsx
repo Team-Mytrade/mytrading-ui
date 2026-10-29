@@ -234,7 +234,7 @@ const JournalEntries: React.FC = () => {
           {labelOf(row.sourceModule ?? "OTHER")}
           {row.automatic && (
             <span className="ml-1.5 rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700" title={t("Posted automatically from the document")}>
-              {row.reversalOf ? "Auto · reversal" : "Auto"}
+              {t(row.reversalOf ? "Auto · reversal" : "Auto")}
             </span>
           )}
           {row.sourceId != null && <span className="block text-xs text-slate-400">#{row.sourceId}</span>}
@@ -393,8 +393,8 @@ const JournalEntries: React.FC = () => {
 
       <PaginatedPopup
         isOpen={formOpen}
-        title={editing ? `Edit ${editing.entryNumber}` : "New journal entry"}
-        subtitle={editing ? "Saving replaces the entry's lines" : "The entry number is assigned when it is posted"}
+        title={editing ? `${t("Edit")} ${editing.entryNumber}` : t("New journal entry")}
+        subtitle={t(editing ? "Saving replaces the entry's lines" : "The entry number is assigned when it is posted")}
         onClose={() => setFormOpen(false)}
         maxWidthClassName="max-w-4xl"
         content={
@@ -451,7 +451,7 @@ const JournalEntries: React.FC = () => {
                 </div>
               </div>
             </div>
-            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={editing ? "Save changes" : "Post entry"} busy={busy} />
+            <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Post entry")} busy={busy} />
           </form>
         }
       />

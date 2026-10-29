@@ -49,6 +49,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber, formatDate as companyFormatDate, companyCurrency } from "../../company/format";
 
+import { t } from "../../i18n/i18n";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 
 interface EmployeeData {
@@ -213,7 +214,7 @@ const EmployeeViewPage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-gray-200 border-t-cyan-600 rounded-full animate-spin"></div>
-          <div className="text-sm text-gray-500">Loading employee details...</div>
+          <div className="text-sm text-gray-500">{t("Loading employee details...")}</div>
         </div>
       </div>
     );
@@ -224,7 +225,7 @@ const EmployeeViewPage: React.FC = () => {
       <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="text-red-500 text-xl mb-4">{error || "Employee not found"}</div>
         <button onClick={() => navigate(-1)} className="px-6 py-2.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
-          Go Back
+          {t("Go Back")}
         </button>
       </div>
     );
@@ -285,7 +286,7 @@ const EmployeeViewPage: React.FC = () => {
               type="button"
               onClick={() => onToggleSensitive(sensitiveField)}
               className="p-1 text-gray-400 hover:text-cyan-600 transition rounded hover:bg-gray-100"
-              title={showSensitive[sensitiveField] ? "Hide" : "Show"}
+              title={t(showSensitive[sensitiveField] ? "Hide" : "Show")}
             >
               {showSensitive[sensitiveField] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -294,7 +295,7 @@ const EmployeeViewPage: React.FC = () => {
                 type="button"
                 onClick={() => handleCopy(String(value), label)}
                 className="p-1 text-gray-400 hover:text-cyan-600 transition rounded hover:bg-gray-100"
-                title="Copy to clipboard"
+                title={t("Copy to clipboard")}
               >
                 <Copy className="w-4 h-4" />
               </button>
@@ -308,7 +309,7 @@ const EmployeeViewPage: React.FC = () => {
                 type="button"
                 onClick={() => handleCopy(value, label)}
                 className="p-1 text-gray-400 hover:text-cyan-600 transition rounded hover:bg-gray-100"
-                title="Copy to clipboard"
+                title={t("Copy to clipboard")}
               >
                 <Copy className="w-4 h-4" />
               </button>
@@ -329,7 +330,7 @@ const EmployeeViewPage: React.FC = () => {
         <p>{address.line1}</p>
         {address.line2 && <p>{address.line2}</p>}
         <p>{address.city}, {address.state}</p>
-        <p>Postal Code: {address.postalCode}</p>
+        <p>{t("Postal Code:")} {address.postalCode}</p>
         <p className="font-medium text-gray-700">{address.country}</p>
       </div>
     </div>
@@ -349,7 +350,7 @@ const EmployeeViewPage: React.FC = () => {
                 type="button"
                 onClick={() => navigate("/employeeRecords")}
                 className="h-10 w-10 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl inline-flex items-center justify-center text-gray-600 transition-colors shadow-2xs shrink-0"
-                title="Back to Employee Records"
+                title={t("Back to Employee Records")}
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
@@ -367,7 +368,7 @@ const EmployeeViewPage: React.FC = () => {
                     : "bg-red-100 text-red-700"
                     }`}>
                     {employee.active ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                    {employee.active ? "Active" : "Inactive"}
+                    {t(employee.active ? "Active" : "Inactive")}
                   </span>
                 </div>
               </div>
@@ -379,7 +380,7 @@ const EmployeeViewPage: React.FC = () => {
                 className="h-10 px-4 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 !text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200 focus:outline-none shrink-0"
               >
                 <Edit className="w-4 h-4 !text-white shrink-0" />
-                <span className="!text-white whitespace-nowrap">Edit Employee</span>
+                <span className="!text-white whitespace-nowrap">{t("Edit Employee")}</span>
               </button>)}
               <button
                 type="button"
@@ -390,7 +391,7 @@ const EmployeeViewPage: React.FC = () => {
                   }`}
               >
                 {employee.active ? <UserX className="w-4 h-4 shrink-0" /> : <UserCheck className="w-4 h-4 shrink-0" />}
-                <span className="whitespace-nowrap">{employee.active ? "Deactivate" : "Activate"}</span>
+                <span className="whitespace-nowrap">{t(employee.active ? "Deactivate" : "Activate")}</span>
               </button>
             </div>
           </div>
@@ -402,7 +403,7 @@ const EmployeeViewPage: React.FC = () => {
           <div className="lg:col-span-1 space-y-4">
             {/* Personal Information */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={User} title="Personal Information" section="personal" />
+              <SectionHeader icon={User} title={t("Personal Information")} section="personal" />
               <AnimatePresence>
                 {expandedSections.personal && (
                   <motion.div
@@ -412,24 +413,24 @@ const EmployeeViewPage: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="px-4 pb-4"
                   >
-                    <InfoRow label="First Name" value={employee.firstName} />
-                    <InfoRow label="Last Name" value={employee.lastName} />
-                    <InfoRow label="Date of Birth" value={formatDate(employee.dateOfBirth)} />
-                    <InfoRow label="Gender" value={employee.gender} />
-                    <InfoRow label="Marital Status" value={employee.maritalStatus} />
-                    <InfoRow label="Father's Name" value={employee.fatherName || "N/A"} />
+                    <InfoRow label={t("First Name")} value={employee.firstName} />
+                    <InfoRow label={t("Last Name")} value={employee.lastName} />
+                    <InfoRow label={t("Date of Birth")} value={formatDate(employee.dateOfBirth)} />
+                    <InfoRow label={t("Gender")} value={employee.gender} />
+                    <InfoRow label={t("Marital Status")} value={employee.maritalStatus} />
+                    <InfoRow label={t("Father's Name")} value={employee.fatherName || "N/A"} />
                     <InfoRow
-                      label="Personal Email"
+                      label={t("Personal Email")}
                       value={employee.personalEmail}
                       copyable
                     />
                     <InfoRow
-                      label="Official Email"
+                      label={t("Official Email")}
                       value={employee.officialEmail}
                       copyable
                     />
                     <InfoRow
-                      label="Phone Number"
+                      label={t("Phone Number")}
                       value={employee.phone}
                       copyable
                     />
@@ -440,7 +441,7 @@ const EmployeeViewPage: React.FC = () => {
 
             {/* Employment Information */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={Briefcase} title="Employment Details" section="employment" />
+              <SectionHeader icon={Briefcase} title={t("Employment Details")} section="employment" />
               <AnimatePresence>
                 {expandedSections.employment && (
                   <motion.div
@@ -450,16 +451,16 @@ const EmployeeViewPage: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="px-4 pb-4"
                   >
-                    <InfoRow label="Employee Code" value={employee.employeeCode} copyable />
-                    <InfoRow label="Designation" value={employee.designation} />
-                    <InfoRow label="Department" value={employee.department?.name} />
-                    <InfoRow label="Employment Type" value={employee.employmentType} />
-                    <InfoRow label="Location" value={employee.location} />
-                    <InfoRow label="Joining Date" value={formatDate(employee.joiningDate)} />
-                    {employee.exitDate && <InfoRow label="Exit Date" value={formatDate(employee.exitDate)} />}
+                    <InfoRow label={t("Employee Code")} value={employee.employeeCode} copyable />
+                    <InfoRow label={t("Designation")} value={employee.designation} />
+                    <InfoRow label={t("Department")} value={employee.department?.name} />
+                    <InfoRow label={t("Employment Type")} value={employee.employmentType} />
+                    <InfoRow label={t("Location")} value={employee.location} />
+                    <InfoRow label={t("Joining Date")} value={formatDate(employee.joiningDate)} />
+                    {employee.exitDate && <InfoRow label={t("Exit Date")} value={formatDate(employee.exitDate)} />}
                     {employee.userDto?.roles && employee.userDto.roles.length > 0 && (
                       <InfoRow
-                        label="Roles"
+                        label={t("Roles")}
                         value={employee.userDto.roles.map(r => r.role.roleName).join(", ")}
                       />
                     )}
@@ -470,7 +471,7 @@ const EmployeeViewPage: React.FC = () => {
 
             {/* Permanent Address */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={Home} title="Permanent Address" section="permanentAddress" />
+              <SectionHeader icon={Home} title={t("Permanent Address")} section="permanentAddress" />
               <AnimatePresence>
                 {expandedSections.permanentAddress && (
                   <motion.div
@@ -480,7 +481,7 @@ const EmployeeViewPage: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="px-4 pb-4"
                   >
-                    <AddressCard title="Permanent Address" address={employee.permanentAddress} />
+                    <AddressCard title={t("Permanent Address")} address={employee.permanentAddress} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -488,7 +489,7 @@ const EmployeeViewPage: React.FC = () => {
 
             {/* Current Address */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={MapPinned} title="Current Address" section="currentAddress" />
+              <SectionHeader icon={MapPinned} title={t("Current Address")} section="currentAddress" />
               <AnimatePresence>
                 {expandedSections.currentAddress && (
                   <motion.div
@@ -498,7 +499,7 @@ const EmployeeViewPage: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="px-4 pb-4"
                   >
-                    <AddressCard title="Current Address" address={employee.currentAddress} />
+                    <AddressCard title={t("Current Address")} address={employee.currentAddress} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -509,7 +510,7 @@ const EmployeeViewPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             {/* Banking Information */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={CreditCard} title="Banking Information" section="banking" />
+              <SectionHeader icon={CreditCard} title={t("Banking Information")} section="banking" />
               <AnimatePresence>
                 {expandedSections.banking && (
                   <motion.div
@@ -521,9 +522,9 @@ const EmployeeViewPage: React.FC = () => {
                   >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-3">
-                        <InfoRow label="Bank Name" value={employee.bankName} />
+                        <InfoRow label={t("Bank Name")} value={employee.bankName} />
                         <InfoRow
-                          label="Account Number"
+                          label={t("Account Number")}
                           value={employee.bankAccountNumber}
                           sensitive
                           sensitiveField="account"
@@ -532,8 +533,8 @@ const EmployeeViewPage: React.FC = () => {
                         />
                       </div>
                       <div className="space-y-3">
-                        <InfoRow label="IFSC Code" value={employee.ifscCode} copyable />
-                        <InfoRow label="Branch" value={(employee as any).bankBranch || (employee as any).branch || employee.location} />
+                        <InfoRow label={t("IFSC Code")} value={employee.ifscCode} copyable />
+                        <InfoRow label={t("Branch")} value={(employee as any).bankBranch || (employee as any).branch || employee.location} />
                       </div>
                     </div>
                   </motion.div>
@@ -543,7 +544,7 @@ const EmployeeViewPage: React.FC = () => {
 
             {/* Compliance (India-specific) */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={Shield} title="Statutory Compliance" section="compliance" badge="India-specific" />
+              <SectionHeader icon={Shield} title={t("Statutory Compliance")} section="compliance" badge="India-specific" />
               <AnimatePresence>
                 {expandedSections.compliance && (
                   <motion.div
@@ -556,7 +557,7 @@ const EmployeeViewPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-3">
                         <InfoRow
-                          label="PAN Number"
+                          label={t("PAN Number")}
                           value={employee.countrySpecificData?.pan}
                           sensitive
                           sensitiveField="pan"
@@ -564,7 +565,7 @@ const EmployeeViewPage: React.FC = () => {
                           copyable
                         />
                         <InfoRow
-                          label="Aadhaar Number"
+                          label={t("Aadhaar Number")}
                           value={employee.countrySpecificData?.aadhaar}
                           sensitive
                           sensitiveField="aadhaar"
@@ -573,24 +574,24 @@ const EmployeeViewPage: React.FC = () => {
                         />
                       </div>
                       <div className="space-y-3">
-                        <InfoRow label="UAN" value={employee.salary?.countrySpecificData?.uan} copyable />
-                        <InfoRow label="PF Number" value={employee.salary?.countrySpecificData?.pf_number} copyable />
+                        <InfoRow label={t("UAN")} value={employee.salary?.countrySpecificData?.uan} copyable />
+                        <InfoRow label={t("PF Number")} value={employee.salary?.countrySpecificData?.pf_number} copyable />
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100">
-                          <span className="text-sm text-gray-500">Metro City</span>
+                          <span className="text-sm text-gray-500">{t("Metro City")}</span>
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${employee.salary?.countrySpecificData?.isMetrocity
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-500"
                             }`}>
-                            {employee.salary?.countrySpecificData?.isMetrocity ? "Yes" : "No"}
+                            {t(employee.salary?.countrySpecificData?.isMetrocity ? "Yes" : "No")}
                           </span>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100">
-                          <span className="text-sm text-gray-500">ESI Applicable</span>
+                          <span className="text-sm text-gray-500">{t("ESI Applicable")}</span>
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${employee.salary?.countrySpecificData?.esi_applicable
                             ? "bg-green-100 text-green-700"
                             : "bg-gray-100 text-gray-500"
                             }`}>
-                            {employee.salary?.countrySpecificData?.esi_applicable ? "Yes" : "No"}
+                            {t(employee.salary?.countrySpecificData?.esi_applicable ? "Yes" : "No")}
                           </span>
                         </div>
                       </div>
@@ -602,7 +603,7 @@ const EmployeeViewPage: React.FC = () => {
 
             {/* Salary Overview */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <SectionHeader icon={DollarSign} title="Salary Overview" section="salary" />
+              <SectionHeader icon={DollarSign} title={t("Salary Overview")} section="salary" />
               <AnimatePresence>
                 {expandedSections.salary && (
                   <motion.div
@@ -614,13 +615,13 @@ const EmployeeViewPage: React.FC = () => {
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl p-4 text-center">
-                        <span className="text-sm text-cyan-700">Total CTC</span>
+                        <span className="text-sm text-cyan-700">{t("Total CTC")}</span>
                         <h2 className="text-2xl font-bold text-cyan-900">
                           {currencySymbol} {formatNumber(employee.salary?.ctc)}
                         </h2>
                       </div>
                       <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center">
-                        <span className="text-sm text-purple-700">Gross Salary (Annual)</span>
+                        <span className="text-sm text-purple-700">{t("Gross Salary (Annual)")}</span>
                         <h2 className="text-2xl font-bold text-purple-900">
                           {currencySymbol} {formatNumber((totalEarnings + totalBenefits))}
                         </h2>
@@ -630,7 +631,7 @@ const EmployeeViewPage: React.FC = () => {
                     <div className="mb-6">
                       <div className="flex items-center gap-2 mb-3">
                         <TrendingUp className="w-4 h-4 text-green-600" />
-                        <h4 className="text-sm font-semibold text-gray-900">Earnings Breakdown</h4>
+                        <h4 className="text-sm font-semibold text-gray-900">{t("Earnings Breakdown")}</h4>
                       </div>
                       <div className="space-y-2">
                         {employee.salary?.earnings && Object.entries(employee.salary.earnings).map(([name, amount]) => (
@@ -640,7 +641,7 @@ const EmployeeViewPage: React.FC = () => {
                           </div>
                         ))}
                         {(!employee.salary?.earnings || Object.keys(employee.salary.earnings).length === 0) && (
-                          <div className="text-sm text-gray-500 italic">No earnings configured</div>
+                          <div className="text-sm text-gray-500 italic">{t("No earnings configured")}</div>
                         )}
                       </div>
                     </div>
@@ -648,7 +649,7 @@ const EmployeeViewPage: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Gift className="w-4 h-4 text-cyan-600" />
-                        <h4 className="text-sm font-semibold text-gray-900">Additional Benefits</h4>
+                        <h4 className="text-sm font-semibold text-gray-900">{t("Additional Benefits")}</h4>
                       </div>
                       <div className="space-y-2">
                         {employee.salary?.additionalBenefits && Object.entries(employee.salary.additionalBenefits).map(([name, amount]) => (
@@ -658,7 +659,7 @@ const EmployeeViewPage: React.FC = () => {
                           </div>
                         ))}
                         {(!employee.salary?.additionalBenefits || Object.keys(employee.salary.additionalBenefits).length === 0) && (
-                          <div className="text-sm text-gray-500 italic">No additional benefits configured</div>
+                          <div className="text-sm text-gray-500 italic">{t("No additional benefits configured")}</div>
                         )}
                       </div>
                     </div>
@@ -667,9 +668,9 @@ const EmployeeViewPage: React.FC = () => {
                       <div className="mt-6">
                         <div className="flex items-center gap-2 mb-1">
                           <TrendingUp className="w-4 h-4 text-violet-600" />
-                          <h4 className="text-sm font-semibold text-gray-900">Variable Pay</h4>
+                          <h4 className="text-sm font-semibold text-gray-900">{t("Variable Pay")}</h4>
                         </div>
-                        <p className="mb-2 text-[11px] text-gray-500">Yearly targets on top of the fixed CTC; not paid through payroll runs.</p>
+                        <p className="mb-2 text-[11px] text-gray-500">{t("Yearly targets on top of the fixed CTC; not paid through payroll runs.")}</p>
                         <div className="space-y-2">
                           {Object.entries(employee.salary.variablePayStructure).map(([name, v]) => (
                             <div key={name} className="flex justify-between py-2 border-b border-gray-100">
@@ -681,7 +682,7 @@ const EmployeeViewPage: React.FC = () => {
                             </div>
                           ))}
                           <div className="flex justify-between py-2 text-sm font-semibold text-gray-900">
-                            <span>CTC incl. variable</span>
+                            <span>{t("CTC incl. variable")}</span>
                             <span>
                               {currencySymbol} {formatNumber((Number(employee.salary?.ctc ?? 0) + Number(employee.salary?.totalTargetVariablePay ?? 0)))}
                             </span>
@@ -706,7 +707,7 @@ const EmployeeViewPage: React.FC = () => {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-cyan-600" />
-              Management & Operations
+              {t("Management & Operations")}
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {[
