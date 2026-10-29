@@ -588,6 +588,13 @@ const Invoices: React.FC = () => {
             <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-900"><dt>Total</dt><dd>{money(selected.grandTotal, selected.currencyCode)}</dd></div>
             <div className="flex justify-between"><dt className="text-slate-500">Paid</dt><dd>{money(selected.amountPaid, selected.currencyCode)}</dd></div>
             <div className="flex justify-between font-semibold text-cyan-700"><dt>Balance due</dt><dd>{money(selected.balanceAmount, selected.currencyCode)}</dd></div>
+            {/* In another currency: the rate it was booked at, and the total in the company's money */}
+            {selected.exchangeRate != null && selected.currencyCode && selected.currencyCode !== companyCurrency() && (
+              <div className="flex justify-between border-t border-slate-100 pt-1 text-xs text-slate-500">
+                <dt>Booked at 1 {selected.currencyCode} = {Number(selected.exchangeRate)} {companyCurrency()}</dt>
+                <dd>{money(Number(selected.grandTotal || 0) * Number(selected.exchangeRate), companyCurrency())}</dd>
+              </div>
+            )}
             {selected.lastReminderOn && (
               <div className="flex justify-between border-t border-slate-100 pt-1 text-xs text-slate-500">
                 <dt>Last payment reminder</dt>

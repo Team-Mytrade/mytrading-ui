@@ -253,6 +253,7 @@ export const navItems: NavItem[] = [
       { name: "Tax Records", path: "/taxRecords", icon: Percent, section: "Accounting" },
       { name: "Chart of Accounts", path: "/generalAccounts", icon: Landmark, section: "Set-up" },
       { name: "Posting Accounts", path: "/postingAccounts", icon: BookmarkCheck, section: "Set-up" },
+      { name: "Exchange Rates", path: "/exchangeRates", icon: Coins, section: "Set-up" },
     ],
   },
 

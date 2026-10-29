@@ -25,6 +25,7 @@ import {
   todayInput,
 } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
+import { companyCurrency } from "../../company/format";
 
 const API_URL = `${INVOICE_API}/journal-entries`;
 const PAGE_SIZE = 10;
@@ -52,6 +53,8 @@ const JournalEntries: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [viewing, setViewing] = useState<JournalEntry | null>(null);
+  // A document in another currency: its own amounts are shown under each line
+  const foreign = !!viewing?.currency && viewing.currency !== companyCurrency() && viewing.exchangeRate != null;
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<JournalEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -327,6 +330,12 @@ const JournalEntries: React.FC = () => {
           viewing ? (
             <div className="space-y-3 px-4 py-4 sm:px-5">
               {viewing.description && <p className="text-sm text-slate-700">{viewing.description}</p>}
+              {foreign && (
+                <p className="text-xs text-slate-500">
+                  A {viewing.currency} document booked at 1 {viewing.currency} = {Number(viewing.exchangeRate)} {companyCurrency()};
+                  amounts are in {companyCurrency()}, the document's own under each line.
+                </p>
+              )}
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full min-w-[560px] text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -341,7 +350,12 @@ const JournalEntries: React.FC = () => {
                     {(viewing.entries ?? []).map((line, index) => (
                       <tr key={line.id ?? index}>
                         <td className="px-3 py-2 font-medium text-slate-800">{accountLabel({ accountCode: line.accountCode ?? "", accountName: line.accountName ?? "" })}</td>
-                        <td className="px-3 py-2 text-slate-600">{line.narration || "—"}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {line.narration || "—"}
+                          {foreign && line.currencyAmount != null && (
+                            <span className="block text-xs text-slate-400">{money(Math.abs(Number(line.currencyAmount)), viewing.currency)}</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-right">{Number(line.debit) ? money(line.debit) : ""}</td>
                         <td className="px-3 py-2 text-right">{Number(line.credit) ? money(line.credit) : ""}</td>
                       </tr>

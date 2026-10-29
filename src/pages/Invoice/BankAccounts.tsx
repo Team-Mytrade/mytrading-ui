@@ -167,7 +167,15 @@ const BankAccounts: React.FC = () => {
       sortable: true,
       headerClassName: "text-right",
       className: "text-right",
-      render: (a) => <span className="text-sm font-medium text-slate-800">{money(a.bookBalance, a.currency)}</span>,
+      // In the account's own money; an account in another currency also shows what it is worth in the books
+      render: (a) => (
+        <span className="text-sm font-medium text-slate-800">
+          {money(a.balanceInCurrency ?? a.bookBalance, a.currency)}
+          {a.currency && a.currency !== companyCurrency() && (
+            <span className="block text-xs font-normal text-slate-500">{money(a.bookBalance, companyCurrency())}</span>
+          )}
+        </span>
+      ),
     },
     {
       key: "active",

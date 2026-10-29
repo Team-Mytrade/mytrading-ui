@@ -8,6 +8,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { hasPermission } from "../../access/access";
 import { GeneralAccount, INVOICE_API, accountLabel, apiError } from "./invoiceShared";
 import { CARD, CARD_TITLE, PAGE_BODY, TOOL_BUTTON } from "../Payroll/hrmsUi";
+import PeriodLockCard from "./PeriodLockCard";
 
 interface PostingAccountView {
   role: string;
@@ -27,6 +28,8 @@ interface BackfillResult {
   bills: number;
   vendorPayments: number;
   debitNotes: number;
+  // Dated in a locked period: left unposted
+  lockedSkipped?: number;
 }
 
 // What each role is used for, in the order of the documents' flow
@@ -34,10 +37,11 @@ const USED_FOR: Record<string, string> = {
   RECEIVABLES: "What customers owe: sales invoices, receipts, credit notes.",
   SALES: "Sales invoices (before tax).",
   SALES_RETURNS: "Credit notes (before tax).",
+  EXCHANGE_DIFFERENCES: "Gains and losses when a foreign-currency invoice or bill is settled at a different rate.",
   OUTPUT_TAX: "VAT / GST charged on sales, and reverse-charge VAT on purchases.",
   CUSTOMER_CREDIT: "Advances, overpayments and credit notes kept for customers.",
-  CASH: "Receipts and payments made in cash.",
-  BANK: "Receipts and payments by bank transfer, cheque or card.",
+  CASH: "Receipts and payments made in cash, when no cash box is set up in Bank & Cash.",
+  BANK: "Receipts and payments by bank transfer, cheque or card, when no bank account is set up in Bank & Cash.",
   PAYABLES: "What the company owes vendors: bills, payments, debit notes.",
   INPUT_TAX: "VAT / GST paid on bills, reclaimable.",
   GOODS_RECEIVED_NOT_BILLED: "Goods received into stock until their bill is recorded (cleared by bills and debit notes).",
@@ -112,7 +116,8 @@ export default function PostingAccounts() {
     try {
       const { data } = await axios.post<BackfillResult>(`${INVOICE_API}/accounting/backfill`);
       ToasterService.success("Earlier documents posted",
-        `${data.invoices} invoice(s), ${data.receipts} receipt(s), ${data.creditNotes} credit note(s), ${data.bills} bill(s), ${data.vendorPayments} vendor payment(s), ${data.debitNotes} debit note(s) checked.`);
+        `${data.invoices} invoice(s), ${data.receipts} receipt(s), ${data.creditNotes} credit note(s), ${data.bills} bill(s), ${data.vendorPayments} vendor payment(s), ${data.debitNotes} debit note(s) checked.`
+          + (data.lockedSkipped ? ` ${data.lockedSkipped} dated in the locked period were left out.` : ""));
     } catch (err) {
       ToasterService.error(apiError(err, "Could not post the earlier documents"));
     } finally {
@@ -132,6 +137,7 @@ export default function PostingAccounts() {
         ) : undefined}
       />
       <div className={PAGE_BODY}>
+        <PeriodLockCard editable={editable} />
         <section className={`${CARD} p-5`}>
           <h3 className={`${CARD_TITLE} mb-2 flex items-center gap-2`}>
             <BookOpenIcon className="h-4 w-4 text-cyan-600" /> Automatic postings
