@@ -18,7 +18,6 @@ import PageMeta from "../../components/common/PageMeta";
 import PaginatedPopup from "../../components/common/unpopup";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import { ListingPdfExportButton } from "../../components/common/export";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
@@ -67,6 +66,60 @@ const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 const PRODUCT_API_URL = "/v1/api/common/products";
 const PAGE_SIZE = 10;
 
+// A plain modal for views that have nothing to save (the form popup would add
+// Save / Previous buttons and "1 of 1").
+const InfoModal: React.FC<{
+  open: boolean;
+  title: string;
+  subtitle?: string;
+  maxWidthClassName?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}> = ({ open, title, subtitle, maxWidthClassName = "max-w-2xl", onClose, children }) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose} role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`w-full ${maxWidthClassName} rounded-2xl bg-white shadow-xl dark:bg-slate-900`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
+            {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+            aria-label="Close"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">{children}</div>
+        <div className="flex justify-end border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
@@ -76,15 +129,20 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function productLabel(product?: ProductOption, productId?: number): string {
-  if (!product) return `Product #${productId ?? "?"}`;
-  const name = product.productName || `Product #${product.id}`;
-  return product.productCode ? `${name} (${product.productCode})` : name;
+// Product name only; the code is shown separately where there is room.
+function productLabel(product?: ProductOption): string {
+  return product?.productName || product?.productCode || "Unknown product";
+}
+
+// Dropdowns need the code to tell similar names apart.
+function productOptionLabel(product: ProductOption): string {
+  const name = productLabel(product);
+  return product.productCode && product.productName ? `${name} (${product.productCode})` : name;
 }
 
 function warehouseLabel(warehouse?: Warehouse | null): string {
   if (!warehouse) return "--";
-  return warehouse.name || warehouse.code || `Warehouse #${warehouse.id}`;
+  return warehouse.name || warehouse.code || "--";
 }
 
 const num = (value: unknown) => Number(value || 0);
@@ -178,7 +236,7 @@ const InventoryStockManager: React.FC = () => {
   };
 
   const productById = useMemo(() => new Map(products.map((p) => [Number(p.id), p])), [products]);
-  const productName = (productId: number) => productLabel(productById.get(Number(productId)), productId);
+  const productName = (productId: number) => productLabel(productById.get(Number(productId)));
 
   const visibleStocks = useMemo(
     () =>
@@ -261,7 +319,7 @@ const InventoryStockManager: React.FC = () => {
     [stocks, selectedProductForStock]
   );
 
-  const productOptions = products.map((p) => ({ id: String(p.id), name: productLabel(p) }));
+  const productOptions = products.map((p) => ({ id: String(p.id), name: productOptionLabel(p) }));
   const warehouseOptions = warehouses.map((w) => ({ id: String(w.id), name: warehouseLabel(w) }));
 
   const columns: ColumnDef<StockRecord>[] = [
@@ -271,14 +329,24 @@ const InventoryStockManager: React.FC = () => {
       sortable: true,
       render: (stock) => (
         <button
-          className="flex items-center gap-2 text-left text-sm text-slate-700 transition-colors hover:text-cyan-600"
-          onClick={() => {
+          type="button"
+          className="flex max-w-[220px] items-center gap-2 text-left text-sm text-slate-700 transition-colors hover:text-cyan-600 dark:text-slate-300 dark:hover:text-cyan-400"
+          onClick={(e) => {
+            e.stopPropagation();
             setSelectedProductForStock(Number(stock.productId));
             setShowProductStockModal(true);
           }}
+          title="View this product in all warehouses"
         >
           <CubeIcon className="h-4 w-4 shrink-0 text-slate-400" />
-          <span>{productName(stock.productId)}</span>
+          <div className="min-w-0">
+            <p className="truncate">{productName(stock.productId)}</p>
+            {productById.get(Number(stock.productId))?.productCode && (
+              <p className="truncate text-xs text-slate-400">
+                {productById.get(Number(stock.productId))?.productCode}
+              </p>
+            )}
+          </div>
         </button>
       ),
     },
@@ -288,13 +356,25 @@ const InventoryStockManager: React.FC = () => {
       sortable: false,
       render: (stock) => (
         <button
-          className="flex items-center gap-2 text-sm text-slate-700 transition-colors hover:text-cyan-600"
-          onClick={() => stock.warehouse?.id && navigate(`/warehouse?warehouseId=${stock.warehouse.id}`)}
+          type="button"
+          className="flex max-w-[220px] items-center gap-2 text-left text-sm text-slate-700 transition-colors hover:text-cyan-600 dark:text-slate-300 dark:hover:text-cyan-400"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (stock.warehouse?.id) {
+              navigate(
+                `/warehouse?warehouseId=${stock.warehouse.id}&warehouseName=${encodeURIComponent(
+                  warehouseLabel(stock.warehouse)
+                )}`
+              );
+            }
+          }}
         >
-          <BuildingOffice2Icon className="h-4 w-4 text-slate-400" />
-          <div className="text-left">
-            <p>{warehouseLabel(stock.warehouse)}</p>
-            {stock.warehouse?.code && <p className="text-xs text-slate-400">{stock.warehouse.code}</p>}
+          <BuildingOffice2Icon className="h-4 w-4 shrink-0 text-slate-400" />
+          <div className="min-w-0">
+            <p className="truncate">{warehouseLabel(stock.warehouse)}</p>
+            {stock.warehouse?.code && stock.warehouse?.name && (
+              <p className="truncate text-xs text-slate-400">{stock.warehouse.code}</p>
+            )}
           </div>
         </button>
       ),
@@ -305,11 +385,13 @@ const InventoryStockManager: React.FC = () => {
       sortable: true,
       render: (stock) => (
         <button
-          className="text-sm font-semibold text-slate-800 transition-colors hover:text-cyan-600 hover:underline"
-          title="View stock movements"
-          onClick={() =>
-            navigate(`/stock-movement?productId=${stock.productId}&warehouseId=${stock.warehouse?.id ?? ""}`)
-          }
+          type="button"
+          className="text-sm font-semibold text-slate-800 transition-colors hover:text-cyan-600 hover:underline dark:text-slate-200 dark:hover:text-cyan-400"
+          title="View stock movements for this product and warehouse"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/stock-movement?productId=${stock.productId}&warehouseId=${stock.warehouse?.id ?? ""}`);
+          }}
         >
           {num(stock.quantity)}
         </button>
@@ -340,7 +422,7 @@ const InventoryStockManager: React.FC = () => {
       render: (stock) => {
         const status = getStockStatus(stock);
         return (
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
+          <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
             {status.icon}
             {status.label}
           </span>
@@ -375,7 +457,7 @@ const InventoryStockManager: React.FC = () => {
       <PageMeta title="Inventory Stock" description="Stock on hand per product and warehouse" />
       <PageBreadcrumb
         pageTitle="Inventory Stock"
-        actions={<AddButton onClick={() => navigate("/stock-movement")} label="Receive Stock" />}
+        actions={<AddButton onClick={() => navigate("/stock-movement?action=receive")} label="Receive Stock" />}
       />
 
       <div className="w-full max-w-none px-0 py-8">
@@ -478,10 +560,10 @@ const InventoryStockManager: React.FC = () => {
               {!lowOnly && (
                 <button
                   type="button"
-                  onClick={() => navigate("/stock-movement")}
+                  onClick={() => navigate("/stock-movement?action=receive")}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700"
                 >
-                  Receive stock on the Stock Movement screen
+                  Receive stock
                 </button>
               )}
             </div>
@@ -517,22 +599,18 @@ const InventoryStockManager: React.FC = () => {
       />
 
       {/* Stock Availability Check */}
-      <PaginatedPopup
-        isOpen={showAvailabilityModal}
+      <InfoModal
+        open={showAvailabilityModal}
         title="Check Stock Availability"
         subtitle="Is enough free stock of a product available in a warehouse?"
+        maxWidthClassName="max-w-2xl"
         onClose={() => {
           setShowAvailabilityModal(false);
           setAvailabilityCheck(null);
           setAvailabilityForm({ productId: "", warehouseId: "", requiredQty: "" });
         }}
-        submitting={false}
-        maxWidthClassName="max-w-2xl"
-        tabs={[
-          {
-            label: "Availability Check",
-            fields: [
-              <div key="availability" className="space-y-4">
+      >
+              <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <FloatingSelect
                     label="Product"
@@ -552,6 +630,7 @@ const InventoryStockManager: React.FC = () => {
                     label="Required Quantity"
                     name="requiredQty"
                     type="number"
+                    min={1}
                     value={availabilityForm.requiredQty}
                     onChange={(e) => setAvailabilityForm({ ...availabilityForm, requiredQty: e.target.value })}
                   />
@@ -561,7 +640,11 @@ const InventoryStockManager: React.FC = () => {
                   type="button"
                   onClick={handleAvailabilityCheck}
                   className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!availabilityForm.productId || !availabilityForm.warehouseId || !availabilityForm.requiredQty}
+                  disabled={
+                    !availabilityForm.productId ||
+                    !availabilityForm.warehouseId ||
+                    !(Number(availabilityForm.requiredQty) > 0)
+                  }
                 >
                   Check Availability
                 </button>
@@ -592,28 +675,21 @@ const InventoryStockManager: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </div>,
-            ],
-          },
-        ]}
-      />
+              </div>
+      </InfoModal>
 
       {/* Product Stock Summary */}
-      <PaginatedPopup
-        isOpen={showProductStockModal}
+      <InfoModal
+        open={showProductStockModal}
         title="Product Stock Summary"
         subtitle="Stock of one product across all warehouses"
+        maxWidthClassName="max-w-4xl"
         onClose={() => {
           setShowProductStockModal(false);
           setSelectedProductForStock(null);
         }}
-        submitting={false}
-        maxWidthClassName="max-w-4xl"
-        tabs={[
-          {
-            label: "Stock Summary",
-            fields: [
-              <div key="summary" className="space-y-4">
+      >
+              <div className="space-y-4">
                 <FloatingSelect
                   label="Select Product"
                   name="productId"
@@ -676,11 +752,8 @@ const InventoryStockManager: React.FC = () => {
                     <p>This product is not in stock in any warehouse</p>
                   </div>
                 )}
-              </div>,
-            ],
-          },
-        ]}
-      />
+              </div>
+      </InfoModal>
     </>
   );
 };

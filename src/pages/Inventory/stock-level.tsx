@@ -169,7 +169,7 @@ function getWarehouseId(stock: StockLevel): number | undefined {
 function getProductName(stock: StockLevel, products: Product[]) {
   const id = getProductId(stock);
   const product = products.find((p) => p.id === id);
-  return product ? product.productName : "N/A";
+  return product ? product.productName : "Unknown product";
 }
 
 function getProductSku(stock: StockLevel, products: Product[]) {
@@ -306,14 +306,23 @@ const StockLevelsManager: React.FC = () => {
       return;
     }
 
+    // Stock can't be added to or reserved in an inactive warehouse. Taking stock
+    // out (remove, release, complete sale) is still allowed so it can be cleared.
+    const warehouse = warehouses.find((w) => String(w.id) === form.warehouseId);
+    const addsStock = !editingStock || form.operationType === "add-stock" || form.operationType === "reserve";
+    if (warehouse?.active === false && addsStock) {
+      ToasterService.error(
+        "Inactive warehouse",
+        `${warehouse.name || warehouse.code || "This warehouse"} is inactive. Stock can't be added or reserved there.`
+      );
+      return;
+    }
+
     try {
       setSubmitting(true);
 
       if (!editingStock) {
         const payload = {
-          id: 0,
-          createdDate: new Date().toISOString(),
-          updatedDate: new Date().toISOString(),
           quantity,
           reserved: 0,
           available: quantity,
@@ -410,12 +419,19 @@ const StockLevelsManager: React.FC = () => {
     }));
   }, [products]);
 
+  // New stock can only go into an active warehouse. When adjusting an existing
+  // record the warehouse is fixed (disabled), so keep it in the list.
   const warehouseOptions = useMemo(() => {
-    return warehouses.map((warehouse) => ({
-      id: String(warehouse.id),
-      name: warehouse.code ? `${warehouse.name} (${warehouse.code})` : warehouse.name,
-    }));
-  }, [warehouses]);
+    return warehouses
+      .filter((w) => w.active !== false || String(w.id) === form.warehouseId)
+      .map((warehouse) => ({
+        id: String(warehouse.id),
+        name:
+          warehouse.code && warehouse.name
+            ? `${warehouse.name} (${warehouse.code})`
+            : warehouse.name || warehouse.code || "--",
+      }));
+  }, [warehouses, form.warehouseId]);
 
   const operationTypeOptions = useMemo(() => {
     return (Object.keys(STOCK_OPERATIONS) as StockOperation[]).map((key) => ({
