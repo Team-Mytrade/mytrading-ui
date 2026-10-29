@@ -646,6 +646,18 @@ const baseProductConfig: PurchaseResourceConfig = {
       required: true,
       options: TAX_CODES.map((item) => ({ value: item, label: item })),
     },
+    // E-invoices (UAE) classify goods by HS code and services by service accounting code
+    {
+      name: "hsCode", section: "Pricing & Tax",
+      label: "HS code (goods) / SAC (services)",
+      maxLength: 15,
+      placeholder: "e.g. 7318.15",
+      validate: (value) => {
+        const code = String(value ?? "").replace(/[\s.]/g, "");
+        if (!code) return null;
+        return /^\d{4,12}$/.test(code) ? null : "HS / SAC code must be 4 to 12 digits, e.g. 7318.15";
+      },
+    },
     { name: "stockItem", section: "Inventory Tracking", label: "Stock Item", type: "checkbox", defaultValue: true },
     { name: "serviceItem", section: "Inventory Tracking", label: "Service Item", type: "checkbox", defaultValue: false },
     { name: "serialTracking", section: "Inventory Tracking", label: "Serial Tracking", type: "checkbox", defaultValue: false },
@@ -673,6 +685,7 @@ const baseProductConfig: PurchaseResourceConfig = {
     standardCost: 0,
     sellingPrice: 0,
     taxCode: "",
+    hsCode: "",
     stockItem: true,
     serviceItem: false,
     serialTracking: false,
@@ -709,6 +722,7 @@ const baseProductConfig: PurchaseResourceConfig = {
       standardCost: toAmount(form.standardCost),
       sellingPrice: toAmount(form.sellingPrice),
       taxCode: text(form.taxCode),
+      hsCode: text(form.hsCode)?.replace(/[\s.]/g, "") ?? null,
       stockItem,
       serviceItem,
       serialTracking: stockItem && Boolean(form.serialTracking),

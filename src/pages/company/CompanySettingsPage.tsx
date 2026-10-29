@@ -51,6 +51,8 @@ const toForm = (p: CompanyProfile): Form => ({
   weekendDays: p.weekendDays ?? DEFAULT_REGIONAL.weekendDays,
   taxRegime: p.taxRegime || ((p.country || "India").toLowerCase() === "india" ? "GST" : "NONE"),
   taxNumber: p.taxNumber ?? "",
+  tradeLicenseNumber: p.tradeLicenseNumber ?? "",
+  licenseAuthority: p.licenseAuthority ?? "",
 });
 
 const validate = (f: Form): Record<string, string> => {
@@ -63,6 +65,7 @@ const validate = (f: Form): Record<string, string> => {
   }
   // Tax invoices of a VAT-registered company must show its TRN
   if (f.taxRegime === "VAT") errors.taxNumber = vatNumberError(f.taxNumber, f.country);
+  if (f.tradeLicenseNumber?.trim() && !f.licenseAuthority?.trim()) errors.licenseAuthority = "Enter the authority that issued the trade licence";
   errors.email = validateEmail(f.email);
   errors.website = validateWebsite(f.website);
   if (india) {
@@ -257,6 +260,12 @@ export default function CompanySettingsPage() {
                     })}
                     {form.taxRegime === "GST" && field("gstin", "GSTIN", { maxLength: 15, placeholder: "e.g. 29ABCDE1234F1ZW", style: { textTransform: "uppercase" } })}
                     {form.taxRegime === "GST" && field("pan", "PAN", { maxLength: 10, placeholder: "Filled from the GSTIN if left empty", style: { textTransform: "uppercase" } })}
+                    {/* UAE e-invoices identify the seller by its trade licence and the authority that issued it */}
+                    {!india && field("tradeLicenseNumber", "Trade licence number", { maxLength: 50 })}
+                    {!india && field("licenseAuthority", "Issued by", {
+                      maxLength: 150,
+                      placeholder: findCountry(form.country)?.isoCode === "AE" ? "e.g. Dubai Department of Economy and Tourism" : "Licensing authority",
+                    })}
                   </div>
                 </section>
 

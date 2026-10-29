@@ -34,6 +34,9 @@ export interface CompanyProfile {
   taxRegime?: TaxRegime;
   // VAT registration number (TRN); GST companies use gstin
   taxNumber?: string | null;
+  // Commercial / trade licence and who issued it (UAE e-invoices identify the seller by them)
+  tradeLicenseNumber?: string | null;
+  licenseAuthority?: string | null;
   hasLogo: boolean;
   updatedDate?: string | null;
   // The signed-in user may change these details
