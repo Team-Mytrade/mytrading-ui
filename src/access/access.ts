@@ -186,6 +186,7 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/bankAccounts", "INVOICE"],
   ["/exchangeRates", "INVOICE"],
   ["/zatca", "INVOICE"],
+  ["/uae-einvoicing", "INVOICE"],
   ["/expenseRevenue", "INVOICE"],
   ["/accountsReceivable", "INVOICE"],
   ["/taxReport", "INVOICE"],
