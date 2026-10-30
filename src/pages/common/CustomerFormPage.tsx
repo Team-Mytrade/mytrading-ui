@@ -24,6 +24,9 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../componen
 import { CUSTOMER_TYPE_OPTIONS, apiError } from "../CRM/crmShared";
 import { formatMoney } from "../Dashboard/dashboardKit";
 import { companyCurrency, currencyChoices } from "../../company/format";
+import { useCompany } from "../../company/companyApi";
+import { addressStyle, regionalAddressErrors, regionalAddressLines } from "../../company/regionalAddress";
+import RegionalAddressFields from "../../components/common/RegionalAddressFields";
 
 import { language, t } from "../../i18n/i18n";
 // Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
@@ -167,11 +170,15 @@ const validate = (form: CustomerForm): Errors => {
   return errors;
 };
 
-const validateAddress = (address: Address): Partial<Record<keyof Address, string>> => {
-  const errors: Partial<Record<keyof Address, string>> = {};
-  if (!address.addressLine1.trim()) errors.addressLine1 = "Address is required";
-  if (!address.city.trim()) errors.city = "City is required";
-  if (!address.state.trim()) errors.state = "State is required";
+const validateAddress = (address: Address): Record<string, string> => {
+  const style = addressStyle(address.country);
+  // UAE: emirate and P.O. Box; Saudi Arabia: the national address (building number, street, district, postal code)
+  const errors: Record<string, string> = style === "OTHER" ? {} : regionalAddressErrors(style, address);
+  if (style === "OTHER") {
+    if (!address.addressLine1.trim()) errors.addressLine1 = "Address is required";
+    if (!address.city.trim()) errors.city = "City is required";
+    if (!address.state.trim()) errors.state = "State is required";
+  }
   if (!address.country.trim()) errors.country = "Country is required";
   return errors;
 };
@@ -225,7 +232,9 @@ const CustomerFormPage: React.FC = () => {
 
   // Address being added (index = null) or edited (index = position)
   const [addressDraft, setAddressDraft] = useState<{ index: number | null; value: Address } | null>(null);
-  const [addressErrors, setAddressErrors] = useState<Partial<Record<keyof Address, string>>>({});
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  // New addresses start in the company's own country
+  const { company } = useCompany();
 
   const isDirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initialForm), [form, initialForm]);
 
@@ -295,7 +304,9 @@ const CustomerFormPage: React.FC = () => {
     setAddressErrors({});
     setAddressDraft({
       index,
-      value: index === null ? { ...EMPTY_ADDRESS, defaultAddress: form.addresses.length === 0 } : { ...form.addresses[index] },
+      value: index === null
+        ? { ...EMPTY_ADDRESS, country: company?.country || EMPTY_ADDRESS.country, defaultAddress: form.addresses.length === 0 }
+        : { ...form.addresses[index] },
     });
   };
 
@@ -561,42 +572,7 @@ const CustomerFormPage: React.FC = () => {
                         options={ADDRESS_TYPES.map((t) => ({ id: t.id, name: t.name }))}
                         includeEmptyOption={false}
                       />
-                      <div className="hidden md:block" />
-                      <div className="md:col-span-2">
-                        <FloatingInput
-                          label={t("Address line 1")}
-                          required
-                          value={addressDraft.value.addressLine1}
-                          error={addressErrors.addressLine1}
-                          onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine1: e.target.value } })}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <FloatingInput
-                          label={t("Address line 2")}
-                          value={addressDraft.value.addressLine2 ?? ""}
-                          onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine2: e.target.value } })}
-                        />
-                      </div>
-                      <FloatingInput
-                        label={t("City")}
-                        required
-                        value={addressDraft.value.city}
-                        error={addressErrors.city}
-                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, city: e.target.value } })}
-                      />
-                      <FloatingInput
-                        label={t("State")}
-                        required
-                        value={addressDraft.value.state}
-                        error={addressErrors.state}
-                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, state: e.target.value } })}
-                      />
-                      <FloatingInput
-                        label={t("Postal code")}
-                        value={addressDraft.value.postalCode}
-                        onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, postalCode: e.target.value } })}
-                      />
+                      {/* The country first: the UAE and Saudi Arabia have their own address fields */}
                       <FloatingInput
                         label={t("Country")}
                         required
@@ -604,6 +580,57 @@ const CustomerFormPage: React.FC = () => {
                         error={addressErrors.country}
                         onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, country: e.target.value } })}
                       />
+                      {addressStyle(addressDraft.value.country) !== "OTHER" ? (
+                        <RegionalAddressFields
+                          style={addressStyle(addressDraft.value.country) as "AE" | "SA"}
+                          idPrefix="customer-address"
+                          value={addressDraft.value}
+                          errors={addressErrors}
+                          fieldClass="mb-3"
+                          labelClass="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300"
+                          inputClass="h-8 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-xs text-gray-800 outline-none focus:border-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          errorClass="error-text"
+                          onChange={(patch) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, ...patch } })}
+                        />
+                      ) : (
+                        <>
+                          <div className="md:col-span-2">
+                            <FloatingInput
+                              label={t("Address line 1")}
+                              required
+                              value={addressDraft.value.addressLine1}
+                              error={addressErrors.addressLine1}
+                              onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine1: e.target.value } })}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <FloatingInput
+                              label={t("Address line 2")}
+                              value={addressDraft.value.addressLine2 ?? ""}
+                              onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, addressLine2: e.target.value } })}
+                            />
+                          </div>
+                          <FloatingInput
+                            label={t("City")}
+                            required
+                            value={addressDraft.value.city}
+                            error={addressErrors.city}
+                            onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, city: e.target.value } })}
+                          />
+                          <FloatingInput
+                            label={t("State")}
+                            required
+                            value={addressDraft.value.state}
+                            error={addressErrors.state}
+                            onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, state: e.target.value } })}
+                          />
+                          <FloatingInput
+                            label={t("Postal code")}
+                            value={addressDraft.value.postalCode}
+                            onChange={(e) => setAddressDraft({ ...addressDraft, value: { ...addressDraft.value, postalCode: e.target.value } })}
+                          />
+                        </>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -701,12 +728,20 @@ const CustomerFormPage: React.FC = () => {
                               </button>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-800 dark:text-gray-200">{address.addressLine1}</p>
-                          {address.addressLine2 && <p className="text-sm text-gray-600 dark:text-gray-400">{address.addressLine2}</p>}
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {[address.city, address.state, address.postalCode].filter(Boolean).join(", ")}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{address.country}</p>
+                          {addressStyle(address.country) !== "OTHER" ? (
+                            regionalAddressLines(address).map((line, i) => (
+                              <p key={i} className={`text-sm ${i === 0 ? "text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}>{line}</p>
+                            ))
+                          ) : (
+                            <>
+                              <p className="text-sm text-gray-800 dark:text-gray-200">{address.addressLine1}</p>
+                              {address.addressLine2 && <p className="text-sm text-gray-600 dark:text-gray-400">{address.addressLine2}</p>}
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {[address.city, address.state, address.postalCode].filter(Boolean).join(", ")}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{address.country}</p>
+                            </>
+                          )}
                         </div>
                       );
                     })}

@@ -12,6 +12,7 @@ import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
 import { apiError, LEAVE_TYPE_LABELS, leaveTypeLabel } from "./attendanceApi";
+import { LEAVE_POLICY_TEMPLATES, LeavePolicyTemplate, policyFromTemplate } from "./leavePolicyTemplates";
 
 import { t } from "../../i18n/i18n";
 const LEAVE_POLICY_ENDPOINT = '/v1/api/attendance/leave-policies';
@@ -261,6 +262,9 @@ const LeavePolicyPage: React.FC = () => {
             carryForwardAllowed: Boolean(d.carryForwardAllowed),
             maxCarryForward: Number(d.maxCarryForward),
             negativeBalanceAllowed: Boolean(d.allowNegativeBalance),
+            encashmentAllowed: Boolean(d.encashmentAllowed),
+            documentRequired: Boolean(d.documentRequired),
+            minimumServiceMonths: d.minimumServiceMonths ?? null,
             active: true
           }))
         };
@@ -305,8 +309,17 @@ const LeavePolicyPage: React.FC = () => {
 
   const openCreateModal = () => {
     resetForm();
+    setTemplate("STANDARD");
     setEditingPolicy(null);
     setIsModalOpen(true);
+  };
+
+  // A new policy can start from the statutory leave of the UAE or Saudi Arabia
+  const [template, setTemplate] = useState<LeavePolicyTemplate>("STANDARD");
+  const applyTemplate = (value: LeavePolicyTemplate) => {
+    setTemplate(value);
+    setForm(policyFromTemplate(value));
+    setFormErrors({});
   };
 
   const openEditModal = (p: LeavePolicyModel) => {
@@ -523,6 +536,20 @@ const LeavePolicyPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {!editingPolicy && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50/60 px-3 py-2 dark:border-[#303030] dark:bg-[#222222]">
+                    <label htmlFor="leave-policy-template" className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Start from")}</label>
+                    <select id="leave-policy-template" value={template} onChange={(e) => applyTemplate(e.target.value as LeavePolicyTemplate)}
+                      className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-gray-700 dark:bg-[#191919] dark:text-white">
+                      {LEAVE_POLICY_TEMPLATES.map((option) => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
+                    </select>
+                    {template !== "STANDARD" && (
+                      <span className="text-[11px] text-gray-600 dark:text-gray-400">
+                        {t("Statutory minimums; payroll pays sick leave in the law's tiers and unused annual leave at the exit.")}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Policy Code *")}</label>

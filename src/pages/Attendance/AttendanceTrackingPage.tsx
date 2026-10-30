@@ -19,6 +19,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { ATTENDANCE_API, CalendarDay, DayKind, dayKind, DAY_KIND_BADGE, DAY_KIND_LABEL, hoursOf, leaveTypeLabel, timeOf } from './attendanceApi';
 import { leadingDays, weekdayLabels, isCompanyWeekend, weekDays, dateLocale, liveMonthNames } from "../../company/format";
+import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
 import { t } from "../../i18n/i18n";
 // GET /v1/api/attendance/records/my-calendar/{employeeId}: one entry per day of the month, already resolved
@@ -366,7 +367,7 @@ const AttendanceTrackingPage: React.FC = () => {
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <span className="px-1 text-xs font-bold text-slate-800 dark:text-white min-w-[104px] text-center">
-                  {monthNames[selectedMonth - 1]} {selectedYear}
+                  {monthNames[selectedMonth - 1]} {selectedYear}<HijriMonthCaption year={selectedYear} month={selectedMonth - 1} />
                 </span>
                 <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer" title={t("Next Month")}>
                   <ChevronRight className="w-3.5 h-3.5" />

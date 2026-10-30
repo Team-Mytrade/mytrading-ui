@@ -14,6 +14,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { apiError, CalendarDay, fetchMonth, timeOf, withBrowserOffset } from './attendanceApi';
 import { leadingDays, weekdayLabels, liveMonthNames, liveWeekdayNames } from "../../company/format";
+import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
 import { t } from "../../i18n/i18n";
 // On-duty visits and work-from-home days. Missed punches are corrected on the regularization page.
@@ -569,7 +570,7 @@ const AttendanceRequestsPage: React.FC = () => {
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
                       <span className="text-[11px] font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[110px] text-center">
-                        {monthNames[currentMonth]} {currentYear}
+                        {monthNames[currentMonth]} {currentYear}<HijriMonthCaption year={currentYear} month={currentMonth} />
                       </span>
                       <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
                         <ChevronRight className="w-3.5 h-3.5" />

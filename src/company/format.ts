@@ -227,6 +227,68 @@ export const formatDate = (value: unknown, empty = "—"): string => {
   return p ? datePattern(p, regional.dateFormat) : value ? String(value) : empty;
 };
 
+/* ---------------- Hijri (Umm al-Qura) dates, beside the Gregorian ones when the company shows them ---------------- */
+
+/** Whether the company shows Hijri dates (Company Settings → Regional settings). */
+export const hijriEnabled = () => !!regional.hijriDates;
+
+const hijriFormats = new Map<string, Intl.DateTimeFormat | null>();
+const hijriFormat = (key: string, options: Intl.DateTimeFormatOptions, english: boolean) => {
+  const locale = `${english || language() !== "ar" ? "en" : "ar-SA"}-u-ca-islamic-umalqura-nu-latn`;
+  const cacheKey = `${locale}|${key}`;
+  if (!hijriFormats.has(cacheKey)) {
+    try {
+      hijriFormats.set(cacheKey, new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" }));
+    } catch {
+      hijriFormats.set(cacheKey, null);
+    }
+  }
+  return hijriFormats.get(cacheKey) ?? null;
+};
+// The calendar day as a UTC instant, so the Hijri day can't shift with the browser's zone
+const dayInstant = (p: Parts) => new Date(Date.UTC(p.year, p.month - 1, p.day, 12));
+
+/**
+ * The Hijri date, e.g. "18 Jumada I 1448 AH" (Arabic names on Arabic screens); `english` for PDFs, whose fonts
+ * have no Arabic. Empty when there is no date.
+ */
+export const formatHijri = (value: unknown, english = false): string => {
+  const p = partsOf(value);
+  const format = p && hijriFormat("long", { day: "numeric", month: "long", year: "numeric" }, english);
+  if (!p || !format) return "";
+  const parts = Object.fromEntries(format.formatToParts(dayInstant(p)).map((x) => [x.type, x.value]));
+  const arabic = !english && language() === "ar";
+  return `${parts.day} ${parts.month} ${parts.year} ${arabic ? "هـ" : "AH"}`;
+};
+
+/** A date in the company's format, followed by the Hijri date when the company shows them. */
+export const formatDateHijri = (value: unknown, empty = "—", english = false): string => {
+  const date = formatDate(value, empty);
+  const hijri = hijriEnabled() ? formatHijri(value, english) : "";
+  return hijri ? `${date} (${hijri})` : date;
+};
+
+/** The Hijri day of the month for a calendar day (for calendar cells). */
+export const hijriDay = (year: number, month: number, day: number): string => {
+  const format = hijriFormat("day", { day: "numeric" }, true);
+  return format ? format.format(dayInstant({ year, month: month + 1, day, hour: 0, minute: 0 })) : "";
+};
+
+/** The Hijri month(s) a Gregorian month spans, e.g. "Rabiʻ II – Jumada I 1448" (month is 0-based). */
+export const hijriMonthSpan = (year: number, month: number): string => {
+  const format = hijriFormat("month", { month: "long", year: "numeric" }, false);
+  if (!format) return "";
+  const at = (day: number) => Object.fromEntries(format.formatToParts(dayInstant({ year, month: month + 1, day, hour: 0, minute: 0 }))
+    .map((x) => [x.type, x.value]));
+  const first = at(1);
+  const last = at(new Date(year, month + 1, 0).getDate());
+  const era = language() === "ar" ? " هـ" : " AH";
+  if (first.month === last.month) return `${first.month} ${first.year}${era}`;
+  return first.year === last.year
+    ? `${first.month} – ${last.month} ${last.year}${era}`
+    : `${first.month} ${first.year} – ${last.month} ${last.year}${era}`;
+};
+
 /** A time in the company's 12/24-hour style; "HH:mm[:ss]" strings are times of day. */
 export const formatTime = (value: unknown, empty = "—"): string => {
   if (typeof value === "string") {

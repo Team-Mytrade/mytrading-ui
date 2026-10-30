@@ -1,5 +1,6 @@
 import { t } from "../../i18n/i18n";
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { ExitManagementService, ExitRequest, ExitStatus } from '../../Services/ExitManagementService';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
@@ -13,6 +14,9 @@ import { todayIso } from '../../utils/localDate';
 import StatsCard from '../../components/common/Statscard';
 import { ArrowUturnLeftIcon, CheckCircleIcon, ClockIcon, UserMinusIcon } from '@heroicons/react/24/outline';
 import { PAGE_BODY, STATS_ROW } from './hrmsUi';
+import { isGcc } from './gulfPayroll';
+import { SEPARATION_LABELS, SeparationType } from './settlementStatement';
+import SettlementStatementDialog from './SettlementStatementDialog';
 
 const STATUS_LABEL: Record<ExitStatus, string> = {
     SUBMITTED: 'Submitted',
@@ -43,12 +47,35 @@ const ExitApprovalsPage: React.FC = () => {
     const [rejectReason, setRejectReason] = useState("");
     // The request open in the details popup; while it is still open HR can change its dates and notes
     const [viewing, setViewing] = useState<ExitRequest | null>(null);
-    const [edit, setEdit] = useState({ lastWorkingDay: '', reason: '', exitInterviewFeedback: '' });
+    const [edit, setEdit] = useState({ lastWorkingDay: '', reason: '', exitInterviewFeedback: '', separationType: 'RESIGNATION' as SeparationType,
+        unusedLeaveDays: '' });
+    const [loadingBalance, setLoadingBalance] = useState(false);
     const [savingEdit, setSavingEdit] = useState(false);
+    // A Gulf employee's final settlement (gratuity + final pay) open in its dialog
+    const [settlementId, setSettlementId] = useState<number | null>(null);
 
     const openDetails = (row: ExitRequest) => {
         setViewing(row);
-        setEdit({ lastWorkingDay: row.lastWorkingDay || '', reason: row.reason || '', exitInterviewFeedback: row.exitInterviewFeedback || '' });
+        setEdit({ lastWorkingDay: row.lastWorkingDay || '', reason: row.reason || '', exitInterviewFeedback: row.exitInterviewFeedback || '',
+            separationType: row.separationType || 'RESIGNATION', unusedLeaveDays: row.unusedLeaveDays != null ? String(row.unusedLeaveDays) : '' });
+    };
+
+    // The annual leave still available in Attendance (whole or half days), as the unused leave to pay
+    const fillFromAttendance = async () => {
+        if (!viewing) return;
+        setLoadingBalance(true);
+        try {
+            const { data } = await axios.get<Array<{ leaveType: string; availableLeaves?: number; financialYear?: number; active?: boolean }>>(
+                `/v1/api/attendance/employee-leave-balances/${viewing.employeeId}`);
+            const annual = (data || []).filter((b) => b.leaveType === 'EARNED' && b.active !== false)
+                .sort((a, b) => (b.financialYear ?? 0) - (a.financialYear ?? 0))[0];
+            if (!annual) return ToasterService.warning("No annual leave balance in Attendance for this employee");
+            setEdit((p) => ({ ...p, unusedLeaveDays: String(Math.max(0, Math.floor((annual.availableLeaves ?? 0) * 2) / 2)) }));
+        } catch (error) {
+            ToasterService.error(apiError(error, "The leave balance could not be loaded"));
+        } finally {
+            setLoadingBalance(false);
+        }
     };
     const editable = (row: ExitRequest | null) => !!row && !!row.active && (UNDECIDED.includes(row.status) || ACCEPTED.includes(row.status));
 
@@ -56,6 +83,13 @@ const ExitApprovalsPage: React.FC = () => {
         if (!viewing?.id) return;
         if (!edit.lastWorkingDay) return ToasterService.warning("Pick the last working day");
         if (edit.lastWorkingDay < viewing.resignationDate) return ToasterService.warning("The last working day can't be before the resignation date");
+        const gulf = isGcc(viewing.countryCode);
+        const leaveText = edit.unusedLeaveDays.trim();
+        if (gulf && leaveText && !(Number(leaveText) >= 0 && Number(leaveText) * 2 === Math.round(Number(leaveText) * 2))) {
+            return ToasterService.warning("Enter the unused leave in whole or half days");
+        }
+        // Blank keeps "none recorded"; clearing a recorded value sets it to 0
+        const unusedLeaveDays = !gulf ? undefined : leaveText ? Number(leaveText) : viewing.unusedLeaveDays != null ? 0 : undefined;
         setSavingEdit(true);
         try {
             const saved = await ExitManagementService.updateExitDetails({
@@ -63,6 +97,8 @@ const ExitApprovalsPage: React.FC = () => {
                 lastWorkingDay: edit.lastWorkingDay,
                 reason: edit.reason.trim() || undefined,
                 exitInterviewFeedback: edit.exitInterviewFeedback.trim() || undefined,
+                separationType: gulf ? edit.separationType : undefined,
+                unusedLeaveDays,
             });
             ToasterService.success("Exit details saved");
             setViewing(saved);
@@ -249,6 +285,14 @@ const ExitApprovalsPage: React.FC = () => {
                             </button>
                         )}
 
+                        {isGcc(row.countryCode) && (ACCEPTED.includes(row.status) || row.status === 'COMPLETED') && (
+                            <button disabled={busy} onClick={() => setSettlementId(id)}
+                                title={t("Final settlement statement: end-of-service gratuity and the final pay")}
+                                className={`${actionButton} border-cyan-200 text-cyan-700 hover:bg-cyan-50 dark:border-transparent dark:text-cyan-300 dark:hover:bg-[#222222]`}>
+                                {t("Statement")}
+                            </button>
+                        )}
+
                         {ACCEPTED.includes(row.status) && !row.withdrawalRequested && (
                             <>
                                 <button disabled={busy}
@@ -360,6 +404,40 @@ const ExitApprovalsPage: React.FC = () => {
                                         onChange={(e) => setEdit((p) => ({ ...p, reason: e.target.value }))}
                                         className="h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
                                 </div>
+                                {isGcc(viewing.countryCode) && (
+                                    <div className="sm:col-span-2">
+                                        <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">{t("How the employment ended")}</label>
+                                        <select value={edit.separationType} disabled={!editable(viewing)}
+                                            onChange={(e) => setEdit((p) => ({ ...p, separationType: e.target.value as SeparationType }))}
+                                            className="h-8 w-full rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white">
+                                            {(Object.keys(SEPARATION_LABELS) as SeparationType[]).map((type) => (
+                                                <option key={type} value={type}>{t(SEPARATION_LABELS[type])}</option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-0.5 text-[10px] text-gray-500">
+                                            {t("Decides the Saudi end-of-service award (a resignation earns part of it); the UAE gratuity is the same either way.")}
+                                        </p>
+                                    </div>
+                                )}
+                                {isGcc(viewing.countryCode) && (
+                                    <div className="sm:col-span-2">
+                                        <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Unused annual leave (days)")}</label>
+                                        <div className="flex gap-2">
+                                            <input type="number" min={0} step={0.5} value={edit.unusedLeaveDays} disabled={!editable(viewing)}
+                                                onChange={(e) => setEdit((p) => ({ ...p, unusedLeaveDays: e.target.value }))}
+                                                className="h-8 w-32 rounded-lg border border-gray-300 px-2.5 text-xs disabled:bg-gray-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white" />
+                                            {editable(viewing) && (
+                                                <button type="button" onClick={fillFromAttendance} disabled={loadingBalance}
+                                                    className={`${actionButton} border-cyan-200 text-cyan-700 hover:bg-cyan-50 dark:border-transparent dark:text-cyan-300 dark:hover:bg-[#222222]`}>
+                                                    {t(loadingBalance ? 'Loading...' : 'Use the Attendance balance')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="mt-0.5 text-[10px] text-gray-500">
+                                            {t("Paid with the final pay: UAE on basic pay, Saudi Arabia on the actual wage, a day being the monthly wage / 30.")}
+                                        </p>
+                                    </div>
+                                )}
                                 <div className="sm:col-span-2">
                                     <label className="mb-0.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Exit interview notes")}</label>
                                     <textarea rows={3} value={edit.exitInterviewFeedback} maxLength={2000} disabled={!editable(viewing)}
@@ -384,6 +462,8 @@ const ExitApprovalsPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {settlementId != null && <SettlementStatementDialog exitRequestId={settlementId} onClose={() => setSettlementId(null)} />}
         </>
     );
 };

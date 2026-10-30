@@ -1,6 +1,6 @@
 import React from "react";
 import "../../styles/QuotationPreviewTemplate.css";
-import { formatMoney as companyFormatMoney, formatNumber, formatDate as companyFormatDate, companyCurrency } from "../../company/format";
+import { formatMoney as companyFormatMoney, formatNumber, formatDateHijri, companyCurrency } from "../../company/format";
 
 type Address = {
   customerName?: string;
@@ -89,12 +89,8 @@ type QuotationPreviewTemplateProps = {
   sellerProfile: SellerProfile;
 };
 
-const formatDate = (value?: string) => {
-  if (!value) return "--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return companyFormatDate(date);
-};
+// With the Hijri date beside it when the company shows them (English, like the rest of the quotation)
+const formatDate = (value?: string) => (value ? formatDateHijri(value, "--", true) : "--");
 
 const formatMoney = (value?: number, currencyCode?: string) => companyFormatMoney(value, currencyCode);
 

@@ -274,6 +274,7 @@ export const navItems: NavItem[] = [
       { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
       { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
       { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
+      { name: "Gulf Pay Files", path: "/gulfPayFiles", icon: FileSpreadsheet, section: "Payroll" },
       {
         name: "Payroll Reports",
         icon: BarChart3,
@@ -281,6 +282,7 @@ export const navItems: NavItem[] = [
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary", icon: PieChart },
           { name: "Department Summary", path: "/departmentSummary", icon: Building },
+          { name: "Gratuity Provision", path: "/gratuityProvision", icon: PiggyBank },
         ],
       },
       { name: "Exit Management", path: "/exit-management", icon: LogOut, section: "Exits" },

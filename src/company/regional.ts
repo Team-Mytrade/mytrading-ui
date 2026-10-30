@@ -14,6 +14,8 @@ export interface RegionalSettings {
   numberLocale: string;
   weekStart: string;
   weekendDays: string[];
+  // The Hijri (Umm al-Qura) date beside the Gregorian one on documents and calendars (Saudi companies by default)
+  hijriDates: boolean;
 }
 
 // What the system did before these settings existed
@@ -27,6 +29,7 @@ export const DEFAULT_REGIONAL: RegionalSettings = {
   numberLocale: "en-IN",
   weekStart: "MONDAY",
   weekendDays: ["SATURDAY", "SUNDAY"],
+  hijriDates: false,
 };
 
 export const LANGUAGES = [
@@ -98,6 +101,8 @@ export const presetForCountry = (country: ICountry): Partial<RegionalSettings> =
   const preset: Partial<RegionalSettings> = {
     ...week,
     numberLocale: NUMBER_LOCALE_BY_COUNTRY[country.isoCode] ?? "en-US",
+    // Saudi Arabia dates officially in the Hijri calendar too
+    hijriDates: country.isoCode === "SA",
   };
   if (country.currency) {
     preset.currency = country.currency;

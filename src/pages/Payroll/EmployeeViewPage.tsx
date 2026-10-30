@@ -48,6 +48,7 @@ import MyPayslipsTab from "./MyPayslipsTab";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { formatNumber, formatDate as companyFormatDate, companyCurrency } from "../../company/format";
+import { GULF_LABELS, PAYROLL_COUNTRIES, contributionSummary, gulfFromCountryData, gulfToCountryData, gulfValueLabel, isGcc } from "./gulfPayroll";
 
 import { t } from "../../i18n/i18n";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
@@ -112,10 +113,11 @@ interface EmployeeData {
     postalCode: string;
     country: string;
   };
+  // PAN and Aadhaar for India; nationality, IDs and IBAN for the Gulf
   countrySpecificData: {
     pan: string;
     aadhaar: string;
-  };
+  } & Record<string, string | undefined>;
   userDto: {
     userId: string;
     username: string;
@@ -542,7 +544,48 @@ const EmployeeViewPage: React.FC = () => {
               </AnimatePresence>
             </div>
 
+            {/* Gulf payroll: nationality, IDs and the IBAN the salary goes to */}
+            {isGcc(employee.countryCode) && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <SectionHeader icon={Shield} title={t("Gulf payroll details")} section="compliance"
+                  badge={t(PAYROLL_COUNTRIES.find((c) => c.code === employee.countryCode?.toUpperCase())?.label ?? "")} />
+                <AnimatePresence>
+                  {expandedSections.compliance && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-4 pb-4"
+                    >
+                      {(() => {
+                        const country = employee.countryCode.toUpperCase();
+                        const gulf = gulfFromCountryData(employee.countrySpecificData);
+                        const rows = Object.entries(gulfToCountryData(country, gulf)).filter(([, value]) => value);
+                        const summary = contributionSummary(country, gulf.nationality, gulf.pensionFund);
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-4">
+                              {rows.map(([key, value]) => (
+                                <InfoRow key={key} label={t(GULF_LABELS[key] ?? key)} value={gulfValueLabel(key, value)}
+                                  copyable={key !== "nationality" && key !== "pensionFund"} />
+                              ))}
+                            </div>
+                            {rows.length <= 1 && (
+                              <p className="mt-3 text-sm text-amber-700">{t("Add the nationality, IDs and IBAN on the employee form (Bank & Salary step).")}</p>
+                            )}
+                            {summary && <p className="mt-3 text-xs text-gray-600">{t(summary)}</p>}
+                          </>
+                        );
+                      })()}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             {/* Compliance (India-specific) */}
+            {!isGcc(employee.countryCode) && (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <SectionHeader icon={Shield} title={t("Statutory Compliance")} section="compliance" badge="India-specific" />
               <AnimatePresence>
@@ -600,6 +643,7 @@ const EmployeeViewPage: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
+            )}
 
             {/* Salary Overview */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

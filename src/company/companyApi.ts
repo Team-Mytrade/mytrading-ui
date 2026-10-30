@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { decodeAccess, getSelectedTenant } from "../access/access";
 import { onRegionalChange, setRegional } from "./format";
+import { addressStyle, regionalAddressLines } from "./regionalAddress";
 
 export interface CompanyProfile {
   tenantId: string;
@@ -30,6 +31,8 @@ export interface CompanyProfile {
   numberLocale: string;
   weekStart: string;
   weekendDays: string[];
+  // Hijri dates beside the Gregorian ones (Saudi companies by default)
+  hijriDates: boolean;
   // VAT (Gulf: TRN on tax invoices, VAT return), GST (India: GSTIN) or NONE (not registered)
   taxRegime?: TaxRegime;
   // VAT registration number (TRN); GST companies use gstin
@@ -162,6 +165,9 @@ export const companyDisplayName = () => current?.companyName || FALLBACK_NAME;
 export const companyAddressLines = (p?: CompanyProfile | null): string[] =>
   !p
     ? []
+    : addressStyle(p.country) !== "OTHER"
+      ? regionalAddressLines({ addressLine1: p.addressLine1 ?? "", addressLine2: p.addressLine2, city: p.city ?? "",
+          state: p.state ?? "", postalCode: p.postalCode ?? "", country: p.country })
     : [
         p.addressLine1,
         p.addressLine2,

@@ -3,7 +3,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company/companyApi";
-import { formatDate, formatDateTime, formatNumber, pdfText } from "../../company/format";
+import { formatDateHijri, formatDateTime, formatNumber, pdfText } from "../../company/format";
 import { fitLogo } from "../../components/common/export";
 
 export interface ChallanLine {
@@ -68,7 +68,7 @@ export async function printDeliveryChallan(data: ChallanData): Promise<void> {
     doc.text("DELIVERY CHALLAN", width - margin, 13, { align: "right" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text(t(`No. ${data.deliveryNo}  |  ${formatDate(data.deliveryDate)}`), width - margin, 20, { align: "right" });
+    doc.text(t(`No. ${data.deliveryNo}  |  ${formatDateHijri(data.deliveryDate, "-", true)}`), width - margin, 20, { align: "right" });
     doc.setTextColor(...INK);
   };
   const table = {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import PhoneInput, { CountryData } from "react-phone-input-2";
+import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -46,6 +46,20 @@ import type { ICity, IState } from "country-state-city";
 import { formatNumber, formatDate, companyCurrency } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
+import GulfEmployeeFields from "./GulfEmployeeFields";
+import {
+  EMPTY_GULF,
+  GULF_LABELS,
+  GulfDetails,
+  PAYROLL_COUNTRIES,
+  defaultPayrollCountry,
+  gulfErrors,
+  gulfFromCountryData,
+  gulfToCountryData,
+  gulfValueLabel,
+  isGcc,
+  salaryCountry,
+} from "./gulfPayroll";
 // The city/state dataset is several MB, so it is downloaded after the page opens rather than with it
 type GeoData = {
   State: { getStatesOfCountry: (countryCode: string) => IState[] };
@@ -78,6 +92,8 @@ const FIELD_STEPS: Record<string, number> = {
   firstName: 1, lastName: 1, personalEmail: 1, officialEmail: 1, dateOfBirth: 1,
   designation: 2, department: 2, joiningDate: 2, employmentType: 2, userType: 2, role: 2,
   aadhaarNumber: 4, panNumber: 4, "salary.ctc": 4, "salary.variablePay": 4,
+  nationality: 4, iban: 4, emiratesId: 4, mohrePersonId: 4, bankRoutingCode: 4, pensionFund: 4,
+  nationalId: 4, gosiNumber: 4, pensionRegistrationDate: 4,
 };
 
 // Pay components (Compensation page): basic is a % of CTC, HRA a % of basic
@@ -204,7 +220,9 @@ const AddEmployeePage: React.FC = () => {
   const [isOtherDepartment, setIsOtherDepartment] = useState(false);
   const [customDepartment, setCustomDepartment] = useState("");
 
-  const defaultCountry = COUNTRY_OPTIONS.find(c => c.value === "India") || {
+  // Addresses start in the company's payroll country
+  const defaultCountry = COUNTRY_OPTIONS.find(c => c.code === defaultPayrollCountry())
+    || COUNTRY_OPTIONS.find(c => c.value === "India") || {
     value: "India",
     label: "India",
     code: "IN",
@@ -221,7 +239,9 @@ const AddEmployeePage: React.FC = () => {
     maritalStatus: "SINGLE" as MaritalStatus,
     fatherName: "",
     phone: "",
-    countryCode: "IN",
+    // The payroll country (which country's rules pay the employee), chosen on the Bank & Salary step
+    countryCode: defaultPayrollCountry(),
+    gulf: { ...EMPTY_GULF } as GulfDetails,
     gender: "MALE" as Gender,
     dateOfBirth: null as Date | null,
     employmentType: "FULL_TIME" as EmploymentType,
@@ -273,7 +293,7 @@ const AddEmployeePage: React.FC = () => {
       currency: companyCurrency(),
       ctc: 0,
       role: "",
-      country: "INDIA",
+      country: salaryCountry(defaultPayrollCountry()),
       earnings: [] as Earning[],
       additionalBenefits: [] as AdditionalBenefit[],
       variablePay: [] as VariablePay[],
@@ -490,6 +510,8 @@ const AddEmployeePage: React.FC = () => {
         employeeData.panNumber = "";
         employeeData.aadhaarNumber = "";
       }
+      employeeData.countryCode = (employeeData.countryCode || "IN").toUpperCase();
+      employeeData.gulf = gulfFromCountryData(employeeData.countrySpecificData);
 
       // Map nested salary.countrySpecificData (PF, UAN, ESI, Metrocity, taxRegime) to root level
       if (employeeData.salary && employeeData.salary.countrySpecificData) {
@@ -517,7 +539,11 @@ const AddEmployeePage: React.FC = () => {
   const handleChange = (path: string, value: any) => {
     if (path === "permanentAddress.postalCode" || path === "currentAddress.postalCode") {
       if (typeof value === "string") {
-        value = value.replace(/\D/g, "").slice(0, 6);
+        // Indian PIN codes are 6 digits; other countries' codes can have letters (and the UAE has none)
+        const address = path.startsWith("permanent") ? form.permanentAddress : form.currentAddress;
+        value = address.country?.value === "India"
+          ? value.replace(/\D/g, "").slice(0, 6)
+          : value.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 10);
       }
     }
     const keys = path.split(".");
@@ -663,27 +689,31 @@ const AddEmployeePage: React.FC = () => {
         if (!(form.permanentAddress.line1 || "").trim()) newErrors["permanentAddress.line1"] = "Address line 1 is required";
         if (!(form.permanentAddress.city || "").trim()) newErrors["permanentAddress.city"] = "City is required";
         if (!form.permanentAddress.state) newErrors["permanentAddress.state"] = "State is required";
-        if (!(form.permanentAddress.postalCode || "").trim()) {
-          newErrors["permanentAddress.postalCode"] = "Postal code is required";
-        } else if (form.permanentAddress.postalCode.length !== 6) {
-          newErrors["permanentAddress.postalCode"] = "Postal code must be exactly 6 digits";
-        }
-        if (!sameAsPermanent) {
-          if (!(form.currentAddress.line1 || "").trim()) newErrors["currentAddress.line1"] = "Address line 1 is required";
-          if (!(form.currentAddress.city || "").trim()) newErrors["currentAddress.city"] = "City is required";
-          if (!form.currentAddress.state) newErrors["currentAddress.state"] = "State is required";
-          if (!(form.currentAddress.postalCode || "").trim()) {
-            newErrors["currentAddress.postalCode"] = "Postal code is required";
-          } else if (form.currentAddress.postalCode.length !== 6) {
-            newErrors["currentAddress.postalCode"] = "Postal code must be exactly 6 digits";
+        {
+          // A 6-digit PIN code in India; elsewhere optional (the UAE has no postal codes)
+          const postalProblem = (address: typeof form.permanentAddress) => {
+            if (address.country?.value !== "India") return "";
+            if (!(address.postalCode || "").trim()) return "Postal code is required";
+            return address.postalCode.length !== 6 ? "Postal code must be exactly 6 digits" : "";
+          };
+          const permanentPostal = postalProblem(form.permanentAddress);
+          if (permanentPostal) newErrors["permanentAddress.postalCode"] = permanentPostal;
+          if (!sameAsPermanent) {
+            if (!(form.currentAddress.line1 || "").trim()) newErrors["currentAddress.line1"] = "Address line 1 is required";
+            if (!(form.currentAddress.city || "").trim()) newErrors["currentAddress.city"] = "City is required";
+            if (!form.currentAddress.state) newErrors["currentAddress.state"] = "State is required";
+            const currentPostal = postalProblem(form.currentAddress);
+            if (currentPostal) newErrors["currentAddress.postalCode"] = currentPostal;
           }
         }
         break;
 
       case 4:
         if (!(form.bankName || "").trim()) newErrors.bankName = "Bank name is required";
-        if (!(form.bankAccountNumber || "").trim()) newErrors.bankAccountNumber = "Account number is required";
-        if (form.permanentAddress.country?.value === "India") {
+        // In the Gulf salaries go to the IBAN; the account number is optional there
+        if (!isGcc(form.countryCode) && !(form.bankAccountNumber || "").trim()) newErrors.bankAccountNumber = "Account number is required";
+        Object.assign(newErrors, gulfErrors(form.countryCode, form.gulf));
+        if (form.countryCode === "IN") {
           if (!(form.ifscCode || "").trim()) newErrors.ifscCode = "IFSC code is required";
           if (form.panNumber && !PAN_FORMAT.test(form.panNumber)) newErrors.panNumber = "PAN looks like ABCDE1234F";
           if (form.aadhaarNumber && !MASKED_AADHAAR.test(form.aadhaarNumber) && !/^\d{12}$/.test(form.aadhaarNumber)) {
@@ -763,7 +793,8 @@ const AddEmployeePage: React.FC = () => {
         joiningDate: toApiDate(form.joiningDate),
         designation: form.designation,
         exitDate: toApiDate(form.exitDate),
-        bankAccountNumber: form.bankAccountNumber,
+        // Paid to the IBAN in the Gulf when no separate account number is given
+        bankAccountNumber: form.bankAccountNumber || (isGcc(form.countryCode) ? form.gulf.iban.replace(/\s+/g, "").toUpperCase() : ""),
         bankName: form.bankName,
         ifscCode: form.ifscCode,
         branch: form.branch,
@@ -800,12 +831,13 @@ const AddEmployeePage: React.FC = () => {
         countrySpecificData: {
           pan: form.panNumber,
           aadhaar: form.aadhaarNumber,
+          ...gulfToCountryData(form.countryCode, form.gulf),
         },
         salary: {
           currency: form.salary.currency,
           ctc: form.salary.ctc,
           role: form.designation,
-          country: form.salary.country,
+          country: salaryCountry(form.countryCode),
           countrySpecificData: {
             pf_number: form.pfNumber,
             uan: form.uan,
@@ -887,7 +919,18 @@ const AddEmployeePage: React.FC = () => {
       </div>
     ) : null;
 
-  const isIndia = form.permanentAddress.country?.value === "India";
+  // India's statutory fields (PAN, Aadhaar, PF, IFSC) follow the payroll country, not the address
+  const isIndia = form.countryCode === "IN";
+  const changePayrollCountry = (code: string) => {
+    handleChange("countryCode", code);
+    handleChange("salary.country", salaryCountry(code));
+    const currency = PAYROLL_COUNTRIES.find((c) => c.code === code)?.currency;
+    if (currency) handleChange("salary.currency", currency);
+  };
+  const changeGulf = (field: keyof GulfDetails, value: string) => {
+    handleChange(`gulf.${field}`, value);
+    setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
   const currencySymbol = getSymbolFromCurrency(form.salary.currency) || form.salary.currency;
 
   // Calculate total earnings for display
@@ -1136,12 +1179,7 @@ const AddEmployeePage: React.FC = () => {
                       <PhoneInput
                         country={form.countryCode.toLowerCase()}
                         value={form.phone}
-                        onChange={(phone, countryData: CountryData) => {
-                          handleChange("phone", phone);
-                          if (countryData?.countryCode) {
-                            handleChange("countryCode", countryData.countryCode.toUpperCase());
-                          }
-                        }}
+                        onChange={(phone) => handleChange("phone", phone)}
                         inputClass={`w-full !py-1.5 !text-xs !border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${errors.phone ? "!border-red-500" : "!border-gray-300"}`}
                         containerClass="!w-full"
                         buttonClass="!border !border-gray-300 !rounded-l-lg"
@@ -1502,7 +1540,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          {t("Postal Code")} <span className="text-red-500">*</span>
+                          {t("Postal Code")} {form.permanentAddress.country?.value === "India" && <span className="text-red-500">*</span>}
                         </label>
                         <input
                           type="text"
@@ -1636,7 +1674,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          {t("Postal Code")} <span className="text-red-500">*</span>
+                          {t("Postal Code")} {form.currentAddress.country?.value === "India" && <span className="text-red-500">*</span>}
                         </label>
                         <input
                           type="text"
@@ -1658,6 +1696,26 @@ const AddEmployeePage: React.FC = () => {
                   <div className="mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t("Banking & Salary Details")}</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t("Compensation and bank information")}</p>
+                  </div>
+
+                  {/* Which country's payroll rules apply (tax, pension, statutory fields) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        {t("Payroll country")} <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={form.countryCode}
+                        onChange={(e) => changePayrollCountry(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                        data-testid="payroll-country"
+                      >
+                        {PAYROLL_COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>{t(c.label)}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">{t("The country whose payroll rules pay this employee, in")} {form.salary.currency}</p>
+                    </div>
                   </div>
 
                   {/* Banking */}
@@ -1683,7 +1741,7 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          {t("Account Number")} <span className="text-red-500">*</span>
+                          {t("Account Number")} {!isGcc(form.countryCode) && <span className="text-red-500">*</span>}
                         </label>
                         <input
                           type="text"
@@ -1723,6 +1781,10 @@ const AddEmployeePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {isGcc(form.countryCode) && (
+                    <GulfEmployeeFields country={form.countryCode} gulf={form.gulf} errors={errors} onChange={changeGulf} />
+                  )}
 
                   {/* Statutory & Compliance Details */}
                   {isIndia && (
@@ -2175,13 +2237,29 @@ const AddEmployeePage: React.FC = () => {
                         </div>
                         <div className="text-sm break-all">
                           <div className="text-gray-500">{t("Account Number")}</div>
-                          <div className="text-gray-900">{form.bankAccountNumber}</div>
+                          <div className="text-gray-900">
+                            {form.bankAccountNumber || (isGcc(form.countryCode) ? t("Paid to the IBAN") : "")}
+                          </div>
                         </div>
                         {isIndia && form.ifscCode && (
                           <div className="text-sm">
                             <div className="text-gray-500">{t("IFSC")}</div>
                             <div className="text-gray-900">{form.ifscCode}</div>
                           </div>
+                        )}
+                        <div className="text-sm">
+                          <div className="text-gray-500">{t("Payroll country")}</div>
+                          <div className="text-gray-900">{t(PAYROLL_COUNTRIES.find((c) => c.code === form.countryCode)?.label ?? form.countryCode)}</div>
+                        </div>
+                        {isGcc(form.countryCode) && (
+                          <>
+                            {Object.entries(gulfToCountryData(form.countryCode, form.gulf)).map(([key, value]) => (
+                              <div key={key} className="text-sm break-all">
+                                <div className="text-gray-500">{t(GULF_LABELS[key] ?? key)}</div>
+                                <div className="text-gray-900" dir="ltr">{gulfValueLabel(key, value)}</div>
+                              </div>
+                            ))}
+                          </>
                         )}
                       </div>
                     </div>
