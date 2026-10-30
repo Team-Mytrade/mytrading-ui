@@ -6,6 +6,7 @@ import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company
 import { formatDateHijri, formatDateTime, formatNumber, pdfText } from "../../company/format";
 import { fitLogo } from "../../components/common/export";
 
+import { brandShade } from "../../company/brand";
 export interface ChallanLine {
   productName: string;
   orderedQty: number;
@@ -28,8 +29,9 @@ export interface ChallanData {
   lines: ChallanLine[];
 }
 
-const BRAND: [number, number, number] = [8, 145, 178];
-const HEAD: [number, number, number] = [14, 116, 144];
+// The company's colour (brand.ts), read when the PDF is drawn
+const BRAND = (): [number, number, number] => brandShade(600);
+const HEAD = (): [number, number, number] => brandShade(700);
 const INK: [number, number, number] = [15, 23, 42];
 const MUTED: [number, number, number] = [100, 116, 139];
 const LINE: [number, number, number] = [226, 232, 240];
@@ -49,7 +51,7 @@ export async function printDeliveryChallan(data: ChallanData): Promise<void> {
     : company?.taxRegime !== "NONE" && company?.gstin ? `GSTIN: ${company.gstin}` : "";
 
   const header = () => {
-    doc.setFillColor(...BRAND);
+    doc.setFillColor(...BRAND());
     doc.rect(0, 0, width, 31, "F");
     if (logo) {
       const size = fitLogo(logo, 38, 9);
@@ -74,7 +76,7 @@ export async function printDeliveryChallan(data: ChallanData): Promise<void> {
   const table = {
     theme: "grid" as const,
     styles: { font: "helvetica", fontSize: 8, cellPadding: 2.4, textColor: INK, lineColor: LINE, lineWidth: 0.15, valign: "middle" as const },
-    headStyles: { fillColor: HEAD, textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
+    headStyles: { fillColor: HEAD(), textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
     alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
     margin: { left: margin, right: margin, top: 37, bottom: 18 },
   };

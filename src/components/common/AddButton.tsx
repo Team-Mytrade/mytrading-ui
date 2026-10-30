@@ -9,9 +9,9 @@ import { t } from "../../i18n/i18n";
  * out on the pale cyan page background. Pages with their own add buttons use this too.
  */
 export const ADD_BUTTON_COLORS =
-  "border border-[#26C6DA] bg-[#4DD0E1] text-[#083344] shadow-[0_1px_3px_rgba(0,151,167,0.35)] " +
-  "hover:border-[#00ACC1] hover:bg-[#26C6DA] hover:shadow-[0_2px_6px_rgba(0,151,167,0.4)] focus-visible:ring-[#4DD0E1] " +
-  "dark:bg-[#4DD0E1] dark:text-[#083344] dark:hover:bg-[#26C6DA]";
+  "border border-[rgb(var(--brand-400,38_198_218))] bg-[rgb(var(--brand-300,77_208_225))] text-[rgb(var(--brand-950,8_51_68))] shadow-[0_1px_3px_rgb(var(--brand-600,0_151_167)/0.35)] " +
+  "hover:border-[rgb(var(--brand-600,0_172_193))] hover:bg-[rgb(var(--brand-400,38_198_218))] hover:shadow-[0_2px_6px_rgb(var(--brand-600,0_151_167)/0.4)] focus-visible:ring-[rgb(var(--brand-300,77_208_225))] " +
+  "dark:bg-[rgb(var(--brand-300,77_208_225))] dark:text-[rgb(var(--brand-950,8_51_68))] dark:hover:bg-[rgb(var(--brand-400,38_198_218))]";
 
 type AddButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   label?: string;

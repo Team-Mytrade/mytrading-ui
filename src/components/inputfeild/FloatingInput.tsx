@@ -51,9 +51,9 @@ interface FloatingDateRangePickerProps extends BaseFloatingProps {
 
 const floatingStyles = `
   .floating-input:focus {
-    border-color: #26c6da;
+    border-color: rgb(var(--brand-400, 38 198 218));
     outline: none;
-    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25);
+    box-shadow: 0 0 0 3px rgb(var(--brand-300, 77 208 225) / 0.25);
   }
 
   .floating-input::placeholder {
@@ -97,9 +97,9 @@ const floatingStyles = `
   }
 
   .floating-select:focus {
-    border-color: #26c6da !important;
+    border-color: rgb(var(--brand-400, 38 198 218)) !important;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25);
+    box-shadow: 0 0 0 3px rgb(var(--brand-300, 77 208 225) / 0.25);
   }
 
   .dark .floating-input,
@@ -141,7 +141,7 @@ const floatingStyles = `
   .dark .floating-input:not(:placeholder-shown) + .floating-label,
   .dark .floating-label-active {
     background-color: #111827 !important;
-    color: #22d3ee !important;
+    color: rgb(var(--brand-400, 34 211 238)) !important;
   }
 
   .dark .floating-select option {
@@ -171,19 +171,19 @@ const floatingStyles = `
     color: #f9fafb !important;
   }
   .floating-range-picker .react-datepicker__day--selected {
-    background: #0891b2;
+    background: rgb(var(--brand-600, 8 145 178));
     color: #ffffff;
     border-radius: 9999px;
   }
   .floating-range-picker .react-datepicker__today-button {
     background: #f8fafc;
     border-top: 1px solid #e5e7eb;
-    color: #0e7490;
+    color: rgb(var(--brand-700, 14 116 144));
   }
   .dark .floating-range-picker .react-datepicker__today-button {
     background: #111827 !important;
     border-top-color: #374151 !important;
-    color: #22d3ee !important;
+    color: rgb(var(--brand-400, 34 211 238)) !important;
   }
   .dark .floating-datepicker-icon { color: #94a3b8 !important; }
 
@@ -209,9 +209,9 @@ const floatingStyles = `
   }
 
   .floating-range-trigger:focus {
-    border-color: #26c6da;
+    border-color: rgb(var(--brand-400, 38 198 218));
     outline: none;
-    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25);
+    box-shadow: 0 0 0 3px rgb(var(--brand-300, 77 208 225) / 0.25);
   }
 
   .floating-range-trigger.error {

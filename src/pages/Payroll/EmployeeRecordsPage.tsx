@@ -43,7 +43,9 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+import { stampCompany } from "../../company/pdfStamp";
+import { brandShade } from "../../company/brand";
 const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
 const DEPARTMENT_API_URL = "/v1/api/payroll/department";
 const PAGE_SIZE = 10;
@@ -180,7 +182,7 @@ const EmployeeRecordsPage: React.FC = () => {
         }
     };
 
-    const exportPDF = () => {
+    const exportPDF = async () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.text("Employee Records Report", 14, 15);
@@ -199,8 +201,9 @@ const EmployeeRecordsPage: React.FC = () => {
             ]),
             startY: 30,
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [41, 128, 185] },
+            headStyles: { fillColor: brandShade(600) },
         });
+        await stampCompany(doc);
         doc.save(`EmployeeRecords_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };

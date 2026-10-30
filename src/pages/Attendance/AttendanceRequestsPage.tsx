@@ -464,10 +464,10 @@ const AttendanceRequestsPage: React.FC = () => {
                   disabled={s === 'review' && reviewDays.length === 0}
                   onClick={() => setStep(s)}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                    step === s ? 'bg-[#e0f7fa] text-[#006f7a]' : 'text-slate-500 hover:text-slate-800'
+                    step === s ? 'bg-[rgb(var(--brand-50,224_247_250))] text-[rgb(var(--brand-700,0_111_122))]' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  <span className={`grid h-4.5 w-4.5 place-items-center rounded-full text-[10px] ${step === s ? 'bg-[#0097a7] text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
+                  <span className={`grid h-4.5 w-4.5 place-items-center rounded-full text-[10px] ${step === s ? 'bg-[rgb(var(--brand-600,0_151_167))] text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
                   {s === 'details' ? 'Request details' : 'Review days & times'}
                 </button>
               </React.Fragment>
@@ -486,7 +486,7 @@ const AttendanceRequestsPage: React.FC = () => {
                   {t("Check each day and change the shift or working times if needed. Weekly offs and holidays are highlighted and left out unless you tick them.")}
                 </p>
               </div>
-              <span className="rounded-lg bg-[#e0f7fa] px-2.5 py-1 text-xs font-bold text-[#006f7a]">
+              <span className="rounded-lg bg-[rgb(var(--brand-50,224_247_250))] px-2.5 py-1 text-xs font-bold text-[rgb(var(--brand-700,0_111_122))]">
                 {includedDays.length} of {reviewDays.length} {reviewDays.length === 1 ? 'day' : 'days'} included
               </span>
             </div>
@@ -520,7 +520,7 @@ const AttendanceRequestsPage: React.FC = () => {
                     return (
                       <tr key={d.date} className={holiday ? 'bg-orange-50/80 dark:bg-orange-950/20' : d.off ? 'bg-slate-100/80 dark:bg-[#222222]' : ''}>
                         <td className="px-2 py-1.5 text-center">
-                          <input type="checkbox" checked={d.include} onChange={(e) => updateDay(d.date, { include: e.target.checked })} aria-label={`Include ${d.date}`} className="h-4 w-4 accent-[#0097a7]" />
+                          <input type="checkbox" checked={d.include} onChange={(e) => updateDay(d.date, { include: e.target.checked })} aria-label={`Include ${d.date}`} className="h-4 w-4 accent-[rgb(var(--brand-600,0_151_167))]" />
                         </td>
                         <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-slate-800 dark:text-gray-100">
                           {formatDateDisplay(d.date)} <span className="font-normal text-slate-500">{weekday}</span>

@@ -35,7 +35,7 @@
 .dragger__steps { display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid #e2e8f0; padding: 12px 24px 0; }
 .dragger__steps button { flex: 0 0 auto; border: 0; border-radius: 10px 10px 0 0; background: transparent; color: #94a3b8; padding: 10px 18px; font: 500 14px/1.25 inherit; }
 .dragger__steps button:hover { color: #475569; }
-.dragger__steps .is-active { background: #ecfeff; color: #0e7490; }
+.dragger__steps .is-active { background: rgb(var(--brand-50, 236 254 255)); color: rgb(var(--brand-700, 14 116 144)); }
 
 /* ---------- Body ---------- */
 .dragger__form { display: flex; min-height: 0; flex: 1; flex-direction: column; }
@@ -49,10 +49,10 @@
 .dragger__cancel, .dragger__submit { height: 36px; min-width: 88px; padding: 0 16px; border-radius: 8px; font-size: 13px; font-weight: 600; line-height: 1; transition: background-color .15s ease, border-color .15s ease; }
 .dragger__cancel { border: 1px solid #d1d5db; background: #fff; color: #374151; }
 .dragger__cancel:hover:not(:disabled) { background: #f9fafb; border-color: #9ca3af; }
-.dragger__submit { border: 1px solid #26c6da; background: #4dd0e1; color: #083344; box-shadow: 0 1px 3px rgba(0, 151, 167, .35); }   /* the app's primary button (see ADD_BUTTON_COLORS) */
-.dragger__submit:hover:not(:disabled) { background: #26c6da; border-color: #00acc1; }
+.dragger__submit { border: 1px solid rgb(var(--brand-400, 38 198 218)); background: rgb(var(--brand-300, 77 208 225)); color: rgb(var(--brand-950, 8 51 68)); box-shadow: 0 1px 3px rgb(var(--brand-600, 0 151 167) / .35); }   /* the app's primary button (see ADD_BUTTON_COLORS) */
+.dragger__submit:hover:not(:disabled) { background: rgb(var(--brand-400, 38 198 218)); border-color: rgb(var(--brand-600, 0 172 193)); }
 .dragger__cancel:disabled, .dragger__submit:disabled { cursor: not-allowed; opacity: .5; }
-.dragger__cancel:focus-visible, .dragger__submit:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(8, 145, 178, .25); }
+.dragger__cancel:focus-visible, .dragger__submit:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(var(--brand-600, 8 145 178) / .25); }
 
 /* ---------- Compact variant ---------- */
 .dragger__panel--compact .dragger__form { flex: 0 1 auto; }
@@ -84,13 +84,13 @@
 .dark .dragger__header h2 { color: #f1f5f9; }
 .dark .dragger__header p, .dark .dragger__header-meta, .dark .dragger__progress { color: #94a3b8; }
 .dark .dragger__approved-by { border-color: #334155; color: #cbd5e1; }
-.dark .dragger__header-meta input { border-color: #155e75; background: #0b1220; color: #e2e8f0; }
+.dark .dragger__header-meta input { border-color: rgb(var(--brand-800, 21 94 117)); background: #0b1220; color: #e2e8f0; }
 .dark .dragger__header button { color: #6b7280; }
 .dark .dragger__header button:hover { background: rgba(30, 27, 75, .5); color: #a5b4fc; }
 .dark .dragger__steps button { color: #64748b; }
 .dark .dragger__steps button:hover { color: #cbd5e1; }
-.dark .dragger__steps .is-active { background: rgba(8, 145, 178, .15); color: #67e8f9; }
+.dark .dragger__steps .is-active { background: rgb(var(--brand-600, 8 145 178) / .15); color: rgb(var(--brand-300, 103 232 249)); }
 .dark .dragger__footer { background: #0f172a; }
 .dark .dragger__cancel { border-color: #374151; background: #111827; color: #e5e7eb; }
 .dark .dragger__cancel:hover:not(:disabled) { background: #1f2937; border-color: #4b5563; }
-.dark .dragger__submit:hover:not(:disabled) { background: #26c6da; border-color: #00acc1; }
+.dark .dragger__submit:hover:not(:disabled) { background: rgb(var(--brand-400, 38 198 218)); border-color: rgb(var(--brand-600, 0 172 193)); }

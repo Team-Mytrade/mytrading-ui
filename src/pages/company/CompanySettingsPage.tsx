@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, Globe2, Image, ImageUp, MapPin, Phone, Save, Trash2 } from "lucide-react";
+import { Building2, Globe2, Image, ImageUp, KeyRound, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
+import axios from "axios";
+import { brandPalette } from "../../company/brand";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -29,14 +31,18 @@ const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
 /** Section heading with the cyan icon chip used on the profile page. */
 const sectionTitle = (Icon: React.ComponentType<{ className?: string }>, text: string) => (
   <h3 className={`${CARD_TITLE} mb-3 flex items-center gap-2`}>
-    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#e0f7fa] text-[#0097a7] dark:bg-cyan-950/40 dark:text-cyan-300">
+    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--brand-50,224_247_250))] text-[rgb(var(--brand-600,0_151_167))] dark:bg-cyan-950/40 dark:text-cyan-300">
       <Icon className="h-4 w-4" />
     </span>
     {t(text)}
   </h3>
 );
 
-type Form = Omit<CompanyProfile, "tenantId" | "hasLogo" | "updatedDate" | "editable">;
+type Form = Omit<CompanyProfile, "tenantId" | "hasLogo" | "hasFavicon" | "updatedDate" | "editable">;
+
+// Colours offered next to the picker; the first is the standard one
+const BRAND_PRESETS = ["#0891B2", "#2563EB", "#4F46E5", "#7C3AED", "#DB2777", "#DC2626", "#EA580C", "#059669", "#334155"];
+const FAVICON_TYPES = ["image/png", "image/x-icon", "image/vnd.microsoft.icon"];
 
 const toForm = (p: CompanyProfile): Form => ({
   companyName: p.companyName ?? "", legalName: p.legalName ?? "", gstin: p.gstin ?? "", pan: p.pan ?? "",
@@ -56,6 +62,7 @@ const toForm = (p: CompanyProfile): Form => ({
   taxNumber: p.taxNumber ?? "",
   tradeLicenseNumber: p.tradeLicenseNumber ?? "",
   licenseAuthority: p.licenseAuthority ?? "",
+  brandColor: p.brandColor ?? "",
 });
 
 const validate = (f: Form): Record<string, string> => {
@@ -453,7 +460,7 @@ export default function CompanySettingsPage() {
                       <span className="text-xs text-slate-400">{t("No logo yet")}</span>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">{t("PNG, JPEG or WebP, up to 512 KB. Shown on quotations and payslips (payslips need PNG or JPEG).")}</p>
+                  <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">{t("PNG, JPEG or WebP, up to 512 KB. Printed on invoices, credit notes, quotations, purchase orders, delivery notes, payslips and PDF exports (payslips need PNG or JPEG).")}</p>
                   {editable && (
                     <div className="mt-3 flex gap-2">
                       <input ref={fileRef} type="file" accept={LOGO_TYPES.join(",")} className="hidden"
@@ -469,6 +476,17 @@ export default function CompanySettingsPage() {
                     </div>
                   )}
                 </section>
+
+                <BrandingSection
+                  editable={editable}
+                  colour={form.brandColor ?? ""}
+                  onColour={(value) => set("brandColor", value)}
+                  hasFavicon={Boolean(company?.hasFavicon)}
+                />
+
+                <SecuritySection editable={editable} />
+
+                <SingleSignOnSection editable={editable} />
               </div>
             </div>
 
@@ -479,5 +497,283 @@ export default function CompanySettingsPage() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * The company's colour (applied to the whole app and printed documents once saved) and its browser-tab icon
+ * (uploaded straight away, like the logo).
+ */
+function BrandingSection({ editable, colour, onColour, hasFavicon }: {
+  editable: boolean;
+  colour: string;
+  onColour: (value: string) => void;
+  hasFavicon: boolean;
+}) {
+  const iconRef = useRef<HTMLInputElement>(null);
+  const [icon, setIcon] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const shown = /^#[0-9a-f]{6}$/i.test(colour) ? colour.toUpperCase() : BRAND_PRESETS[0];
+  const palette = brandPalette(shown);
+  const rgb = (step: number) => (palette ? `rgb(${palette[step]})` : undefined);
+
+  useEffect(() => {
+    let url: string | null = null;
+    if (!hasFavicon) {
+      setIcon(null);
+      return;
+    }
+    axios.get<Blob>("/v1/api/user/company/favicon", { responseType: "blob" })
+      .then((res) => setIcon((url = URL.createObjectURL(res.data))))
+      .catch(() => setIcon(null));
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [hasFavicon]);
+
+  const upload = async (file?: File) => {
+    if (!file) return;
+    if (!FAVICON_TYPES.includes(file.type)) {
+      ToasterService.error(t("Choose a PNG or ICO image."));
+      return;
+    }
+    if (file.size > 64 * 1024) {
+      ToasterService.error(t("The tab icon must be 64 KB or smaller."));
+      return;
+    }
+    setUploading(true);
+    try {
+      await companyApi.uploadFavicon(file);
+      ToasterService.success(t("Tab icon updated."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not upload the tab icon.")));
+    } finally {
+      setUploading(false);
+      if (iconRef.current) iconRef.current.value = "";
+    }
+  };
+
+  const remove = async () => {
+    try {
+      await companyApi.removeFavicon();
+      ToasterService.success(t("Tab icon removed."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not remove the tab icon.")));
+    }
+  };
+
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(Palette, "Branding")}
+      <label className={LABEL} htmlFor="company-brandColor">{t("Company colour")}</label>
+      <div className="flex flex-wrap items-center gap-2">
+        <input id="company-brandColor" type="color" disabled={!editable} value={shown}
+          onChange={(e) => onColour(e.target.value.toUpperCase())}
+          className="h-9 w-12 cursor-pointer rounded border border-slate-200 bg-white p-0.5 disabled:cursor-not-allowed dark:border-gray-700" />
+        <input className={`${INPUT} w-28 uppercase`} disabled={!editable} value={colour} placeholder={BRAND_PRESETS[0]} maxLength={7}
+          onChange={(e) => onColour(e.target.value.trim())} aria-label={t("Colour code")} />
+        {editable && colour && (
+          <button type="button" className="text-xs font-medium text-slate-500 hover:underline" onClick={() => onColour("")}>
+            {t("Standard colour")}
+          </button>
+        )}
+      </div>
+      {editable && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {BRAND_PRESETS.map((preset) => (
+            <button key={preset} type="button" title={preset} aria-label={preset} onClick={() => onColour(preset === BRAND_PRESETS[0] ? "" : preset)}
+              className={`h-6 w-6 rounded-full border-2 ${shown === preset ? "border-slate-800 dark:border-white" : "border-transparent"}`}
+              style={{ background: preset }} />
+          ))}
+        </div>
+      )}
+      {/* How it looks: the main button, a light highlight and a link */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 p-2 dark:border-gray-800">
+        <span className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ background: rgb(600) }}>{t("Save")}</span>
+        <span className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: rgb(300), color: rgb(950) }}>{t("Add")}</span>
+        <span className="rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: rgb(50), color: rgb(700) }}>{t("Active")}</span>
+        <span className="text-xs font-medium underline" style={{ color: rgb(700) }}>{t("Link")}</span>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
+        {t("Buttons, links and highlights take this colour once saved; invoices and credit notes print the company name and title in it.")}
+      </p>
+
+      <div className="mt-4">
+        <span className={LABEL}>{t("Browser tab icon")}</span>
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-gray-700 dark:bg-[#222222]">
+            {icon ? <img src={icon} alt="" className="h-6 w-6 object-contain" /> : <Image className="h-4 w-4 text-slate-400" />}
+          </div>
+          {editable && (
+            <>
+              <input ref={iconRef} type="file" accept=".png,.ico,image/png,image/x-icon" className="hidden"
+                onChange={(e) => upload(e.target.files?.[0])} />
+              <button type="button" className={SECONDARY_BUTTON} disabled={uploading} onClick={() => iconRef.current?.click()}>
+                <ImageUp className="mr-1 inline h-4 w-4" />{t(uploading ? "Uploading..." : hasFavicon ? "Replace" : "Upload")}
+              </button>
+              {hasFavicon && (
+                <button type="button" className={SECONDARY_BUTTON} onClick={remove}>
+                  <Trash2 className="mr-1 inline h-4 w-4" />{t("Remove")}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{t("PNG or ICO, square, up to 64 KB. Without one the logo is used.")}</p>
+      </div>
+    </section>
+  );
+}
+
+const MFA_POLICIES = [
+  { value: "OPTIONAL", label: "Optional: each person decides" },
+  { value: "ADMINS", label: "Required for administrators" },
+  { value: "ALL", label: "Required for everyone" },
+  { value: "OFF", label: "Off: nobody is asked for a code" },
+];
+
+/** Who must use two-step sign-in (an authenticator app code after the password); saved as soon as it changes. */
+function SecuritySection({ editable }: { editable: boolean }) {
+  const [policy, setPolicy] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    axios.get<{ mfaPolicy: string }>("/v1/api/user/company/security")
+      .then((r) => setPolicy(r.data.mfaPolicy))
+      .catch(() => setPolicy(null));
+  }, []);
+
+  const change = async (value: string) => {
+    if ((value === "ALL" || value === "ADMINS") && !window.confirm(t("Those who must use it will set up an authenticator app at their next sign-in. Continue?"))) return;
+    setSaving(true);
+    try {
+      const res = await axios.put<{ mfaPolicy: string }>("/v1/api/user/company/security", { mfaPolicy: value });
+      setPolicy(res.data.mfaPolicy);
+      ToasterService.success(t("Sign-in policy saved."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not save the sign-in policy.")));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (policy === null) return null;
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(ShieldCheck, "Sign-in security")}
+      <label className={LABEL} htmlFor="company-mfaPolicy">{t("Two-step sign-in")}</label>
+      <select id="company-mfaPolicy" className={INPUT} value={policy} disabled={!editable || saving} onChange={(e) => change(e.target.value)}>
+        {MFA_POLICIES.map((p) => <option key={p.value} value={p.value}>{t(p.label)}</option>)}
+      </select>
+      <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
+        {t("After the password, sign-in asks for a code from an authenticator app. Administrators are users with any Admin permission. A lost phone: reset the person's two-step sign-in on the Users page.")}
+      </p>
+    </section>
+  );
+}
+
+interface SsoSettings {
+  provider: "MICROSOFT" | "GOOGLE";
+  enabled: boolean;
+  clientId: string | null;
+  hasSecret: boolean;
+  directoryTenant: string | null;
+  domains: string[];
+}
+
+/**
+ * Single sign-on with Microsoft (Entra ID) or Google: the app registration the company made there, and the email
+ * domains whose people then sign in with it. Each provider is saved on its own.
+ */
+function SingleSignOnSection({ editable }: { editable: boolean }) {
+  const [rows, setRows] = useState<SsoSettings[] | null>(null);
+  const redirectUri = `${window.location.origin}/v1/api/auth/sso/callback`;
+
+  useEffect(() => {
+    axios.get<SsoSettings[]>("/v1/api/user/company/sso").then((r) => setRows(r.data)).catch(() => setRows(null));
+  }, []);
+
+  if (!rows) return null;
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(KeyRound, "Single sign-on")}
+      <p className="text-[11px] text-slate-500 dark:text-gray-400">
+        {t("Register the app with Microsoft Entra ID or Google, with this redirect URI:")}{" "}
+        <code className="select-all break-all rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 dark:bg-white/10 dark:text-gray-200">{redirectUri}</code>
+      </p>
+      <div className="mt-3 space-y-3">
+        {rows.map((row) => (
+          <SsoProviderForm key={row.provider} editable={editable} settings={row}
+            onSaved={(saved) => setRows((list) => (list ?? []).map((r) => (r.provider === saved.provider ? saved : r)))} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SsoProviderForm({ editable, settings, onSaved }: { editable: boolean; settings: SsoSettings; onSaved: (s: SsoSettings) => void }) {
+  const [form, setForm] = useState({
+    enabled: settings.enabled, clientId: settings.clientId ?? "", clientSecret: "",
+    directoryTenant: settings.directoryTenant ?? "", domains: settings.domains.join(", "),
+  });
+  const [saving, setSaving] = useState(false);
+  const microsoft = settings.provider === "MICROSOFT";
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.put<SsoSettings>(`/v1/api/user/company/sso/${settings.provider}`, {
+        enabled: form.enabled, clientId: form.clientId,
+        // Empty keeps the saved secret
+        clientSecret: form.clientSecret ? form.clientSecret : null,
+        directoryTenant: form.directoryTenant,
+        domains: form.domains.split(/[,\s]+/).filter(Boolean),
+      });
+      onSaved(res.data);
+      setForm((f) => ({ ...f, clientSecret: "" }));
+      ToasterService.success(t("Single sign-on saved."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not save single sign-on.")));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 dark:border-gray-700">
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
+        <input type="checkbox" className="accent-cyan-600" disabled={!editable} checked={form.enabled}
+          onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
+        <i className={`fab ${microsoft ? "fa-microsoft" : "fa-google"}`} aria-hidden="true"></i>
+        {t(microsoft ? "Sign in with Microsoft" : "Sign in with Google")}
+      </label>
+      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div>
+          <label className={LABEL}>{t(microsoft ? "Application (client) ID" : "Client ID")}</label>
+          <input className={INPUT} disabled={!editable} value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))} />
+        </div>
+        <div>
+          <label className={LABEL}>{t("Client secret")}</label>
+          <input className={INPUT} type="password" autoComplete="new-password" disabled={!editable} value={form.clientSecret}
+            placeholder={settings.hasSecret ? t("Saved; leave empty to keep it") : ""}
+            onChange={(e) => setForm((f) => ({ ...f, clientSecret: e.target.value }))} />
+        </div>
+        {microsoft && (
+          <div>
+            <label className={LABEL}>{t("Directory (tenant) ID")}</label>
+            <input className={INPUT} disabled={!editable} value={form.directoryTenant} placeholder={t("Empty: any work account")}
+              onChange={(e) => setForm((f) => ({ ...f, directoryTenant: e.target.value }))} />
+          </div>
+        )}
+        <div>
+          <label className={LABEL}>{t("Email domains")}</label>
+          <input className={INPUT} disabled={!editable} value={form.domains} placeholder="gulftrading.ae"
+            onChange={(e) => setForm((f) => ({ ...f, domains: e.target.value }))} />
+        </div>
+      </div>
+      {editable && (
+        <button type="button" className={`${SECONDARY_BUTTON} mt-2`} disabled={saving} onClick={save}>{t(saving ? "Saving..." : "Save")}</button>
+      )}
+    </div>
   );
 }

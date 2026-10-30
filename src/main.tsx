@@ -13,6 +13,10 @@ import AppPreloader from "./components/common/AppPreloader.tsx";
 import PageLoader from "./components/common/PageLoader.tsx";
 
 import { AUTH_BOOTSTRAP_COMPLETE_EVENT, isAuthBootstrapComplete } from "./utils/authBootstrap";
+import { applyRememberedBrand } from "./company/brand";
+
+// The company's colour from the last visit, before the first paint
+applyRememberedBrand();
 
 // The browser's calendar / clock icon is hidden app-wide (index.css), and Chrome only opens the picker from
 // that icon, so clicking a date or time field did nothing. Open the picker on any click on such a field.

@@ -5,6 +5,8 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { Link } from "react-router";
 import { AuthContext } from "../../context/AuthContext";
 import placeholderImage from "../../images/img-placeholder.png";
+import { SlidersHorizontal } from "lucide-react";
+import { t } from "../../i18n/i18n";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -285,6 +287,17 @@ export default function UserDropdown() {
               </svg>
 
                 User Profile
+              </DropdownItem>
+            </li>
+            <li>
+              <DropdownItem
+                onItemClick={closeDropdown}
+                tag="a"
+                to="/my-preferences"
+                className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg text-theme-sm hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              >
+                <SlidersHorizontal className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                {t("My preferences")}
               </DropdownItem>
             </li>
             <li>

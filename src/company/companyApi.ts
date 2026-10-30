@@ -1,6 +1,8 @@
 // The signed-in company's details (user-service /v1/api/user/company): Company Settings and document headers.
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { loadPreferences } from "../user/preferences";
+import { applyCompanyBranding } from "./brand";
 import { decodeAccess, getSelectedTenant } from "../access/access";
 import { onRegionalChange, setRegional } from "./format";
 import { addressStyle, regionalAddressLines } from "./regionalAddress";
@@ -41,6 +43,9 @@ export interface CompanyProfile {
   tradeLicenseNumber?: string | null;
   licenseAuthority?: string | null;
   hasLogo: boolean;
+  // The company's colour (#RRGGBB) and browser-tab icon
+  brandColor?: string | null;
+  hasFavicon?: boolean;
   updatedDate?: string | null;
   // The signed-in user may change these details
   editable: boolean;
@@ -83,12 +88,14 @@ const resetIfOtherCompany = () => {
     logoPromise = null;
     current = null;
     setRegional(null);
+    applyCompanyBranding(null);
   }
 };
 
 const changed = (profile: CompanyProfile) => {
   current = profile;
   setRegional(profile);
+  applyCompanyBranding(profile);
   profilePromise = Promise.resolve(profile);
   logoPromise = null;
   window.dispatchEvent(new Event(CHANGED));
@@ -120,6 +127,12 @@ export const companyApi = {
     return axios.put<CompanyProfile>(`${BASE}/logo`, form).then((r) => changed(r.data));
   },
   removeLogo: () => axios.delete<CompanyProfile>(`${BASE}/logo`).then((r) => changed(r.data)),
+  uploadFavicon: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return axios.put<CompanyProfile>(`${BASE}/favicon`, form).then((r) => changed(r.data));
+  },
+  removeFavicon: () => axios.delete<CompanyProfile>(`${BASE}/favicon`).then((r) => changed(r.data)),
 };
 
 /** The company profile, fetched once; null when it can't be read (documents then use generic headers). */
@@ -129,6 +142,9 @@ export const loadCompany = (): Promise<CompanyProfile | null> => {
     profilePromise = companyApi.get().then(
       (profile) => {
         setRegional(profile);
+        applyCompanyBranding(profile);
+        // The signed-in user's own settings go on top of the company's
+        loadPreferences();
         return (current = profile);
       },
       () => {

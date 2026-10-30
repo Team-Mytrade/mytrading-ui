@@ -21,7 +21,8 @@ import { ATTENDANCE_API, CalendarDay, DayKind, dayKind, DAY_KIND_BADGE, DAY_KIND
 import { leadingDays, weekdayLabels, isCompanyWeekend, weekDays, dateLocale, liveMonthNames } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+import { stampCompany } from "../../company/pdfStamp";
 // GET /v1/api/attendance/records/my-calendar/{employeeId}: one entry per day of the month, already resolved
 // by the server into holidays, weekly offs, approved leave and absence
 interface MyCalendarResponseModel {
@@ -212,7 +213,7 @@ const AttendanceTrackingPage: React.FC = () => {
     ToasterService.success("Attendance exported to Excel.");
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF();
     doc.text(`Attendance - ${employeeName} - ${new Date(selectedYear, selectedMonth - 1, 1).toLocaleString("en-US", { month: "long" })} ${selectedYear}`, 14, 16);
     doc.setFontSize(9);
@@ -231,6 +232,7 @@ const AttendanceTrackingPage: React.FC = () => {
       startY: 27,
       styles: { fontSize: 8 },
     });
+    await stampCompany(doc);
     doc.save(`Attendance_${employeeName}_${selectedYear}_${selectedMonth}.pdf`);
     ToasterService.success("Attendance exported to PDF.");
   };

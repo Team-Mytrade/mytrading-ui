@@ -13,11 +13,11 @@ const ALL = "";
 const BAR =
   "flex flex-wrap items-center justify-between gap-2 border-b border-[#d5eef2] bg-[#f4fcfd] px-3 py-1.5 text-xs text-slate-600 dark:border-gray-800 dark:bg-[#191919] dark:text-gray-300";
 const BADGE =
-  "inline-flex items-center gap-1 rounded-full bg-[#0097a7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-cyan-800";
+  "inline-flex items-center gap-1 rounded-full bg-[rgb(var(--brand-600,0_151_167))] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-cyan-800";
 const PICKER =
-  "h-8 w-52 cursor-pointer truncate rounded-lg border border-[#b2ebf2] bg-white py-0 pl-8 pr-8 text-xs font-medium leading-normal text-slate-800 shadow-sm outline-none transition-colors hover:border-[#4dd0e1] focus:border-[#0097a7] focus:ring-2 focus:ring-[#4dd0e1]/40 sm:w-64 dark:border-gray-700 dark:bg-[#202020] dark:text-gray-200";
+  "h-8 w-52 cursor-pointer truncate rounded-lg border border-[rgb(var(--brand-100,178_235_242))] bg-white py-0 pl-8 pr-8 text-xs font-medium leading-normal text-slate-800 shadow-sm outline-none transition-colors hover:border-[rgb(var(--brand-300,77_208_225))] focus:border-[rgb(var(--brand-600,0_151_167))] focus:ring-2 focus:ring-[rgb(var(--brand-300,77_208_225))]/40 sm:w-64 dark:border-gray-700 dark:bg-[#202020] dark:text-gray-200";
 const BAR_BUTTON =
-  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b2ebf2] bg-white px-3 text-xs font-medium text-[#006f7a] shadow-sm transition-colors hover:border-[#4dd0e1] hover:bg-[#e0f7fa] dark:border-gray-700 dark:bg-[#202020] dark:text-cyan-300 dark:hover:bg-[#262626]";
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[rgb(var(--brand-100,178_235_242))] bg-white px-3 text-xs font-medium text-[rgb(var(--brand-700,0_111_122))] shadow-sm transition-colors hover:border-[rgb(var(--brand-300,77_208_225))] hover:bg-[rgb(var(--brand-50,224_247_250))] dark:border-gray-700 dark:bg-[#202020] dark:text-cyan-300 dark:hover:bg-[#262626]";
 
 /**
  * Super Admin bar under the header: which company their actions apply to, and a picker to switch.
@@ -64,9 +64,9 @@ export default function TenantBanner() {
         <span className="hidden font-medium text-slate-500 sm:inline dark:text-gray-400">Working in</span>
         <div className="relative">
           {tenantId ? (
-            <Building2 className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#0097a7]" aria-hidden="true" />
+            <Building2 className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[rgb(var(--brand-600,0_151_167))]" aria-hidden="true" />
           ) : (
-            <Globe className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#0097a7]" aria-hidden="true" />
+            <Globe className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[rgb(var(--brand-600,0_151_167))]" aria-hidden="true" />
           )}
           <select
             aria-label="Company to work in"

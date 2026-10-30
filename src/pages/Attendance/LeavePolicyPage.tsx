@@ -610,7 +610,7 @@ const LeavePolicyPage: React.FC = () => {
                 {/* Leave types in the policy: one row each, removable; other types can be added */}
                 <div className="rounded-xl border border-slate-200 dark:border-[#303030]">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 dark:border-[#303030]">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#006f7a] dark:text-cyan-300">{t("Leave types in this policy")}</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[rgb(var(--brand-700,0_111_122))] dark:text-cyan-300">{t("Leave types in this policy")}</h4>
                     {availableLeaveTypes.length > 0 && (
                       <select
                         value=""
@@ -652,7 +652,7 @@ const LeavePolicyPage: React.FC = () => {
                                 <label className="inline-flex cursor-pointer items-center gap-1.5 text-slate-700 dark:text-gray-300">
                                   <input type="checkbox" checked={detail.carryForwardAllowed}
                                     onChange={(e) => update({ carryForwardAllowed: e.target.checked, maxCarryForward: e.target.checked ? detail.maxCarryForward : 0 })}
-                                    className="h-4 w-4 accent-[#0097a7]" />
+                                    className="h-4 w-4 accent-[rgb(var(--brand-600,0_151_167))]" />
                                   {t("Allowed")}
                                 </label>
                               </td>
@@ -727,7 +727,7 @@ const LeavePolicyPage: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="bg-[#e0f7fa] dark:bg-cyan-950/30 p-3 rounded-lg border border-[#b2ebf2] dark:border-cyan-800/60 text-xs">
+                <div className="bg-[rgb(var(--brand-50,224_247_250))] dark:bg-cyan-950/30 p-3 rounded-lg border border-[rgb(var(--brand-100,178_235_242))] dark:border-cyan-800/60 text-xs">
                   <span className="font-bold text-slate-900 dark:text-cyan-200 block">{assigningPolicy.policyName}</span>
                   <span className="text-slate-600 dark:text-cyan-300/80">
                     {t("The chosen employees get this policy's leave balances")}

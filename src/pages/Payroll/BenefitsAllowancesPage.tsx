@@ -38,7 +38,9 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+import { stampCompany } from "../../company/pdfStamp";
+import { brandShade } from "../../company/brand";
 type Allowance = {
     id: number;
     code: string;
@@ -140,7 +142,7 @@ const BenefitsAllowancesPage: React.FC = () => {
         });
     };
 
-    const exportPDF = () => {
+    const exportPDF = async () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.text("Benefits & Allowances Report", 14, 15);
@@ -158,8 +160,9 @@ const BenefitsAllowancesPage: React.FC = () => {
             ]),
             startY: 35,
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
+            headStyles: { fillColor: brandShade(600) },
         });
+        await stampCompany(doc);
         doc.save(`Allowances_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };

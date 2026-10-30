@@ -765,7 +765,7 @@ const DeliveryNote: React.FC = () => {
                   {t("Print Challan")}
                 </button>
                 {canUpdate && !selected.confirmedAt && selected.status !== "CANCELLED" && (
-                  <button onClick={() => confirmDelivery(selected)} className="px-4 py-2 bg-[#4DD0E1] text-white rounded-lg hover:bg-[#26C6DA] text-sm font-medium">
+                  <button onClick={() => confirmDelivery(selected)} className="px-4 py-2 bg-[rgb(var(--brand-300,77_208_225))] text-white rounded-lg hover:bg-[rgb(var(--brand-400,38_198_218))] text-sm font-medium">
                     <BadgeCheckIcon className="h-4 w-4 inline mr-1" />
                     {t("Confirm Delivery")}
                   </button>

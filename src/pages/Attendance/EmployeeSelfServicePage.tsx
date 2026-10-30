@@ -39,7 +39,7 @@ const STATUS_LOOK: Record<string, { cell: string; accent: string; badge: string;
   ON_DUTY: { cell: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-900', accent: 'border-l-cyan-500', badge: 'bg-cyan-600 text-white', label: 'On duty' },
   WFH: { cell: 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-900', accent: 'border-l-teal-500', badge: 'bg-teal-600 text-white', label: 'WFH' },
   // bg-[#fff], not bg-white: the app-wide card tint (index.css) would otherwise colour plain days like Present ones
-  TODAY: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: 'bg-[#0097a7] text-white', label: 'Today' },
+  TODAY: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: 'bg-[rgb(var(--brand-600,0_151_167))] text-white', label: 'Today' },
   REGULAR: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: '', label: '' },
 };
 
@@ -657,10 +657,10 @@ const EmployeeSelfServicePage: React.FC = () => {
                       key={idx}
                       onClick={() => setIsCalendarExpanded(true)}
                       title={day.details || `${isToday ? 'Today: ' : 'Date: '}${day.dateStr} (Click to expand details)`}
-                      className={`h-8 px-1.5 py-1 rounded-lg border border-l-[3px] text-left flex items-center justify-between transition-all cursor-pointer hover:scale-102 overflow-hidden relative ${look.cell} ${look.accent} ${isToday ? 'ring-2 ring-[#4DD0E1]' : ''}`}
+                      className={`h-8 px-1.5 py-1 rounded-lg border border-l-[3px] text-left flex items-center justify-between transition-all cursor-pointer hover:scale-102 overflow-hidden relative ${look.cell} ${look.accent} ${isToday ? 'ring-2 ring-[rgb(var(--brand-300,77_208_225))]' : ''}`}
                     >
                       <span className={`text-[11px] leading-none shrink-0 ${
-                        isToday ? 'w-5 h-5 rounded-full bg-[#0097a7] text-white font-semibold text-[10px] flex items-center justify-center shadow-2xs' : 'font-bold text-slate-800 dark:text-gray-100'
+                        isToday ? 'w-5 h-5 rounded-full bg-[rgb(var(--brand-600,0_151_167))] text-white font-semibold text-[10px] flex items-center justify-center shadow-2xs' : 'font-bold text-slate-800 dark:text-gray-100'
                       }`}>
                         {day.dayNumber}
                       </span>
@@ -771,9 +771,9 @@ const EmployeeSelfServicePage: React.FC = () => {
 
                     const isToday = day.dateStr === todayStr;
                     const look = STATUS_LOOK[day.status as string] ?? STATUS_LOOK.REGULAR;
-                    const cardStyle = `border border-l-[3px] ${look.cell} ${look.accent} hover:shadow-2xs text-slate-800 dark:text-white ${isToday ? 'ring-2 ring-[#4DD0E1]' : ''}`;
+                    const cardStyle = `border border-l-[3px] ${look.cell} ${look.accent} hover:shadow-2xs text-slate-800 dark:text-white ${isToday ? 'ring-2 ring-[rgb(var(--brand-300,77_208_225))]' : ''}`;
                     const numBadgeStyle = isToday
-                      ? 'w-5 h-5 rounded-full bg-[#0097a7] text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs'
+                      ? 'w-5 h-5 rounded-full bg-[rgb(var(--brand-600,0_151_167))] text-white font-semibold text-[10px] flex items-center justify-center shrink-0 shadow-2xs'
                       : 'text-slate-800 dark:text-gray-100 font-bold text-xs sm:text-[13px]';
 
                     const inFormatted = day.inTime ? (day.inTime.includes('T') ? formatTime(day.inTime) : day.inTime) : null;

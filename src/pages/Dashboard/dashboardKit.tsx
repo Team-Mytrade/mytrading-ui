@@ -153,7 +153,7 @@ export const DASH_CARD =
   "rounded-xl border border-[#dcedc8] bg-[#f1f8e9] shadow-[0_2px_4px_rgba(15,23,42,0.06),0_10px_24px_rgba(15,23,42,0.08)] dark:border-gray-800 dark:bg-gray-900";
 /** Hover for clickable cards: lift, cyan edge, deeper shadow. */
 export const DASH_CARD_HOVER =
-  "transition-all duration-200 hover:-translate-y-0.5 hover:border-[#4dd0e1] hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_12px_24px_rgba(15,23,42,0.10)]";
+  "transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgb(var(--brand-300,77_208_225))] hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_12px_24px_rgba(15,23,42,0.10)]";
 /** Card heading and its small subtitle. */
 export const DASH_TITLE = "text-sm font-semibold text-slate-800 dark:text-white";
 export const DASH_SUBTITLE = "text-xs text-slate-500 dark:text-gray-400";
@@ -197,7 +197,7 @@ export const CHART_TOOLTIP = {
   border: "1px solid #d9eef2",
   borderRadius: "8px",
   fontSize: "12px",
-  boxShadow: "0 6px 16px rgba(0, 151, 167, 0.12)",
+  boxShadow: "0 6px 16px rgb(var(--brand-600, 0 151 167) / 0.12)",
 };
 
 export interface DashboardTile {
@@ -278,7 +278,7 @@ export function Panel({ title, subtitle, icon: Icon, children, bodyClass = "p-5"
           <h3 className={DASH_TITLE}>{typeof title === "string" ? t(title) : title}</h3>
           {subtitle && <p className={`mt-0.5 ${DASH_SUBTITLE}`}>{typeof subtitle === "string" ? t(subtitle) : subtitle}</p>}
         </div>
-        {Icon && <Icon className="h-[18px] w-[18px] text-[#0097a7] dark:text-cyan-300" />}
+        {Icon && <Icon className="h-[18px] w-[18px] text-[rgb(var(--brand-600,0_151_167))] dark:text-cyan-300" />}
       </div>
       <div className={bodyClass}>{children}</div>
     </section>

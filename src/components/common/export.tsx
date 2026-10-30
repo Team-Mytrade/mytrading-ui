@@ -8,6 +8,7 @@ import { todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
 import { loadCompany, loadCompanyLogo } from "../../company/companyApi";
+import { brandShade } from "../../company/brand";
 import { formatDate, formatDateTime, pdfText } from "../../company/format";
 
 type Primitive = string | number | boolean | null | undefined | Date;
@@ -56,8 +57,9 @@ export type ListingPdfExportButtonProps<T extends object> = Omit<
 };
 
 const BRAND = {
-  primary: [8, 145, 178] as [number, number, number],
-  primaryDark: [14, 116, 144] as [number, number, number],
+  // The company's colour (brand.ts), read when each PDF is drawn
+  get primary() { return brandShade(600); },
+  get primaryDark() { return brandShade(700); },
   ink: [15, 23, 42] as [number, number, number],
   muted: [100, 116, 139] as [number, number, number],
   border: [226, 232, 240] as [number, number, number],

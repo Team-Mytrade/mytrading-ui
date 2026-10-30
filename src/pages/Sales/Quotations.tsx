@@ -46,6 +46,7 @@ import QuotationItemsEditor, {
 import { formatAmount, formatDate, companyCurrency } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
+import { brandShade } from "../../company/brand";
 type Address = {
   id: number;
   customerId?: number;
@@ -384,7 +385,7 @@ const createQuotationPdfUrl = async (
   const reportCustomerName = customer?.customerName || quotation.billingAddress?.customerName || `Customer #${quotation.customerId}`;
   const tableEnd = () => (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 0;
   const drawReportHeader = () => {
-    doc.setFillColor(8, 145, 178);
+    doc.setFillColor(...brandShade(600));
     doc.rect(0, 0, reportWidth, 31, "F");
     if (logoDataUrl) {
       doc.setFillColor(255, 255, 255);
@@ -409,7 +410,7 @@ const createQuotationPdfUrl = async (
   const reportTableOptions = {
     theme: "grid" as const,
     styles: { font: "helvetica", fontSize: 7.7, cellPadding: 2.4, textColor: [15, 23, 42] as [number, number, number], lineColor: [226, 232, 240] as [number, number, number], lineWidth: 0.15, valign: "middle" as const },
-    headStyles: { fillColor: [14, 116, 144] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
+    headStyles: { fillColor: brandShade(700), textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
     alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
     margin: { left: reportMargin, right: reportMargin, top: 37, bottom: 18 },
   };

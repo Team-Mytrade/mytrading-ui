@@ -1,9 +1,12 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
+import axios from "axios";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { AuthContext, SSO_REMEMBER_KEY } from "../../context/AuthContext";
 import { clearSessionExpiredRedirect, getSessionExpiredRedirect } from "../../utils/sessionRecovery";
 import { t } from "../../i18n/i18n";
+import { ToasterService } from "../../Services/ToasterService";
+import MfaSignInSteps from "./MfaSignInSteps";
 import '../../styles/Login.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
@@ -13,14 +16,56 @@ type FormValues = {
 };
 
 const SignInForm: React.FC = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>();
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormValues>();
+  const [searchParams] = useSearchParams();
+  // Single sign-on providers of the email's company (Microsoft, Google), once the email is typed
+  const [providers, setProviders] = useState<string[]>([]);
+  const email = watch("email") ?? "";
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  // The password was right and a code is owed (two-step sign-in)
+  const [mfa, setMfa] = useState<{ setup: boolean; mfaToken: string } | null>(null);
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  // Coming back from a single sign-on that didn't work
+  useEffect(() => {
+    const ssoError = searchParams.get("ssoError");
+    if (ssoError) setApiError(ssoError);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const value = email.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      setProviders([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      axios.get<{ providers: string[] }>("/v1/api/auth/sso/discover", { params: { email: value } })
+        .then((r) => setProviders(Array.isArray(r.data?.providers) ? r.data.providers : []))
+        .catch(() => setProviders([]));
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [email]);
+
+  const signInWith = (provider: string) => {
+    try {
+      sessionStorage.setItem(SSO_REMEMBER_KEY, String(isChecked));
+    } catch {
+      // Private mode: a browser-only session
+    }
+    window.location.assign(`/v1/api/auth/sso/start?${new URLSearchParams({ email: email.trim(), provider, remember: String(isChecked) })}`);
+  };
+
+  const goIn = (notice?: string) => {
+    if (notice) ToasterService.warning(t(notice));
+    const redirectPath = getSessionExpiredRedirect() || "/";
+    clearSessionExpiredRedirect();
+    navigate(redirectPath);
+  };
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -28,11 +73,12 @@ const SignInForm: React.FC = () => {
 
     try {
       // "Keep me logged in" off: the session ends when the browser is closed
-      await login(data.email, data.password, isChecked);
-
-      const redirectPath = getSessionExpiredRedirect() || "/";
-      clearSessionExpiredRedirect();
-      navigate(redirectPath);
+      const result = await login(data.email, data.password, isChecked);
+      if (result.mfa) {
+        setMfa(result.mfa);
+        return;
+      }
+      goIn();
 
     } catch (err: any) {
       console.error("Login error:", err);
@@ -74,6 +120,9 @@ const SignInForm: React.FC = () => {
           </div>
         )}
 
+        {mfa ? (
+          <MfaSignInSteps mfa={mfa} rememberMe={isChecked} onDone={goIn} onCancel={() => setMfa(null)} />
+        ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           {/* Email or Username Field */}
           <div className="space-y-1.5">
@@ -199,6 +248,23 @@ const SignInForm: React.FC = () => {
             )}
           </button>
         </form>
+        )}
+
+        {/* Single sign-on: the company of this email signs in with Microsoft or Google */}
+        {!mfa && providers.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />{t("or")}<span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            </div>
+            {providers.map((provider) => (
+              <button key={provider} type="button" onClick={() => signInWith(provider)} disabled={isLoading}
+                className="flex h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white text-sm font-bold text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800">
+                <i className={`fab ${provider === "MICROSOFT" ? "fa-microsoft" : "fa-google"}`} aria-hidden="true"></i>
+                {t(provider === "MICROSOFT" ? "Continue with Microsoft" : "Continue with Google")}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700/50 text-center space-y-2">

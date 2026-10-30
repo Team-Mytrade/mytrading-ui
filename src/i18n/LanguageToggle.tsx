@@ -1,8 +1,9 @@
 import { setLanguage, t, useLanguage } from "./i18n";
+import { rememberLanguage } from "../user/preferences";
 
 /**
- * Header button switching the screens between English and Arabic for this user on this browser
- * (the company's language applies until one is chosen).
+ * Header button switching the screens between English and Arabic for this user; the choice is kept in their
+ * preferences (the company's language applies until one is chosen).
  */
 export default function LanguageToggle() {
   const lang = useLanguage();
@@ -11,7 +12,10 @@ export default function LanguageToggle() {
   return (
     <button
       type="button"
-      onClick={() => setLanguage(next)}
+      onClick={() => {
+        setLanguage(next);
+        rememberLanguage(next);
+      }}
       title={t("Switch the screens to {language}", { language: label })}
       aria-label={t("Switch the screens to {language}", { language: label })}
       className="flex h-10 min-w-10 items-center justify-center rounded-lg px-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
