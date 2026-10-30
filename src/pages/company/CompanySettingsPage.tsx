@@ -14,7 +14,9 @@ import {
   dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, vatNumberError, countryLabel } from "../../company/regional";
 import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
-import { formatDateTime, liveMonthNames } from "../../company/format";
+import { formatDateTime, formatHijri, liveMonthNames } from "../../company/format";
+import { addressStyle, regionalAddressErrors } from "../../company/regionalAddress";
+import RegionalAddressFields from "../../components/common/RegionalAddressFields";
 
 import { t } from "../../i18n/i18n";
 const INPUT =
@@ -49,6 +51,7 @@ const toForm = (p: CompanyProfile): Form => ({
   numberLocale: p.numberLocale || DEFAULT_REGIONAL.numberLocale,
   weekStart: p.weekStart || DEFAULT_REGIONAL.weekStart,
   weekendDays: p.weekendDays ?? DEFAULT_REGIONAL.weekendDays,
+  hijriDates: p.hijriDates ?? DEFAULT_REGIONAL.hijriDates,
   taxRegime: p.taxRegime || ((p.country || "India").toLowerCase() === "india" ? "GST" : "NONE"),
   taxNumber: p.taxNumber ?? "",
   tradeLicenseNumber: p.tradeLicenseNumber ?? "",
@@ -78,6 +81,10 @@ const validate = (f: Form): Record<string, string> => {
     }
   }
   if (!/^[A-Za-z]{3}$/.test(f.currency.trim())) errors.currency = "Use a 3-letter code such as INR";
+  // UAE: emirate and P.O. Box; Saudi Arabia: the national address (its parts go on ZATCA e-invoices)
+  Object.assign(errors, regionalAddressErrors(addressStyle(f.country), {
+    addressLine1: f.addressLine1 ?? "", addressLine2: f.addressLine2, city: f.city ?? "", state: f.state ?? "", postalCode: f.postalCode ?? "",
+  }));
   return Object.fromEntries(Object.entries(errors).filter(([, v]) => v)) as Record<string, string>;
 };
 
@@ -104,7 +111,7 @@ export default function CompanySettingsPage() {
   const zoneList = useMemo(() => timeZones(), []);
   const currencyList = useMemo(() => currencies(), []);
 
-  const set = (key: keyof Form, value: string | number | string[]) => {
+  const set = (key: keyof Form, value: string | number | boolean | string[]) => {
     if (!form) return;
     setForm({ ...form, [key]: value });
     if (errors[key]) setErrors({ ...errors, [key]: "" });
@@ -139,7 +146,8 @@ export default function CompanySettingsPage() {
     if (!form) return "";
     try {
       const now = new Date();
-      return `${formatDateIn(now, form.dateFormat, form.timeZone)} · ${formatTimeIn(now, form.timeFormat, form.timeZone)} · ${formatMoneyIn(1234567.891, form.currency, form.currencyDecimals, form.numberLocale)}`;
+      const hijri = form.hijriDates ? ` (${formatHijri(now)})` : "";
+      return `${formatDateIn(now, form.dateFormat, form.timeZone)}${hijri} · ${formatTimeIn(now, form.timeFormat, form.timeZone)} · ${formatMoneyIn(1234567.891, form.currency, form.currencyDecimals, form.numberLocale)}`;
     } catch {
       return "";
     }
@@ -271,6 +279,26 @@ export default function CompanySettingsPage() {
 
                 <section className={`${CARD} p-4`}>
                   {sectionTitle(MapPin, "Registered address")}
+                  {addressStyle(form.country) !== "OTHER" ? (
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <RegionalAddressFields style={addressStyle(form.country) as "AE" | "SA"} idPrefix="company" disabled={!editable}
+                        inputClass={INPUT} labelClass={LABEL} errorClass={ERROR} errors={errors}
+                        value={{ addressLine1: form.addressLine1 ?? "", addressLine2: form.addressLine2 ?? "", city: form.city ?? "",
+                          state: form.state ?? "", postalCode: form.postalCode ?? "" }}
+                        onChange={(patch) => {
+                          setForm({ ...form, ...patch });
+                          setErrors({});
+                        }} />
+                      <div>
+                        <label className={LABEL} htmlFor="company-country">{t("Country")}</label>
+                        <select id="company-country" className={INPUT} disabled={!editable} value={form.country ?? ""}
+                          onChange={(e) => changeCountry(e.target.value)}>
+                          {form.country && !findCountry(form.country) && <option value={form.country}>{form.country}</option>}
+                          {countryList.map((c) => <option key={c.isoCode} value={c.name}>{countryLabel(c.isoCode, c.name)}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {field("addressLine1", "Address line 1", { maxLength: 200 })}
                     {field("addressLine2", "Address line 2", { maxLength: 200 })}
@@ -299,6 +327,7 @@ export default function CompanySettingsPage() {
                       </select>
                     </div>
                   </div>
+                  )}
                 </section>
 
                 <section className={`${CARD} p-4`}>
@@ -395,6 +424,16 @@ export default function CompanySettingsPage() {
                         })}
                       </div>
                     </div>
+                    <label className="flex cursor-pointer items-start gap-2 md:col-span-3">
+                      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-cyan-600" disabled={!editable}
+                        checked={form.hijriDates} onChange={(e) => set("hijriDates", e.target.checked)} />
+                      <span>
+                        <span className="block text-xs font-semibold text-slate-700 dark:text-gray-200">{t("Show Hijri dates")}</span>
+                        <span className="block text-[11px] text-slate-500 dark:text-gray-400">
+                          {t("The Umm al-Qura date beside the Gregorian one on documents and calendars (usual in Saudi Arabia).")}
+                        </span>
+                      </span>
+                    </label>
                   </div>
                   {preview && (
                     <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-[#222222] dark:text-gray-300">

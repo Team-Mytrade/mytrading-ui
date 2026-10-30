@@ -13,7 +13,8 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "./attendanceApi";
-import { leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
+import { leadingDays, weekdayLabels, liveMonthNames, formatHijri, hijriDay, hijriEnabled } from "../../company/format";
+import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
 import { t } from "../../i18n/i18n";
 // Base relative API endpoints (routing via Vite dev proxy)
@@ -643,8 +644,9 @@ const HolidayCalendarPage: React.FC = () => {
       );
     }
 
-    // Current Month Days
+    // Current Month Days (with the Hijri day under each when the company shows Hijri dates)
     const todayStr = todayIso();
+    const showHijri = hijriEnabled();
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const isToday = dateStr === todayStr;
@@ -673,6 +675,7 @@ const HolidayCalendarPage: React.FC = () => {
               <span className={`w-1 h-1 rounded-full absolute bottom-0.5 ${hasNational ? 'bg-rose-500' : 'bg-amber-500'}`} />
             )}
           </button>
+          {showHijri && <span className="text-[8px] leading-none text-gray-400 dark:text-gray-500">{hijriDay(year, month, day)}</span>}
         </div>
       );
     }
@@ -736,7 +739,7 @@ const HolidayCalendarPage: React.FC = () => {
                   </button>
                   <div className="text-center">
                     <h3 className="text-[11px] font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                      {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}
+                      {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}<HijriMonthCaption year={miniCalendarDate.getFullYear()} month={miniCalendarDate.getMonth()} />
                     </h3>
                     <span className="text-[9.5px] text-gray-400 dark:text-gray-500 font-mono">{t("Select date to inspect")}</span>
                   </div>
@@ -779,6 +782,7 @@ const HolidayCalendarPage: React.FC = () => {
                   <div>
                     <span className="text-[9px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wider block">{t("Selected Date")}</span>
                     <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{selectedDateStr}</span>
+                    {hijriEnabled() && <span className="block text-[10px] text-gray-500 dark:text-gray-400">{formatHijri(selectedDateStr)}</span>}
                   </div>
                   <span className="text-[9.5px] font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#191919] px-2.5 py-0.5 rounded-full border border-gray-200 dark:!border-transparent">
                     {holidaysList.filter(h => h.holidayDate === selectedDateStr).length} Holidays

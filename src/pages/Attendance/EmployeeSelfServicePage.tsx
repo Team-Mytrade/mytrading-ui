@@ -17,6 +17,7 @@ import {
   hoursOf, LeaveBalance, leaveTypeLabel, punch, timeOf,
 } from "./attendanceApi";
 import { formatTime, leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
+import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
 import { t } from "../../i18n/i18n";
 type DayStatus = 'TODAY' | 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE' | 'HOLIDAY' | 'WEEK_OFF' | 'ON_DUTY' | 'WFH' | 'REGULAR';
@@ -505,7 +506,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[110px] text-center">
-                    {monthNames[month]} {year}
+                    {monthNames[month]} {year}<HijriMonthCaption year={year} month={month} />
                   </span>
                   <button 
                     type="button" 
@@ -717,7 +718,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
                     <span className="text-xs font-semibold text-slate-800 dark:text-white min-w-[110px] text-center">
-                      {monthNames[month]} {year}
+                      {monthNames[month]} {year}<HijriMonthCaption year={year} month={month} />
                     </span>
                     <button 
                       type="button" 

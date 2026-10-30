@@ -77,6 +77,8 @@ const PerformanceManagementPage = lazy(() => import("./pages/Payroll/Performance
 const StatutoryCompliancesPage = lazy(() => import("./pages/Payroll/StatutoryCompliancesPage"));
 const PayrollProcessingEnginePage = lazy(() => import("./pages/Payroll/PayrollProcessingEnginePage"));
 const PayrollSummaryPage = lazy(() => import("./pages/Payroll/PayrollSummaryPage"));
+const GratuityProvisionPage = lazy(() => import("./pages/Payroll/GratuityProvisionPage"));
+const GulfPayFilesPage = lazy(() => import("./pages/Payroll/GulfPayFilesPage"));
 const DepartmentSummaryPage = lazy(() => import("./pages/Payroll/DepartmentSummaryPage"));
 const SalesSummary = lazy(() => import("./pages/Dashboard/SalesSummary"));
 const Tasks = lazy(() => import("./pages/CRM/Tasks"));
@@ -364,6 +366,8 @@ export default function AppRouter() {
           <Route path="/payroll_dashboard" element={<PayrollDashboard />} />
           <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
           <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
+          <Route path="/gratuityProvision" element={<GratuityProvisionPage />} />
+          <Route path="/gulfPayFiles" element={<GulfPayFilesPage />} />
           <Route path="/departmentSummary" element={<DepartmentSummaryPage />} />
 
           <Route path="/att_attendanceApproval" element={<AttendanceApprovalPage />} />

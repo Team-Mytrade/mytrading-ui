@@ -220,6 +220,8 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/taxDeductions", "HRM"],
   ["/payroll*", "HRM"],
   ["/departmentSummary", "HRM"],
+  ["/gratuityProvision", "HRM"],
+  ["/gulfPayFiles", "HRM"],
   ["/benefits", "HRM"],
   ["/document-management", "HRM"],
   ["/performance-management", "HRM"],

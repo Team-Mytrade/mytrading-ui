@@ -13,6 +13,7 @@ import {
   apiError, CalendarDay, fetchLeaveBalances, fetchMonth, formatDays, freeDays, LeaveBalance, leaveTypeLabel,
 } from "./attendanceApi";
 import { leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
+import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
 import { t } from "../../i18n/i18n";
 const LEAVE_API_URL = "/v1/api/attendance/leave-requests";
@@ -336,7 +337,7 @@ const LeaveRequestPage: React.FC = () => {
                           <ChevronLeft className="w-4 h-4" />
                         </button>
                         <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[120px] text-center">
-                          {monthNames[currentMonth]} {currentYear}
+                          {monthNames[currentMonth]} {currentYear}<HijriMonthCaption year={currentYear} month={currentMonth} />
                         </span>
                         <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
                           <ChevronRight className="w-4 h-4" />

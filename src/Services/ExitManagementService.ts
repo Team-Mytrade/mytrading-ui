@@ -31,6 +31,12 @@ export interface ExitRequest {
     withdrawalRequested?: boolean;
     // Days from the resignation to the last working day
     noticeDays?: number | null;
+    // How the employment ended (decides the Saudi end-of-service award); HR sets it with the exit details
+    separationType?: 'RESIGNATION' | 'TERMINATION' | 'CONTRACT_END' | 'DISMISSAL';
+    // The employee's payroll country (the Gulf ones have a gratuity and a settlement statement)
+    countryCode?: string | null;
+    // Annual leave not taken, paid with the final pay (Gulf)
+    unusedLeaveDays?: number | null;
 }
 
 const EXIT_API_URL = "/v1/api/payroll/exit";

@@ -4,7 +4,7 @@ import axios from "axios";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company/companyApi";
-import { formatAmount, formatDate, formatMoney, formatNumber, pdfText } from "../../company/format";
+import { formatAmount, formatDate, formatDateHijri, formatMoney, formatNumber, pdfText } from "../../company/format";
 import { fitLogo } from "../../components/common/export";
 
 const PURCHASE = "/v1/api/purchase";
@@ -161,7 +161,7 @@ export async function purchaseOrderPdf({ po, vendor, terms }: PurchaseOrderDoc):
   let y = Math.max(buyerEnd, tableEnd()) + 5;
 
   autoTable(doc, { ...table, startY: y, head: [[{ content: "ORDER DETAILS", colSpan: 4 }]], body: [
-    ["PO number", t(number), "Order date", t(formatDate(po.orderDate))],
+    ["PO number", t(number), "Order date", t(formatDateHijri(po.orderDate, "-", true))],
     ["Requisition", t(po.requisitionNumber), "Deliver by", t(formatDate(po.expectedDeliveryDate))],
     ["Payment terms", t(po.paymentTerms), "Currency", t(currency)],
   ], columnStyles: { 0: { cellWidth: 30, ...label }, 1: { cellWidth: 61 }, 2: { cellWidth: 30, ...label }, 3: { cellWidth: 61 } } });
