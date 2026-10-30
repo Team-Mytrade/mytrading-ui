@@ -41,7 +41,9 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatDate } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+import { stampCompany } from "../../company/pdfStamp";
+import { brandShade } from "../../company/brand";
 type Payslip = {
     employeeId: string;
     employeeName: string;
@@ -155,7 +157,7 @@ const PayrollRunsPage: React.FC = () => {
         });
     };
 
-    const exportPDF = () => {
+    const exportPDF = async () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.text("Payroll Runs Report", 14, 15);
@@ -174,8 +176,9 @@ const PayrollRunsPage: React.FC = () => {
             ]),
             startY: 35,
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
+            headStyles: { fillColor: brandShade(600) },
         });
+        await stampCompany(doc);
         doc.save(`Payroll_Runs_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };

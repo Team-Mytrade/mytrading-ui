@@ -3,6 +3,8 @@ import { markAuthBootstrapComplete } from '../utils/authBootstrap';
 import { ToasterService } from '../Services/ToasterService';
 import { createContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { forgetPreferences } from '../user/preferences';
+import { applyCompanyBranding } from '../company/brand';
 import placeholderImage from '../images/img-placeholder.png';
 import {
   clearSessionExpiredRedirect,
@@ -37,6 +39,9 @@ const SESSION_PERSISTENT_KEY = 'sessionPersistent';
  * ok: renewed. rejected: the server refused the session (signed out, expired, password changed).
  * unavailable: the server couldn't be reached (restart, outage); the session may still be fine.
  */
+// "Keep me logged in" carried across the single sign-on redirect
+export const SSO_REMEMBER_KEY = 'mytrade.ssoRemember';
+
 type RefreshResult =
   | { status: 'ok'; token: string; user?: unknown }
   | { status: 'rejected' }
@@ -167,9 +172,22 @@ interface User {
 }
 
 interface LoginResponse {
-  token: string;
-  user: User;
+  // Missing while a code is still owed (mfa)
+  token?: string;
+  user?: User;
   message?: string;
+  // Two-step sign-in: the password was right; a code (or setting the app up first) comes next
+  mfa?: { setup: boolean; mfaToken: string };
+  // Shown once after setting the authenticator up during sign-in
+  recoveryCodes?: string[];
+  notice?: string;
+}
+
+/** The QR code and key for setting an authenticator app up during sign-in. */
+export interface MfaSetup {
+  secret: string;
+  otpauthUri: string;
+  qrDataUri: string;
 }
 
 interface AuthContextType {
@@ -182,6 +200,13 @@ interface AuthContextType {
   // False while profileImage is only the placeholder, so screens can show initials instead
   hasProfileImage: boolean;
   login: (username: string, password: string, rememberMe?: boolean) => Promise<LoginResponse>;
+  // The second step of sign-in: a code from the authenticator app or a recovery code
+  completeMfa: (mfaToken: string, code: string, rememberMe?: boolean) => Promise<LoginResponse>;
+  // Setting the app up during sign-in (the company requires it): the QR code, then its first code
+  startMfaSetup: (mfaToken: string) => Promise<MfaSetup>;
+  finishMfaSetup: (mfaToken: string, code: string, rememberMe?: boolean) => Promise<LoginResponse>;
+  // Back from single sign-on: the server set the session cookie; this turns it into the signed-in session
+  completeSso: () => Promise<LoginResponse>;
   // After the user changes their password: the server ends older sessions, so sign this one in again
   reauthenticate: (newPassword: string) => Promise<void>;
   signup: (fullName: string, role: string, email: string, password: string) => Promise<any>;
@@ -200,6 +225,10 @@ export const AuthContext = createContext<AuthContextType>({
   profileImage: placeholderImage,
   hasProfileImage: false,
   login: async () => { throw new Error('Login function not implemented'); },
+  completeMfa: async () => { throw new Error('Login function not implemented'); },
+  startMfaSetup: async () => { throw new Error('Login function not implemented'); },
+  finishMfaSetup: async () => { throw new Error('Login function not implemented'); },
+  completeSso: async () => { throw new Error('Login function not implemented'); },
   reauthenticate: async () => {},
   signup: async () => { throw new Error('Signup function not implemented'); },
   logout: () => {},
@@ -288,6 +317,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .catch(() => undefined);
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
+    // The company's regional settings apply again until the next user's load
+    forgetPreferences();
+    applyCompanyBranding(null);
     localStorage.removeItem(SESSION_PERSISTENT_KEY);
     setSelectedTenant(null);
     delete axios.defaults.headers.common['Authorization'];
@@ -642,17 +674,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [handleSessionExpired]);
 
   // rememberMe false: the session ends when the browser is closed
-  const login = async (username: string, password: string, rememberMe = true): Promise<LoginResponse> => {
-    try {
-      const res = await axios.post('/v1/api/auth/login', {
-        username,
-        password,
-        rememberMe,
-      });
-
+  // A signed-in session from a sign-in response (password, or the second step)
+  const applySession = (data: any, rememberMe: boolean): LoginResponse => {
       // Never log the response: it contains the access token
-      if (res.data.token && res.data.user) {
-        const { token, user } = res.data;
+      if (data.token && data.user) {
+        const { token, user } = data;
         const normalizedUser = normalizeUser(user);
         localStorage.setItem('accessToken', token);
         localStorage.setItem('user', JSON.stringify(normalizedUser));
@@ -672,12 +698,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           void loadProfileImage(loggedInId, token);
         }
         
-        return { token, user: normalizedUser };
-      } else {
-        throw new Error('No token received from server');
+        return { token, user: normalizedUser, recoveryCodes: data.recoveryCodes, notice: data.notice };
       }
-    } catch (error: any) {
-      // Not logged: the request inside the error holds the password
+      throw new Error('No token received from server');
+  };
+
+  // Not logged: the request inside the error holds the password
+  const loginError = (error: any): Error => {
       let errorMessage = 'Login failed';
       
       if (error.response) {
@@ -689,8 +716,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         errorMessage = error.message || errorMessage;
       }
-      
-      throw new Error(errorMessage);
+      return new Error(errorMessage);
+  };
+
+  const login = async (username: string, password: string, rememberMe = true): Promise<LoginResponse> => {
+    try {
+      const res = await axios.post('/v1/api/auth/login', { username, password, rememberMe });
+      if (res.data?.mfaRequired || res.data?.mfaSetupRequired) {
+        return { mfa: { setup: Boolean(res.data.mfaSetupRequired), mfaToken: res.data.mfaToken } };
+      }
+      return applySession(res.data, rememberMe);
+    } catch (error: any) {
+      throw loginError(error);
+    }
+  };
+
+  const completeMfa = async (mfaToken: string, code: string, rememberMe = true): Promise<LoginResponse> => {
+    try {
+      const res = await axios.post('/v1/api/auth/login/mfa', { mfaToken, code });
+      return applySession(res.data, rememberMe);
+    } catch (error: any) {
+      throw loginError(error);
+    }
+  };
+
+  const startMfaSetup = async (mfaToken: string): Promise<MfaSetup> => {
+    try {
+      const res = await axios.post('/v1/api/auth/login/mfa/setup', { mfaToken });
+      return res.data.mfaSetup as MfaSetup;
+    } catch (error: any) {
+      throw loginError(error);
+    }
+  };
+
+  const completeSso = async (): Promise<LoginResponse> => {
+    let remember = false;
+    try {
+      remember = sessionStorage.getItem(SSO_REMEMBER_KEY) === 'true';
+      sessionStorage.removeItem(SSO_REMEMBER_KEY);
+    } catch {
+      // Private mode: a browser-only session
+    }
+    const result = await refreshAccessToken();
+    if (result.status !== 'ok' || !result.user) {
+      throw new Error(result.status === 'unavailable' ? 'No response from server. Please check your connection.' : 'The single sign-on did not finish. Please sign in again.');
+    }
+    return applySession({ token: result.token, user: result.user }, remember);
+  };
+
+  const finishMfaSetup = async (mfaToken: string, code: string, rememberMe = true): Promise<LoginResponse> => {
+    try {
+      const res = await axios.post('/v1/api/auth/login/mfa/enable', { mfaToken, code });
+      return applySession(res.data, rememberMe);
+    } catch (error: any) {
+      throw loginError(error);
     }
   };
 
@@ -749,6 +828,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       profileImage,
       hasProfileImage,
       login,
+      completeMfa,
+      startMfaSetup,
+      finishMfaSetup,
+      completeSso,
       reauthenticate,
       signup,
       logout,

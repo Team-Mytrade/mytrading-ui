@@ -233,9 +233,9 @@ const ExitManagementPage: React.FC = () => {
             <div className={PAGE_BODY}>
                 {/* This page is the user's own resignation; approvers handle everyone's on Exit Approvals */}
                 {canApprove && (
-                    <p className="mb-3 rounded-lg border border-[#b2ebf2] bg-[#e0f7fa] px-3 py-2 text-xs text-slate-700">
+                    <p className="mb-3 rounded-lg border border-[rgb(var(--brand-100,178_235_242))] bg-[rgb(var(--brand-50,224_247_250))] px-3 py-2 text-xs text-slate-700">
                         {t("This page is for your own resignation. To review, edit or approve employees' exit requests, open")}{' '}
-                        <Link to="/exitApprovals" className="font-semibold text-[#006f7a] hover:underline">{t("Exit Approvals")}</Link>.
+                        <Link to="/exitApprovals" className="font-semibold text-[rgb(var(--brand-700,0_111_122))] hover:underline">{t("Exit Approvals")}</Link>.
                     </p>
                 )}
                 {notLinked || !isOpen ? (

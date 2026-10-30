@@ -152,7 +152,7 @@ export default function CrmDashboardPage() {
                   <span>{s.count}</span>
                 </div>
                 <div className="mt-1 h-2 rounded bg-gray-100 dark:bg-gray-800">
-                  <div className="h-2 rounded bg-[#0097a7]" style={{ width: `${s.pct}%` }} />
+                  <div className="h-2 rounded bg-[rgb(var(--brand-600,0_151_167))]" style={{ width: `${s.pct}%` }} />
                 </div>
               </li>
             ))}
@@ -166,7 +166,7 @@ export default function CrmDashboardPage() {
             {monthly.map((m) => (
               <div key={m.month} className="flex flex-1 flex-col items-center justify-end" title={`${m.month}: ${m.count}`}>
                 <span className="mb-1 text-[10px] text-gray-500">{m.count}</span>
-                <div className="w-full rounded-t bg-[#4dd0e1]" style={{ height: `${Math.max(m.pct, 2)}%` }} />
+                <div className="w-full rounded-t bg-[rgb(var(--brand-300,77_208_225))]" style={{ height: `${Math.max(m.pct, 2)}%` }} />
                 <span className="mt-1 truncate text-[10px] text-gray-500">{m.month.slice(0, 3)}</span>
               </div>
             ))}

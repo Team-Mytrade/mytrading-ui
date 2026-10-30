@@ -24,7 +24,7 @@ const DEFAULTS: NotificationSettings = {
 
 const sectionTitle = (Icon: React.ComponentType<{ className?: string }>, text: string) => (
   <h3 className={`${CARD_TITLE} mb-3 flex items-center gap-2`}>
-    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#e0f7fa] text-[#0097a7] dark:bg-cyan-950/40 dark:text-cyan-300">
+    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--brand-50,224_247_250))] text-[rgb(var(--brand-600,0_151_167))] dark:bg-cyan-950/40 dark:text-cyan-300">
       <Icon className="h-4 w-4" />
     </span>
     {t(text)}

@@ -27,6 +27,26 @@ export const setRegional = (settings: Partial<RegionalSettings> | null) => {
 
 export const getRegional = (): RegionalSettings => regional;
 
+// The signed-in user's own choices for showing dates and times (My Preferences); the company's apply to the rest.
+// Business dates (today, due dates) keep the company's time zone.
+type Personal = Partial<Pick<RegionalSettings, "timeZone" | "dateFormat" | "timeFormat">>;
+let personal: Personal = {};
+
+/** Called with the user's preferences when they load or are saved; null clears them (signed out). */
+export const setPersonalRegional = (choices: Personal | null) => {
+  const next: Personal = {};
+  if (choices?.timeZone) next.timeZone = choices.timeZone;
+  if (choices?.dateFormat) next.dateFormat = choices.dateFormat;
+  if (choices?.timeFormat) next.timeFormat = choices.timeFormat;
+  if (JSON.stringify(next) === JSON.stringify(personal)) return;
+  personal = next;
+  window.dispatchEvent(new Event(CHANGED));
+};
+
+const displayZone = () => personal.timeZone ?? regional.timeZone;
+const displayDateFormat = () => personal.dateFormat ?? regional.dateFormat;
+const displayTimeFormat = () => personal.timeFormat ?? regional.timeFormat;
+
 /** Re-renders a component when the settings change (e.g. saved in Company Settings). */
 export const onRegionalChange = (listener: () => void) => {
   window.addEventListener(CHANGED, listener);
@@ -170,12 +190,12 @@ export const liveMonthNames = (style: "short" | "long" = "short"): string[] =>
  */
 export const dateLocale = (english?: string): string | undefined => (language() === "ar" ? "ar-AE-u-nu-latn" : english);
 
-// Parts of an instant in the company's time zone
-const zonedParts = (date: Date): Parts => {
+// Parts of an instant in a time zone (the one times are shown in, unless given)
+const zonedParts = (date: Date, zone: string = displayZone()): Parts => {
   const parts: Record<string, string> = {};
   try {
     new Intl.DateTimeFormat("en-GB", {
-      timeZone: regional.timeZone,
+      timeZone: zone,
       year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
     }).formatToParts(date).forEach((p) => (parts[p.type] = p.value));
   } catch {
@@ -215,7 +235,7 @@ const datePattern = (p: Parts, pattern: string) =>
     .replace("dd", pad(p.day));
 
 const timeText = (p: Parts) => {
-  if (regional.timeFormat === "24h") return `${pad(p.hour)}:${pad(p.minute)}`;
+  if (displayTimeFormat() === "24h") return `${pad(p.hour)}:${pad(p.minute)}`;
   const hour = p.hour % 12 || 12;
   const amPm = language() === "ar" ? (p.hour < 12 ? "ص" : "م") : p.hour < 12 ? "AM" : "PM";
   return `${pad(hour)}:${pad(p.minute)} ${amPm}`;
@@ -224,7 +244,7 @@ const timeText = (p: Parts) => {
 /** A date in the company's format (dd/MM/yyyy, ...); "—" (or `empty`) when there is none. */
 export const formatDate = (value: unknown, empty = "—"): string => {
   const p = partsOf(value);
-  return p ? datePattern(p, regional.dateFormat) : value ? String(value) : empty;
+  return p ? datePattern(p, displayDateFormat()) : value ? String(value) : empty;
 };
 
 /* ---------------- Hijri (Umm al-Qura) dates, beside the Gregorian ones when the company shows them ---------------- */
@@ -301,7 +321,7 @@ export const formatTime = (value: unknown, empty = "—"): string => {
 
 export const formatDateTime = (value: unknown, empty = "—"): string => {
   const p = partsOf(value);
-  return p ? `${datePattern(p, regional.dateFormat)}, ${timeText(p)}` : value ? String(value) : empty;
+  return p ? `${datePattern(p, displayDateFormat())}, ${timeText(p)}` : value ? String(value) : empty;
 };
 
 /** "Oct 2026" for a month ("2026-10" or a date). */
@@ -363,8 +383,8 @@ export const companyWeekendDays = (): string[] => [...regional.weekendDays];
 export const isCompanyWeekend = (day: string | Date): boolean =>
   regional.weekendDays.includes(typeof day === "string" ? day.toUpperCase() : DAYS[day.getDay()]);
 
-/** Today in the company's time zone as yyyy-MM-dd (date inputs, "due today"). */
+/** Today in the company's time zone as yyyy-MM-dd (date inputs, "due today"): business dates follow the company. */
 export const todayIso = (): string => {
-  const p = zonedParts(new Date());
+  const p = zonedParts(new Date(), regional.timeZone);
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 };

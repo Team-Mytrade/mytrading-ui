@@ -7,6 +7,7 @@ import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company
 import { formatAmount, formatDate, formatDateHijri, formatMoney, formatNumber, pdfText } from "../../company/format";
 import { fitLogo } from "../../components/common/export";
 
+import { brandShade } from "../../company/brand";
 const GRATUITY_API = "/v1/api/payroll/gratuity";
 
 export type SeparationType = "RESIGNATION" | "TERMINATION" | "CONTRACT_END" | "DISMISSAL";
@@ -121,8 +122,9 @@ export const gratuityMismatch = (s: SettlementStatement) =>
 export const leaveMismatch = (s: SettlementStatement) =>
   s.finalPayProcessed && Math.abs((s.unusedLeavePaid ?? 0) - (s.unusedLeave?.amount ?? 0)) >= 0.01;
 
-const BRAND: [number, number, number] = [8, 145, 178];
-const HEAD: [number, number, number] = [14, 116, 144];
+// The company's colour (brand.ts), read when the PDF is drawn
+const BRAND = (): [number, number, number] => brandShade(600);
+const HEAD = (): [number, number, number] => brandShade(700);
 const INK: [number, number, number] = [15, 23, 42];
 const MUTED: [number, number, number] = [100, 116, 139];
 const LINE: [number, number, number] = [226, 232, 240];
@@ -139,7 +141,7 @@ export async function settlementPdf(s: SettlementStatement): Promise<Blob> {
   const companyName = company?.legalName || company?.companyName || "My Trading";
   const money = (value: unknown) => formatAmount(value, s.currency);
 
-  doc.setFillColor(...BRAND);
+  doc.setFillColor(...BRAND());
   doc.rect(0, 0, width, 31, "F");
   if (logo) {
     const size = fitLogo(logo, 38, 9);
@@ -164,7 +166,7 @@ export async function settlementPdf(s: SettlementStatement): Promise<Blob> {
   const table = {
     theme: "grid" as const,
     styles: { font: "helvetica", fontSize: 8, cellPadding: 2.4, textColor: INK, lineColor: LINE, lineWidth: 0.15, valign: "middle" as const },
-    headStyles: { fillColor: HEAD, textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
+    headStyles: { fillColor: HEAD(), textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const },
     margin: { left: margin, right: margin, top: 20, bottom: 18 },
   };
   const label = { fontStyle: "bold" as const, textColor: [71, 85, 105] as [number, number, number] };

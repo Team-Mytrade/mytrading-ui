@@ -62,6 +62,16 @@ export const setLanguage = (next: Language) => {
   change(next);
 };
 
+/** Back to the company's language (the user's saved preference is "company default"). */
+export const clearLanguageChoice = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Private mode: nothing was kept
+  }
+  change(companyLanguage);
+};
+
 /** The company's language (from its regional settings), used when the user hasn't chosen one. */
 export const setCompanyLanguage = (value?: string | null) => {
   companyLanguage = supported(value) ?? "en";

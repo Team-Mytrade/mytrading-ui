@@ -1,8 +1,8 @@
 .stats-card {
-  --stats-card-accent: #0e7490;
-  --stats-card-icon-bg: #cffafe;
-  --stats-card-bg: #ecfeff;
-  --stats-card-border: #a5f3fc;
+  --stats-card-accent: rgb(var(--brand-700, 14 116 144));
+  --stats-card-icon-bg: rgb(var(--brand-100, 207 250 254));
+  --stats-card-bg: rgb(var(--brand-50, 236 254 255));
+  --stats-card-border: rgb(var(--brand-200, 165 243 252));
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--stats-card-border);
@@ -102,7 +102,7 @@
 .stats-card--warning { --stats-card-accent: #b45309; --stats-card-icon-bg: #fef3c7; --stats-card-bg: #fffbeb; --stats-card-border: #fde68a; }
 .stats-card--danger { --stats-card-accent: #be123c; --stats-card-icon-bg: #ffe4e6; --stats-card-bg: #fff1f2; --stats-card-border: #fecdd3; }
 .stats-card--purple { --stats-card-accent: #6d28d9; --stats-card-icon-bg: #ede9fe; --stats-card-bg: #f5f3ff; --stats-card-border: #ddd6fe; }
-.stats-card--info { --stats-card-accent: #0e7490; --stats-card-icon-bg: #cffafe; --stats-card-bg: #ecfeff; --stats-card-border: #a5f3fc; }
+.stats-card--info { --stats-card-accent: rgb(var(--brand-700, 14 116 144)); --stats-card-icon-bg: rgb(var(--brand-100, 207 250 254)); --stats-card-bg: rgb(var(--brand-50, 236 254 255)); --stats-card-border: rgb(var(--brand-200, 165 243 252)); }
 .stats-card--neutral { --stats-card-accent: #334155; --stats-card-icon-bg: #e2e8f0; --stats-card-bg: #f8fafc; --stats-card-border: #e2e8f0; }
 
 .dark .stats-card {
@@ -135,7 +135,7 @@
 }
 
 .stats-card-actions__button svg { width: 15px; height: 15px; }
-.stats-card-actions__button:hover { color: #0097a7; background: #e0f7fa; }
+.stats-card-actions__button:hover { color: rgb(var(--brand-600, 0 151 167)); background: rgb(var(--brand-50, 224 247 250)); }
 .stats-card-actions__search {
   width: 150px;
   height: 28px;

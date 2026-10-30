@@ -45,8 +45,8 @@
     color 0.16s ease;
 }
 .page-breadcrumb__back:hover {
-  color: #0097a7;
-  background: #e0f7fa;
+  color: rgb(var(--brand-600, 0 151 167));
+  background: rgb(var(--brand-50, 224 247 250));
 }
 .page-breadcrumb__trail {
   min-width: 0;
@@ -85,13 +85,13 @@
   transition: background 0.16s ease, color 0.16s ease;
 }
 .page-breadcrumb__home svg { color: #64748b; }
-.page-breadcrumb__home:hover { color: #0097a7; background: #e0f7fa; }
+.page-breadcrumb__home:hover { color: rgb(var(--brand-600, 0 151 167)); background: rgb(var(--brand-50, 224 247 250)); }
 .page-breadcrumb__home:hover svg { color: currentColor; }
 .page-breadcrumb__link svg {
   color: #8d97a5;
 }
 .page-breadcrumb__link:hover {
-  color: #0097a7;
+  color: rgb(var(--brand-600, 0 151 167));
 }
 .page-breadcrumb__current {
   gap: 6px;
@@ -100,7 +100,7 @@
   white-space: nowrap;
 }
 .page-breadcrumb__current svg {
-  color: #0097a7;
+  color: rgb(var(--brand-600, 0 151 167));
 }
 .page-breadcrumb__separator {
   flex: 0 0 auto;

@@ -2,6 +2,16 @@ import defaultTheme from "tailwindcss/defaultTheme";
 import forms from "@tailwindcss/forms";
 import autoprefixer from "autoprefixer";
 import logical from "./tailwind.logical.js";
+
+// The app's accent is Tailwind's cyan. Each shade reads the company's brand colour (src/company/brand.ts sets
+// --brand-50…950 as "r g b"), and falls back to the standard cyan when the company has none.
+const CYAN = {
+  50: "236 254 255", 100: "207 250 254", 200: "165 243 252", 300: "103 232 249", 400: "34 211 238", 500: "6 182 212",
+  600: "8 145 178", 700: "14 116 144", 800: "21 94 117", 900: "22 78 99", 950: "8 51 68",
+};
+const brandCyan = Object.fromEntries(
+  Object.entries(CYAN).map(([step, rgb]) => [step, `rgb(var(--brand-${step}, ${rgb}) / <alpha-value>)`]),
+);
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
@@ -35,6 +45,7 @@ export default {
       colors: {
         current: "currentColor",
         transparent: "transparent",
+        cyan: brandCyan,
         white: "#FFFFFF",
         black: "#101828",
         brand: {

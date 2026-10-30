@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { createContext, useState, useContext, useEffect } from "react";
+import { THEME_PREFERENCE } from "./themePreference";
 
 type Theme = "light" | "dark";
 
@@ -26,6 +27,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setTheme(initialTheme);
     setIsInitialized(true);
+    const onPreference = (event: Event) => setTheme((event as CustomEvent<Theme>).detail);
+    window.addEventListener(THEME_PREFERENCE, onPreference);
+    return () => window.removeEventListener(THEME_PREFERENCE, onPreference);
   }, []);
 
   useEffect(() => {

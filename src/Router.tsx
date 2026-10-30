@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import PageLoading from "./components/common/PageLoading";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
+import SsoComplete from "./pages/AuthPages/SsoComplete";
 const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const Forget = lazy(() => import("./pages/AuthPages/Forget"));
 const ResetPasswordPage = lazy(() => import("./pages/AuthPages/ResetPasswordPage"));
@@ -151,6 +152,7 @@ const UserDashboard = lazy(() => import("./components/UserProfile/UserDashboard"
 const UsersPage = lazy(() => import("./pages/roleconfig/UsersPage"));
 const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
 const CompanySettingsPage = lazy(() => import("./pages/company/CompanySettingsPage"));
+const MyPreferences = lazy(() => import("./pages/profile/MyPreferences"));
 const NotificationSettingsPage = lazy(() => import("./pages/company/NotificationSettingsPage"));
 const Batch = lazy(() => import("./pages/Inventory/batch"));
 const EmployeeCompensationPage = lazy(() => import("./pages/Payroll/EmployeeCompensationPage"));
@@ -462,10 +464,12 @@ export default function AppRouter() {
           <Route path="/alert" element={<Alert />} />
 
           <Route path="/profile" element={<UserProfiles />} />
+          <Route path="/my-preferences" element={<MyPreferences />} />
           <Route path="/resetpassword" element={<ResetPassword />} />
         </Route>
 
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/sso-complete" element={<SsoComplete />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgetpassword" element={<Forget />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

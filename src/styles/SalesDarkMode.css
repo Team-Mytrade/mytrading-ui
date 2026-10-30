@@ -40,7 +40,7 @@
 
 .dark .sales-module .text-cyan-600,
 .dark .sales-module .text-cyan-700,
-.dark .sales-module .text-blue-600 { color: #67e8f9 !important; }
+.dark .sales-module .text-blue-600 { color: rgb(var(--brand-300, 103 232 249)) !important; }
 .dark .sales-module .text-green-600,
 .dark .sales-module .text-emerald-600 { color: #6ee7b7 !important; }
 .dark .sales-module .text-red-600,
@@ -56,7 +56,7 @@
 .dark .sales-module textarea::placeholder { color: #94a3b8; }
 .dark .sales-module input:focus,
 .dark .sales-module select:focus,
-.dark .sales-module textarea:focus { border-color: #22d3ee; }
+.dark .sales-module textarea:focus { border-color: rgb(var(--brand-400, 34 211 238)); }
 
 .dark .sales-module .hover\:bg-gray-50:hover,
 .dark .sales-module .hover\:bg-slate-50:hover,

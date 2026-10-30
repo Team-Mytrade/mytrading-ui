@@ -455,7 +455,7 @@ export default function UserMetaCard() {
 
     const fullName = getFullName(userData?.firstName || "", userData?.lastName || "");
     const hasSocial = Boolean(socialMediaForm.linkedinUrl || socialMediaForm.twitterUrl || socialMediaForm.facebookUrl);
-    const socialLink = "grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-[#26c6da] hover:bg-[#e0f7fa] hover:text-[#0097a7]";
+    const socialLink = "grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-[rgb(var(--brand-400,38_198_218))] hover:bg-[rgb(var(--brand-50,224_247_250))] hover:text-[rgb(var(--brand-600,0_151_167))]";
 
     return (
         <>
@@ -465,7 +465,7 @@ export default function UserMetaCard() {
                     <div className="flex items-center gap-4 min-w-0">
                         <div className="relative shrink-0">
                             <div
-                                className="h-20 w-20 cursor-pointer overflow-hidden rounded-full ring-2 ring-[#4dd0e1] ring-offset-2 transition-transform hover:scale-105"
+                                className="h-20 w-20 cursor-pointer overflow-hidden rounded-full ring-2 ring-[rgb(var(--brand-300,77_208_225))] ring-offset-2 transition-transform hover:scale-105"
                                 onClick={() => setIsImagePopupOpen(true)}
                                 title="View photo"
                             >
@@ -476,24 +476,24 @@ export default function UserMetaCard() {
                                     </div>
                                 )}
                             </div>
-                            <label className="absolute -bottom-0.5 -right-0.5 cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 shadow-sm transition-colors hover:bg-[#e0f7fa]" title="Change photo">
-                                <CameraIcon className="h-4 w-4 text-[#0097a7]" />
+                            <label className="absolute -bottom-0.5 -right-0.5 cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 shadow-sm transition-colors hover:bg-[rgb(var(--brand-50,224_247_250))]" title="Change photo">
+                                <CameraIcon className="h-4 w-4 text-[rgb(var(--brand-600,0_151_167))]" />
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageSelection} disabled={isUploading} />
                             </label>
                         </div>
                         <div className="min-w-0">
                             <h2 className="truncate text-lg font-bold text-slate-900">{fullName}</h2>
                             <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
-                                <BriefcaseIcon className="h-4 w-4 text-[#0097a7]" />
+                                <BriefcaseIcon className="h-4 w-4 text-[rgb(var(--brand-600,0_151_167))]" />
                                 {getMainRole()}
                             </p>
                             <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-500">
-                                <EnvelopeIcon className="h-4 w-4 shrink-0 text-[#0097a7]" />
+                                <EnvelopeIcon className="h-4 w-4 shrink-0 text-[rgb(var(--brand-600,0_151_167))]" />
                                 <span className="truncate">{userData?.email || "No email on file"}</span>
                             </p>
                             <button
                                 onClick={handleResetToDefault}
-                                className="mt-2 text-xs font-medium text-[#0097a7] hover:text-[#006f7a] disabled:opacity-50"
+                                className="mt-2 text-xs font-medium text-[rgb(var(--brand-600,0_151_167))] hover:text-[rgb(var(--brand-700,0_111_122))] disabled:opacity-50"
                                 disabled={isUploading}
                             >
                                 Use initials as photo
@@ -553,7 +553,7 @@ export default function UserMetaCard() {
                         </div>
                     </div>
                     <button onClick={openModal} className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50">
-                        <PencilSquareIcon className="h-3.5 w-3.5 text-[#0097a7]" />
+                        <PencilSquareIcon className="h-3.5 w-3.5 text-[rgb(var(--brand-600,0_151_167))]" />
                         Edit links
                     </button>
                 </div>

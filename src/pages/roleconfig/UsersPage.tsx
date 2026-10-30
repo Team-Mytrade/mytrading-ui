@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Mail, MailWarning, Pencil, UserCheck, Users, UserX, X } from "lucide-react";
+import { Mail, MailWarning, Pencil, ShieldOff, UserCheck, Users, UserX, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -122,6 +122,16 @@ export default function UsersPage() {
     }
   };
 
+  const resetMfa = async (u: ManagedUser) => {
+    if (!window.confirm(t("Reset two-step sign-in for {name}? Their authenticator app stops working; they sign in with their password and set it up again if your company requires it.", { name: `${u.firstName} ${u.lastName}` }))) return;
+    try {
+      await userAdminApi.resetMfa(u.userId);
+      ToasterService.success(t("Two-step sign-in reset."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not reset two-step sign-in.")));
+    }
+  };
+
   const toggleActive = async (u: ManagedUser) => {
     const verb = u.active ? "Deactivate" : "Activate";
     if (!window.confirm(`${verb} ${u.firstName} ${u.lastName}?${u.active ? " They won't be able to sign in." : ""}`)) return;
@@ -180,6 +190,11 @@ export default function UsersPage() {
           {canUpdate && u.active && (
             <button type="button" title={t(u.invitePending ? "Resend invite" : "Email a set-password link")} className={ROW_ICON_BUTTON} onClick={() => sendInvite(u)}>
               <Mail className="h-4 w-4" />
+            </button>
+          )}
+          {canUpdate && (
+            <button type="button" title={t("Reset two-step sign-in")} className={ROW_ICON_BUTTON} onClick={() => resetMfa(u)}>
+              <ShieldOff className="h-4 w-4" />
             </button>
           )}
           {canUpdate && u.userId !== user?.userId && (

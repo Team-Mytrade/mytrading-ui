@@ -98,7 +98,7 @@ const ITEMS: Item[] = [
 const TONES: Record<Item["tone"], string> = {
   red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300",
-  cyan: "bg-[#e0f7fa] text-[#006f7a] dark:bg-cyan-950/40 dark:text-cyan-300",
+  cyan: "bg-[rgb(var(--brand-50,224_247_250))] text-[rgb(var(--brand-700,0_111_122))] dark:bg-cyan-950/40 dark:text-cyan-300",
   violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300",
   emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300",
 };
@@ -168,10 +168,10 @@ export default function AttentionPanel() {
             const r = results[item.key];
             return (
               <button key={item.key} type="button" onClick={() => navigate(item.route)}
-                className="group flex items-center gap-2 rounded-lg border border-[#d9eef2] bg-white px-2.5 py-1.5 text-left transition hover:border-[#4dd0e1] hover:shadow-[0_4px_10px_rgba(0,151,167,0.10)] dark:border-gray-800 dark:bg-gray-900">
+                className="group flex items-center gap-2 rounded-lg border border-[rgb(var(--brand-100,217_238_242))] bg-white px-2.5 py-1.5 text-left transition hover:border-[rgb(var(--brand-300,77_208_225))] hover:shadow-[0_4px_10px_rgb(var(--brand-600,0_151_167)/0.10)] dark:border-gray-800 dark:bg-gray-900">
                 <span className={`grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-xs font-bold ${TONES[item.tone]}`}>{r.count}</span>
-                <item.icon size={14} className="flex-none text-slate-400 group-hover:text-[#0097a7]" />
-                <span className="text-xs font-medium text-slate-700 group-hover:text-[#006f7a] dark:text-gray-200">{t(item.label)}</span>
+                <item.icon size={14} className="flex-none text-slate-400 group-hover:text-[rgb(var(--brand-600,0_151_167))]" />
+                <span className="text-xs font-medium text-slate-700 group-hover:text-[rgb(var(--brand-700,0_111_122))] dark:text-gray-200">{t(item.label)}</span>
                 {r.amount ? <span className="text-[11px] text-gray-400">{formatMoney(r.amount, null, true)}</span> : null}
               </button>
             );

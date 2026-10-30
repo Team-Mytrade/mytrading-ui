@@ -49,7 +49,9 @@ import { AddButton } from "../../components/common/AddButton";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate, formatDateTime } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+import { stampCompany } from "../../company/pdfStamp";
+import { brandShade } from "../../company/brand";
 interface EmployeeDocument {
     id: number;
     employeeId?: number;
@@ -217,7 +219,7 @@ const EmployeeDocumentsPage: React.FC = () => {
         }
     };
 
-    const exportPDF = () => {
+    const exportPDF = async () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.text(`Employee Documents - ID: ${employeeIdNum}`, 14, 15);
@@ -236,8 +238,9 @@ const EmployeeDocumentsPage: React.FC = () => {
             ]),
             startY: 35,
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
+            headStyles: { fillColor: brandShade(600) },
         });
+        await stampCompany(doc);
         doc.save(`Employee_Documents_${employeeIdNum}_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };

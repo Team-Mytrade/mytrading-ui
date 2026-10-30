@@ -169,7 +169,7 @@ const customClassNames = {
   control: (state: any) =>
     `!min-h-[42px] !rounded-lg !border !bg-white !transition-all ${
       state.isFocused
-        ? '!border-cyan-500 !shadow-[0_0_0_2px_rgba(6,182,212,0.2)]'
+        ? '!border-cyan-500 !shadow-[0_0_0_2px_rgb(var(--brand-500,6_182_212)/0.2)]'
         : '!border-gray-300 hover:!border-cyan-500'
     } ${state.isDisabled ? '!bg-gray-100' : ''}`,
   valueContainer: () => '!px-3',
@@ -2433,10 +2433,10 @@ const AddEmployeePage: React.FC = () => {
           font-size: 0.75rem;
         }
         .react-select-container .react-select__control:hover {
-          border-color: #06b6d4;
+          border-color: rgb(var(--brand-500, 6 182 212));
         }
         .react-select-container .react-select__control--is-focused {
-          border-color: #06b6d4;
+          border-color: rgb(var(--brand-500, 6 182 212));
           box-shadow: 0 0 0 1px #06b6d4;
         }
         .react-select-container .react-select__placeholder {
@@ -2468,7 +2468,7 @@ const AddEmployeePage: React.FC = () => {
           background-color: #222222;
         }
         .dark .react-select-container .react-select__option--is-selected {
-          background-color: #06b6d4;
+          background-color: rgb(var(--brand-500, 6 182 212));
           color: #ffffff;
         }
         .dark .react-tel-input .country-list {

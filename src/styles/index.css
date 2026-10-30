@@ -25,7 +25,7 @@
 
   body {
     @apply relative text-base font-normal z-1 bg-gray-50 font-nunito dark:bg-gray-950;
-    /* Page background: light tint of the #4DD0E1 accent; cards are #F1F8E9 */
+    /* Page background: light tint of the rgb(var(--brand-300, 77 208 225)) accent; cards are #F1F8E9 */
     background-color: #eaf8fa;
   }
 
@@ -820,7 +820,7 @@ span.flatpickr-weekday,
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: #06b6d4;
+  background: rgb(var(--brand-500, 6 182 212));
   content: "";
 }
 .reports-legacy > .grid.text-center > div > div:first-child {
@@ -858,7 +858,7 @@ span.flatpickr-weekday,
 .reports-legacy .input:focus,
 .reports-legacy .form-input:focus,
 .reports-legacy .form-select:focus {
-  border-color: #06b6d4;
+  border-color: rgb(var(--brand-500, 6 182 212));
   box-shadow: 0 0 0 3px rgb(6 182 212 / 0.15);
 }
 .reports-legacy .btn {
@@ -1153,12 +1153,12 @@ html:not(.dark) .app-content-tight :is(.rounded-lg, .rounded-xl, .rounded-2xl):i
 .app-content-scroll {
   container-type: size;
   scrollbar-width: thin;
-  scrollbar-color: #b2ebf2 transparent;
+  scrollbar-color: rgb(var(--brand-100, 178 235 242)) transparent;
   scrollbar-gutter: auto;
 }
 .app-content-scroll::-webkit-scrollbar { width: 6px; }
-.app-content-scroll::-webkit-scrollbar-thumb { background: #b2ebf2; border-radius: 6px; }
-.app-content-scroll::-webkit-scrollbar-thumb:hover { background: #4dd0e1; }
+.app-content-scroll::-webkit-scrollbar-thumb { background: rgb(var(--brand-100, 178 235 242)); border-radius: 6px; }
+.app-content-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--brand-300, 77 208 225)); }
 .app-content-scroll::-webkit-scrollbar-track { background: transparent; }
 
 /* ── One field style for every page and dialog ───────────────────────────────────────────────────────────
@@ -1190,9 +1190,9 @@ html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(
   border-color: #d1d5db !important;
 }
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]), select, textarea):focus {
-  border-color: #26c6da !important;
+  border-color: rgb(var(--brand-400, 38 198 218)) !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.25) !important;
+  box-shadow: 0 0 0 3px rgb(var(--brand-300, 77 208 225) / 0.25) !important;
 }
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) :is(input, textarea)::placeholder {
   color: #94a3b8;
@@ -1215,8 +1215,8 @@ html:not(.dark) :where(.app-content-tight, [role="dialog"], .fixed.inset-0) labe
 }
 
 /* ── One button colour scheme for every module ───────────────────────────────────────────────────────────
-   Primary actions (save, submit, approve, apply, selected tab) use the Add button's cyan (#4DD0E1 with the
-   #26C6DA border, see ADD_BUTTON_COLORS); destructive ones (delete, reject) one red; everything else stays the
+   Primary actions (save, submit, approve, apply, selected tab) use the Add button's cyan (rgb(var(--brand-300, 77 208 225)) with the
+   rgb(var(--brand-400, 38 198 218)) border, see ADD_BUTTON_COLORS); destructive ones (delete, reject) one red; everything else stays the
    white outline button. Pages still write their own bg-*-600 classes, so this maps them centrally. */
 button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500,
   .bg-indigo-600, .bg-indigo-700, .bg-sky-500, .bg-sky-600, .bg-teal-500, .bg-teal-600, .bg-brand-500,
@@ -1224,10 +1224,10 @@ button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, 
   .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-green-500, .bg-green-600, .bg-green-700,
   .bg-orange-500, .bg-orange-600, .bg-amber-500, .bg-amber-600, .bg-gray-800, .bg-gray-900, .bg-slate-800,
   .bg-slate-900):not([role="switch"]) {
-  border: 1px solid #26c6da !important;
-  background-color: #4dd0e1 !important;
-  color: #083344 !important;
-  box-shadow: 0 1px 3px rgba(0, 151, 167, 0.35) !important;
+  border: 1px solid rgb(var(--brand-400, 38 198 218)) !important;
+  background-color: rgb(var(--brand-300, 77 208 225)) !important;
+  color: rgb(var(--brand-950, 8 51 68)) !important;
+  box-shadow: 0 1px 3px rgb(var(--brand-600, 0 151 167) / 0.35) !important;
 }
 button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-indigo-500,
   .bg-indigo-600, .bg-indigo-700, .bg-sky-500, .bg-sky-600, .bg-teal-500, .bg-teal-600, .bg-brand-500,
@@ -1235,9 +1235,9 @@ button:is(.bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-blue-500, .bg-blue-600, 
   .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-green-500, .bg-green-600, .bg-green-700,
   .bg-orange-500, .bg-orange-600, .bg-amber-500, .bg-amber-600, .bg-gray-800, .bg-gray-900, .bg-slate-800,
   .bg-slate-900):not([role="switch"]):not(:disabled):hover {
-  border-color: #00acc1 !important;
-  background-color: #26c6da !important;
-  box-shadow: 0 2px 6px rgba(0, 151, 167, 0.4) !important;
+  border-color: rgb(var(--brand-600, 0 172 193)) !important;
+  background-color: rgb(var(--brand-400, 38 198 218)) !important;
+  box-shadow: 0 2px 6px rgb(var(--brand-600, 0 151 167) / 0.4) !important;
 }
 button:is(.bg-red-500, .bg-red-600, .bg-red-700, .bg-rose-500, .bg-rose-600, .bg-rose-700):not([role="switch"]) {
   border: 1px solid #b91c1c !important;
@@ -1249,15 +1249,15 @@ button:is(.bg-red-500, .bg-red-600, .bg-red-700, .bg-rose-500, .bg-rose-600, .bg
 }
 /* Gradient primary buttons (cyan→blue "Next" / "Save" in the shared popup and a dozen pages) get the same flat cyan */
 button.bg-gradient-to-r:is([class*="from-cyan-5"], [class*="from-cyan-6"], [class*="from-blue-6"], [class*="from-sky-5"], [class*="from-sky-6"], [class*="from-indigo-6"]) {
-  border: 1px solid #26c6da !important;
+  border: 1px solid rgb(var(--brand-400, 38 198 218)) !important;
   background-image: none !important;
-  background-color: #4dd0e1 !important;
-  color: #083344 !important;
-  box-shadow: 0 1px 3px rgba(0, 151, 167, 0.35) !important;
+  background-color: rgb(var(--brand-300, 77 208 225)) !important;
+  color: rgb(var(--brand-950, 8 51 68)) !important;
+  box-shadow: 0 1px 3px rgb(var(--brand-600, 0 151 167) / 0.35) !important;
 }
 button.bg-gradient-to-r:is([class*="from-cyan-5"], [class*="from-cyan-6"], [class*="from-blue-6"], [class*="from-sky-5"], [class*="from-sky-6"], [class*="from-indigo-6"]):not(:disabled):hover {
-  border-color: #00acc1 !important;
-  background-color: #26c6da !important;
+  border-color: rgb(var(--brand-600, 0 172 193)) !important;
+  background-color: rgb(var(--brand-400, 38 198 218)) !important;
 }
 button.bg-gradient-to-r:is([class*="from-cyan-5"], [class*="from-cyan-6"], [class*="from-blue-6"], [class*="from-sky-5"], [class*="from-sky-6"], [class*="from-indigo-6"]) :is(.text-white, svg) {
   color: inherit !important;
@@ -1280,9 +1280,9 @@ html:not(.dark) .app-content-tight :is(h2, h3, h4):is(.text-gray-900, .text-gray
   color: #0f172a !important;
 }
 html:not(.dark) .app-content-tight :is(h2, h3, h4).uppercase:is(.text-gray-500, .text-gray-400, .text-slate-500, .text-slate-400, .text-gray-600, .text-slate-600) {
-  color: #006f7a !important;
+  color: rgb(var(--brand-700, 0 111 122)) !important;
 }
 html:not(.dark) .app-content-tight svg:is([class*="text-blue-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-sky-"], [class*="text-teal-"], [class*="text-gray-"], [class*="text-slate-"], [class*="text-cyan-"]):has(+ :is(h2, h3, h4)),
 html:not(.dark) .app-content-tight :is(div, span):has(> svg):has(+ div > :is(h2, h3, h4):first-child) > svg:is([class*="text-blue-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-sky-"], [class*="text-teal-"], [class*="text-cyan-"]) {
-  color: #0097a7 !important;
+  color: rgb(var(--brand-600, 0 151 167)) !important;
 }

@@ -31,7 +31,9 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+import { stampCompany } from "../../company/pdfStamp";
+import { brandShade } from "../../company/brand";
 // Amounts are YEARLY, as payroll stores them; a month pays one twelfth
 type SalaryStructure = {
     id: number;
@@ -187,7 +189,7 @@ const SalaryStructurePage: React.FC = () => {
 
     const label = (s: SalaryStructure) => s.employeeName || `Employee ${s.employeeId}`;
 
-    const exportPDF = (record: SalaryStructure) => {
+    const exportPDF = async (record: SalaryStructure) => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.setTextColor(31, 41, 55);
@@ -209,13 +211,14 @@ const SalaryStructurePage: React.FC = () => {
             ],
             startY: 50,
             theme: 'striped',
-            headStyles: { fillColor: [6, 182, 212] },
+            headStyles: { fillColor: brandShade(600) },
             styles: { fontSize: 10 },
         });
+        await stampCompany(doc);
         doc.save(`Salary_Structure_${record.employeeId}_${todayIso()}.pdf`);
     };
 
-    const exportAllPDF = () => {
+    const exportAllPDF = async () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.setTextColor(31, 41, 55);
@@ -237,8 +240,9 @@ const SalaryStructurePage: React.FC = () => {
             ]),
             startY: 45,
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [6, 182, 212] },
+            headStyles: { fillColor: brandShade(600) },
         });
+        await stampCompany(doc);
         doc.save(`All_Salary_Structures_${todayIso()}.pdf`);
         setShowExportMenu(false);
     };
