@@ -7,6 +7,7 @@ import { clearSessionExpiredRedirect, getSessionExpiredRedirect } from "../../ut
 import { t } from "../../i18n/i18n";
 import { ToasterService } from "../../Services/ToasterService";
 import MfaSignInSteps from "./MfaSignInSteps";
+import { applyBrandColor } from "../../company/brand";
 import '../../styles/Login.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
@@ -30,6 +31,20 @@ const SignInForm: React.FC = () => {
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  // At a company's own address (gulf.mytrade.app): its name, logo, colour and SSO buttons; null at the main address
+  const [company, setCompany] = useState<{ companyName: string; brandColor: string | null; hasLogo: boolean; ssoProviders: string[] } | null>(null);
+  const host = window.location.host;
+
+  useEffect(() => {
+    axios.get("/v1/api/user/public/branding", { params: { host } })
+      .then((r) => {
+        if (r.status !== 200 || !r.data?.companyName) return;
+        setCompany(r.data);
+        if (r.data.brandColor) applyBrandColor(r.data.brandColor);
+      })
+      .catch(() => setCompany(null));
+  }, [host]);
+  const shownProviders = Array.from(new Set([...(company?.ssoProviders ?? []), ...providers]));
 
   // Coming back from a single sign-on that didn't work
   useEffect(() => {
@@ -57,7 +72,7 @@ const SignInForm: React.FC = () => {
     } catch {
       // Private mode: a browser-only session
     }
-    window.location.assign(`/v1/api/auth/sso/start?${new URLSearchParams({ email: email.trim(), provider, remember: String(isChecked) })}`);
+    window.location.assign(`/v1/api/auth/sso/start?${new URLSearchParams({ email: email.trim(), provider, remember: String(isChecked), host })}`);
   };
 
   const goIn = (notice?: string) => {
@@ -104,8 +119,12 @@ const SignInForm: React.FC = () => {
 
         {/* Header Section */}
         <div className="space-y-1.5 pb-4 border-b border-gray-100 dark:border-gray-800">
+          {company?.hasLogo && (
+            <img src={`/v1/api/user/public/branding/logo?host=${encodeURIComponent(host)}`} alt={company.companyName}
+              className="mx-auto mb-2 max-h-14 max-w-[70%] object-contain" />
+          )}
           <h1 className="text-3xl font-black text-gray-900 dark:text-white text-center tracking-tight">
-            {t("My Trading")}
+            {company ? company.companyName : t("My Trading")}
           </h1>
           <p className="text-center text-sm font-semibold text-cyan-700 dark:text-cyan-400">
             {t("Welcome Back!")}
@@ -251,13 +270,14 @@ const SignInForm: React.FC = () => {
         )}
 
         {/* Single sign-on: the company of this email signs in with Microsoft or Google */}
-        {!mfa && providers.length > 0 && (
+        {!mfa && shownProviders.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />{t("or")}<span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
             </div>
-            {providers.map((provider) => (
-              <button key={provider} type="button" onClick={() => signInWith(provider)} disabled={isLoading}
+            {shownProviders.map((provider) => (
+              <button key={provider} type="button" onClick={() => signInWith(provider)} disabled={isLoading || !email.includes("@")}
+                title={email.includes("@") ? undefined : t("Enter your work email first")}
                 className="flex h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white text-sm font-bold text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800">
                 <i className={`fab ${provider === "MICROSOFT" ? "fa-microsoft" : "fa-google"}`} aria-hidden="true"></i>
                 {t(provider === "MICROSOFT" ? "Continue with Microsoft" : "Continue with Google")}

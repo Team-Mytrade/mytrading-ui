@@ -24,6 +24,8 @@ export interface TenantAccess {
   modules: AppModule[];
   admins: TenantAdmin[];
   userCount: number;
+  /** The company's own address: subdomain.app-domain; null when none. */
+  subdomain?: string | null;
 }
 
 export interface RoleAccess {
@@ -117,6 +119,10 @@ export const platformApi = {
       body: JSON.stringify(modules),
     }),
   // The reason is required for SUSPENDED and INACTIVE
+  /** Sets (or clears with "") the company's own address; returns it with its full URL when the base domain is set. */
+  setSubdomain: (tenantId: string, subdomain: string) =>
+    axios.put<{ subdomain: string | null; url: string | null; baseDomain: string | null }>(
+      `/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/subdomain`, { subdomain }).then((r) => r.data),
   setStatus: (tenantId: string, status: TenantStatus, reason: string) =>
     request<TenantAccess>(`/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/status`, {
       method: "PUT",

@@ -489,6 +489,8 @@ export default function CompanySettingsPage() {
 
                 <SingleSignOnSection editable={editable} />
 
+                <AddressSection />
+
                 <PlanSection />
 
                 {editable && <DataExportSection />}
@@ -676,6 +678,134 @@ function SecuritySection({ editable }: { editable: boolean }) {
         {t("After the password, sign-in asks for a code from an authenticator app. Administrators are users with any Admin permission. A lost phone: reset the person's two-step sign-in on the Users page.")}
       </p>
     </section>
+  );
+}
+
+/** The company's own sign-in address (set by the platform). Hidden when it has none. */
+function AddressSection() {
+  const [address, setAddress] = useState<{ subdomain: string | null; url: string | null; baseDomain: string | null } | null>(null);
+
+  useEffect(() => {
+    axios.get("/v1/api/user/company/address").then((r) => setAddress(r.data)).catch(() => setAddress(null));
+  }, []);
+
+  if (!address) return null;
+  const shown = address.subdomain ? address.url ?? `${address.subdomain}.…` : null;
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(Globe2, "Company address")}
+      {shown && (
+        <>
+          <p className="break-all text-sm font-semibold text-slate-900 dark:text-white">{shown}</p>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">
+            {t("Your team signs in here: the page shows your logo and colour, and only your company's users can sign in. To change it, contact your provider.")}
+          </p>
+          {address.url && (
+            <button type="button" className={`${TOOL_BUTTON} mt-2`} onClick={() => {
+              navigator.clipboard?.writeText(address.url ?? "").then(() => ToasterService.success(t("Address copied.")), () => undefined);
+            }}>{t("Copy address")}</button>
+          )}
+        </>
+      )}
+      <CustomDomainPanel />
+    </section>
+  );
+}
+
+interface DomainView {
+  domain: string;
+  status: "PENDING" | "VERIFIED";
+  txtName: string;
+  txtValue: string;
+  cnameTarget: string | null;
+  verifiedAt: string | null;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+}
+
+/**
+ * The company's own domain (erp.gulftrading.ae): added here, proven with a DNS TXT record, then used like the
+ * company address. DNS and its HTTPS certificate are set up with the provider.
+ */
+function CustomDomainPanel() {
+  const [domain, setDomain] = useState<DomainView | null>(null);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const DOMAIN = "/v1/api/user/company/domain";
+
+  useEffect(() => {
+    axios.get<DomainView | "">(DOMAIN).then((r) => setDomain(r.status === 200 && r.data ? r.data : null)).catch(() => setDomain(null));
+  }, []);
+
+  const run = async (action: () => Promise<DomainView | null>, done?: string) => {
+    setBusy(true);
+    try {
+      const next = await action();
+      setDomain(next);
+      if (done) ToasterService.success(t(done));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not change the domain.")));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = (text: string) => navigator.clipboard?.writeText(text).then(() => ToasterService.success(t("Copied.")), () => undefined);
+
+  return (
+    <div className="mt-3 border-t border-slate-100 pt-3 dark:border-gray-800">
+      <p className="text-xs font-semibold text-slate-700 dark:text-gray-200">{t("Your own domain")}</p>
+      {!domain ? (
+        <div className="mt-2 flex gap-2">
+          <input className={INPUT} value={input} placeholder="erp.yourcompany.com" maxLength={253} onChange={(e) => setInput(e.target.value)} />
+          <button type="button" className={SECONDARY_BUTTON} disabled={busy || !input.trim()}
+            onClick={() => run(() => axios.put<DomainView>(DOMAIN, { domain: input.trim() }).then((r) => r.data), "Domain added. Add the DNS records below, then check.")}>
+            {t("Add")}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="break-all font-semibold text-slate-900 dark:text-white">{domain.domain}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${domain.status === "VERIFIED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {t(domain.status === "VERIFIED" ? "Verified" : "Waiting for DNS")}
+            </span>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-2 dark:bg-[#222222]">
+            <p className="mb-1 text-[11px] text-slate-600 dark:text-gray-300">{t("Add these records at your domain's DNS provider:")}</p>
+            <table className="w-full text-[11px]">
+              <tbody>
+                <tr>
+                  <td className="pe-2 font-semibold">TXT</td>
+                  <td className="break-all pe-2">{domain.txtName}</td>
+                  <td className="break-all"><button type="button" className="text-start text-cyan-700 hover:underline" onClick={() => copy(domain.txtValue)}>{domain.txtValue}</button></td>
+                </tr>
+                {domain.cnameTarget && (
+                  <tr>
+                    <td className="pe-2 font-semibold">CNAME</td>
+                    <td className="break-all pe-2">{domain.domain}</td>
+                    <td className="break-all">{domain.cnameTarget}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {domain.lastError && <p className="text-[11px] text-orange-700">{domain.lastError}</p>}
+          {domain.status === "VERIFIED" && (
+            <p className="text-[11px] text-slate-500 dark:text-gray-400">
+              {t("Ask your provider to switch on its HTTPS certificate; then your team can sign in at this domain.")}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={TOOL_BUTTON} disabled={busy}
+              onClick={() => run(() => axios.post<DomainView>(`${DOMAIN}/verify`).then((r) => r.data))}>{t("Check DNS now")}</button>
+            <button type="button" className={TOOL_BUTTON} disabled={busy}
+              onClick={() => window.confirm(t("Remove this domain? Your team then signs in at the company address.")) &&
+                run(() => axios.delete(DOMAIN).then(() => null), "Domain removed.")}>{t("Remove")}</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
