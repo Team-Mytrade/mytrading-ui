@@ -8,6 +8,7 @@ import {
   BarChart3,
   BellRing,
   History,
+  FileUp,
   BookMarked,
   BookOpen,
   BookmarkCheck,
@@ -112,8 +113,9 @@ type NavItem = {
 
 /** The menu a user may see; the header search uses the same filter so it never offers a hidden page. */
 export const filterNavItems = (items: NavItem[], access: AccessInfo): NavItem[] => {
+  // "A|B": any one of the permissions
   const visible = (path?: string, permission?: string) =>
-    (!path || canAccessPath(access, path)) && (!permission || hasPermission(access, permission));
+    (!path || canAccessPath(access, path)) && (!permission || permission.split("|").some((p) => hasPermission(access, p)));
 
   return items.flatMap((nav) => {
     if (nav.superAdminOnly && !access.superAdmin) return [];
@@ -341,6 +343,7 @@ export const navItems: NavItem[] = [
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
       { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
       { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
+      { name: "Data Import", path: "/data-import", permission: "PRODUCT_CATALOGUE:CREATE|CRM:CREATE|INVENTORY:CREATE|INVOICE:CREATE|INVOICE:ADMIN", icon: FileUp, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
       { name: "Plans", path: "/platform/plans", icon: CreditCard, section: "Platform" },
