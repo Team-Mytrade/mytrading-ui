@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Building2, CheckCircle2, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, X } from "lucide-react";
+import { Building2, CheckCircle2, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
+import TenantClosureDialog, { TenantClosure, closing, closureApi } from "./TenantClosureDialog";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AddButton } from "../../components/common/AddButton";
@@ -60,12 +61,15 @@ export default function TenantsPage() {
   const [statusFor, setStatusFor] = useState<TenantAccess | null>(null);
   const [nextStatus, setNextStatus] = useState<TenantStatus>("ACTIVE");
   const [reason, setReason] = useState("");
+  const [closures, setClosures] = useState<Record<string, TenantClosure>>({});
+  const [closureFor, setClosureFor] = useState<TenantAccess | null>(null);
   const selected = getSelectedTenant();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setTenants(await platformApi.tenants());
+      closureApi.all().then((list) => setClosures(Object.fromEntries(list.map((c) => [c.tenantId, c])))).catch(() => undefined);
     } catch (e) {
       ToasterService.error(message(e, "Could not load tenants."));
     } finally {
@@ -262,6 +266,12 @@ export default function TenantsPage() {
               </span>
             )}
             {t.statusChangedAt && <span className="block text-[10px] text-slate-400">{tr("since")} {changedOn(t.statusChangedAt)}</span>}
+            {closing(closures[t.tenantId]) && (
+              <span className="mt-1 inline-block rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                {closures[t.tenantId].status === "DELETED" ? tr("Data deleted")
+                  : `${tr("Data deleted after")} ${formatDate(`${closures[t.tenantId].deleteAfter}Z`)}`}
+              </span>
+            )}
           </div>
         );
       },
@@ -275,9 +285,15 @@ export default function TenantsPage() {
             disabled={selected === t.tenantId || !t.active} onClick={() => workIn(t.tenantId)}>
             <LogIn className="h-4 w-4" />
           </button>
-          <button type="button" title={tr("Change status (suspend, close or reactivate)")} className={t.active ? ROW_ICON_BUTTON_DANGER : ROW_ICON_BUTTON}
-            onClick={() => openStatus(t)}>
-            <Power className="h-4 w-4" />
+          {!closing(closures[t.tenantId]) && (
+            <button type="button" title={tr("Change status (suspend, close or reactivate)")} className={t.active ? ROW_ICON_BUTTON_DANGER : ROW_ICON_BUTTON}
+              onClick={() => openStatus(t)}>
+              <Power className="h-4 w-4" />
+            </button>
+          )}
+          <button type="button" title={tr(closing(closures[t.tenantId]) ? "Closure and final export" : "Close the company and delete its data")}
+            className={ROW_ICON_BUTTON_DANGER} onClick={() => setClosureFor(t)}>
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -341,6 +357,15 @@ export default function TenantsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {closureFor && (
+        <TenantClosureDialog tenant={closureFor} closure={closures[closureFor.tenantId]} onClose={() => setClosureFor(null)}
+          onChanged={(c) => {
+            setClosures((all) => ({ ...all, [c.tenantId]: c }));
+            if (c.status === "CANCELLED") setClosureFor(null);
+            load();
+          }} />
       )}
 
       {statusFor && (

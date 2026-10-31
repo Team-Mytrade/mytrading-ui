@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, Globe2, Image, ImageUp, KeyRound, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Building2, Download, Globe2, History, Image, ImageUp, KeyRound, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
 import axios from "axios";
 import { brandPalette } from "../../company/brand";
 import PageMeta from "../../components/common/PageMeta";
@@ -487,6 +487,10 @@ export default function CompanySettingsPage() {
                 <SecuritySection editable={editable} />
 
                 <SingleSignOnSection editable={editable} />
+
+                {editable && <DataExportSection />}
+
+                {editable && <RetentionSection />}
               </div>
             </div>
 
@@ -668,6 +672,225 @@ function SecuritySection({ editable }: { editable: boolean }) {
       <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
         {t("After the password, sign-in asks for a code from an authenticator app. Administrators are users with any Admin permission. A lost phone: reset the person's two-step sign-in on the Users page.")}
       </p>
+    </section>
+  );
+}
+
+interface DataExport {
+  id: number;
+  status: "RUNNING" | "DONE" | "PARTIAL" | "FAILED";
+  /** UTC, without an offset. */
+  requestedAt: string;
+  finishedAt: string | null;
+  requestedBy: string | null;
+  sizeBytes: number | null;
+  services: { service: string; ok: boolean; files: number; error: string | null }[];
+  error: string | null;
+}
+
+const EXPORTS = "/v1/api/user/company/exports";
+const EXPORT_STATUS: Record<DataExport["status"], { label: string; tone: string }> = {
+  RUNNING: { label: "Being made...", tone: "bg-amber-50 text-amber-700" },
+  DONE: { label: "Ready", tone: "bg-emerald-50 text-emerald-700" },
+  PARTIAL: { label: "Ready, some parts missing", tone: "bg-orange-50 text-orange-700" },
+  FAILED: { label: "Failed", tone: "bg-red-50 text-red-700" },
+};
+
+const fileSize = (bytes: number | null) =>
+  bytes == null ? "" : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+/**
+ * Everything the company has in the app, as CSV files in a ZIP (a folder per module), made in the background.
+ * Passwords, keys and other secrets, and pictures and files, are not included.
+ */
+function DataExportSection() {
+  const [exports, setExports] = useState<DataExport[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = () => axios.get<DataExport[]>(EXPORTS).then((r) => setExports(r.data)).catch(() => undefined);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  // Checks again while one is being made
+  const running = exports.some((e) => e.status === "RUNNING");
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(load, 5000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  const start = async () => {
+    setBusy(true);
+    try {
+      await axios.post(EXPORTS);
+      ToasterService.success(t("The export is being made; it appears below when ready."));
+      await load();
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not start the export.")));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = async (row: DataExport) => {
+    try {
+      const res = await axios.get<Blob>(`${EXPORTS}/${row.id}/file`, { responseType: "blob" });
+      const name = /filename="?([^";]+)"?/.exec(String(res.headers["content-disposition"] ?? ""))?.[1] ?? `company-export-${row.id}.zip`;
+      const url = URL.createObjectURL(res.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = name;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not download the export.")));
+    }
+  };
+
+  const remove = async (row: DataExport) => {
+    if (!window.confirm(t("Delete this export file?"))) return;
+    try {
+      await axios.delete(`${EXPORTS}/${row.id}`);
+      setExports((list) => list.filter((e) => e.id !== row.id));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not delete the export.")));
+    }
+  };
+
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(Download, "Company data export")}
+      <p className="text-[11px] text-slate-500 dark:text-gray-400">
+        {t("All the company's records in every module, as CSV files in one ZIP (opens in Excel). Passwords, keys and other secrets, and pictures and attached files, are not included.")}
+      </p>
+      <button type="button" className={`${SECONDARY_BUTTON} mt-3`} disabled={busy || running} onClick={start}>
+        <Download className="mr-1 inline h-4 w-4" />{t(running ? "Export being made..." : "Export all data")}
+      </button>
+      {exports.length > 0 && (
+        <ul className="mt-3 divide-y divide-slate-100 dark:divide-gray-800">
+          {exports.map((row) => {
+            const status = EXPORT_STATUS[row.status] ?? EXPORT_STATUS.FAILED;
+            const failed = row.services.filter((s) => !s.ok).map((s) => s.service);
+            return (
+              <li key={row.id} className="flex flex-wrap items-center gap-2 py-2 text-xs">
+                <span className="text-slate-700 dark:text-gray-200">{formatDateTime(`${row.requestedAt}Z`)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.tone}`}>{t(status.label)}</span>
+                <span className="text-slate-400">{fileSize(row.sizeBytes)}</span>
+                {row.requestedBy && <span className="text-slate-400">· {row.requestedBy}</span>}
+                <span className="ms-auto flex gap-1">
+                  {(row.status === "DONE" || row.status === "PARTIAL") && (
+                    <button type="button" className={TOOL_BUTTON} onClick={() => download(row)}>
+                      <Download className="h-3.5 w-3.5" /> {t("Download")}
+                    </button>
+                  )}
+                  {row.status !== "RUNNING" && (
+                    <button type="button" className={TOOL_BUTTON} aria-label={t("Delete")} onClick={() => remove(row)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </span>
+                {(failed.length > 0 || row.error) && (
+                  <p className="w-full text-[11px] text-orange-700">
+                    {row.error ?? `${t("Not included (the service did not answer):")} ${failed.join(", ")}`}
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+interface Retention {
+  auditLogDays: number;
+  notificationDays: number;
+  signInHistoryDays: number;
+  exportDays: number;
+  /** UTC, without an offset. */
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+// Field, label, hint, smallest and largest number of days (as the user service checks them)
+const RETENTION_FIELDS: [keyof Omit<Retention, "updatedAt" | "updatedBy">, string, string, number, number][] = [
+  ["auditLogDays", "Audit log", "Who did what (Settings → Audit Log).", 90, 3650],
+  ["notificationDays", "Notifications", "Read or settled alerts and sent-email records; unread alerts stay.", 30, 1825],
+  ["signInHistoryDays", "Sign-in history", "The record of each sign-in.", 30, 1825],
+  ["exportDays", "Export files", "Full company exports above.", 1, 365],
+];
+
+/**
+ * How long logs are kept before the nightly job deletes them. Invoices, the ledger, stock and payroll records are
+ * never deleted by it (tax law needs them kept).
+ */
+function RetentionSection() {
+  const [saved, setSaved] = useState<Retention | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const fill = (r: Retention) => {
+    setSaved(r);
+    setForm(Object.fromEntries(RETENTION_FIELDS.map(([key]) => [key, String(r[key])])));
+  };
+
+  useEffect(() => {
+    axios.get<Retention>("/v1/api/user/company/retention").then((r) => fill(r.data)).catch(() => setSaved(null));
+  }, []);
+
+  if (!saved) return null;
+  const dirty = RETENTION_FIELDS.some(([key]) => form[key] !== String(saved[key]));
+
+  const save = async () => {
+    for (const [key, label, , min, max] of RETENTION_FIELDS) {
+      const days = Number(form[key]);
+      if (!Number.isInteger(days) || days < min || days > max) {
+        ToasterService.error(`${t(label)}: ${t("enter a number of days from")} ${min} ${t("to")} ${max}.`);
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      const res = await axios.put<Retention>("/v1/api/user/company/retention",
+        Object.fromEntries(RETENTION_FIELDS.map(([key]) => [key, Number(form[key])])));
+      fill(res.data);
+      ToasterService.success(t("Retention saved."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not save the retention.")));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(History, "Log retention")}
+      <p className="mb-3 text-[11px] text-slate-500 dark:text-gray-400">
+        {t("Older entries are deleted every night. Invoices, the ledger, stock and payroll records are never deleted automatically (tax law needs them kept).")}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {RETENTION_FIELDS.map(([key, label, hint, min, max]) => (
+          <div key={key}>
+            <label className={LABEL} htmlFor={`retention-${key}`}>{t(label)} ({t("days")})</label>
+            <input id={`retention-${key}`} type="number" min={min} max={max} className={INPUT} value={form[key] ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} />
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{t(hint)} {min}–{max}.</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <button type="button" className={SECONDARY_BUTTON} disabled={!dirty || saving} onClick={save}>
+          <Save className="mr-1 inline h-4 w-4" />{t(saving ? "Saving..." : "Save retention")}
+        </button>
+        {saved.updatedAt && (
+          <span className="text-[11px] text-slate-400">
+            {t("Last changed")} {formatDateTime(`${saved.updatedAt}Z`)}{saved.updatedBy ? ` · ${saved.updatedBy}` : ""}
+          </span>
+        )}
+      </div>
     </section>
   );
 }
