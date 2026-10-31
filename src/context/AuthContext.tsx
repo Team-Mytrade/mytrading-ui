@@ -721,7 +721,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string, rememberMe = true): Promise<LoginResponse> => {
     try {
-      const res = await axios.post('/v1/api/auth/login', { username, password, rememberMe });
+      // The address the page was opened at: a company's own address admits only its users
+      const res = await axios.post('/v1/api/auth/login', { username, password, rememberMe, loginHost: window.location.host });
       if (res.data?.mfaRequired || res.data?.mfaSetupRequired) {
         return { mfa: { setup: Boolean(res.data.mfaSetupRequired), mfaToken: res.data.mfaToken } };
       }

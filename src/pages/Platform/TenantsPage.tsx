@@ -56,6 +56,7 @@ export default function TenantsPage() {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<TenantAccess | null>(null);
   const [editName, setEditName] = useState("");
+  const [editSubdomain, setEditSubdomain] = useState("");
   const [editModules, setEditModules] = useState<AppModule[]>([]);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -101,6 +102,7 @@ export default function TenantsPage() {
   const openEdit = (t: TenantAccess) => {
     setEditing(t);
     setEditName(t.tenantName);
+    setEditSubdomain(t.subdomain ?? "");
     setEditModules(t.modules.filter((m) => m !== "USERS"));
   };
 
@@ -113,6 +115,7 @@ export default function TenantsPage() {
     setSaving(true);
     try {
       if (editName.trim() !== editing.tenantName) await platformApi.rename(editing.tenantId, editName.trim());
+      if (editSubdomain.trim().toLowerCase() !== (editing.subdomain ?? "")) await platformApi.setSubdomain(editing.tenantId, editSubdomain.trim());
       const before = [...editing.modules].filter((m) => m !== "USERS").sort().join(",");
       if ([...editModules].sort().join(",") !== before) await platformApi.setModules(editing.tenantId, editModules);
       ToasterService.success(`${editName.trim()} saved.`);
@@ -222,6 +225,7 @@ export default function TenantsPage() {
             {selected === t.tenantId && <span className="ml-2 rounded bg-cyan-50 px-1.5 text-[10px] font-semibold text-cyan-700">{tr("working here")}</span>}
           </span>
           <span className="text-[11px] text-slate-500 dark:text-gray-400">{t.tenantId}</span>
+          {t.subdomain && <span className="block text-[11px] font-medium text-cyan-700 dark:text-cyan-300">{t.subdomain}.</span>}
         </div>
       ),
     },
@@ -376,6 +380,17 @@ export default function TenantsPage() {
             <div>
               <label className={LABEL} htmlFor="tenant-edit-name">{tr("Company name")}</label>
               <input id="tenant-edit-name" className={INPUT} value={editName} maxLength={255} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div>
+              <label className={LABEL} htmlFor="tenant-edit-subdomain">{tr("Company address")}</label>
+              <div className="flex items-center gap-1">
+                <input id="tenant-edit-subdomain" className={`${INPUT} lowercase`} value={editSubdomain} maxLength={40} placeholder="gulf-trading"
+                  onChange={(e) => setEditSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
+                <span className="whitespace-nowrap text-xs text-slate-500">.{tr("your app domain")}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {tr("Its sign-in page shows the company's logo and colour, and only its users can sign in there. Empty: no own address.")}
+              </p>
             </div>
             <div>
               <label className={LABEL}>{tr("Modules")}</label>
