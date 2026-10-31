@@ -151,6 +151,7 @@ const AttendanceDashboard = lazy(() => import("./pages/Attendance/AttendanceDash
 const UserDashboard = lazy(() => import("./components/UserProfile/UserDashboard"));
 const UsersPage = lazy(() => import("./pages/roleconfig/UsersPage"));
 const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
+const PlansPage = lazy(() => import("./pages/Platform/PlansPage"));
 const CompanySettingsPage = lazy(() => import("./pages/company/CompanySettingsPage"));
 const MyPreferences = lazy(() => import("./pages/profile/MyPreferences"));
 const NotificationSettingsPage = lazy(() => import("./pages/company/NotificationSettingsPage"));
@@ -233,6 +234,7 @@ export default function AppRouter() {
           <Route path="/role_config" element={<UsersPage />} />
           <Route path="/role_config/*" element={<Navigate to="/role_config" replace />} />
           <Route path="/platform/tenants" element={<TenantsPage />} />
+          <Route path="/platform/plans" element={<PlansPage />} />
           <Route path="/company-settings" element={<CompanySettingsPage />} />
           <Route path="/notification-settings" element={<NotificationSettingsPage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />

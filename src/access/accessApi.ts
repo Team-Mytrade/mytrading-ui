@@ -65,6 +65,8 @@ export interface UserForm {
 export interface TenantProvisionRequest {
   tenantName: string;
   modules: AppModule[];
+  /** A plan from the catalogue; its modules replace the ones above. */
+  planId?: number;
   admin: {
     username: string;
     email: string;

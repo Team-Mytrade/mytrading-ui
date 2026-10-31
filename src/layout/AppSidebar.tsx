@@ -343,6 +343,7 @@ export const navItems: NavItem[] = [
       { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
+      { name: "Plans", path: "/platform/plans", icon: CreditCard, section: "Platform" },
     ],
   },
 ];

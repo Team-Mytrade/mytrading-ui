@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, Download, Globe2, History, Image, ImageUp, KeyRound, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { CompanyPlan, STORAGE_SOURCES, SUBSCRIPTION_TONE, Usage, bytesText, limitText, planPrice, plansApi, storageText, subscriptionText } from "../../platform/plansApi";
+import { Building2, CreditCard, Download, Globe2, History, Image, ImageUp, KeyRound, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
 import axios from "axios";
 import { brandPalette } from "../../company/brand";
 import PageMeta from "../../components/common/PageMeta";
@@ -16,7 +17,7 @@ import {
   dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, vatNumberError, countryLabel } from "../../company/regional";
 import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
-import { formatDateTime, formatHijri, liveMonthNames } from "../../company/format";
+import { formatDate, formatDateTime, formatHijri, liveMonthNames } from "../../company/format";
 import { addressStyle, regionalAddressErrors } from "../../company/regionalAddress";
 import RegionalAddressFields from "../../components/common/RegionalAddressFields";
 
@@ -488,6 +489,8 @@ export default function CompanySettingsPage() {
 
                 <SingleSignOnSection editable={editable} />
 
+                <PlanSection />
+
                 {editable && <DataExportSection />}
 
                 {editable && <RetentionSection />}
@@ -672,6 +675,78 @@ function SecuritySection({ editable }: { editable: boolean }) {
       <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
         {t("After the password, sign-in asks for a code from an authenticator app. Administrators are users with any Admin permission. A lost phone: reset the person's two-step sign-in on the Users page.")}
       </p>
+    </section>
+  );
+}
+
+/** The company's subscription plan (set by the platform): what it includes. Hidden when it has none. */
+function PlanSection() {
+  const [plan, setPlan] = useState<CompanyPlan | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+
+  useEffect(() => {
+    plansApi.mine().then(setPlan).catch(() => setPlan(null));
+    plansApi.usage().then(setUsage).catch(() => setUsage(null));
+  }, []);
+
+  if (!plan) return null;
+  const bar = (used: number, max: number | null, label: string, text: string) => {
+    const percent = max ? Math.min(100, Math.round((used * 100) / max)) : 0;
+    const tone = percent >= 100 ? "bg-red-500" : percent >= 80 ? "bg-amber-500" : "bg-[rgb(var(--brand-500,0_188_212))]";
+    return (
+      <div>
+        <div className="flex justify-between text-[11px] text-slate-600 dark:text-gray-300">
+          <span>{t(label)}</span>
+          <span>{text}{max ? ` (${percent}%)` : ""}</span>
+        </div>
+        {max != null && (
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-gray-800" role="progressbar" aria-valuenow={percent}
+            aria-valuemin={0} aria-valuemax={100} aria-label={t(label)}>
+            <div className={`h-full ${tone}`} style={{ width: `${percent}%` }} />
+          </div>
+        )}
+      </div>
+    );
+  };
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(CreditCard, "Your plan")}
+      <p className="text-sm font-semibold text-slate-900 dark:text-white">{plan.planName}</p>
+      {plan.subscription && (
+        <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${SUBSCRIPTION_TONE[plan.subscription.state]}`}>
+          {t(subscriptionText(plan.subscription, (d) => formatDate(d)))}
+        </span>
+      )}
+      <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
+        <dt className="text-slate-500">{t("Users")}</dt>
+        <dd className="text-slate-800 dark:text-gray-100">{t(limitText(plan.maxUsers, "users"))}</dd>
+        <dt className="text-slate-500">{t("Storage")}</dt>
+        <dd className="text-slate-800 dark:text-gray-100">{t(storageText(plan.maxStorageMb))}</dd>
+        {plan.monthlyPrice != null && <>
+          <dt className="text-slate-500">{t("Monthly price")}</dt>
+          <dd className="text-slate-800 dark:text-gray-100">{planPrice(plan.monthlyPrice, plan.currency)}</dd>
+        </>}
+        {plan.yearlyPrice != null && <>
+          <dt className="text-slate-500">{t("Yearly price")}</dt>
+          <dd className="text-slate-800 dark:text-gray-100">{planPrice(plan.yearlyPrice, plan.currency)}</dd>
+        </>}
+      </dl>
+      {usage && (
+        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-gray-800">
+          {bar(usage.users, usage.maxUsers, "Active users", usage.maxUsers ? `${usage.users} / ${usage.maxUsers}` : String(usage.users))}
+          {bar(usage.storageBytes, usage.maxStorageBytes, "Storage used",
+            usage.maxStorageBytes ? `${bytesText(usage.storageBytes)} / ${bytesText(usage.maxStorageBytes)}` : bytesText(usage.storageBytes))}
+          <p className="text-[10px] text-slate-400">
+            {usage.sources.filter((s) => s.bytes > 0).map((s) => `${t(STORAGE_SOURCES[s.source] ?? s.source)} ${bytesText(s.bytes)}`).join(" · ")}
+          </p>
+          {usage.warnings.length > 0 && (
+            <p className="rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+              {t("You are close to your plan's limit. New users or files are refused once it is reached.")}
+            </p>
+          )}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">{t("To change your plan, contact your provider.")}</p>
     </section>
   );
 }
