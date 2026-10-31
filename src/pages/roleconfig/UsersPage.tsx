@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import axios from "axios";
 import { Mail, MailWarning, Pencil, ShieldOff, UserCheck, Users, UserX, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -22,6 +23,13 @@ const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-30
 
 const emptyForm = (): UserForm => ({ username: "", email: "", firstName: "", lastName: "", designation: "", roleIds: [] });
 
+interface EmployeeOption {
+  id: number;
+  employeeCode?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
 const statusOf = (u: ManagedUser) => (!u.active ? "Inactive" : u.invitePending ? "Invite pending" : "Active");
 
 /**
@@ -37,6 +45,9 @@ export default function UsersPage() {
   const [editing, setEditing] = useState<ManagedUser | "new" | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm());
   const [saving, setSaving] = useState(false);
+  // Employee records (Payroll), to link a login to the person's employee record; null when they can't be read
+  const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | "">("");
   // Other pages link here with ?userId= or ?employeeId= to show one person
   const [searchParams, setSearchParams] = useSearchParams();
   const filterUserId = searchParams.get("userId");
@@ -77,7 +88,11 @@ export default function UsersPage() {
       username: u.username, email: u.email, firstName: u.firstName, lastName: u.lastName,
       designation: u.designation ?? "", roleIds: u.roles.map((r) => r.id),
     });
+    setEmployeeId(u.employeeId ?? "");
     setEditing(u);
+    if (employees === null) {
+      axios.get<EmployeeOption[]>("/v1/api/payroll/employee/all").then((r) => setEmployees(r.data ?? [])).catch(() => setEmployees([]));
+    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -102,7 +117,11 @@ export default function UsersPage() {
         if (before !== after) {
           await userAdminApi.assignRoles(editing.userId, form.roleIds ?? []);
         }
-        ToasterService.success("User updated. Role changes apply from their next sign-in or token refresh.");
+        if ((editing.employeeId ?? "") !== employeeId) {
+          const linked = employees?.find((emp) => emp.id === employeeId);
+          await userAdminApi.linkEmployee(editing.userId, employeeId === "" ? null : employeeId, linked?.employeeCode ?? null);
+        }
+        ToasterService.success(t("User updated. Role and employee changes apply from their next sign-in."));
       }
       setEditing(null);
       load();
@@ -278,6 +297,32 @@ export default function UsersPage() {
                 <label className={LABEL}>{t("Designation")}</label>
                 <input className={INPUT} value={form.designation ?? ""} maxLength={100} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
               </div>
+              {editing !== "new" && (
+                <div className="col-span-2">
+                  <label className={LABEL} htmlFor="user-employee">{t("Employee record")}</label>
+                  <select id="user-employee" className={INPUT} value={employeeId} disabled={employees === null}
+                    onChange={(e) => setEmployeeId(e.target.value ? Number(e.target.value) : "")}>
+                    <option value="">{t("Not linked")}</option>
+                    {/* A link to an employee that isn't in the list (e.g. no Payroll access) stays selectable */}
+                    {employeeId !== "" && !(employees ?? []).some((emp) => emp.id === employeeId) && (
+                      <option value={employeeId}>{editing.employeeCode ?? `#${employeeId}`}</option>
+                    )}
+                    {(employees ?? []).map((emp) => {
+                      const takenBy = users.find((u) => u.employeeId === emp.id && u.userId !== editing.userId);
+                      return (
+                        <option key={emp.id} value={emp.id} disabled={!!takenBy}>
+                          {`${emp.firstName ?? ""} ${emp.lastName ?? ""}`.trim()}{emp.employeeCode ? ` (${emp.employeeCode})` : ""}
+                          {takenBy ? ` — ${t("linked to")} ${takenBy.username}` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">
+                    {t("Attendance and HR self-service (punch, leave, regularization, on-duty, My Attendance) work on this employee. Applies from their next sign-in.")}
+                    {employees !== null && employees.length === 0 && ` ${t("No employee records could be read: add the person in Payroll, or sign in with HR access.")}`}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

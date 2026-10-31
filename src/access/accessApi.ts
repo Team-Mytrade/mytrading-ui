@@ -139,6 +139,9 @@ export const userAdminApi = {
     axios.post<{ inviteSent: boolean }>(`${ACCESS}/users/${encodeURIComponent(userId)}/invite`).then((r) => r.data),
   // Takes the user's authenticator app off (lost phone); they set it up again if the company requires it
   resetMfa: (userId: string) => axios.delete(`${ACCESS}/users/${encodeURIComponent(userId)}/mfa`),
+  /** Links the login to an employee record (null removes the link); self-service follows at the next sign-in. */
+  linkEmployee: (userId: string, employeeId: number | null, employeeCode: string | null) =>
+    axios.put<ManagedUser>(`${ACCESS}/users/${encodeURIComponent(userId)}/employee`, { employeeId, employeeCode }).then((r) => r.data),
   setActive: (userId: string, active: boolean) =>
     axios.get(`/v1/api/user/${encodeURIComponent(userId)}/${active ? "activate" : "deactivate"}`),
   assignRoles: (userId: string, roleIds: number[]) =>

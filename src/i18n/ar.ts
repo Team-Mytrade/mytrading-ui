@@ -5415,4 +5415,10 @@ export const ar: Record<string, string> = {
   "Send again": "إرسال مرة أخرى",
   "Sent again.": "أُعيد الإرسال.",
   "Could not send the event.": "تعذر إرسال الحدث.",
+  // Login ↔ employee link
+  "Employee record": "سجل الموظف",
+  "linked to": "مرتبط بـ",
+  "Attendance and HR self-service (punch, leave, regularization, on-duty, My Attendance) work on this employee. Applies from their next sign-in.": "تعمل الخدمة الذاتية للحضور والموارد البشرية (البصمة، الإجازة، التسوية، المهمة الرسمية، حضوري) على هذا الموظف. تسري من تسجيل الدخول التالي.",
+  "No employee records could be read: add the person in Payroll, or sign in with HR access.": "تعذرت قراءة سجلات الموظفين: أضف الشخص في الرواتب، أو سجّل الدخول بصلاحية الموارد البشرية.",
+  "User updated. Role and employee changes apply from their next sign-in.": "تم تحديث المستخدم. تسري تغييرات الأدوار والموظف من تسجيل الدخول التالي.",
 };
