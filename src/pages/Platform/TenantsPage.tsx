@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Building2, CheckCircle2, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
+import { Building2, CheckCircle2, CreditCard, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
+import TenantPlanDialog from "./TenantPlanDialog";
+import { CompanyPlan, Plan, SUBSCRIPTION_TONE, plansApi, subscriptionText } from "../../platform/plansApi";
 import TenantClosureDialog, { TenantClosure, closing, closureApi } from "./TenantClosureDialog";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -22,7 +24,7 @@ const INPUT =
 const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300";
 const EMAIL = /^[^\s@]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 
-const emptyForm = { tenantName: "", modules: [] as AppModule[], email: "", firstName: "", lastName: "" };
+const emptyForm = { tenantName: "", modules: [] as AppModule[], planId: "" as number | "", email: "", firstName: "", lastName: "" };
 
 const message = (e: unknown, fallback: string) => (e as Error)?.message || fallback;
 
@@ -63,6 +65,9 @@ export default function TenantsPage() {
   const [reason, setReason] = useState("");
   const [closures, setClosures] = useState<Record<string, TenantClosure>>({});
   const [closureFor, setClosureFor] = useState<TenantAccess | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [companyPlans, setCompanyPlans] = useState<Record<string, CompanyPlan>>({});
+  const [planFor, setPlanFor] = useState<TenantAccess | null>(null);
   const selected = getSelectedTenant();
 
   const load = useCallback(async () => {
@@ -70,6 +75,8 @@ export default function TenantsPage() {
     try {
       setTenants(await platformApi.tenants());
       closureApi.all().then((list) => setClosures(Object.fromEntries(list.map((c) => [c.tenantId, c])))).catch(() => undefined);
+      plansApi.list().then(setPlans).catch(() => undefined);
+      plansApi.companies().then((list) => setCompanyPlans(Object.fromEntries(list.map((p) => [p.tenantId, p])))).catch(() => undefined);
     } catch (e) {
       ToasterService.error(message(e, "Could not load tenants."));
     } finally {
@@ -170,6 +177,7 @@ export default function TenantsPage() {
       const { tenant, inviteSent } = await platformApi.provision({
         tenantName: form.tenantName.trim(),
         modules: form.modules,
+        planId: form.planId || undefined,
         admin: { username: email, email, firstName: form.firstName.trim(), lastName: form.lastName.trim() },
       });
       if (inviteSent) ToasterService.success(`${tenant.tenantName} created. ${form.firstName.trim()} was emailed a link to set a password.`);
@@ -230,6 +238,27 @@ export default function TenantsPage() {
       ),
     },
     {
+      key: "plan", label: "Plan", sortable: true, sortValueGetter: (t) => companyPlans[t.tenantId]?.planName ?? "",
+      render: (t) => {
+        const plan = companyPlans[t.tenantId];
+        return plan ? (
+          <div>
+            <span className="block text-xs font-semibold text-slate-800 dark:text-gray-100">{plan.planName}</span>
+            {plan.subscription && (
+              <span className={`mb-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${SUBSCRIPTION_TONE[plan.subscription.state]}`}>
+                {tr(subscriptionText(plan.subscription, (d) => formatDate(d)))}
+              </span>
+            )}
+            {plan.overridden.length > 0 && (
+              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700" title={plan.overridden.join(", ")}>
+                {tr("agreed differently")}
+              </span>
+            )}
+          </div>
+        ) : <span className="text-[11px] text-slate-400">{tr("No plan")}</span>;
+      },
+    },
+    {
       key: "admins", label: "Tenant admin",
       render: (t) => t.admins.length === 0 ? <span className="text-[11px] text-amber-600">{tr("None")}</span> : (
         <div className="space-y-1">
@@ -281,6 +310,7 @@ export default function TenantsPage() {
       render: (t) => (
         <div className="flex items-center gap-1">
           <button type="button" title={tr("Edit name and modules")} className={ROW_ICON_BUTTON} onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></button>
+          <button type="button" title={tr("Plan, limits and prices")} className={ROW_ICON_BUTTON} onClick={() => setPlanFor(t)}><CreditCard className="h-4 w-4" /></button>
           <button type="button" title={tr(selected === t.tenantId ? "Already working here" : "Work in this tenant")} className={ROW_ICON_BUTTON}
             disabled={selected === t.tenantId || !t.active} onClick={() => workIn(t.tenantId)}>
             <LogIn className="h-4 w-4" />
@@ -359,6 +389,15 @@ export default function TenantsPage() {
         </div>
       )}
 
+      {planFor && (
+        <TenantPlanDialog tenant={planFor} plans={plans} current={companyPlans[planFor.tenantId]} onClose={() => setPlanFor(null)}
+          onSaved={(p) => {
+            setCompanyPlans((all) => ({ ...all, [p.tenantId]: p }));
+            setPlanFor(null);
+            load();
+          }} />
+      )}
+
       {closureFor && (
         <TenantClosureDialog tenant={closureFor} closure={closures[closureFor.tenantId]} onClose={() => setClosureFor(null)}
           onChanged={(c) => {
@@ -419,9 +458,19 @@ export default function TenantsPage() {
                 onChange={(e) => setForm({ ...form, tenantName: e.target.value })} />
             </div>
             <div>
-              <label className={LABEL}>{tr("Modules")}</label>
-              {moduleChecklist(form.modules, (modules) => setForm({ ...form, modules }))}
+              <label className={LABEL} htmlFor="tenant-plan-new">{tr("Plan")}</label>
+              <select id="tenant-plan-new" className={INPUT} value={form.planId}
+                onChange={(e) => setForm({ ...form, planId: e.target.value ? Number(e.target.value) : "" })}>
+                <option value="">{tr("No plan (choose modules)")}</option>
+                {plans.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
             </div>
+            {!form.planId && (
+              <div>
+                <label className={LABEL}>{tr("Modules")}</label>
+                {moduleChecklist(form.modules, (modules) => setForm({ ...form, modules }))}
+              </div>
+            )}
             <div>
               <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-gray-200">{tr("Tenant Administrator")}</p>
               <div className="grid grid-cols-2 gap-3">

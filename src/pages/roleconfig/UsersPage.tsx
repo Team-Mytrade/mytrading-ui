@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Mail, MailWarning, Pencil, ShieldOff, UserCheck, Users, UserX, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PlanUsageNotice from "../../components/common/PlanUsageNotice";
 import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
@@ -217,6 +218,7 @@ export default function UsersPage() {
       <PageBreadcrumb pageTitle="Users" actions={canCreate ? <AddButton label={t("Add user")} onClick={openNew} /> : undefined} />
 
       <div className={PAGE_BODY}>
+        <PlanUsageNotice kind="users" />
         <div className={STATS_ROW}>
           <StatsCard label={t("Users")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<Users />} loading={loading} />
           <StatsCard label={t("Active")} value={stats.active} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserCheck />} loading={loading} />
