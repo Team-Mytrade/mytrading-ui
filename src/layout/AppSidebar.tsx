@@ -7,6 +7,7 @@ import {
   Banknote,
   BarChart3,
   BellRing,
+  History,
   BookMarked,
   BookOpen,
   BookmarkCheck,
@@ -339,6 +340,7 @@ export const navItems: NavItem[] = [
       { name: "Roles & Permissions", path: "/rolesPermissions", icon: ShieldCheck, section: "Users & roles" },
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
       { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
+      { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
     ],
