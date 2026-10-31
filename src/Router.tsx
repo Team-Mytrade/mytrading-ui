@@ -154,6 +154,7 @@ const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
 const CompanySettingsPage = lazy(() => import("./pages/company/CompanySettingsPage"));
 const MyPreferences = lazy(() => import("./pages/profile/MyPreferences"));
 const NotificationSettingsPage = lazy(() => import("./pages/company/NotificationSettingsPage"));
+const AuditLogPage = lazy(() => import("./pages/company/AuditLogPage"));
 const Batch = lazy(() => import("./pages/Inventory/batch"));
 const EmployeeCompensationPage = lazy(() => import("./pages/Payroll/EmployeeCompensationPage"));
 const EmployeeDepartmentsPage = lazy(() => import("./pages/Payroll/EmployeeDepartments"));
@@ -234,6 +235,7 @@ export default function AppRouter() {
           <Route path="/platform/tenants" element={<TenantsPage />} />
           <Route path="/company-settings" element={<CompanySettingsPage />} />
           <Route path="/notification-settings" element={<NotificationSettingsPage />} />
+          <Route path="/audit-log" element={<AuditLogPage />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
           <Route path="/sales-targets" element={<SalesTargets />} />
