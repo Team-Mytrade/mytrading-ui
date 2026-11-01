@@ -77,6 +77,8 @@ export type FieldConfig = {
   optionValue?: string | ((row: PurchaseRecord) => string | number);
   gridClassName?: string;
   controlWidth?: string;
+  /** Changes how the field shows for the values on the form (e.g. a country's address fields). */
+  adapt?: (form: PurchaseRecord) => Partial<FieldConfig>;
   /** Controls whether a field is shown for a new record or an existing record. */
   showOnCreate?: boolean;
   showOnEdit?: boolean;
@@ -1144,7 +1146,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardRows, isScoped, scopeId, search]);
 
-  const fieldEntries = config.fields.map((field) => {
+  const fieldEntries = config.fields.map((baseField) => {
+    const field = baseField.adapt ? { ...baseField, ...baseField.adapt(form) } : baseField;
     const fieldOptions = field.getOptions
       ? field.getOptions({ form, options })
       : field.options || options[field.name] || [];

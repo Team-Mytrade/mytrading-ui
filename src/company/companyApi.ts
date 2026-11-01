@@ -178,6 +178,8 @@ export const loadCompanyLogo = async (): Promise<CompanyLogo | null> => {
 /** Name for report headers; the last loaded profile, else a generic name. */
 export const companyDisplayName = () => current?.companyName || FALLBACK_NAME;
 
+export const currentCompanyCountry = () => current?.country ?? null;
+
 export const companyAddressLines = (p?: CompanyProfile | null): string[] =>
   !p
     ? []

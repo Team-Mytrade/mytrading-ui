@@ -41,6 +41,7 @@ interface PurchaseInvoice {
   referenceNumber?: string;
   notes?: string;
   costCentreId?: number | string | null;
+  exchangeRate?: number | null;
   vendor?: { id: number; name?: string } | null;
   vendorId?: string;
   // Bills made from a goods receipt; their amount follows the receipt (corrections are debit notes)
@@ -302,7 +303,8 @@ const PurchaseInvoices: React.FC = () => {
       total: purchaseInvoices.length,
       paid: purchaseInvoices.filter((i) => i.purchaseInvoiceStatus === "PAID").length,
       open: purchaseInvoices.filter((i) => i.purchaseInvoiceStatus === "OPEN" || i.purchaseInvoiceStatus === "PARTIALLY_PAID").length,
-      totalAmount: purchaseInvoices.reduce((acc, i) => acc + Number(i.totalAmount || 0), 0),
+      // In the company's currency, at each bill's own rate
+      totalAmount: purchaseInvoices.reduce((acc, i) => acc + Number(i.totalAmount || 0) * Number(i.exchangeRate ?? 1), 0),
     }),
     [purchaseInvoices]
   );

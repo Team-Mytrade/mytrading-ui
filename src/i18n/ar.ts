@@ -5849,4 +5849,8 @@ export const ar: Record<string, string> = {
   "The account is ready but the email could not be sent": "الحساب جاهز لكن تعذر إرسال البريد الإلكتروني",
   "Check the mail settings, then send the invitation again.": "تحقق من إعدادات البريد ثم أعد إرسال الدعوة.",
   "Check the mail settings.": "تحقق من إعدادات البريد.",
+
+  // Vendor address outside India
+  "State / Emirate / Region": "الولاية / الإمارة / المنطقة",
+  "Postal Code / P.O. Box": "الرمز البريدي / صندوق البريد",
 };

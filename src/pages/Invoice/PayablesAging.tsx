@@ -58,7 +58,8 @@ const DEBIT_NOTE_STATUS: Record<string, { label: string; tone: string; hint: str
 
 /** Open payables by days past due, per vendor, and the bills due in the next 7 days. */
 export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) => {
-  if (!aging) return null;
+  // An error page or an older service answering with something else shows nothing rather than crashing the page
+  if (!aging || !Array.isArray(aging.buckets) || !Array.isArray(aging.vendors) || !Array.isArray(aging.dueThisWeek)) return null;
   const total = Number(aging.totalOutstanding) || 0;
   return (
     <div className="grid gap-4 xl:grid-cols-3">
