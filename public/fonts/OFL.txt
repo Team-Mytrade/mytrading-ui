@@ -1,0 +1,3 @@
+document-Regular.ttf and document-Bold.ttf are built by scripts/merge-pdf-fonts.cjs from Noto Sans and Noto Naskh Arabic,
+Copyright the Noto Project Authors (https://github.com/notofonts). Licensed under the SIL Open Font License, Version 1.1:
+https://openfontlicense.org

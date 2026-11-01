@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowDownTrayIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { jsPDF } from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable, { RowInput, UserOptions } from "jspdf-autotable";
 import { ToasterService } from "../../Services/ToasterService";
 import { FloatingDateRangePicker } from "../inputfeild/FloatingInput";
@@ -67,7 +68,7 @@ const BRAND = {
 };
 
 // A number with an optional currency before or after it: "Rs. 25,000.00", "AED -1,234.5", "1.234,50 €", "12"
-const AMOUNT_TEXT = /^(?:[A-Z]{3}\s?|Rs\.\s?|[$€£¥]\s?)?-?[\d.,\s]*\d(?:\s?(?:[A-Z]{3}|[$€£¥]))?$|^-+$/;
+const AMOUNT_TEXT = /^(?:[A-Z]{3}\s?|Rs\.\s?|[$€£¥₹]\s?)?-?[\d.,\s]*\d(?:\s?(?:[A-Z]{3}|[$€£¥₹]))?$|^-+$/;
 
 const toTitle = (value: string) =>
   value
@@ -336,7 +337,7 @@ const drawFooter = (
   }
 };
 
-export function exportListingPdf<T extends object>({
+export async function exportListingPdf<T extends object>({
   title,
   data,
   columns,
@@ -352,7 +353,7 @@ export function exportListingPdf<T extends object>({
    serialNumberLabel = "Sl No", 
   emptyMessage = "No records available",
 }: ListingPdfOptions<T>) {
-  const doc = new jsPDF({ orientation, unit: "mm", format: "a4" });
+  const doc = await createPdf({ orientation, unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const exportColumns = columns?.length ? columns : getAutoColumns(data);
@@ -368,7 +369,7 @@ export function exportListingPdf<T extends object>({
     data.length > 0
       ? data.map((row, index) => [
           ...(includeSerialNumber ? [String(index + 1)] : []),
-          // The built-in PDF font has no ₹ sign (or other non-Latin symbols), see pdfText
+          // See pdfText
           ...exportColumns.map((column) => pdfText(formatValue(getColumnValue(row, column, index)))),
         ])
       : [[emptyMessage]];

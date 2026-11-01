@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import jsPDF from 'jspdf';
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from 'jspdf-autotable';
 import {
   UserCheck, Clock, X, FileText, Download, RotateCw, Calendar,
@@ -214,7 +214,7 @@ const AttendanceTrackingPage: React.FC = () => {
   };
 
   const handleExportPDF = async () => {
-    const doc = new jsPDF();
+    const doc = await createPdf();
     doc.text(`Attendance - ${employeeName} - ${new Date(selectedYear, selectedMonth - 1, 1).toLocaleString("en-US", { month: "long" })} ${selectedYear}`, 14, 16);
     doc.setFontSize(9);
     doc.text(`Present ${summary.present} of ${summary.working} working days (${summary.rate}%) · Absent ${summary.absent} · Late ${summary.late} · Leave ${summary.leave} · Worked ${hoursOf(summary.worked)}`, 14, 22);

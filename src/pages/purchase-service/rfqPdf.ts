@@ -1,5 +1,6 @@
 // Request for quotation document: what a vendor receives (print or email attachment). No prices; same look as the PO.
 import { jsPDF } from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company/companyApi";
 import { formatDate, formatDateHijri, formatNumber, pdfText } from "../../company/format";
@@ -14,7 +15,7 @@ const LINE: [number, number, number] = [226, 232, 240];
 
 export async function rfqPdf(rfq: Rfq, row: RfqVendor, vendor: VendorRecord | null): Promise<Blob> {
   const [company, logo] = await Promise.all([loadCompany(), loadCompanyLogo()]);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = await createPdf({ unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
   const margin = 14;

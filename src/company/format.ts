@@ -143,15 +143,21 @@ export const roundMoney = (value: unknown, currency?: string | null): number => 
   return Math.round((toNumber(value) + Number.EPSILON) * factor) / factor;
 };
 
+let pdfUnicodeFont = false;
+
+/** Set by createPdf: whether documents have the font with Arabic and the other scripts, see pdfDocument.ts. */
+export const setPdfUnicodeFont = (loaded: boolean): void => {
+  pdfUnicodeFont = loaded;
+};
+
 /**
- * Text for jsPDF's built-in fonts, which only have Latin-1 characters: ₹ prints as "Rs.", other
- * symbols outside it (₩, ₪, ...) as nothing, and Intl's narrow/no-break spaces as plain spaces.
+ * Text for PDFs: Intl's narrow/no-break spaces become plain spaces. If the document font didn't load,
+ * jsPDF's built-in font only has Latin-1 characters: ₹ prints as "Rs." and other text outside it as nothing.
  */
-export const pdfText = (text: string): string =>
-  text
-    .replace(/₹\s?/g, "Rs. ")
-    .replace(/[   ]/g, " ")
-    .replace(/[^\u0000-ÿ€]/g, "");
+export const pdfText = (text: string): string => {
+  const spaced = text.replace(/[\u00a0\u2009\u202f]/g, " ");
+  return pdfUnicodeFont ? spaced : spaced.replace(/₹\s?/g, "Rs. ").replace(/[^\u0000-ÿ€]/g, "");
+};
 
 /* ================= Dates & times ================= */
 

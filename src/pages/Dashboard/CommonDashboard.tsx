@@ -33,7 +33,7 @@ interface Receivable { customerId?: number; balanceAmount?: number }
 
 const SOURCES = {
   customers: () => getList<Customer>("/v1/api/common/customers"),
-  // Customer balances: CRM's outstandingBalance isn't updated by invoicing, receivables are
+  // Customer balances: the open receivables themselves; invoicing also keeps the customer's outstandingBalance in step
   receivables: () => getList<Receivable>("/v1/api/invoice/accounts-receivable"),
   taxTypes: () => countOf("/v1/api/invoice/tax-types"),
   taxDetails: () => countOf("/v1/api/invoice/tax-details"),

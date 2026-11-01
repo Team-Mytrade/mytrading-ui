@@ -2,6 +2,7 @@
 // final month's pay that carries it. Shown in a dialog on Exit Approvals and printed as a statement.
 import axios from "axios";
 import { jsPDF } from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company/companyApi";
 import { formatAmount, formatDate, formatDateHijri, formatMoney, formatNumber, pdfText } from "../../company/format";
@@ -132,7 +133,7 @@ const LINE: [number, number, number] = [226, 232, 240];
 /** The statement as a PDF (English, like the other printed documents). */
 export async function settlementPdf(s: SettlementStatement): Promise<Blob> {
   const [company, logo] = await Promise.all([loadCompany(), loadCompanyLogo()]);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = await createPdf({ unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
   const margin = 14;

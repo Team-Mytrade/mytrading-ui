@@ -131,7 +131,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
     // The server reads files by name: earnings_<Name>.xlsx, deductions_<Name>.xlsx, attendance_<YYYY-MM>.xlsx
     const uploadName = () => {
         if (uploadKind === "attendance") return `attendance_${salaryMonth}.xlsx`;
-        const name = componentName.trim().replace(/[^A-Za-z0-9 ]/g, "").replace(/\s+/g, "_");
+        const name = componentName.trim().replace(/[^\p{L}\p{M}\p{N} ]/gu, "").replace(/\s+/g, "_");
         return name ? `${uploadKind}_${name}.xlsx` : "";
     };
 

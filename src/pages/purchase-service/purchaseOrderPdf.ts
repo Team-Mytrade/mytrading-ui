@@ -2,6 +2,7 @@
 // Same look as the quotation and delivery challan: company band, buyer and vendor boxes, lines, totals, terms.
 import axios from "axios";
 import { jsPDF } from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company/companyApi";
 import { formatAmount, formatDate, formatDateHijri, formatMoney, formatNumber, pdfText } from "../../company/format";
@@ -94,7 +95,7 @@ export const isPoApproved = (po: Pick<PurchaseOrderRecord, "approvalStatus" | "s
 /** Builds the PO as a PDF. Orders not yet approved carry a "not approved" mark so they aren't mistaken for the real one. */
 export async function purchaseOrderPdf({ po, vendor, terms }: PurchaseOrderDoc): Promise<Blob> {
   const [company, logo] = await Promise.all([loadCompany(), loadCompanyLogo()]);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = await createPdf({ unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
   const margin = 14;

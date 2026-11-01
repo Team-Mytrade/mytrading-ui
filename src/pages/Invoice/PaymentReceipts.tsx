@@ -244,8 +244,8 @@ const PaymentReceipts: React.FC = () => {
     const month = todayInput().slice(0, 7);
     return {
       count: posted.length,
-      thisMonth: posted.filter((receipt) => receipt.paymentDate?.startsWith(month)).reduce((sum, receipt) => sum + Number(receipt.totalAmountReceived || 0), 0),
-      advances: posted.reduce((sum, receipt) => sum + Number(receipt.unallocatedAmount || 0), 0),
+      thisMonth: posted.filter((receipt) => receipt.paymentDate?.startsWith(month)).reduce((sum, receipt) => sum + Number(receipt.totalAmountReceived || 0) * Number(receipt.exchangeRate ?? 1), 0),
+      advances: posted.reduce((sum, receipt) => sum + Number(receipt.unallocatedAmount || 0) * Number(receipt.exchangeRate ?? 1), 0),
       reversed: receipts.length - posted.length,
     };
   }, [receipts]);

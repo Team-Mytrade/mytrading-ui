@@ -521,7 +521,8 @@ const Invoices: React.FC = () => {
     const open = invoices.filter((invoice) => isOpenInvoice(invoice.status));
     return {
       drafts: invoices.filter((invoice) => invoice.status === "DRAFT").length,
-      outstanding: open.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0),
+      // In the company's currency, at each invoice's own rate
+      outstanding: open.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0) * Number(invoice.exchangeRate ?? 1), 0),
       overdue: invoices.filter((invoice) => invoice.status === "OVERDUE").length,
       paid: invoices.filter((invoice) => invoice.status === "PAID").length,
     };

@@ -543,7 +543,7 @@ const AddEmployeePage: React.FC = () => {
         const address = path.startsWith("permanent") ? form.permanentAddress : form.currentAddress;
         value = address.country?.value === "India"
           ? value.replace(/\D/g, "").slice(0, 6)
-          : value.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 10);
+          : value.replace(/[^\p{L}\p{M}\p{N} -]/gu, "").slice(0, 10);
       }
     }
     const keys = path.split(".");

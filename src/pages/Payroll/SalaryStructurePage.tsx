@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import jsPDF from 'jspdf';
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import {
@@ -190,7 +190,7 @@ const SalaryStructurePage: React.FC = () => {
     const label = (s: SalaryStructure) => s.employeeName || `Employee ${s.employeeId}`;
 
     const exportPDF = async (record: SalaryStructure) => {
-        const doc = new jsPDF();
+        const doc = await createPdf();
         doc.setFontSize(18);
         doc.setTextColor(31, 41, 55);
         doc.text("Compensation Schedule", 14, 20);
@@ -219,7 +219,7 @@ const SalaryStructurePage: React.FC = () => {
     };
 
     const exportAllPDF = async () => {
-        const doc = new jsPDF();
+        const doc = await createPdf();
         doc.setFontSize(18);
         doc.setTextColor(31, 41, 55);
         doc.text("Salary Structures Report (yearly amounts)", 14, 20);

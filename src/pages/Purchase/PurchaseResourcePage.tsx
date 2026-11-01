@@ -77,6 +77,8 @@ export type FieldConfig = {
   optionValue?: string | ((row: PurchaseRecord) => string | number);
   gridClassName?: string;
   controlWidth?: string;
+  /** Changes how the field shows for the values on the form (e.g. a country's address fields). */
+  adapt?: (form: PurchaseRecord) => Partial<FieldConfig>;
   /** Controls whether a field is shown for a new record or an existing record. */
   showOnCreate?: boolean;
   showOnEdit?: boolean;
@@ -435,7 +437,7 @@ function usesOwnList(field: FieldConfig, listEndpoint: string) {
 function applyTextCase(value: string, textCase: FieldConfig["textCase"]) {
   if (textCase === "upper") return value.toUpperCase();
   if (textCase === "lower") return value.toLowerCase();
-  if (textCase === "title") return value.replace(/\b([a-z])/g, (letter) => letter.toUpperCase());
+  if (textCase === "title") return value.replace(/(?<![\p{L}\p{M}\p{N}])\p{Ll}/gu, (letter) => letter.toUpperCase());
   return value;
 }
 
@@ -1144,7 +1146,8 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardRows, isScoped, scopeId, search]);
 
-  const fieldEntries = config.fields.map((field) => {
+  const fieldEntries = config.fields.map((baseField) => {
+    const field = baseField.adapt ? { ...baseField, ...baseField.adapt(form) } : baseField;
     const fieldOptions = field.getOptions
       ? field.getOptions({ form, options })
       : field.options || options[field.name] || [];

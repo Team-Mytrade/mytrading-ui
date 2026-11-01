@@ -12,6 +12,10 @@ const text = (value: unknown): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
+import { currentCompanyCountry } from "../../company/companyApi";
+
+const isIndianAddress = (form: Record<string, unknown>) => ["", "india"].includes(String(form.country ?? "").trim().toLowerCase());
+
 /** Upper-cased value with all spaces removed. Used for GST, PAN, IFSC and currency. */
 const code = (value: unknown): string | null => text(value)?.replace(/\s+/g, "").toUpperCase() ?? null;
 
@@ -75,9 +79,14 @@ const vendorConfig: PurchaseResourceConfig = {
       searchable: true, // type "t" → Tamil Nadu, Telangana, Tripura
       placeholder: "Type state name, e.g. Tamil",
       options: INDIAN_STATE_OPTIONS,
+      // The list and the PIN are India's; elsewhere an emirate, region or state is typed
+      adapt: (form) => (isIndianAddress(form) ? {} : { type: "text", label: "State / Emirate / Region", placeholder: "", searchable: false, options: undefined, textCase: "title", maxLength: 60 }),
     },
     { name: "city", section: "Address", label: "City", textCase: "title", maxLength: 60 },
-    { name: "postalCode", section: "Address", label: "PIN Code", maxLength: 6 },
+    {
+      name: "postalCode", section: "Address", label: "PIN Code", maxLength: 6,
+      adapt: (form) => (isIndianAddress(form) ? {} : { label: "Postal Code / P.O. Box", maxLength: 12 }),
+    },
     { name: "address", section: "Address", label: "Address (building, street, area)", type: "textarea", gridClassName: "md:col-span-2" },
     // Terms first (Currency, Payment Terms), then tax IDs: two rows of two.
     {
@@ -134,7 +143,10 @@ const vendorConfig: PurchaseResourceConfig = {
     city: "",
     state: "",
     postalCode: "",
-    country: "India",
+    // New vendors start in the company's country
+    get country() {
+      return currentCompanyCountry() || "India";
+    },
     bankName: "",
     bankAccountNumber: "",
     bankIfscCode: "",
