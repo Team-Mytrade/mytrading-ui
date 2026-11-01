@@ -9,6 +9,8 @@ import {
   BellRing,
   History,
   FileUp,
+  Tags,
+  Ship,
   BookMarked,
   BookOpen,
   BookmarkCheck,
@@ -180,6 +182,7 @@ export const navItems: NavItem[] = [
       { name: "Sales Dashboard", path: "/sales-dashboard", icon: LayoutDashboard, section: "Overview" },
       { name: "Quotations", path: "/quotations", icon: FileText, section: "Selling" },
       { name: "Sales Orders", path: "/sales-orders", icon: ShoppingCart, section: "Selling" },
+      { name: "Price Lists", path: "/sales-price-lists", icon: Tags, section: "Selling" },
       { name: "Credit Limit", path: "/credit-limit", icon: Wallet, section: "Selling" },
       { name: "Return Requests", path: "/return-requests", icon: Undo2, section: "Returns" },
       { name: "Refunds", path: "/refunds", icon: HandCoins, section: "Returns" },
@@ -197,9 +200,11 @@ export const navItems: NavItem[] = [
     name: "Purchase",
     subItems: [
       { name: "Purchase Requisitions", path: "/purchase-service/requisitions", icon: ClipboardList, section: "Buying" },
+      { name: "Requests for Quotation", path: "/purchase-service/rfqs", icon: Scale, section: "Buying" },
       { name: "Purchase Orders", path: "/purchase-service/orders", icon: ShoppingBag, section: "Buying" },
       { name: "Goods Receipts (GRN)", path: "/purchase-service/goods-receipt-notes", icon: PackageCheck, section: "Receiving" },
       { name: "Purchase Returns", path: "/purchase-service/returns", icon: Undo2, section: "Receiving" },
+      { name: "Landed Costs", path: "/purchase-service/landed-costs", icon: Ship, section: "Receiving" },
     ],
   },
 
