@@ -40,9 +40,12 @@ export interface AccessInfo {
   tenantModules: string[];
   // The user's own employee record; null when none is linked (no self-service)
   employeeId: number | null;
+  // A customer's portal account: only the portal is shown (the gateway refuses everything else anyway)
+  portalCustomerId: number | null;
 }
 
 export const NO_ACCESS: AccessInfo = {
+  portalCustomerId: null,
   superAdmin: false,
   tenantId: null,
   modules: [],
@@ -65,6 +68,7 @@ export const decodeAccess = (token: string | null | undefined): AccessInfo => {
       permissions: Array.isArray(claims.permissions) ? claims.permissions : [],
       tenantModules: Array.isArray(claims.tenantModules) ? claims.tenantModules : [],
       employeeId: typeof claims.employeeId === "number" ? claims.employeeId : null,
+      portalCustomerId: typeof claims.portalCustomerId === "number" ? claims.portalCustomerId : null,
     };
   } catch {
     return NO_ACCESS;

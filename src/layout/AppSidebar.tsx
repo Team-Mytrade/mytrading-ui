@@ -182,6 +182,7 @@ export const navItems: NavItem[] = [
       { name: "Sales Dashboard", path: "/sales-dashboard", icon: LayoutDashboard, section: "Overview" },
       { name: "Quotations", path: "/quotations", icon: FileText, section: "Selling" },
       { name: "Sales Orders", path: "/sales-orders", icon: ShoppingCart, section: "Selling" },
+      { name: "Point of Sale", path: "/sales-pos", icon: Store, section: "Selling" },
       { name: "Price Lists", path: "/sales-price-lists", icon: Tags, section: "Selling" },
       { name: "Credit Limit", path: "/credit-limit", icon: Wallet, section: "Selling" },
       { name: "Return Requests", path: "/return-requests", icon: Undo2, section: "Returns" },
@@ -351,6 +352,7 @@ export const navItems: NavItem[] = [
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
       { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
       { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
+      { name: "Customer Portal", path: "/portal-accounts", permission: "USERS:VIEW", icon: Store, section: "Company" },
       { name: "Data Import", path: "/data-import", permission: "PRODUCT_CATALOGUE:CREATE|CRM:CREATE|INVENTORY:CREATE|INVOICE:CREATE|INVOICE:ADMIN", icon: FileUp, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
