@@ -159,7 +159,8 @@ const validateName = (label: string, value: unknown, required = false): string |
   const name = clean(value);
   if (!name) return required ? `Enter the ${label.toLowerCase()}` : null;
   if (name.length < 2) return `${label} is too short`;
-  return /[A-Za-z]/.test(name) ? null : `${label} must contain letters`;
+  // Letters of any language
+  return /\p{L}/u.test(name) ? null : `${label} must contain letters`;
 };
 
 /* ------------------------------------------------------------------ */

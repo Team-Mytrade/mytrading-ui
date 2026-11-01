@@ -2,6 +2,9 @@
    this covers what they don't: hand-written CSS with physical sides, Tailwind's gap helpers and form controls. */
 
 /* Nunito has no Arabic letters: a font made for them first, Nunito for Latin text and digits */
+/* What is typed runs in its own direction, whatever the screen's language: Arabic in an English form, English in an Arabic one */
+input:not([type="number"]):not([type="date"]):not([type="month"]):not([type="time"]):not([type="datetime-local"]), textarea { unicode-bidi: plaintext; }
+
 [dir="rtl"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", "Noto Naskh Arabic", Nunito, sans-serif; }
 
 /* space-x-* and divide-x-* put their gap and line on the other side */

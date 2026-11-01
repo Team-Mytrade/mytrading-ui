@@ -71,7 +71,7 @@ const validateCategoryName = (value: unknown): string | null => {
   const name = text(value);
   if (!name) return null;
   if (name.length < 2) return "Category name is too short";
-  if (!/[A-Za-z]/.test(name)) return "Category name must contain letters";
+  if (!/\p{L}/u.test(name)) return "Category name must contain letters";
   return null;
 };
 

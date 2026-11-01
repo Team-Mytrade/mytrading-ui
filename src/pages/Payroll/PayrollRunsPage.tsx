@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import jsPDF from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
@@ -158,7 +158,7 @@ const PayrollRunsPage: React.FC = () => {
     };
 
     const exportPDF = async () => {
-        const doc = new jsPDF();
+        const doc = await createPdf();
         doc.setFontSize(18);
         doc.text("Payroll Runs Report", 14, 15);
         doc.setFontSize(10);

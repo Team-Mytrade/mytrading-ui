@@ -1,6 +1,7 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -366,7 +367,7 @@ const createQuotationPdfUrl = async (
   const logo = companyLogo ?? { dataUrl: await loadImageAsDataUrl(publicAsset("images/logo/logo.png")), format: "PNG" as const };
   const logoDataUrl = logo.dataUrl;
   const logoSize = companyLogo ? fitLogo(companyLogo, 38, 9) : { width: 38, height: 9 };
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = await createPdf({ unit: "mm", format: "a4" });
   const reportWidth = doc.internal.pageSize.getWidth();
   const reportHeight = doc.internal.pageSize.getHeight();
   const reportMargin = 14;

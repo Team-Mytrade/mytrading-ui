@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -9,6 +9,7 @@ import { APP_MODULES, AppModule, MODULE_LABELS } from "../../access/access";
 import { errorText } from "../../access/accessApi";
 import { BillingEvent, Plan, PlanForm, limitText, planPrice as price, plansApi, storageText } from "../../platform/plansApi";
 import { formatDateTime } from "../../company/format";
+import { currencies } from "../../company/regional";
 import { CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
 
 import { t } from "../../i18n/i18n";
@@ -83,6 +84,7 @@ export default function PlansPage() {
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
   const [form, setForm] = useState<PlanForm>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const currencyList = useMemo(() => currencies(), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -251,8 +253,11 @@ export default function PlansPage() {
               </div>
               <div>
                 <label className={LABEL} htmlFor="plan-currency">{t("Currency")}</label>
-                <input id="plan-currency" className={`${INPUT} uppercase`} value={form.currency ?? ""} maxLength={3} placeholder="AED"
-                  onChange={(e) => set("currency", e.target.value)} />
+                <select id="plan-currency" className={INPUT} value={form.currency ?? ""} onChange={(e) => set("currency", e.target.value)}>
+                  <option value="">{t("Select")}</option>
+                  {form.currency && !currencyList.some((c) => c.code === form.currency) && <option value={form.currency}>{form.currency}</option>}
+                  {currencyList.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+                </select>
               </div>
               <div>
                 <label className={LABEL} htmlFor="plan-order">{t("Order in lists")}</label>

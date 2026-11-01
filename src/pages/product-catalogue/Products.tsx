@@ -407,13 +407,13 @@ const validateProductForm = (form: PurchaseRecord, categories: SelectOption[]): 
   if (productName) {
     if (productName.length < 2) add("productName", "Product name is too short");
     else if (productName.length > 100) add("productName", "Product name can be at most 100 characters");
-    else if (!/[A-Za-z]/.test(productName)) add("productName", "Product name must contain letters");
+    else if (!/\p{L}/u.test(productName)) add("productName", "Product name must contain letters");
   }
 
   const shortName = cleanText(form.shortName);
   if (shortName) {
     if (shortName.length < 2 || shortName.length > 20) add("shortName", "Short name must be 2–20 characters");
-    else if (!/^[A-Za-z0-9 &.-]+$/.test(shortName)) add("shortName", "Short name: letters, numbers, space, & . - only");
+    else if (!/^[\p{L}\p{M}\p{N} &.-]+$/u.test(shortName)) add("shortName", "Short name: letters, numbers, space, & . - only");
   }
 
   if (cleanText(form.description).length > 500) add("description", "Description can be at most 500 characters");
@@ -422,13 +422,13 @@ const validateProductForm = (form: PurchaseRecord, categories: SelectOption[]): 
   const brand = cleanText(form.brand);
   if (brand) {
     if (brand.length > 50) add("brand", "Brand can be at most 50 characters");
-    else if (!/[A-Za-z]/.test(brand)) add("brand", "Brand must contain letters");
+    else if (!/\p{L}/u.test(brand)) add("brand", "Brand must contain letters");
   }
 
   const modelNo = cleanText(form.modelNo);
   if (modelNo) {
     if (modelNo.length > 50) add("modelNo", "Model No can be at most 50 characters");
-    else if (!/^[A-Za-z0-9][A-Za-z0-9 ./-]*$/.test(modelNo)) {
+    else if (!/^[\p{L}\p{N}][\p{L}\p{M}\p{N} ./-]*$/u.test(modelNo)) {
       add("modelNo", "Model No: letters, numbers and - / . only (e.g. AR18BYNZXWK)");
     }
   }

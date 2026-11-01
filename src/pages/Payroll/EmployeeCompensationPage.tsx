@@ -20,7 +20,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
-import jsPDF from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { todayIso } from "../../utils/localDate";
@@ -272,7 +272,7 @@ const EmployeeCompensationPage: React.FC = () => {
 
     // Export to PDF
     const exportPDF = async () => {
-        const doc = new jsPDF();
+        const doc = await createPdf();
         doc.setFontSize(18);
         doc.text("Employee Compensation Report", 14, 15);
         doc.setFontSize(10);

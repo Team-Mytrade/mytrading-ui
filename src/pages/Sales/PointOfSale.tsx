@@ -8,6 +8,7 @@ import { errorText } from "../../access/accessApi";
 import { usePermissions } from "../../access/usePermissions";
 import { companyAddressLines, loadCompany } from "../../company/companyApi";
 import { companyCurrency, formatDateTime, formatMoney, todayIso } from "../../company/format";
+import { currencies } from "../../company/regional";
 import { pricingApi } from "../../sales/pricingApi";
 import { taxRateFromCode } from "../Purchase/LineItemsEditor";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
@@ -65,6 +66,7 @@ const escapeHtml = (value: unknown) =>
 
 /** The sales counter: open a shift on a till, sell, take cash or card, print the receipt, count the cash at the end. */
 export default function PointOfSale() {
+  const currencyList = useMemo(() => currencies(), []);
   const { canCreate, canUpdate, canApprove } = usePermissions("SALES");
   const [returns, setReturns] = useState<PosReturn[]>([]);
   const [returning, setReturning] = useState<ReturnForm | null>(null);
@@ -462,7 +464,10 @@ export default function PointOfSale() {
             <div className="grid gap-3 md:grid-cols-3">
               <div><label className={LABEL} htmlFor="till-code">{t("Code")}</label><input id="till-code" className={INPUT} value={tillForm.code} maxLength={30} onChange={(e) => setTillForm({ ...tillForm, code: e.target.value })} /></div>
               <div><label className={LABEL} htmlFor="till-name">{t("Name")}</label><input id="till-name" className={INPUT} value={tillForm.name} maxLength={150} onChange={(e) => setTillForm({ ...tillForm, name: e.target.value })} /></div>
-              <div><label className={LABEL} htmlFor="till-cur">{t("Currency")}</label><input id="till-cur" className={INPUT} value={tillForm.currencyCode} maxLength={3} onChange={(e) => setTillForm({ ...tillForm, currencyCode: e.target.value.toUpperCase() })} /></div>
+              <div><label className={LABEL} htmlFor="till-cur">{t("Currency")}</label><select id="till-cur" className={INPUT} value={tillForm.currencyCode} onChange={(e) => setTillForm({ ...tillForm, currencyCode: e.target.value })}>
+                {!currencyList.some((c) => c.code === tillForm.currencyCode) && <option value={tillForm.currencyCode}>{tillForm.currencyCode}</option>}
+                {currencyList.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+              </select></div>
               <div>
                 <label className={LABEL} htmlFor="till-wh">{t("Sells from warehouse")}</label>
                 <select id="till-wh" className={INPUT} value={tillForm.warehouseId} onChange={(e) => setTillForm({ ...tillForm, warehouseId: e.target.value })}>

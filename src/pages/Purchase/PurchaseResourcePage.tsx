@@ -437,7 +437,7 @@ function usesOwnList(field: FieldConfig, listEndpoint: string) {
 function applyTextCase(value: string, textCase: FieldConfig["textCase"]) {
   if (textCase === "upper") return value.toUpperCase();
   if (textCase === "lower") return value.toLowerCase();
-  if (textCase === "title") return value.replace(/\b([a-z])/g, (letter) => letter.toUpperCase());
+  if (textCase === "title") return value.replace(/(?<![\p{L}\p{M}\p{N}])\p{Ll}/gu, (letter) => letter.toUpperCase());
   return value;
 }
 

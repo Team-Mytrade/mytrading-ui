@@ -9,6 +9,7 @@ import { errorText } from "../../access/accessApi";
 import { usePermissions } from "../../access/usePermissions";
 import { companyDisplayName } from "../../company/companyApi";
 import { companyCurrency, formatDate, formatMoney, todayIso } from "../../company/format";
+import { currencies } from "../../company/regional";
 import { RFQ_BASE, Rfq, RfqVendor, rfqApi } from "../../purchase/rfqApi";
 import { VendorRecord } from "./purchaseOrderPdf";
 import { printRfq, rfqPdf } from "./rfqPdf";
@@ -61,6 +62,7 @@ const Status = ({ value }: { value: string }) => (
  * company's currency and awarded per line. The award makes one purchase order per winning vendor, pending approval.
  */
 export default function RfqPage() {
+  const currencyList = useMemo(() => currencies(), []);
   const { canCreate, canUpdate } = usePermissions("PURCHASE");
   const [rfqs, setRfqs] = useState<Rfq[] | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -467,7 +469,10 @@ export default function RfqPage() {
                   <div><label className={LABEL} htmlFor="q-ref">{t("Vendor's quote no.")}</label><input id="q-ref" className={INPUT} value={quote.quoteReference} maxLength={100} onChange={(e) => setQuote({ ...quote, quoteReference: e.target.value })} /></div>
                   <div><label className={LABEL} htmlFor="q-date">{t("Quote date")}</label><input id="q-date" type="date" className={INPUT} value={quote.quoteDate} onChange={(e) => setQuote({ ...quote, quoteDate: e.target.value })} /></div>
                   <div><label className={LABEL} htmlFor="q-valid">{t("Valid until")}</label><input id="q-valid" type="date" className={INPUT} value={quote.validUntil} min={quote.quoteDate} onChange={(e) => setQuote({ ...quote, validUntil: e.target.value })} /></div>
-                  <div><label className={LABEL} htmlFor="q-cur">{t("Currency")}</label><input id="q-cur" className={INPUT} value={quote.currency} maxLength={3} onChange={(e) => setQuote({ ...quote, currency: e.target.value.toUpperCase() })} /></div>
+                  <div><label className={LABEL} htmlFor="q-cur">{t("Currency")}</label><select id="q-cur" className={INPUT} value={quote.currency} onChange={(e) => setQuote({ ...quote, currency: e.target.value })}>
+                    {!currencyList.some((c) => c.code === quote.currency) && <option value={quote.currency}>{quote.currency}</option>}
+                    {currencyList.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+                  </select></div>
                   <div><label className={LABEL} htmlFor="q-notes">{t("Notes")}</label><input id="q-notes" className={INPUT} value={quote.notes} maxLength={1000} onChange={(e) => setQuote({ ...quote, notes: e.target.value })} /></div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-gray-800">

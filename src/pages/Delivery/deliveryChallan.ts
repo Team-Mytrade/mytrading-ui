@@ -1,6 +1,7 @@
 // Delivery challan (delivery note print): what the driver hands over and the customer signs for.
 // Same look as the quotation PDF: company band, seller and consignee boxes, lines, then signature boxes.
 import { jsPDF } from "jspdf";
+import { createPdf } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import { companyAddressLines, loadCompany, loadCompanyLogo } from "../../company/companyApi";
 import { formatDateHijri, formatDateTime, formatNumber, pdfText } from "../../company/format";
@@ -39,7 +40,7 @@ const LINE: [number, number, number] = [226, 232, 240];
 /** Builds the challan and opens it in a new tab to print (downloads it when pop-ups are blocked). */
 export async function printDeliveryChallan(data: ChallanData): Promise<void> {
   const [company, logo] = await Promise.all([loadCompany(), loadCompanyLogo()]);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = await createPdf({ unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
   const margin = 14;
