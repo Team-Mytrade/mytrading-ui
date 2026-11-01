@@ -33,6 +33,7 @@ const ServiceScheduleNotify = lazy(() => import("./pages/Sales/ServiceScheduleNo
 const ReturnRequests = lazy(() => import("./pages/Sales/ReturnRequests"));
 const Refunds = lazy(() => import("./pages/Sales/Refunds"));
 const CreditLimit = lazy(() => import("./pages/Sales/CreditLimit"));
+const PriceListsPage = lazy(() => import("./pages/Sales/PriceListsPage"));
 const Warehouse = lazy(() => import("./pages/Inventory/warehouse"));
 const InventoryModule = lazy(() => import("./pages/Inventory/inventory"));
 const StockLevel = lazy(() => import("./pages/Inventory/stock-level"));
@@ -52,6 +53,8 @@ const TermsAndConditions = lazy(() => import("./pages/Purchase/TermsAndCondition
 const Deliveries = lazy(() => import("./pages/Purchase/Deliveries"));
 const GoodsReceiptNotes = lazy(() => import("./pages/purchase-service/GoodsReceiptNotes"));
 const PurchaseReturns = lazy(() => import("./pages/purchase-service/PurchaseReturns"));
+const LandedCostsPage = lazy(() => import("./pages/purchase-service/LandedCostsPage"));
+const RfqPage = lazy(() => import("./pages/purchase-service/RfqPage"));
 const PurchaseReports = lazy(() => import("./pages/Purchase/PurchaseReports"));
 const DeliveryOrderPage = lazy(() => import("./pages/Delivery/DeliveryOrderPage"));
 const TransporterPage = lazy(() => import("./pages/Delivery/TransporterPage"));
@@ -249,6 +252,7 @@ export default function AppRouter() {
           <Route path="/refunds" element={<Refunds />} />
           <Route path="/quotations" element={<Quotations />} />
           <Route path="/credit-limit" element={<CreditLimit />} />
+          <Route path="/sales-price-lists" element={<PriceListsPage />} />
           <Route path="/sales-channels" element={<SalesChannels />} />
           <Route path="/service-schedules" element={<ServiceSchedules />} />
           <Route path="/sales-dashboard" element={<SalesDashboard />} />
@@ -272,6 +276,8 @@ export default function AppRouter() {
           <Route path="/purchase-service/orders" element={<PurchaseOrders />} />
           <Route path="/purchase-service/goods-receipt-notes" element={<GoodsReceiptNotes />} />
           <Route path="/purchase-service/returns" element={<PurchaseReturns />} />
+          <Route path="/purchase-service/landed-costs" element={<LandedCostsPage />} />
+          <Route path="/purchase-service/rfqs" element={<RfqPage />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
           <Route path="/purchase-orders" element={<Navigate to="/purchase-service/orders" replace />} />
           <Route path="/common/vendors" element={<Vendors />} />

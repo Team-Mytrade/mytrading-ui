@@ -1,6 +1,8 @@
+import { useCallback, useEffect, useRef } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { allowsFraction, cellInput, NumberCell, taxRateFromCode } from "../Purchase/LineItemsEditor";
 import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
+import { PriceSource, pricingApi } from "../../sales/pricingApi";
 
 import { t } from "../../i18n/i18n";
 /** One quotation line as edited on screen. Discount is a % of the line value, tax a % of what is left. */
@@ -22,6 +24,10 @@ export type QuotationLine = {
   taxRate: number;
   taxCode: string;
   remarks: string;
+  /** The rate came from pricing (not typed): it follows the customer, currency and quantity breaks. */
+  priceAuto?: boolean;
+  priceSource?: PriceSource;
+  priceListName?: string;
 };
 
 export type QuotationProduct = {
@@ -129,6 +135,9 @@ type Props = {
   onCreateProduct?: () => void;
   /** The quotation's currency (the company's when not set). */
   currency?: string | null;
+  /** The customer and date the rates are for (price lists and customer prices); none: the default list. */
+  customerId?: number | null;
+  priceDate?: string | null;
 };
 
 /** Units a service can be priced in (the Sales service only accepts its own unit names). */
@@ -154,18 +163,64 @@ export default function QuotationItemsEditor({
   showErrors = false,
   onCreateProduct,
   currency,
+  customerId,
+  priceDate,
 }: Props) {
   const totals = quotationTotals(lines, additionalDiscount, currency);
   const code = currency || companyCurrency();
   const priceDecimals = moneyDecimals(currency);
+  // The lines as last sent up, for prices that arrive after the user typed on
+  const latest = useRef(lines);
+  latest.current = lines;
+
+  const change = (next: QuotationLine[]) => {
+    latest.current = next;
+    onChange(next);
+  };
 
   const update = (index: number, patch: Partial<QuotationLine>) =>
-    onChange(lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+    change(lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
 
-  /** Picking a product copies its code, name, unit, price and GST % onto the line. */
+  /**
+   * Asks Sales for the rates of priced-automatically product lines (all, or the given keys): the customer's own price,
+   * else their price list's quantity break, else the catalogue price. A rate the user typed is left alone.
+   */
+  const reprice = useCallback(async (keys: string[] | null) => {
+    const targets = latest.current.filter(
+      (line) => line.itemType === "PRODUCT" && line.productId && line.priceAuto && (keys === null || keys.includes(line.key))
+    );
+    if (targets.length === 0) return;
+    try {
+      const prices = await pricingApi.prices(customerId ?? null, currency ?? null, priceDate ?? null,
+        targets.map((line) => ({ productId: Number(line.productId), quantity: num(line.quantity) || 1 })));
+      const byKey = new Map(targets.map((line, i) => [line.key, prices[i]]));
+      change(latest.current.map((line) => {
+        const price = byKey.get(line.key);
+        if (!price || !line.priceAuto || Number(line.productId) !== Number(price.productId) || price.unitPrice == null) return line;
+        return { ...line, unitPrice: Number(price.unitPrice), priceSource: price.source, priceListName: price.priceListName ?? undefined };
+      }));
+    } catch {
+      // Pricing not reachable: the catalogue price stays
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, currency, priceDate]);
+
+  // A new customer, currency or date re-prices the lines priced automatically
+  useEffect(() => {
+    reprice(null);
+  }, [reprice]);
+
+  /** Picking a product copies its code, name, unit, price and GST % onto the line, then asks for the customer's rate. */
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((item) => String(item.id) === productId);
-    update(index, productLinePatch(product, lines[index].taxRate));
+    update(index, { ...productLinePatch(product, lines[index].taxRate), priceAuto: !!product, priceSource: "CATALOGUE", priceListName: undefined });
+    if (product) reprice([lines[index].key]);
+  };
+
+  /** A new quantity may reach another quantity break. */
+  const changeQuantity = (index: number, quantity: number) => {
+    update(index, { quantity });
+    if (lines[index].priceAuto) reprice([lines[index].key]);
   };
 
   return (
@@ -294,6 +349,11 @@ export default function QuotationItemsEditor({
                       ) : (
                         meta && <div className="mt-1 truncate px-0.5 text-[11px] text-slate-400 dark:text-gray-500">{meta}</div>
                       )}
+                      {line.itemType === "PRODUCT" && line.priceAuto && line.priceSource && line.priceSource !== "CATALOGUE" && (
+                        <div className="mt-0.5 px-0.5 text-[11px] font-medium text-cyan-700 dark:text-cyan-400">
+                          {line.priceSource === "CUSTOMER" ? t("Customer price") : `${t("Price list")}: ${line.priceListName ?? ""}`}
+                        </div>
+                      )}
                       {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
                     </td>
                     <td className="px-2 py-2">
@@ -301,7 +361,7 @@ export default function QuotationItemsEditor({
                         label={t("Quantity")}
                         value={line.quantity}
                         decimals={allowsFraction(line.uom) ? 3 : 0}
-                        onValue={(quantity) => update(index, { quantity })}
+                        onValue={(quantity) => changeQuantity(index, quantity)}
                       />
                     </td>
                     <td className="px-2 py-2">
@@ -309,7 +369,7 @@ export default function QuotationItemsEditor({
                         label={t("Rate")}
                         value={line.unitPrice}
                         decimals={priceDecimals}
-                        onValue={(unitPrice) => update(index, { unitPrice })}
+                        onValue={(unitPrice) => update(index, { unitPrice, priceAuto: false, priceSource: undefined, priceListName: undefined })}
                       />
                     </td>
                     <td className="px-2 py-2">

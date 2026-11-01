@@ -1482,6 +1482,8 @@ const Quotations: React.FC = () => {
           <div className="mb-5 md:col-span-2">
             <QuotationItemsEditor
               currency={form.currencyCode}
+              customerId={form.customerId ? Number(form.customerId) : null}
+              priceDate={form.quoteDate || null}
               lines={lines}
               onChange={setLines}
               products={activeProducts}
