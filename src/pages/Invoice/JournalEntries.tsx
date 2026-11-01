@@ -12,6 +12,8 @@ import { FloatingInput, FloatingSelect1, FloatingTextarea } from "../../componen
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import {
+  CostCentre,
+  costCentreLabel,
   GeneralAccount,
   INVOICE_API,
   JournalEntry,
@@ -36,9 +38,10 @@ interface LineForm {
   debit: string;
   credit: string;
   narration: string;
+  costCentreId: string;
 }
 
-const blankLine = (): LineForm => ({ generalAccountId: "", debit: "", credit: "", narration: "" });
+const blankLine = (): LineForm => ({ generalAccountId: "", debit: "", credit: "", narration: "", costCentreId: "" });
 
 const emptyForm = () => ({ entryDate: todayInput(), description: "", sourceModule: "OTHER", sourceId: "" });
 
@@ -51,6 +54,7 @@ const JournalEntries: React.FC = () => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [accounts, setAccounts] = useState<GeneralAccount[]>([]);
+  const [centres, setCentres] = useState<CostCentre[]>([]);
   const [loading, setLoading] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [viewing, setViewing] = useState<JournalEntry | null>(null);
@@ -82,7 +86,20 @@ const JournalEntries: React.FC = () => {
 
   useEffect(() => {
     fetchAll();
+    axios.get<CostCentre[]>(`${INVOICE_API}/cost-centres`).then((r) => setCentres(Array.isArray(r.data) ? r.data : [])).catch(() => setCentres([]));
   }, [fetchAll]);
+
+  // Active ones, plus whatever an edited entry already uses
+  const centreOptions = useMemo(() => {
+    const used = new Set(lines.map((line) => line.costCentreId));
+    return centres.filter((c) => c.active || used.has(String(c.id))).map((c) => ({ id: String(c.id), name: costCentreLabel(c) }));
+  }, [centres, lines]);
+
+  // Only income and expense accounts carry a cost centre
+  const takesCentre = (accountId: string) => {
+    const type = accounts.find((account) => String(account.id) === accountId)?.accountType;
+    return type === "INCOME" || type === "EXPENSE";
+  };
 
   // Only active accounts that accept postings, plus whatever an edited entry already uses
   const accountOptions = useMemo(() => {
@@ -123,6 +140,7 @@ const JournalEntries: React.FC = () => {
         debit: Number(line.debit) ? String(line.debit) : "",
         credit: Number(line.credit) ? String(line.credit) : "",
         narration: line.narration ?? "",
+        costCentreId: line.costCentreId != null ? String(line.costCentreId) : "",
       }))
     );
     setFormOpen(true);
@@ -151,6 +169,7 @@ const JournalEntries: React.FC = () => {
         debit: Number(line.debit) || 0,
         credit: Number(line.credit) || 0,
         narration: line.narration.trim() || null,
+        costCentreId: line.costCentreId && takesCentre(line.generalAccountId) ? Number(line.costCentreId) : null,
       })),
     };
     setBusy(true);
@@ -352,6 +371,9 @@ const JournalEntries: React.FC = () => {
                         <td className="px-3 py-2 font-medium text-slate-800">{accountLabel({ accountCode: line.accountCode ?? "", accountName: line.accountName ?? "" })}</td>
                         <td className="px-3 py-2 text-slate-600">
                           {line.narration || "—"}
+                          {line.costCentreId != null && (
+                            <span className="block text-xs text-slate-400">{(() => { const c = centres.find((x) => x.id === line.costCentreId); return c ? costCentreLabel(c) : ""; })()}</span>
+                          )}
                           {foreign && line.currencyAmount != null && (
                             <span className="block text-xs text-slate-400">{money(Math.abs(Number(line.currencyAmount)), viewing.currency)}</span>
                           )}
@@ -412,15 +434,16 @@ const JournalEntries: React.FC = () => {
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
 
               <div className="space-y-2">
-                <div className="hidden grid-cols-[2fr_1fr_1fr_2fr_auto] gap-2 px-1 text-xs font-medium uppercase tracking-wide text-slate-500 sm:grid">
+                <div className="hidden grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_auto] gap-2 px-1 text-xs font-medium uppercase tracking-wide text-slate-500 sm:grid">
                   <span>{t("Account")}</span>
                   <span className="text-right">{t("Debit")}</span>
                   <span className="text-right">{t("Credit")}</span>
                   <span>{t("Narration")}</span>
+                  <span>{t("Cost centre")}</span>
                   <span className="w-7" />
                 </div>
                 {lines.map((line, index) => (
-                  <div key={index} className="grid gap-2 rounded-lg border border-slate-100 p-2 sm:grid-cols-[2fr_1fr_1fr_2fr_auto] sm:border-0 sm:p-0">
+                  <div key={index} className="grid gap-2 rounded-lg border border-slate-100 p-2 sm:grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_auto] sm:border-0 sm:p-0">
                     <FloatingSelect1 label={t("Account")} name={`account_${index}`} value={line.generalAccountId} options={accountOptions}
                       onChange={(event) => updateLine(index, { generalAccountId: event.target.value })} />
                     <FloatingInput label={t("Debit")} name={`debit_${index}`} type="number" value={line.debit}
@@ -429,6 +452,10 @@ const JournalEntries: React.FC = () => {
                       onChange={(event) => updateLine(index, { credit: event.target.value, debit: event.target.value ? "" : line.debit })} />
                     <FloatingInput label={t("Narration")} name={`narration_${index}`} value={line.narration}
                       onChange={(event) => updateLine(index, { narration: event.target.value })} />
+                    {takesCentre(line.generalAccountId) ? (
+                      <FloatingSelect1 label={t("Cost centre")} name={`centre_${index}`} value={line.costCentreId} options={centreOptions}
+                        onChange={(event) => updateLine(index, { costCentreId: event.target.value })} />
+                    ) : <span />}
                     <button
                       type="button"
                       disabled={lines.length <= 2}

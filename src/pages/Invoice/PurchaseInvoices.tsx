@@ -20,7 +20,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
-import { INVOICE_API, apiError, dateLabel, labelOf, money, todayInput } from "./invoiceShared";
+import { CostCentre, INVOICE_API, apiError, costCentreLabel, dateLabel, labelOf, money, todayInput } from "./invoiceShared";
 import { ActionButton, DialogFooter } from "./invoiceUi";
 import BillFromGrnDialog from "./BillFromGrnDialog";
 import { companyCurrency } from "../../company/format";
@@ -40,6 +40,7 @@ interface PurchaseInvoice {
   currency?: string;
   referenceNumber?: string;
   notes?: string;
+  costCentreId?: number | string | null;
   vendor?: { id: number; name?: string } | null;
   vendorId?: string;
   // Bills made from a goods receipt; their amount follows the receipt (corrections are debit notes)
@@ -62,6 +63,7 @@ interface PurchaseInvoicePayload {
   currency: string;
   referenceNumber?: string;
   notes?: string;
+  costCentreId: number | null;
   vendor: { id: number };
 }
 
@@ -111,6 +113,7 @@ const PurchaseInvoices: React.FC = () => {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [centres, setCentres] = useState<CostCentre[]>([]);
   const [billingFromGrn, setBillingFromGrn] = useState(false);
   const [debitFor, setDebitFor] = useState<PurchaseInvoice | null>(null);
   const [debitForm, setDebitForm] = useState({ amount: "", noteDate: todayInput(), reason: "" });
@@ -151,6 +154,10 @@ const PurchaseInvoices: React.FC = () => {
       .get<Vendor[]>(COMMON_VENDORS_API, { headers })
       .then((res) => setVendors(Array.isArray(res.data) ? res.data : []))
       .catch(() => setVendors([]));
+    axios
+      .get<CostCentre[]>(`${INVOICE_API}/cost-centres`, { headers })
+      .then((res) => setCentres(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setCentres([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -207,6 +214,7 @@ const PurchaseInvoices: React.FC = () => {
       currency: form.currency?.trim() || companyCurrency(),
       referenceNumber: form.referenceNumber?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
+      costCentreId: form.costCentreId ? Number(form.costCentreId) : null,
       vendor: { id: Number(form.vendorId) },
     };
 
@@ -645,6 +653,16 @@ const PurchaseInvoices: React.FC = () => {
                   name="notes"
                   value={form.notes || ""}
                   onChange={handleChange}
+                />,
+                <FloatingSelect
+                  key="costCentreId"
+                  label={t("Cost centre")}
+                  name="costCentreId"
+                  value={form.costCentreId != null ? String(form.costCentreId) : ""}
+                  options={centres
+                    .filter((c) => c.active || String(c.id) === String(form.costCentreId))
+                    .map((c) => ({ id: String(c.id), name: costCentreLabel(c) }))}
+                  onChange={(e) => setForm({ ...form, costCentreId: e.target.value })}
                 />,
               ],
             },

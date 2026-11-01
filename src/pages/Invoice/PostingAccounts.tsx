@@ -51,6 +51,10 @@ const USED_FOR: Record<string, string> = {
   COST_OF_SALES: "Cost of the goods sold and returned.",
   STOCK_ADJUSTMENTS: "Stock counted up, written off or damaged.",
   OPENING_BALANCE: "Opening stock entered when starting to use the system.",
+  FIXED_ASSETS: "The cost of assets in the register.",
+  ACCUMULATED_DEPRECIATION: "Depreciation so far on those assets.",
+  DEPRECIATION_EXPENSE: "Each month's depreciation.",
+  ASSET_DISPOSALS: "Gains and losses when assets are sold or scrapped.",
 };
 
 const SELECT =
