@@ -10,7 +10,7 @@ import { exportListingPdf } from "../../components/common/export";
 import { usePermissions } from "../../access/usePermissions";
 import { useCompany } from "../../company/companyApi";
 import { formatDate, formatMoney, todayIso } from "../../company/format";
-import { INVOICE_API, apiError, labelOf } from "./invoiceShared";
+import { CostCentre, INVOICE_API, apiError, costCentreLabel, labelOf } from "./invoiceShared";
 
 import { t } from "../../i18n/i18n";
 interface StatementLine {
@@ -122,6 +122,13 @@ const FinancialStatements: React.FC = () => {
   const [sheet, setSheet] = useState<BalanceSheet | null>(null);
   const [trial, setTrial] = useState<TrialBalance | null>(null);
   const [loading, setLoading] = useState(false);
+  const [centres, setCentres] = useState<CostCentre[]>([]);
+  // "" = the whole company, "0" = lines without a cost centre
+  const [centre, setCentre] = useState("");
+
+  useEffect(() => {
+    axios.get<CostCentre[]>(`${INVOICE_API}/cost-centres`).then((r) => setCentres(Array.isArray(r.data) ? r.data : [])).catch(() => setCentres([]));
+  }, []);
 
   // On a new period, and when the company's financial year arrives after the first render; custom keeps its dates
   useEffect(() => {
@@ -133,7 +140,7 @@ const FinancialStatements: React.FC = () => {
     try {
       setLoading(true);
       if (statement === "PNL") {
-        setPnl((await axios.get<ProfitAndLoss>(`${INVOICE_API}/financial-statements/profit-and-loss`, { params: { from, to } })).data);
+        setPnl((await axios.get<ProfitAndLoss>(`${INVOICE_API}/financial-statements/profit-and-loss`, { params: { from, to, ...(centre ? { costCentreId: centre } : {}) } })).data);
       } else if (statement === "BS") {
         setSheet((await axios.get<BalanceSheet>(`${INVOICE_API}/financial-statements/balance-sheet`, { params: { asOf: to } })).data);
       } else {
@@ -144,7 +151,7 @@ const FinancialStatements: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [statement, from, to]);
+  }, [statement, from, to, centre]);
 
   useEffect(() => {
     load();
@@ -272,6 +279,13 @@ const FinancialStatements: React.FC = () => {
                 {statement === "BS" && "as at"}
                 <input type="date" className={INPUT} value={to} onChange={(e) => setRange([from, e.target.value])} aria-label={statement === "BS" ? "As at" : "To"} />
               </span>
+            )}
+            {statement === "PNL" && centres.length > 0 && (
+              <select className={INPUT} value={centre} onChange={(e) => setCentre(e.target.value)} aria-label={t("Cost centre")}>
+                <option value="">{t("Whole company")}</option>
+                <option value="0">{t("No cost centre")}</option>
+                {centres.map((c) => <option key={c.id} value={String(c.id)}>{costCentreLabel(c)}</option>)}
+              </select>
             )}
           </div>
           <div className="text-right text-xs text-slate-500 dark:text-gray-400">

@@ -55,6 +55,9 @@ const GoodsReceiptNotes = lazy(() => import("./pages/purchase-service/GoodsRecei
 const PurchaseReturns = lazy(() => import("./pages/purchase-service/PurchaseReturns"));
 const LandedCostsPage = lazy(() => import("./pages/purchase-service/LandedCostsPage"));
 const RfqPage = lazy(() => import("./pages/purchase-service/RfqPage"));
+const CostCentres = lazy(() => import("./pages/Invoice/CostCentres"));
+const Budgets = lazy(() => import("./pages/Invoice/Budgets"));
+const FixedAssets = lazy(() => import("./pages/Invoice/FixedAssets"));
 const PurchaseReports = lazy(() => import("./pages/Purchase/PurchaseReports"));
 const DeliveryOrderPage = lazy(() => import("./pages/Delivery/DeliveryOrderPage"));
 const TransporterPage = lazy(() => import("./pages/Delivery/TransporterPage"));
@@ -324,6 +327,9 @@ export default function AppRouter() {
           <Route path="/bankAccounts" element={<BankAccounts />} />
           <Route path="/bankAccounts/:id/reconcile" element={<BankReconciliation />} />
           <Route path="/exchangeRates" element={<ExchangeRates />} />
+          <Route path="/costCentres" element={<CostCentres />} />
+          <Route path="/budgets" element={<Budgets />} />
+          <Route path="/fixedAssets" element={<FixedAssets />} />
               <Route path="/zatca" element={<ZatcaSettings />} />
           <Route path="/uae-einvoicing" element={<UaeEInvoicing />} />
           <Route path="/expenseRevenue" element={<ExpenseRevenue />} />

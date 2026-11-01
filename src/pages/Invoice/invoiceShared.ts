@@ -170,7 +170,18 @@ export interface JournalLine {
   narration?: string;
   // The line in the entry's (document's) currency, debit positive
   currencyAmount?: number | null;
+  costCentreId?: number | null;
 }
+
+export interface CostCentre {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  active: boolean;
+}
+
+export const costCentreLabel = (centre: CostCentre) => `${centre.code} · ${centre.name}`;
 
 export interface JournalEntry {
   id: number;
@@ -215,6 +226,7 @@ export const AUTOMATIC_SOURCE_OPTIONS: Option[] = [
   { id: "VENDOR_PAYMENT", name: "Vendor payment" },
   { id: "STOCK", name: "Stock" },
   { id: "BANK", name: "Bank" },
+  { id: "FIXED_ASSET", name: "Fixed asset" },
 ];
 
 // Assets and expenses grow with debits; liabilities, equity and income with credits
