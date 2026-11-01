@@ -34,6 +34,9 @@ const ReturnRequests = lazy(() => import("./pages/Sales/ReturnRequests"));
 const Refunds = lazy(() => import("./pages/Sales/Refunds"));
 const CreditLimit = lazy(() => import("./pages/Sales/CreditLimit"));
 const PriceListsPage = lazy(() => import("./pages/Sales/PriceListsPage"));
+const PointOfSale = lazy(() => import("./pages/Sales/PointOfSale"));
+const CustomerPortal = lazy(() => import("./pages/Portal/CustomerPortal"));
+const PortalAccounts = lazy(() => import("./pages/Portal/PortalAccounts"));
 const Warehouse = lazy(() => import("./pages/Inventory/warehouse"));
 const InventoryModule = lazy(() => import("./pages/Inventory/inventory"));
 const StockLevel = lazy(() => import("./pages/Inventory/stock-level"));
@@ -216,6 +219,9 @@ export default function AppRouter() {
           <Route path="termsandconditions" element={<Terms />} />
         </Route>
 
+        {/* Customers' own window: no sidebar, nothing of the staff application */}
+        <Route path="/portal" element={<CustomerPortal />} />
+
         {/* Driver's phone: full screen, no sidebar */}
         <Route element={<DriverLayout />}>
           <Route path="/driver" element={<DriverMode />} />
@@ -246,6 +252,7 @@ export default function AppRouter() {
           <Route path="/notification-settings" element={<NotificationSettingsPage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />
           <Route path="/data-import" element={<DataImportPage />} />
+          <Route path="/portal-accounts" element={<PortalAccounts />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
           <Route path="/sales-targets" element={<SalesTargets />} />
@@ -256,6 +263,7 @@ export default function AppRouter() {
           <Route path="/quotations" element={<Quotations />} />
           <Route path="/credit-limit" element={<CreditLimit />} />
           <Route path="/sales-price-lists" element={<PriceListsPage />} />
+          <Route path="/sales-pos" element={<PointOfSale />} />
           <Route path="/sales-channels" element={<SalesChannels />} />
           <Route path="/service-schedules" element={<ServiceSchedules />} />
           <Route path="/sales-dashboard" element={<SalesDashboard />} />

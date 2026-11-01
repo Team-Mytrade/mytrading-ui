@@ -1,5 +1,5 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
-import { Outlet, useLocation } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
@@ -83,8 +83,13 @@ const LayoutContent: React.FC = () => {
 };
 
 const AppLayout: React.FC = () => {
-  const { isLoggedIn, loading } = useContext(AuthContext);
+  const { isLoggedIn, loading, access } = useContext(AuthContext);
   const hasStoredSession = !!localStorage.getItem("accessToken");
+
+  // A customer's portal account never sees the staff application
+  if (isLoggedIn && access.portalCustomerId != null) {
+    return <Navigate to="/portal" replace />;
+  }
 
   if (loading && hasStoredSession) {
     return (
