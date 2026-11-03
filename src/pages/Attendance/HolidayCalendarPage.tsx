@@ -1008,9 +1008,9 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 1: CREATE / EDIT CALENDAR MASTER ───────────────────────── */}
       {isCalendarModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -1106,9 +1106,9 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 2: MANAGE HOLIDAYS FOR CALENDAR ─────────────────────────── */}
       {isHolidayManageModalOpen && activeCalendarForHolidays && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-2xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
                   {t("Manage Holidays:")} {activeCalendarForHolidays.calendarName}
@@ -1236,9 +1236,9 @@ const HolidayCalendarPage: React.FC = () => {
 
       {/* ── MODAL 3: VIEW / INSPECT CALENDAR DETAILS ─────────────────────── */}
       {viewingCalendarDetails && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 my-4 sm:my-0 max-h-[90vh] overflow-y-auto">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>

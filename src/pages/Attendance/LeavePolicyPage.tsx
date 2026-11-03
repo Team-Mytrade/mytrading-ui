@@ -520,10 +520,10 @@ const LeavePolicyPage: React.FC = () => {
 
         {/* ── CREATE / EDIT POLICY MODAL ───────────────────────────────────── */}
         {(isModalOpen || editingPolicy) && (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-[#191919] rounded-xl max-w-3xl w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl max-w-3xl w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
               
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
+              <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -711,10 +711,10 @@ const LeavePolicyPage: React.FC = () => {
 
         {/* ── ASSIGN POLICY DRAWER MODAL ───────────────────────────────────── */}
         {assigningPolicy && (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
               
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
+              <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -778,12 +778,12 @@ const LeavePolicyPage: React.FC = () => {
 
         {/* ── VIEW POLICY (read-only) ──────────────────────────────────────── */}
         {viewingPolicy && (
-          <div
+          <div data-overlay-dim data-overlay
             className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
             onClick={(e) => { if (e.target === e.currentTarget) setViewingPolicy(null); }}
           >
-            <div className="bg-white dark:bg-[#191919] rounded-xl max-w-lg w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
+            <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl max-w-lg w-full p-5 shadow-2xl border border-gray-100 dark:border-[#303030] text-gray-900 dark:text-white">
+              <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030] mb-4">
                 <div className="flex items-center gap-2">
                   <Eye className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">

@@ -580,8 +580,8 @@ const DeliveryNote: React.FC = () => {
 
         {/* ================= CREATE / EDIT MODAL ================= */}
         {showFormModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-            <form onSubmit={handleSave} className="bg-white p-6 rounded-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <form data-overlay-panel onSubmit={handleSave} className="bg-white p-6 rounded-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-5">
                 <div>
                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -711,8 +711,8 @@ const DeliveryNote: React.FC = () => {
 
         {/* ================= DETAIL MODAL ================= */}
         {showDetailModal && selected && (
-          <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -798,8 +798,8 @@ const DeliveryNote: React.FC = () => {
 
         {/* ================= DELETE MODAL ================= */}
         {showDeleteModal && selected && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-6 rounded-xl w-full max-w-md">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-full max-w-md">
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                   <TrashIcon className="h-6 w-6 text-red-600" />

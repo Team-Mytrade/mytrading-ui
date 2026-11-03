@@ -118,8 +118,18 @@ const imageSize = (src: string) =>
     img.src = src;
   });
 
+/** Whether the company currency may still change: not once the company has transactions in it. */
+export interface CurrencyLock {
+  currency: string;
+  locked: boolean;
+  /** e.g. { "quotations": 12, "invoices": 3 } */
+  transactions: Record<string, number>;
+  reason?: string | null;
+}
+
 export const companyApi = {
   get: () => axios.get<CompanyProfile>(BASE).then((r) => r.data),
+  currencyLock: () => axios.get<CurrencyLock>(`${BASE}/currency-lock`).then((r) => r.data),
   update: (profile: Partial<CompanyProfile>) => axios.put<CompanyProfile>(BASE, profile).then((r) => changed(r.data)),
   uploadLogo: (file: File) => {
     const form = new FormData();

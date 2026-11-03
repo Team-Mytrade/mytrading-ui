@@ -940,9 +940,9 @@ const handleEditContact = async (e: FormEvent) => {
 
         {/* Assign Customer Modal */}
         {showAssignModal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div data-overlay-panel className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
+              <div data-overlay-header className="flex items-center justify-between p-6 border-b border-gray-100">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">
                     {t("Assign Customer")}

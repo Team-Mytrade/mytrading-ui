@@ -309,9 +309,9 @@ const ApprovalDesk: React.FC<ApprovalDeskProps> = ({ kind, onChanged }) => {
       </div>
 
       {selected && action && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-transparent space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#2a2a2a]">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#2a2a2a]">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white">
                 {action === 'view' ? `${selected.type} #${selected.id}` : `${action === 'approve' ? 'Approve' : 'Reject'} ${selected.type.toLowerCase()} #${selected.id}`}
               </h3>

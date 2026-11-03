@@ -266,8 +266,8 @@ export default function UsersPage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form onSubmit={save} className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <form data-overlay-panel onSubmit={save} className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 {editing === "new" ? t("Add user") : `Edit ${editing.firstName} ${editing.lastName}`}

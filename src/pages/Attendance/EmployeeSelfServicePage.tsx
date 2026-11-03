@@ -695,19 +695,19 @@ const EmployeeSelfServicePage: React.FC = () => {
 
         {/* Full-Screen Expanded Minimalist Calendar Modal */}
         {isCalendarExpanded && typeof document !== 'undefined' && createPortal(
-          <div 
+          <div data-overlay-dim data-overlay 
             className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150"
             onClick={(e) => {
               if (e.target === e.currentTarget) setIsCalendarExpanded(false);
             }}
           >
-            <div 
+            <div data-overlay-panel 
               className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-[#303030] w-full max-w-6xl h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               
               {/* Minimalist Modal Header */}
-              <div className="px-6 py-3 border-b border-slate-100 dark:border-[#303030] flex items-center justify-between bg-white dark:bg-[#191919] shrink-0">
+              <div data-overlay-header className="px-6 py-3 border-b border-slate-100 dark:border-[#303030] flex items-center justify-between bg-white dark:bg-[#191919] shrink-0">
                 <div>
                   <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white tracking-tight leading-none">{t("Attendance Calendar")}</h2>
                   <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">{t("Monthly breakdown, punch records, and leave history")}</p>
@@ -844,17 +844,17 @@ const EmployeeSelfServicePage: React.FC = () => {
 
         {/* Quick Apply Leave Modal */}
         {isApplyLeaveModalOpen && typeof document !== 'undefined' && createPortal(
-          <div 
+          <div data-overlay-dim data-overlay 
             className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={(e) => {
               if (e.target === e.currentTarget) setIsApplyLeaveModalOpen(false);
             }}
           >
-            <div 
+            <div data-overlay-panel 
               className="bg-white dark:bg-[#191919] rounded-2xl shadow-2xl border border-gray-200 dark:border-[#303030] max-w-md w-full overflow-hidden ring-1 ring-black/10 animate-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-[#303030] bg-gray-50/70 dark:bg-[#222222]">
+              <div data-overlay-header className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-[#303030] bg-gray-50/70 dark:bg-[#222222]">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 flex items-center justify-center">
                     <Plus className="w-4 h-4" />

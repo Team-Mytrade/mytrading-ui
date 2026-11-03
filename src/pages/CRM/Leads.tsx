@@ -687,9 +687,9 @@ const confirmConvert = async () => {
         {/* Link to Existing Customer Modal */}
         {showLinkModal &&
           createPortal(
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
+            <div data-overlay-dim data-overlay className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+              <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto">
+                <div data-overlay-header className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       {t("Link to Existing Customer")}

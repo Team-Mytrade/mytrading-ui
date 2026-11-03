@@ -107,22 +107,26 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
   };
 
   return createPortal(
-    <div className="sales-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-3 backdrop-blur-sm sm:items-center">
+    <div className="sales-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/45 p-3 backdrop-blur-[3px] sm:items-center">
       <div
-        className={`mx-auto my-3 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-y-auto rounded-xl bg-white shadow-xl sm:my-6 sm:max-h-[calc(100dvh-3rem)] ${maxWidthClassName}`}
+        className={`mx-auto my-3 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:my-6 sm:max-h-[calc(100dvh-3rem)] dark:bg-gray-900 dark:ring-gray-700 ${maxWidthClassName}`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
+        {/* Same header as the side drawers: a soft brand tint and a short bar before the title */}
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-cyan-50 via-white to-white px-4 py-3 sm:px-5 sm:py-4 dark:border-gray-800 dark:from-cyan-950/30 dark:via-gray-900 dark:to-gray-900">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900">{t(title)}</h3>
-            {subtitle && <p className="mt-0.5 text-xs text-gray-500">{t(subtitle)}</p>}
+            <h3 className="flex items-center gap-2.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+              <span className="h-5 w-1 shrink-0 rounded-full bg-cyan-500" />
+              {t(title)}
+            </h3>
+            {subtitle && <p className="mt-0.5 pl-3.5 text-xs text-gray-500 dark:text-gray-400">{t(subtitle)}</p>}
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label={t("Close")}>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-300" aria-label={t("Close")}>
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 
         {pages.length > 1 && (
-          <div className="border-b border-gray-100 px-4 pt-3 sm:px-5">
+          <div className="shrink-0 border-b border-gray-100 px-4 pt-3 sm:px-5 dark:border-gray-800">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {pages.map((tab, index) => (
                 <button
@@ -140,8 +144,10 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
           </div>
         )}
 
-        {content || <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="flex flex-col">
-          <div className="px-4 py-4 sm:px-5">
+        {content ? <div className="min-h-0 flex-1 overflow-y-auto">{content}</div> : <form ref={formRef} onSubmit={handleFormSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+          {/* The fields on a white sheet over a tinted body; only this part scrolls */}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-3 py-3 sm:px-4 sm:py-4 dark:bg-gray-950">
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 dark:border-gray-800 dark:bg-gray-900">
             <div className={sidePanel ? "grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,.9fr)]" : "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2"}>
               <div className={sidePanel ? "grid grid-cols-1 gap-3 pt-1 md:grid-cols-2" : "contents"}>
                 {currentPageFields.map((field, index) => (
@@ -150,9 +156,10 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
               </div>
               {sidePanel && <aside className="min-w-0 border-t border-slate-100 pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">{sidePanel}</aside>}
             </div>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 dark:border-gray-800 dark:bg-gray-900">
             <div className="text-xs font-medium text-gray-500">
               {pages.length > 1 && `${t(currentPage.label)} • ${page + 1} ${t("of")} ${pages.length}`}
             </div>

@@ -722,9 +722,9 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── ASSIGN POLICY MODAL ───────────────────────────────────────── */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -815,9 +815,9 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── CREATE / EDIT ATTENDANCE POLICY MODAL ───────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl max-w-xl w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase">
@@ -978,9 +978,9 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── VIEW POLICY DETAILS MODAL ────────────────────────────────────── */}
       {viewingPolicy && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-slate-900 dark:text-white">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 dark:!border-transparent">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <div>
@@ -1051,8 +1051,8 @@ const AttendancePolicyPage: React.FC = () => {
 
       {/* ── CUSTOM DELETE ASSIGNMENT CONFIRMATION MODAL ────────────────── */}
       {deletingAssignmentId && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-center text-slate-900 dark:text-white">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 dark:!border-transparent space-y-4 text-center text-slate-900 dark:text-white">
             <div className="mx-auto w-12 h-12 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center border border-rose-100 dark:!border-transparent shadow-2xs">
               <AlertCircle className="w-6 h-6" />
             </div>

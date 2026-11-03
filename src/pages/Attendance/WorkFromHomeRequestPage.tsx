@@ -277,9 +277,9 @@ const WorkFromHomeRequestPage: React.FC = () => {
 
       {/* ── MODAL: APPLY WFH ──────────────────────────────────────────────── */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <Laptop className="w-5 h-5 text-cyan-600" />
                 <h3 className="text-sm font-bold text-gray-900 uppercase">{t("Apply Work From Home")}</h3>
@@ -359,9 +359,9 @@ const WorkFromHomeRequestPage: React.FC = () => {
 
       {/* ── MODAL: VIEW WFH DETAILS ───────────────────────────────────────── */}
       {viewingRequest && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div data-overlay-panel className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4">
+            <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <Laptop className="w-5 h-5 text-cyan-600" />
                 <h3 className="text-sm font-bold text-gray-900 uppercase">{t("WFH Request #")}{viewingRequest.id}</h3>

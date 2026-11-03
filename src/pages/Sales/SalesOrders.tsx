@@ -308,8 +308,6 @@ const EDITABLE_STATUSES = ["DRAFT"];
 const DELETABLE_STATUSES = ["DRAFT", "CANCELLED"];
 const PAGE_SIZE = 10;
 
-const quotationTypeOptions = ["PRODUCT", "SERVICE"];
-
 function getStoredTenantId() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -1705,15 +1703,7 @@ const SalesOrders: React.FC = () => {
           {
             label: "Order Details",
             fields: [
-              <FloatingSelect
-                key="quotationType"
-                label={t("Quotation Type")}
-                name="quotationType"
-                value={form.quotationType}
-                onChange={handleChange}
-                includeEmptyOption={false}
-                options={quotationTypeOptions.map((item) => ({ id: item, name: item }))}
-              />,
+              // The type (product / service / both) is worked out from the lines by the server
               <FloatingDateRangePicker
                 key="orderDate"
                 label={t("Order Date")}

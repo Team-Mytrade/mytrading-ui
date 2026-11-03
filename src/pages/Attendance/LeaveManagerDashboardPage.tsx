@@ -417,8 +417,8 @@ const LeaveManagerDashboardPage: React.FC = () => {
       </div>
 
       {isAdjustmentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-gray-200 dark:border-[#303030] w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-2xl shadow-xl border border-gray-200 dark:border-[#303030] w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white">
             <div className="p-4 bg-cyan-600 !text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2 !text-white">
                 <Plus className="w-4 h-4" />

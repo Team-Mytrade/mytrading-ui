@@ -355,8 +355,8 @@ const DeliveryStatusPage: React.FC = () => {
 
         {/* ================= TRACKING MODAL ================= */}
         {showTrackingModal && selected && (
-          <div className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white p-6 rounded-xl w-full max-w-lg">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-full max-w-lg">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -419,8 +419,8 @@ const DeliveryStatusPage: React.FC = () => {
 
         {/* ================= STATUS UPDATE MODAL ================= */}
         {showStatusModal && selected && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-6 rounded-xl w-full max-w-md">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-full max-w-md">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <ArrowRightLeftIcon className="h-6 w-6 text-purple-600" />
                 {t("Post an Update")}

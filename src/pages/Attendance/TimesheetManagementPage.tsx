@@ -495,10 +495,10 @@ const TimesheetManagementPage: React.FC = () => {
 
       {/* Slide-over drawer: request history */}
       {isHistoryDrawerOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-end z-50 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:!border-transparent animate-in slide-in-from-right duration-300">
+        <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-end z-50 animate-in fade-in duration-200">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:!border-transparent animate-in slide-in-from-right duration-300">
 
-            <div className="p-4 border-b border-slate-200 dark:!border-transparent bg-slate-50 dark:bg-[#222222] flex items-center justify-between">
+            <div data-overlay-header className="p-4 border-b border-slate-200 dark:!border-transparent bg-slate-50 dark:bg-[#222222] flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white">{t("Regularization Requests History")}</h2>
                 <p className="text-xs text-slate-500 dark:text-gray-400">{t("Track status of submitted regularization requests")}</p>
@@ -592,9 +592,9 @@ const TimesheetManagementPage: React.FC = () => {
 
       {/* The day's recorded punches */}
       {viewPunchesDate && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 dark:!border-transparent">
-            <div className="bg-amber-50/80 dark:bg-[#222222] border-b border-amber-200/60 dark:!border-transparent p-4 flex items-center justify-between">
+        <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div data-overlay-panel className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 dark:!border-transparent">
+            <div data-overlay-header className="bg-amber-50/80 dark:bg-[#222222] border-b border-amber-200/60 dark:!border-transparent p-4 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
                 <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>{t("Punch Details for")} {displayDate(viewPunchesDate)}</span>

@@ -347,8 +347,8 @@ const ConfirmationPopup: React.FC<ConfirmationPopupProps> = ({
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <motion.div
+                <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <motion.div data-overlay-panel
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
@@ -969,8 +969,8 @@ const ItDeclarationPage: React.FC = () => {
 
             {/* Loading Overlay */}
             {isLoading && (
-                <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-white dark:bg-[#191919] rounded-xl p-6 shadow-2xl flex flex-col items-center gap-3 border border-transparent dark:!border-transparent">
+                <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div data-overlay-panel className="bg-white dark:bg-[#191919] rounded-xl p-6 shadow-2xl flex flex-col items-center gap-3 border border-transparent dark:!border-transparent">
                         <div className="w-8 h-8 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("Processing...")}</p>
                     </div>
@@ -1293,14 +1293,14 @@ const ItDeclarationPage: React.FC = () => {
 
                 {/* Add Item Modal */}
                 {showAddModal && (
-                    <div key="add-item" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
+                    <div data-overlay-dim data-overlay key="add-item" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div data-overlay-panel
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             className="bg-white dark:bg-[#191919] rounded-xl w-full max-w-md overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
                         >
-                            <div className="p-4 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-gray-50 dark:bg-[#222222]">
+                            <div data-overlay-header className="p-4 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-gray-50 dark:bg-[#222222]">
                                 <h3 className="font-bold text-gray-900 dark:text-white">
                                     {t("Add")} {currentSections.find(s => s.code === showAddModal)?.title}
                                 </h3>
@@ -1389,14 +1389,14 @@ const ItDeclarationPage: React.FC = () => {
 
                 {/* Comparison Modal */}
                 {showComparison && (
-                    <div key="compare" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
+                    <div data-overlay-dim data-overlay key="compare" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div data-overlay-panel
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             className="bg-white dark:bg-[#191919] rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl border border-transparent dark:!border-transparent"
                         >
-                            <div className="p-6 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-white dark:bg-[#191919]">
+                            <div data-overlay-header className="p-6 border-b border-gray-100 dark:!border-transparent flex justify-between items-center bg-white dark:bg-[#191919]">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t("Tax Regime Comparison")}</h3>
                                 <button
                                     onClick={() => setShowComparison(false)}
@@ -1451,8 +1451,8 @@ const ItDeclarationPage: React.FC = () => {
 
                 {/* Submit Confirmation Modal */}
                 {showSubmitConfirm && (
-                    <div key="submit" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
+                    <div data-overlay-dim data-overlay key="submit" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div data-overlay-panel
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}

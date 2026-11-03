@@ -192,11 +192,11 @@ export default function RequisitionWorkflowActions({
       {/* Confirm Cancel / Reject (Reject needs a reason) */}
       {confirm &&
         createPortal(
-          <div
+          <div data-overlay-dim data-overlay
             className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
             onMouseDown={() => !busy && setConfirm(null)}
           >
-            <div
+            <div data-overlay-panel
               role="dialog"
               aria-modal="true"
               className="w-full max-w-md rounded-2xl bg-white p-5 text-left shadow-2xl dark:bg-gray-900"

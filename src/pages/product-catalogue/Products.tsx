@@ -305,11 +305,11 @@ const ProductImageCell = ({ row }: { row: PurchaseRecord }) => {
       )}
 
       {isPreviewOpen && image && (
-        <div
+        <div data-overlay-dim data-overlay
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={() => setIsPreviewOpen(false)}
         >
-          <div
+          <div data-overlay-panel
             role="dialog"
             aria-modal="true"
             aria-label={productLabel}
@@ -813,11 +813,11 @@ export default function Products() {
       <PurchaseResourcePage key={reloadKey} config={productConfig} />
 
       {createdProduct && (
-        <div
+        <div data-overlay-dim data-overlay
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           onClick={closePostCreatePopup}
         >
-          <div
+          <div data-overlay-panel
             role="dialog"
             aria-modal="true"
             aria-labelledby="upload-product-image-title"

@@ -21,7 +21,8 @@ import { ATTENDANCE_API, CalendarDay, DayKind, dayKind, DAY_KIND_BADGE, DAY_KIND
 import { leadingDays, weekdayLabels, isCompanyWeekend, weekDays, dateLocale, liveMonthNames } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+
 import { stampCompany } from "../../company/pdfStamp";
 // GET /v1/api/attendance/records/my-calendar/{employeeId}: one entry per day of the month, already resolved
 // by the server into holidays, weekly offs, approved leave and absence
@@ -455,9 +456,9 @@ const AttendanceTrackingPage: React.FC = () => {
       {selectedDayRecord && (() => {
         const kind = dayKind(selectedDayRecord);
         return (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setSelectedDayRecord(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-4 bg-cyan-600 dark:bg-[#222222] text-white flex items-center justify-between border-b border-transparent dark:border-[#2a2a2a]">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setSelectedDayRecord(null)}>
+          <div data-overlay-panel onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-transparent w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+            <div data-overlay-header className="p-4 bg-cyan-600 dark:bg-[#222222] text-white flex items-center justify-between border-b border-transparent dark:border-[#2a2a2a]">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-white dark:text-gray-300" />
                 <div>

@@ -18,6 +18,8 @@ type DraggerProps = {
   headerAction?: ReactNode;
   showSubmit?: boolean;
   compact?: boolean;
+  /** A wider drawer (1080px) for documents with line items. */
+  wide?: boolean;
   /** Uses a centered dialog instead of the default right-side drawer. */
   variant?: "drawer" | "modal";
   /** Optional workflow steps (tabs). Each step gets its own tab and Previous/Next controls. */
@@ -41,7 +43,7 @@ type DraggerProps = {
 /** Reusable form overlay for drawers and multi-step modal workflows. */
 export default function Dragger({
   isOpen, title, subtitle, onClose, onSubmit, submitLabel, submitting,
-  headerMeta, headerAction, showSubmit = true, compact = false,
+  headerMeta, headerAction, showSubmit = true, compact = false, wide = false,
   variant = "drawer", steps = [], previousLabel = "Previous", nextLabel = "Next",
   activeStep, onStepChange, stepHasError, onBeforeNext, submitOnEveryStep = false,
   content, children,
@@ -92,7 +94,7 @@ export default function Dragger({
 
   return createPortal(
     <div className={`dragger dragger--${variant}`} role="presentation" onMouseDown={onClose}>
-      <section className={`dragger__panel dragger__panel--${variant}${compact ? " dragger__panel--compact" : ""}`} role="dialog" aria-modal="true" aria-label={t(title)} onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`dragger__panel dragger__panel--${variant}${compact ? " dragger__panel--compact" : ""}${wide ? " dragger__panel--wide" : ""}`} role="dialog" aria-modal="true" aria-label={t(title)} onMouseDown={(event) => event.stopPropagation()}>
         <header className="dragger__header">
           <div><h2>{t(title)}</h2>{subtitle && <p>{t(subtitle)}</p>}</div>
           <div className="dragger__header-actions">
@@ -120,7 +122,8 @@ export default function Dragger({
           })}
         </nav>}
         {content ? <div className="dragger__body dragger__body--custom">{content}</div> : <form className="dragger__form" noValidate onSubmit={handleSubmit}>
-          <div className="dragger__body">{hasSteps ? activeStepItem?.content : children}</div>
+          {/* The form sits on a white sheet over the tinted body */}
+          <div className="dragger__body"><div className="dragger__sheet">{hasSteps ? activeStepItem?.content : children}</div></div>
           <footer className="dragger__footer">
             {hasSteps && <span className="dragger__progress">{activeStepItem?.label} • {step + 1} of {steps.length}</span>}
             <div className="dragger__footer-actions">

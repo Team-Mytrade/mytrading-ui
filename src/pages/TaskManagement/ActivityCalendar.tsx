@@ -80,8 +80,8 @@ const ActivityCalendar: React.FC = () => {
 
       {/* Modal */}
       {modalVisible && selectedInfo && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <div data-overlay-dim data-overlay className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div data-overlay-panel className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Add Activity</h3>
             <div className="space-y-4">
               <input

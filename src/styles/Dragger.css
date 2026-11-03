@@ -4,20 +4,25 @@
  */
 
 /* ---------- Overlay ---------- */
-.dragger { position: fixed; inset: 0; z-index: 100; display: flex; background: rgba(15, 23, 42, .42); backdrop-filter: blur(2px); animation: dragger-fade-in .16s ease-out; }
+.dragger { position: fixed; inset: 0; z-index: 100; display: flex; background: rgba(15, 23, 42, .45); backdrop-filter: blur(3px); animation: dragger-fade-in .16s ease-out; }
 .dragger--drawer { justify-content: flex-end; }
 .dragger--modal { align-items: center; justify-content: center; padding: 24px; }
 
 /* ---------- Panel ---------- */
 .dragger__panel { display: flex; flex-direction: column; background: #fff; box-shadow: -16px 0 42px rgba(15, 23, 42, .22); }
-/* Standard drawer width: 760px (was 1180px), full width on phones. Slides in from the right. */
-.dragger__panel--drawer { width: min(760px, 100vw); height: 100dvh; animation: dragger-slide-in .22s cubic-bezier(.22, 1, .36, 1); }
+/* Standard drawer width: 880px, full width on phones. Slides in from the right. */
+.dragger__panel--drawer { width: min(880px, 100vw); height: 100dvh; animation: dragger-slide-in .22s cubic-bezier(.22, 1, .36, 1); }
 .dragger__panel--modal { width: min(1344px, 100%); max-height: min(590px, calc(100dvh - 48px)); border-radius: 16px; box-shadow: 0 24px 52px rgba(15, 23, 42, .26); animation: dragger-pop-in .2s cubic-bezier(.22, 1, .36, 1); }
+/* Documents with line items (quotations): more room for the lines */
+.dragger__panel--drawer.dragger__panel--wide { width: min(1120px, 100vw); }
 .dragger__panel--compact { height: auto; max-height: calc(100dvh - 32px); margin: 16px 0; border-radius: 14px 0 0 14px; }
 
 /* ---------- Header ---------- */
-.dragger__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid #e2e8f0; padding: 20px 24px; }
-.dragger__header h2 { margin: 0; color: #0f172a; font-size: 18px; font-weight: 700; }
+.dragger__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid #e2e8f0; padding: 18px 24px; background: linear-gradient(120deg, rgb(var(--brand-50, 236 254 255)) 0%, #ffffff 65%); }
+/* A short brand-coloured bar before the title */
+.dragger__header h2 { display: flex; align-items: center; gap: 10px; margin: 0; color: #0f172a; font-size: 18px; font-weight: 700; }
+.dragger__header h2::before { content: ""; width: 4px; height: 20px; border-radius: 4px; background: rgb(var(--brand-500, 6 182 212)); }
+.dragger__header p { padding-left: 14px; }
 .dragger__header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
 .dragger__header-actions, .dragger__footer-actions { display: flex; align-items: center; gap: 8px; }
 .dragger__header-meta { display: flex; align-items: center; gap: 12px; color: #64748b; font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -39,10 +44,12 @@
 
 /* ---------- Body ---------- */
 .dragger__form { display: flex; min-height: 0; flex: 1; flex-direction: column; }
-.dragger__body { flex: 1; overflow-y: auto; padding: 24px; }
+.dragger__body { flex: 1; overflow-y: auto; padding: 20px 24px; background: #f4f7fb; }
+/* The form itself: a white sheet, so its sections stand out from the tinted body */
+.dragger__sheet { border: 1px solid #e5eaf1; border-radius: 14px; background: #fff; padding: 20px 22px 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
 
 /* ---------- Footer: buttons on the right, compact ---------- */
-.dragger__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #e2e8f0; padding: 12px 24px; background: #fff; }
+.dragger__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #e2e8f0; padding: 12px 24px; background: #fff; box-shadow: 0 -4px 12px rgba(15, 23, 42, .04); }
 .dragger__footer-actions { margin-left: auto; }
 .dragger__progress { color: #64748b; font-size: 12px; }
 
@@ -57,6 +64,7 @@
 /* ---------- Compact variant ---------- */
 .dragger__panel--compact .dragger__form { flex: 0 1 auto; }
 .dragger__panel--compact .dragger__body { flex: 0 1 auto; max-height: calc(100dvh - 180px); padding: 16px 20px; }
+.dragger__panel--compact .dragger__sheet { padding: 16px 16px 4px; }
 .dragger__panel--compact .dragger__header { padding: 16px 20px; }
 .dragger__panel--compact .dragger__footer { padding: 12px 20px; }
 
@@ -72,7 +80,9 @@
 @media (max-width: 640px) {
   .dragger--modal { align-items: flex-end; padding: 0; }
   .dragger__panel--drawer, .dragger__panel--modal { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 14px 14px 0 0; }
-  .dragger__header, .dragger__body, .dragger__footer { padding-right: 16px; padding-left: 16px; }
+  .dragger__header, .dragger__footer { padding-right: 16px; padding-left: 16px; }
+  .dragger__body { padding: 12px; }
+  .dragger__sheet { padding: 14px 14px 4px; border-radius: 12px; }
   .dragger__steps { padding-right: 16px; padding-left: 16px; }
   .dragger__steps button { padding: 10px 14px; }
 }
@@ -81,6 +91,9 @@
 .dark .dragger { background: rgba(2, 6, 23, .6); }
 .dark .dragger__panel { background: #0f172a; box-shadow: -16px 0 42px rgba(0, 0, 0, .5); }
 .dark .dragger__header, .dark .dragger__steps, .dark .dragger__footer { border-color: #1e293b; }
+.dark .dragger__header { background: linear-gradient(120deg, rgb(var(--brand-600, 8 145 178) / .14) 0%, #0f172a 65%); }
+.dark .dragger__body { background: #0b1220; }
+.dark .dragger__sheet { border-color: #1e293b; background: #0f172a; box-shadow: none; }
 .dark .dragger__header h2 { color: #f1f5f9; }
 .dark .dragger__header p, .dark .dragger__header-meta, .dark .dragger__progress { color: #94a3b8; }
 .dark .dragger__approved-by { border-color: #334155; color: #cbd5e1; }

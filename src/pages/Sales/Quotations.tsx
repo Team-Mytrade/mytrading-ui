@@ -137,7 +137,7 @@ type Customer = {
 type Quotation = {
   id: number;
   customerId: number;
-  quotationType: "PRODUCT" | "SERVICE" | string;
+  quotationType: "PRODUCT" | "SERVICE" | "MIXED" | string;
   validUntil: string;
   currencyCode: string;
   remarks: string;
@@ -235,7 +235,6 @@ const nextQuotationStatuses: Record<string, string[]> = {
   SENT: ["ACCEPTED", "REJECTED"],
   VIEWED: ["ACCEPTED", "REJECTED"],
 };
-const quotationTypeOptions = ["PRODUCT", "SERVICE"];
 
 /** Normalizes API status values before they drive quotation actions. */
 const getQuotationStatus = (status?: string | null) => String(status || "").trim().toUpperCase();
@@ -424,7 +423,7 @@ const createQuotationPdfUrl = async (
   autoTable(doc, { ...reportTableOptions, startY: reportY, head: [["QUOTE DETAILS", "", "COMMERCIAL DETAILS", ""]], body: [
     ["Quote date", formatPdfDate(quotation.quoteDate), "Customer reference", quotation.customerReference || "-"],
     ["Valid until", formatPdfDate(quotation.validUntil), "Reference date", quotation.customerReferenceDate ? formatPdfDate(quotation.customerReferenceDate) : "-"],
-    ["Type", quotation.quotationType || "-", "Payment terms", quotation.paymentTerms || "-"],
+    ["Type", QUOTATION_TYPE_LABEL[quotationTypeOf(quotation)], "Payment terms", quotation.paymentTerms || "-"],
     ["Status", getQuotationStatus(quotation.status) || "DRAFT", "Credit days", quotation.creditDays ?? "-"],
     ["Sales person", quotation.salesPerson?.name || "-", "Delivery terms", quotation.deliveryTerms || "-"],
     ["Currency", reportCurrency, "Shipping method", quotation.shippingMethod || "-"],
@@ -512,6 +511,27 @@ function calculateQuotationTotals(items: QuotationItemPayload[]) {
   );
 }
 
+/** What a quotation sells, from its lines when they are loaded (older quotations were saved before MIXED). */
+const quotationTypeOf = (quotation: { quotationType?: string; items?: { itemType?: string }[] }): "PRODUCT" | "SERVICE" | "MIXED" => {
+  const lines = quotation.items || [];
+  if (lines.length > 0) {
+    const products = lines.some((line) => !line.itemType || line.itemType === "PRODUCT");
+    const services = lines.some((line) => line.itemType && line.itemType !== "PRODUCT");
+    return products && services ? "MIXED" : services ? "SERVICE" : "PRODUCT";
+  }
+  const stored = String(quotation.quotationType || "").toUpperCase();
+  return stored === "SERVICE" || stored === "MIXED" ? stored : "PRODUCT";
+};
+
+const QUOTATION_TYPE_LABEL = { PRODUCT: "Product", SERVICE: "Service", MIXED: "Product & Service" } as const;
+
+// Same colours as the line badges in the editor: cyan products, violet services
+const QUOTATION_TYPE_BADGE = {
+  PRODUCT: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300",
+  SERVICE: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
+  MIXED: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+} as const;
+
 /** Clickable cards above the table: click one to show only those quotations. */
 const quotationCards: StatsCardOption<Quotation>[] = [
   { key: "ALL", label: "All Quotations", match: () => true, tone: "cyan" },
@@ -524,11 +544,6 @@ const quotationCards: StatsCardOption<Quotation>[] = [
 /** Section heading inside the drawer (same look as the other create / edit drawers). */
 const sectionTitle =
   "col-span-full mt-2 mb-1 border-b border-slate-100 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-800 dark:text-gray-400";
-
-const quotationTypeChoices = quotationTypeOptions.map((type) => ({
-  id: type,
-  name: type.charAt(0) + type.slice(1).toLowerCase(),
-}));
 
 /** A saved line as an editable line. The discount comes back as the line's effective %. */
 const toLine = (item: QuotationItem): QuotationLine => ({
@@ -750,7 +765,9 @@ const Quotations: React.FC = () => {
       id: editingId || 0,
       customerId: toNumber(form.customerId),
       salesPersonId: toNumber(form.salesPersonId),
-      quotationType: form.quotationType,
+      // The type follows the lines: a quotation of services only is a service quotation
+      // The server works the type out from the lines as well
+      quotationType: quotationTypeOf({ items: lines }),
       validUntil: form.validUntil,
       currencyCode: form.currencyCode,
       customerReference: form.customerReference,
@@ -1206,6 +1223,20 @@ const Quotations: React.FC = () => {
       render: (quotation) => (quotation.quoteDate ? formatPdfDate(quotation.quoteDate) : "--"),
     },
     {
+      key: "quotationType",
+      label: "Type",
+      sortable: true,
+      // Products, services, or both on one quotation
+      render: (quotation) => {
+        const type = quotationTypeOf(quotation);
+        return (
+          <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${QUOTATION_TYPE_BADGE[type]}`}>
+            {t(QUOTATION_TYPE_LABEL[type])}
+          </span>
+        );
+      },
+    },
+    {
       key: "status",
       label: "Status",
       sortable: true,
@@ -1229,7 +1260,8 @@ const Quotations: React.FC = () => {
             onChange={(event) => updateQuotationStatus(quotation, event.target.value)}
             onClick={(event) => event.stopPropagation()}
             title={apiError || "Update quotation status"}
-            className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold ${
+            // Right padding and a smaller arrow, so the arrow sits beside the status, not on it
+            className={`cursor-pointer rounded-full border-0 py-1 pl-2.5 pr-7 bg-[length:14px_14px] bg-[right_0.4rem_center] text-xs font-semibold ${
               apiError
                 ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
                 : "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"
@@ -1394,15 +1426,17 @@ const Quotations: React.FC = () => {
         onSubmit={handleSubmit}
         submitLabel={t(editingId ? "Update" : "Create")}
         submitting={submitting}
+        wide
       >
-        <div className="grid grid-cols-1 gap-x-3 md:grid-cols-2">
+        {/* Three columns on the wide drawer, one on phones; items, addresses and notes take the full width */}
+        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-3">
           <h3 className={sectionTitle}>{t("Quotation Details")}</h3>
           {form.dealId && (
             <p className="col-span-full -mt-1 mb-2 text-xs text-cyan-700 dark:text-cyan-300">
               {t("Made from CRM deal #")}{form.dealId}: accepting this quotation marks the deal as Won.
             </p>
           )}
-          <div className="mb-5">
+          <div className="mb-5 md:col-span-2">
             <SearchableSelect
               label={t("Customer")}
               required
@@ -1426,6 +1460,14 @@ const Quotations: React.FC = () => {
               </button>
             )}
           </div>
+          <FloatingInput
+            label={t("Currency (from the customer)")}
+            name="currencyCode"
+            value={form.currencyCode}
+            readOnly
+            tabIndex={-1}
+            className="cursor-default bg-slate-50"
+          />
           <FloatingSelect1
             label={t("Sales Person")}
             required
@@ -1453,23 +1495,7 @@ const Quotations: React.FC = () => {
             onChange={handleChange}
             minDate={form.quoteDate || undefined}
           />
-          <FloatingSelect1
-            label={t("Quotation Type")}
-            name="quotationType"
-            value={form.quotationType}
-            onChange={handleChange}
-            options={quotationTypeChoices}
-            includeEmptyOption={false}
-          />
-          <FloatingInput
-            label={t("Currency (from the customer)")}
-            name="currencyCode"
-            value={form.currencyCode}
-            readOnly
-            tabIndex={-1}
-            className="cursor-default bg-slate-50"
-          />
-          <div className="md:col-span-2">
+          <div className="md:col-span-3">
             <FloatingInput
               label={t("Subject (e.g. Quotation for Q3 office furniture)")}
               name="subject"
@@ -1480,7 +1506,7 @@ const Quotations: React.FC = () => {
           </div>
 
           <h3 className={sectionTitle}>{t("Items")}</h3>
-          <div className="mb-5 md:col-span-2">
+          <div className="mb-5 md:col-span-3">
             <QuotationItemsEditor
               currency={form.currencyCode}
               customerId={form.customerId ? Number(form.customerId) : null}
@@ -1513,14 +1539,18 @@ const Quotations: React.FC = () => {
           <FloatingDatePicker label={t("Customer Reference Date")} name="customerReferenceDate" value={form.customerReferenceDate} onChange={handleChange} />
 
           <h3 className={sectionTitle}>{t("Addresses")}</h3>
-          {addressColumn("billing")}
-          {addressColumn("shipping")}
+          <div className="col-span-full grid grid-cols-1 gap-x-6 md:grid-cols-2">
+            {addressColumn("billing")}
+            {addressColumn("shipping")}
+          </div>
 
           <h3 className={sectionTitle}>{t("Notes")}</h3>
-          <FloatingTextarea label={t("Customer Notes (on the quotation)")} name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
-          <FloatingTextarea label={t("Terms and Conditions")} name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
-          <FloatingTextarea label={t("Remarks")} name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
-          <FloatingTextarea label={t("Internal Notes (not shown to the customer)")} name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
+          <div className="col-span-full grid grid-cols-1 gap-x-4 md:grid-cols-2">
+            <FloatingTextarea label={t("Customer Notes (on the quotation)")} name="customerNotes" value={form.customerNotes} onChange={handleChange} rows={3} />
+            <FloatingTextarea label={t("Terms and Conditions")} name="termsAndConditions" value={form.termsAndConditions} onChange={handleChange} rows={3} />
+            <FloatingTextarea label={t("Remarks")} name="remarks" value={form.remarks} onChange={handleChange} rows={3} />
+            <FloatingTextarea label={t("Internal Notes (not shown to the customer)")} name="internalNotes" value={form.internalNotes} onChange={handleChange} rows={3} />
+          </div>
         </div>
       </Dragger>
 

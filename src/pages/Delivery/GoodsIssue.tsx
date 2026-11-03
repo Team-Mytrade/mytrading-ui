@@ -488,12 +488,12 @@ const GoodsIssuePage: React.FC = () => {
 
         {showForm &&
           createPortal(
-            <div
+            <div data-overlay-dim data-overlay
               key="goods-issue-modal"
               className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center"
             >
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
+                <div data-overlay-header className="flex items-center justify-between p-5 border-b border-gray-100">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       {form.id ? `Edit ${form.issueNo ?? "Goods Issue"}` : t("Create Goods Issue")}

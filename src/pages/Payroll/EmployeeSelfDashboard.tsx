@@ -473,7 +473,7 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
                     onClick={onClose}
                 >
-                    <motion.div
+                    <motion.div data-overlay-panel
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.95, opacity: 0 }}

@@ -49,7 +49,8 @@ import { AddButton } from "../../components/common/AddButton";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate, formatDateTime } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
 interface EmployeeDocument {
@@ -570,9 +571,9 @@ const EmployeeDocumentsPage: React.FC = () => {
 
                 {/* View Details Modal */}
                 {viewModalOpen && selectedDocument && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div data-overlay className="fixed inset-0 z-50 overflow-y-auto">
                         <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-black/60 backdrop-blur-xs" onClick={() => setViewModalOpen(false)}></div>
+                            <div data-overlay-dim className="fixed inset-0 transition-opacity bg-black/60 backdrop-blur-xs" onClick={() => setViewModalOpen(false)}></div>
                             <div className="inline-block align-bottom bg-white dark:bg-[#191919] rounded-lg text-left overflow-hidden shadow-xl border border-gray-100 dark:!border-transparent transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                                 <div className="bg-white dark:bg-[#191919] px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                     <div className="sm:flex sm:items-start">
@@ -669,9 +670,9 @@ const EmployeeDocumentsPage: React.FC = () => {
 
                 {/* Preview Modal */}
                 {previewUrl && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div data-overlay className="fixed inset-0 z-50 overflow-y-auto">
                         <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-black/60 backdrop-blur-xs" onClick={() => {
+                            <div data-overlay-dim className="fixed inset-0 transition-opacity bg-black/60 backdrop-blur-xs" onClick={() => {
                                 URL.revokeObjectURL(previewUrl);
                                 setPreviewUrl(null);
                             }}></div>

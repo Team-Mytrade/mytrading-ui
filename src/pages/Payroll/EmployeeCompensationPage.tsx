@@ -29,7 +29,8 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
 // API endpoints
@@ -679,18 +680,18 @@ const EmployeeCompensationPage: React.FC = () => {
 
                 {/* Disclaimer Modal */}
                 {showDisclaimerModal && (
-                    <div
+                    <div data-overlay-dim data-overlay
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
                         onClick={() => {
                             setShowDisclaimerModal(false);
                             setPendingSubmit(null);
                         }}
                     >
-                        <div
+                        <div data-overlay-panel
                             className="bg-white dark:bg-[#191919] rounded-xl shadow-xl w-full max-w-md mx-auto border border-gray-200 dark:border-transparent"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-transparent">
+                            <div data-overlay-header className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-transparent">
                                 <div className="flex items-center gap-2">
                                     <InformationCircleIcon className="h-6 w-6 text-amber-600 dark:text-gray-400" />
                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t("Important Disclaimer")}</h3>
