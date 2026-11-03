@@ -5,6 +5,8 @@ export type ExitStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'NOTICE_PER
 
 export interface ExitRequest {
     id?: number;
+    // Who raised it (HR may raise it for the employee) and the reporting manager who decides it
+    approval?: { submittedByName?: string; onBehalf?: boolean; approverEmployeeId?: number | null } | null;
     resignationDate: string;
     lastWorkingDay: string;
     status: ExitStatus;

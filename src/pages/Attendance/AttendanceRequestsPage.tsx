@@ -1,4 +1,4 @@
-import { useCurrentEmployee } from "../../access/useCurrentEmployee";
+import { useActingEmployee } from "../../access/useActingEmployee";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
@@ -12,7 +12,7 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
-import { apiError, CalendarDay, fetchMonth, timeOf, withBrowserOffset } from './attendanceApi';
+import { apiError, beforeJoining, CalendarDay, fetchMonth, monthBeforeJoining, timeOf, useJoiningDate, withBrowserOffset } from './attendanceApi';
 import { leadingDays, weekdayLabels, liveMonthNames, liveWeekdayNames } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
@@ -124,7 +124,8 @@ const statusClass = (status: string) =>
 
 const AttendanceRequestsPage: React.FC = () => {
   // Own employee identity from the login token (no hard-coded ids)
-  const currentUser = useCurrentEmployee();
+  // Admins may raise requests for another employee (On behalf of)
+  const { employee: currentUser, onBehalf, picker } = useActingEmployee("ATTENDANCE");
   const employeeId = currentUser.id;
 
   const [requests, setRequests] = useState<AttendanceRequestModel[]>([]);
@@ -165,10 +166,10 @@ const AttendanceRequestsPage: React.FC = () => {
   // Weekly offs and holidays of the shown month, so the range shows which days count
   useEffect(() => {
     if (!currentUser.hasEmployee) return;
-    fetchMonth(currentYear, currentMonth + 1)
+    fetchMonth(currentYear, currentMonth + 1, onBehalf ? employeeId : undefined)
       .then((list) => setDays((prev) => ({ ...prev, ...Object.fromEntries(list.map((d) => [d.date, d])) })))
       .catch(() => undefined);
-  }, [currentUser.hasEmployee, currentYear, currentMonth]);
+  }, [currentUser.hasEmployee, currentYear, currentMonth, onBehalf, employeeId]);
 
   // The employee's current shift gives the default times on the review tab (09:00–18:00 when there is none)
   useEffect(() => {
@@ -214,7 +215,7 @@ const AttendanceRequestsPage: React.FC = () => {
     for (let d = new Date(`${form.fromDate}T00:00:00`); isoDay(d) <= form.toDate; d.setDate(d.getDate() + 1)) months.add(isoDay(d).slice(0, 7));
     await Promise.all([...months].filter((m) => !Object.keys(known).some((k) => k.startsWith(m))).map(async (m) => {
       try {
-        const list = await fetchMonth(Number(m.slice(0, 4)), Number(m.slice(5, 7)));
+        const list = await fetchMonth(Number(m.slice(0, 4)), Number(m.slice(5, 7)), onBehalf ? employeeId : undefined);
         list.forEach((day) => { known[day.date] = day; });
       } catch { /* shown as working days */ }
     }));
@@ -292,7 +293,10 @@ const AttendanceRequestsPage: React.FC = () => {
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (month: number, year: number) => leadingDays(year, month);
 
-  const handlePrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+  // Days before the employee joined can't be requested
+  const joiningDate = useJoiningDate(onBehalf ? employeeId : undefined, currentUser.hasEmployee);
+  const prevMonthBlocked = monthBeforeJoining(currentYear, currentMonth - 1, joiningDate);
+  const handlePrevMonth = () => { if (!prevMonthBlocked) setCurrentDate(new Date(currentYear, currentMonth - 1, 1)); };
   const handleNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
 
   const renderCalendar = () => {
@@ -313,16 +317,19 @@ const AttendanceRequestsPage: React.FC = () => {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
       const isSelected = dateStr >= form.fromDate && dateStr <= form.toDate;
       const off = isOff(dateStr);
+      const notJoined = beforeJoining(dateStr, joiningDate);
 
       cells.push(
         <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
           <button
             type="button"
-            title={days[dateStr]?.holidayName || (days[dateStr]?.weeklyOff ? 'Weekly off' : undefined)}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            disabled={notJoined}
+            title={notJoined ? t("Before the joining date") : days[dateStr]?.holidayName || (days[dateStr]?.weeklyOff ? 'Weekly off' : undefined)}
+            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all ${
+              notJoined ? 'text-slate-300 dark:text-gray-700 cursor-not-allowed' :
               isSelected
                 ? (off ? 'bg-cyan-600/40 text-white' : 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20')
-                : off ? 'text-slate-400 dark:text-gray-600 line-through' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
+                : off ? 'text-slate-400 dark:text-gray-600 line-through cursor-pointer' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222] cursor-pointer'
             }`}
             onClick={() => {
               if (dateStr < form.fromDate) {
@@ -452,6 +459,8 @@ const AttendanceRequestsPage: React.FC = () => {
         }
       />
 
+      {picker}
+
       <div className="max-w-6xl mx-auto pb-2 animate-in fade-in duration-200">
 
         {activeTab === 'apply' && (
@@ -566,7 +575,7 @@ const AttendanceRequestsPage: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2 border-b border-slate-100 dark:!border-transparent pb-2">
                     <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-1.5 py-0.5 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
-                      <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                      <button type="button" onClick={handlePrevMonth} disabled={prevMonthBlocked} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
                       <span className="text-[11px] font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[110px] text-center">
@@ -621,12 +630,12 @@ const AttendanceRequestsPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("From Date *")}</label>
-                      <input type="date" value={form.fromDate} onChange={(e) => setForm((p) => ({ ...p, fromDate: e.target.value }))}
+                      <input type="date" value={form.fromDate} min={joiningDate || undefined} onChange={(e) => setForm((p) => ({ ...p, fromDate: e.target.value }))}
                         className={`${inputClass} font-mono cursor-pointer`} required />
                     </div>
                     <div>
                       <label className="block text-[10.5px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-1">{t("To Date *")}</label>
-                      <input type="date" value={form.toDate} min={form.fromDate} onChange={(e) => setForm((p) => ({ ...p, toDate: e.target.value }))}
+                      <input type="date" value={form.toDate} min={form.fromDate || joiningDate || undefined} onChange={(e) => setForm((p) => ({ ...p, toDate: e.target.value }))}
                         className={`${inputClass} font-mono cursor-pointer`} required />
                     </div>
                   </div>

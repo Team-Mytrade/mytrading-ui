@@ -134,7 +134,10 @@ const LeaveManagerDashboardPage: React.FC = () => {
         setEmployeeBalances(list);
         setAdjustmentForm((p) => (list.some((b) => b.leaveType === p.leaveType) ? p : { ...p, leaveType: list[0]?.leaveType ?? '' }));
       })
-      .catch(() => setEmployeeBalances([]));
+      .catch((err) => {
+        setEmployeeBalances([]);
+        ToasterService.error(apiError(err, 'Could not load the leave balance.'));
+      });
   }, [isAdjustmentModalOpen, adjustmentForm.employeeId]);
 
   const openAdjustment = () => {

@@ -59,7 +59,7 @@ interface LeaveBalance {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_BALANCE = "/v1/api/attendance/leave-balances";
-const API_EMPLOYEE = "/v1/api/payroll/employee";
+const API_EMPLOYEE = "/v1/api/common/employee";
 const API_LEAVETYPES = "/v1/api/attendance/leave-types";
 
 const PAGE_SIZE = 10;

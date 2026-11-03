@@ -33,7 +33,7 @@ import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from ".
 import { formatDate as companyFormatDate } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
-const API_URL = "/v1/api/payroll/department";
+const API_URL = "/v1/api/common/department";
 
 
 interface Department {

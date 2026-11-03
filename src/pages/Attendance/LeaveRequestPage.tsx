@@ -1,4 +1,4 @@
-import { useCurrentEmployee } from "../../access/useCurrentEmployee";
+import { useActingEmployee } from "../../access/useActingEmployee";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import { FileText, Send, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
@@ -10,7 +10,8 @@ import TableToolbar from "../../components/common/TableToolbar";
 import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import {
-  apiError, CalendarDay, fetchLeaveBalances, fetchMonth, formatDays, freeDays, LeaveBalance, leaveTypeLabel,
+  apiError, beforeJoining, CalendarDay, fetchLeaveBalances, fetchMonth, formatDays, freeDays, LeaveBalance, leaveTypeLabel,
+  monthBeforeJoining, useJoiningDate,
 } from "./attendanceApi";
 import { leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
@@ -55,7 +56,8 @@ const monthsBetween = (from: string, to: string) => {
 
 const LeaveRequestPage: React.FC = () => {
   // Own employee identity from the login token; leave is always applied for yourself
-  const currentUser = useCurrentEmployee();
+  // Admins may apply for another employee (On behalf of)
+  const { employee: currentUser, onBehalf, picker } = useActingEmployee("ATTENDANCE");
   const employeeId = currentUser.id;
 
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
@@ -111,7 +113,7 @@ const LeaveRequestPage: React.FC = () => {
       monthsBetween(fromDate, toDate).forEach(([y, m]) => months.set(`${y}-${m}`, [y, m]));
     }
     let cancelled = false;
-    Promise.all([...months.values()].map(([y, m]) => fetchMonth(y, m).catch(() => [] as CalendarDay[])))
+    Promise.all([...months.values()].map(([y, m]) => fetchMonth(y, m, onBehalf ? employeeId : undefined).catch(() => [] as CalendarDay[])))
       .then((all) => {
         if (cancelled) return;
         const map: Record<string, string> = {};
@@ -122,7 +124,7 @@ const LeaveRequestPage: React.FC = () => {
         setOffDays((prev) => ({ ...prev, ...map }));
       });
     return () => { cancelled = true; };
-  }, [currentUser.hasEmployee, currentDate, fromDate, toDate]);
+  }, [currentUser.hasEmployee, currentDate, fromDate, toDate, onBehalf, employeeId]);
 
   useEffect(() => {
     if (fromDate && toDate && fromDate !== toDate && dayType !== "Full Day") {
@@ -157,6 +159,7 @@ const LeaveRequestPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const res = await axios.post(LEAVE_API_URL, {
+        employeeId,
         leaveType,
         fromDate,
         toDate,
@@ -194,7 +197,10 @@ const LeaveRequestPage: React.FC = () => {
   const currentYear = currentDate.getFullYear();
   const monthNames = liveMonthNames("long");
 
-  const handlePrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+  // Days before the employee joined can't be requested
+  const joiningDate = useJoiningDate(onBehalf ? employeeId : undefined, currentUser.hasEmployee);
+  const prevMonthBlocked = monthBeforeJoining(currentYear, currentMonth - 1, joiningDate);
+  const handlePrevMonth = () => { if (!prevMonthBlocked) setCurrentDate(new Date(currentYear, currentMonth - 1, 1)); };
   const handleNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
 
   const renderCalendar = () => {
@@ -215,16 +221,19 @@ const LeaveRequestPage: React.FC = () => {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
       const isSelected = dateStr >= fromDate && dateStr <= toDate;
       const off = offDays[dateStr];
+      const notJoined = beforeJoining(dateStr, joiningDate);
 
       calendarDays.push(
         <div key={`curr-${i}`} className="flex items-center justify-center p-0.5">
-          <button 
+          <button
             type="button"
-            title={off || undefined}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              isSelected 
+            disabled={notJoined}
+            title={notJoined ? t("Before the joining date") : off || undefined}
+            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-semibold transition-all ${
+              notJoined ? 'text-slate-300 dark:text-gray-700 cursor-not-allowed' :
+              isSelected
                 ? (off ? 'bg-cyan-600/40 text-white' : 'bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-500/20')
-                : off ? 'text-slate-400 dark:text-gray-600 line-through' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222]'
+                : off ? 'text-slate-400 dark:text-gray-600 line-through cursor-pointer' : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#222222] cursor-pointer'
             }`}
             onClick={() => {
               if (dateStr < fromDate) {
@@ -319,6 +328,8 @@ const LeaveRequestPage: React.FC = () => {
         }
       />
 
+      {picker}
+
       <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200">
 
         {/* APPLY TAB */}
@@ -333,7 +344,7 @@ const LeaveRequestPage: React.FC = () => {
                     {/* Month Header */}
                     <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:!border-transparent pb-2.5">
                       <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
-                        <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                        <button type="button" onClick={handlePrevMonth} disabled={prevMonthBlocked} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                           <ChevronLeft className="w-4 h-4" />
                         </button>
                         <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[120px] text-center">
@@ -416,6 +427,7 @@ const LeaveRequestPage: React.FC = () => {
                         <input 
                           type="date"
                           value={fromDate}
+                          min={joiningDate || undefined}
                           onChange={(e) => setFromDate(e.target.value)}
                           className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required
@@ -426,6 +438,7 @@ const LeaveRequestPage: React.FC = () => {
                         <input 
                           type="date"
                           value={toDate}
+                          min={fromDate || joiningDate || undefined}
                           onChange={(e) => setToDate(e.target.value)}
                           className="w-full px-3 py-2 bg-slate-50 dark:bg-[#222222] border border-slate-200 dark:!border-transparent rounded-xl focus:bg-white dark:focus:bg-[#191919] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none text-xs font-mono font-medium text-slate-800 dark:text-white"
                           required

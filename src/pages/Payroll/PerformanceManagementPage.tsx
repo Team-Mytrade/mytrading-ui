@@ -49,7 +49,7 @@ interface Appraisal {
     status: 'Completed' | 'Pending';
 }
 
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
 
 const PerformanceManagementPage: React.FC = () => {
     const { user } = useContext(AuthContext);

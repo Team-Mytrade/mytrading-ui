@@ -46,7 +46,7 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
 import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
 const BASE_URL = "/v1/api/payroll";
@@ -93,6 +93,9 @@ interface EmployeeSalary {
     tds?: number;
     professionalTax?: number;
     pfEmployee?: number;
+    esiEmployee?: number;
+    // India: the regime the month's TDS used (OLD / NEW)
+    regime?: string;
     otherDeductions?: number;
     paymentMode?: string;
     employee: Employee | null;
@@ -162,7 +165,7 @@ const PayrollPage: React.FC = () => {
         try {
             const [salariesRes, empRes] = await Promise.all([
                 axios.get(`/v1/api/payroll/salary-summary?yearMonth=${filterMonth}`),
-                axios.get(`/v1/api/payroll/employee/all`)
+                axios.get(`/v1/api/common/employee/all?includeInactive=true`)
             ]);
 
             const salaryData = Array.isArray(salariesRes.data) ? salariesRes.data : (salariesRes.data?.data || []);
@@ -208,6 +211,15 @@ const PayrollPage: React.FC = () => {
                     rowItem.bonus = bonus;
                 }
 
+                // The month's statutory deductions, shown in the drawer
+                if (s.regime) {
+                    rowItem.taxRegime = String(s.regime).toUpperCase() === 'OLD' ? 'Old Regime' : 'New Regime';
+                }
+                if (s.pfEmployee) rowItem.providentFund = s.pfEmployee;
+                if (s.esiEmployee) rowItem.esi = s.esiEmployee;
+                if (s.professionalTax) rowItem.professionalTaxPaid = s.professionalTax;
+                if (s.tds) rowItem.incomeTaxTds = s.tds;
+
                 const otherAllowances = (s.specialAllowance || 0) + (s.allowance || 0);
                 if (otherAllowances > 0) {
                     rowItem.otherAllowances = otherAllowances;
@@ -228,6 +240,8 @@ const PayrollPage: React.FC = () => {
                     tds: { value: s.tds || 0, enumerable: false, writable: true },
                     professionalTax: { value: s.professionalTax || 0, enumerable: false, writable: true },
                     pfEmployee: { value: s.pfEmployee || 0, enumerable: false, writable: true },
+                    esiEmployee: { value: s.esiEmployee || 0, enumerable: false, writable: true },
+                    regime: { value: s.regime || '', enumerable: false, writable: true },
                     otherDeductions: { value: s.otherDeductions || 0, enumerable: false, writable: true },
                     paymentMode: { value: s.paymentMode || 'BANK_TRANSFER', enumerable: false, writable: true },
                     _raw: { value: s, enumerable: false, writable: true },
@@ -404,6 +418,8 @@ const PayrollPage: React.FC = () => {
             'TDS': s.tds || 0,
             'Professional Tax': s.professionalTax || 0,
             'PF (Employee)': s.pfEmployee || 0,
+            'ESI (Employee)': s.esiEmployee || 0,
+            'Tax Regime': s.regime || '',
             'Other Deductions': s.otherDeductions || 0,
             'Total Deductions': s.totalDeductions,
             'Net Salary': s.netSalary,

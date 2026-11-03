@@ -91,7 +91,7 @@ export default function UsersPage() {
     setEmployeeId(u.employeeId ?? "");
     setEditing(u);
     if (employees === null) {
-      axios.get<EmployeeOption[]>("/v1/api/payroll/employee/all").then((r) => setEmployees(r.data ?? [])).catch(() => setEmployees([]));
+      axios.get<EmployeeOption[]>("/v1/api/common/employee/all").then((r) => setEmployees(r.data ?? [])).catch(() => setEmployees([]));
     }
   };
 

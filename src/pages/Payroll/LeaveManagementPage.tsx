@@ -29,11 +29,13 @@ import { Employee } from '../../shared/types/employee.types';
 import { LeaveRequest, LeaveBalance, LeaveType, LeaveStatus } from '../../shared/types/leave.types';
 
 const LEAVE_API_URL = "/v1/api/payroll/leave";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
 
 const LeaveManagementPage: React.FC = () => {
     const { user } = useContext(AuthContext);
     const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);
+    // Leave can't start before the employee joined
+    const [joiningDate, setJoiningDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -64,6 +66,7 @@ const LeaveManagementPage: React.FC = () => {
                 emp.officialEmail?.toLowerCase() === user?.email?.toLowerCase()
             );
             setResolvedEmployeeId(matched?.id || 1);
+            setJoiningDate(matched?.joiningDate?.slice(0, 10) || '');
         } catch { setResolvedEmployeeId(1); }
     };
 
@@ -265,11 +268,11 @@ const LeaveManagementPage: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{t("Start Fence")}</label>
-                                        <input type="date" className="w-full h-15 bg-gray-50 border border-gray-100 rounded-2xl px-6 outline-none transition-all font-bold text-gray-700" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
+                                        <input type="date" className="w-full h-15 bg-gray-50 border border-gray-100 rounded-2xl px-6 outline-none transition-all font-bold text-gray-700" value={formData.startDate} min={joiningDate || undefined} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{t("End Fence")}</label>
-                                        <input type="date" className="w-full h-15 bg-gray-50 border border-gray-100 rounded-2xl px-6 outline-none transition-all font-bold text-gray-700" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
+                                        <input type="date" className="w-full h-15 bg-gray-50 border border-gray-100 rounded-2xl px-6 outline-none transition-all font-bold text-gray-700" value={formData.endDate} min={formData.startDate || joiningDate || undefined} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
                                     </div>
                                 </div>
                                 <div className="space-y-2">

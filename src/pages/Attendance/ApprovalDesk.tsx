@@ -37,6 +37,13 @@ const REQUEST_TYPE_LABEL: Record<string, string> = { ON_DUTY: 'On duty', WORK_FR
 const range = (from?: string, to?: string) => (from ? `${from}${to && to !== from ? ` → ${to}` : ''}` : '—');
 const dateOnly = (iso?: string | null) => (iso ? iso.slice(0, 10) : undefined);
 
+// Who raised it (HR may raise it for the employee) and who decides it: the reporting manager, or an admin
+const routeLines = (approval?: { submittedByName?: string; onBehalf?: boolean; approverEmployeeId?: number | null } | null): string[] =>
+  !approval ? [] : [
+    approval.onBehalf && `Raised by ${approval.submittedByName || 'HR'} on behalf of the employee`,
+    approval.approverEmployeeId ? 'Decided by the reporting manager (or an admin)' : 'Decided by an admin',
+  ].filter(Boolean) as string[];
+
 const CONFIG: Record<ApprovalKind, {
   list: (tab: Tab) => string;
   act: (id: number, action: 'approve' | 'reject') => string;
@@ -57,7 +64,7 @@ const CONFIG: Record<ApprovalKind, {
       days: `${formatDays(l.totalDays)} day(s)`,
       reason: l.reason || '',
       status: l.approvalStatus,
-      details: [],
+      details: routeLines(l.approval),
       decidedBy: l.actionBy || undefined,
       decidedOn: dateOnly(l.actionDate),
       remarks: l.approverRemarks || undefined,
@@ -76,7 +83,7 @@ const CONFIG: Record<ApprovalKind, {
       dates: r.attendanceDate,
       reason: r.reason || '',
       status: r.status,
-      details: [`Correct check-in: ${timeOf(r.requestedInTime) || 'unchanged'}`, `Correct check-out: ${timeOf(r.requestedOutTime) || 'unchanged'}`],
+      details: [`Correct check-in: ${timeOf(r.requestedInTime) || 'unchanged'}`, `Correct check-out: ${timeOf(r.requestedOutTime) || 'unchanged'}`, ...routeLines(r.approval)],
       decidedBy: r.actionBy || undefined,
       decidedOn: dateOnly(r.actionDate),
       remarks: r.rejectionReason || undefined,
@@ -109,7 +116,7 @@ const CONFIG: Record<ApprovalKind, {
         dates: `${range(first.fromDate, details[details.length - 1]?.toDate)}${details.length > 1 ? ` (${details.length} days)` : ''}`,
         reason: first.reason || '',
         status: r.overallStatus,
-        details: [...shared, ...perDay],
+        details: [...shared, ...perDay, ...routeLines(r.approval)],
         decidedOn: dateOnly(r.actionDate),
         remarks: r.approverRemarks || undefined,
       };

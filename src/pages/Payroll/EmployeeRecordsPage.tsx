@@ -43,11 +43,11 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
-const DEPARTMENT_API_URL = "/v1/api/payroll/department";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
+const DEPARTMENT_API_URL = "/v1/api/common/department";
 const PAGE_SIZE = 10;
 
 const EmployeeRecordsPage: React.FC = () => {
@@ -79,7 +79,7 @@ const EmployeeRecordsPage: React.FC = () => {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
+            const res = await axios.get(`${EMPLOYEE_API_URL}/all?includeInactive=true`);
             const payload = res.data;
             setEmployees(Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
         } catch (err) {

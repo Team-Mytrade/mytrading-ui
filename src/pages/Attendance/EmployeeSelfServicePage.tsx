@@ -14,7 +14,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
 import {
   apiError, CalendarDay, DAY_KIND_BADGE, dayKind, fetchLeaveBalances, fetchMonth, formatDays, freeDays,
-  hoursOf, LeaveBalance, leaveTypeLabel, punch, timeOf,
+  hoursOf, LeaveBalance, leaveTypeLabel, monthBeforeJoining, punch, timeOf, useJoiningDate,
 } from "./attendanceApi";
 import { formatTime, leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
@@ -75,7 +75,11 @@ const EmployeeSelfServicePage: React.FC = () => {
   const month = currentDate.getMonth();
   const todayStr = todayIso();
 
+  // The calendar starts at the month the employee joined; nothing can be requested before the joining date
+  const joiningDate = useJoiningDate(undefined, currentUser.hasEmployee);
+  const prevMonthBlocked = monthBeforeJoining(year, month - 1, joiningDate);
   const handlePrevMonth = () => {
+    if (prevMonthBlocked) return;
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
@@ -501,7 +505,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                   <button 
                     type="button" 
                     onClick={handlePrevMonth}
-                    className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer"
+                    disabled={prevMonthBlocked}
+                    className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -713,7 +718,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                     <button 
                       type="button" 
                       onClick={handlePrevMonth}
-                      className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] hover:shadow-2xs rounded-md text-slate-500 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
+                      disabled={prevMonthBlocked}
+                      className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] hover:shadow-2xs rounded-md text-slate-500 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
@@ -907,6 +913,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     <input
                       type="date"
                       value={leaveForm.fromDate}
+                      min={joiningDate || undefined}
                       onChange={(e) => setLeaveForm(prev => ({ ...prev, leaveDate: e.target.value, fromDate: e.target.value }))}
                       required
                       className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
@@ -917,6 +924,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                     <input
                       type="date"
                       value={leaveForm.toDate}
+                      min={leaveForm.fromDate || joiningDate || undefined}
                       onChange={(e) => setLeaveForm(prev => ({ ...prev, toDate: e.target.value }))}
                       required
                       className="w-full text-xs px-3 py-2 border border-gray-200 dark:border-[#303030] rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-600 bg-white dark:bg-[#222222] text-gray-900 dark:text-white"
