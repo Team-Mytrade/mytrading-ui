@@ -874,8 +874,8 @@ const stats = getStats();
 
         {/* ================= CREATE/EDIT MODAL ================= */}
         {showFormModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <form
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <form data-overlay-panel
               onSubmit={handleSaveAddress}
               className="bg-white p-6 rounded-xl w-[700px] max-h-[90vh] overflow-y-auto relative"
             >
@@ -1084,8 +1084,8 @@ const stats = getStats();
 
         {/* ================= DETAIL VIEW MODAL ================= */}
         {showDetailModal && selectedAddress && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[600px] max-h-[90vh] overflow-y-auto relative">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-[600px] max-h-[90vh] overflow-y-auto relative">
               {/* Close Button - X Mark */}
               <button
                 onClick={() => setShowDetailModal(false)}
@@ -1177,8 +1177,8 @@ const stats = getStats();
 
         {/* ================= DELETE CONFIRMATION MODAL ================= */}
         {showDeleteModal && selectedAddress && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[450px] relative">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-[450px] relative">
               {/* Close Button - X Mark */}
               <button
                 onClick={() => {

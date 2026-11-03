@@ -250,7 +250,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
   return createPortal(
     <>
       {/* Backdrop */}
-      <div
+      <div data-overlay-dim data-overlay
         className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"
         style={{ zIndex: 60 }}
         onClick={onClose}

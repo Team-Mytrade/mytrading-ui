@@ -106,8 +106,8 @@ export default function TenantClosureDialog({ tenant, closure, onClose, onChange
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className={`${CARD} w-full max-w-lg space-y-4 p-5`} role="dialog" aria-labelledby="tenant-closure-title">
+    <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div data-overlay-panel className={`${CARD} w-full max-w-lg space-y-4 p-5`} role="dialog" aria-labelledby="tenant-closure-title">
         <div className="flex items-center justify-between">
           <h3 id="tenant-closure-title" className="text-sm font-semibold text-slate-900 dark:text-white">
             {t("Close")} {tenant.tenantName}

@@ -557,9 +557,9 @@ const Customers: React.FC = () => {
 
         {/* Segment Modal */}
         {showSegmentModal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
-              <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
+              <div data-overlay-header className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{t("Add to Segment")}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">{t("Select a segment for")} {selectedCustomer?.customerName}</p>
@@ -602,9 +602,9 @@ const Customers: React.FC = () => {
 
         {/* Communication Modal */}
         {showCommModal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
-              <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
+              <div data-overlay-header className="flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{t("Record Communication")}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">{t("Add communication history for")} {selectedCustomer?.customerName}</p>

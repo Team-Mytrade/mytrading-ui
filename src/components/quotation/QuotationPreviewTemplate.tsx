@@ -170,7 +170,8 @@ const QuotationPreviewTemplate: React.FC<QuotationPreviewTemplateProps> = ({
           </div>
           <div>
             <span className="quotation-preview-label">Quotation Type</span>
-            <strong>{quotation.quotationType || "--"}</strong>
+            <strong>{({ PRODUCT: "Product", SERVICE: "Service", MIXED: "Product & Service" } as Record<string, string>)[
+              String(quotation.quotationType || "").toUpperCase()] || quotation.quotationType || "--"}</strong>
           </div>
           <div>
             <span className="quotation-preview-label">Version</span>

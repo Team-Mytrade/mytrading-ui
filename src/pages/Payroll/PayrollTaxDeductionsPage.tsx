@@ -41,7 +41,8 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatMoney, formatDate, formatDateTime, companyCurrency } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
+
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
 type TaxDeduction = {
@@ -701,9 +702,9 @@ const PayrollTaxDeductionsPage: React.FC = () => {
 
                 {/* View Details Modal */}
                 {viewModalOpen && selectedDeduction && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div data-overlay className="fixed inset-0 z-50 overflow-y-auto">
                         <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setViewModalOpen(false)}></div>
+                            <div data-overlay-dim className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setViewModalOpen(false)}></div>
                             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                     <div className="sm:flex sm:items-start">
@@ -799,9 +800,9 @@ const PayrollTaxDeductionsPage: React.FC = () => {
 
                 {/* Form Modal */}
                 {showForm && (
-                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div data-overlay className="fixed inset-0 z-50 overflow-y-auto">
                         <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={closeForm}></div>
+                            <div data-overlay-dim className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={closeForm}></div>
                             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                     <div className="sm:flex sm:items-start">

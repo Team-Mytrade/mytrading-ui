@@ -194,8 +194,8 @@ export default function PlansPage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className={`${CARD} max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto p-5`} role="dialog" aria-labelledby="plan-title">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div data-overlay-panel className={`${CARD} max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto p-5`} role="dialog" aria-labelledby="plan-title">
             <div className="flex items-center justify-between">
               <h3 id="plan-title" className="text-sm font-semibold text-slate-900 dark:text-white">
                 {editing === "new" ? t("New plan") : `${t("Edit")} ${editing.name}`}

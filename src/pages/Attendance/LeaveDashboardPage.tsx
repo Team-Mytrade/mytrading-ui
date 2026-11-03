@@ -1515,9 +1515,9 @@ const LeaveDashboardPage: React.FC = () => {
 
         {/* ── LEAVE ADJUSTMENT MODAL ─────────────────────────────────────── */}
         {isAdjustmentModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+            <div data-overlay-panel className="bg-white rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-100">
+              <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-5 h-5 text-cyan-600" />
                   <h3 className="text-sm font-bold text-gray-900 uppercase">{t("Post Leave Adjustment")}</h3>
@@ -1597,9 +1597,9 @@ const LeaveDashboardPage: React.FC = () => {
 
         {/* ── ADD EVENT MODAL DIALOG ────────────────────────────────────── */}
         {isAddEventModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto my-auto animate-in zoom-in-95 duration-200">
-              <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs sticky top-0 z-10">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4">
+            <div data-overlay-panel className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto my-auto animate-in zoom-in-95 duration-200">
+              <div data-overlay-header className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-white" />
                   <h3 className="text-sm font-extrabold text-white tracking-wide">{t("Add Calendar Event")}</h3>
@@ -1712,11 +1712,11 @@ const LeaveDashboardPage: React.FC = () => {
 
         {/* ── EVENT DETAILS POPUP MODAL (PROJECT CYAN BRANDING THEME) ────── */}
         {selectedEventDetails && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div data-overlay-panel className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
               
               {/* Modal Header matching Project Brand Cyan Palette */}
-              <div className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs">
+              <div data-overlay-header className="p-4 bg-cyan-600 text-white flex items-center justify-between border-b border-cyan-700 shadow-xs">
                 <div className="flex items-center gap-2.5">
                   <span className={`w-3 h-3 rounded-full ${selectedEventDetails.dotColor || 'bg-white'} shrink-0`} />
                   <h3 className="text-sm font-extrabold text-white tracking-wide truncate max-w-[280px]">

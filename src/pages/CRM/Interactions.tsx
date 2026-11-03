@@ -710,9 +710,9 @@ const Interactions: React.FC = () => {
 
         {/* Notes View Modal */}
         {showNotesModal && selectedEntry && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm p-4 sm:items-center">
+            <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
+              <div data-overlay-header className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900">
                   {t("Communication Notes")}
                 </h3>

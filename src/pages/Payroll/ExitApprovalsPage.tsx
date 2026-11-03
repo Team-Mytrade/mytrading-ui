@@ -356,9 +356,9 @@ const ExitApprovalsPage: React.FC = () => {
             </div>
 
             {viewing && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewing(null)}>
-                    <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl dark:bg-[#191919]" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
+                <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewing(null)}>
+                    <div data-overlay-panel className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl dark:bg-[#191919]" onClick={(e) => e.stopPropagation()}>
+                        <div data-overlay-header className="flex items-start justify-between border-b border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
                             <div>
                                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">{viewing.employeeName || `EMP-${viewing.employeeId}`}</h3>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">

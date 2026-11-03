@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CompanyPlan, STORAGE_SOURCES, SUBSCRIPTION_TONE, Usage, bytesText, limitText, planPrice, plansApi, storageText, subscriptionText } from "../../platform/plansApi";
-import { Building2, CreditCard, Download, Globe2, History, Image, ImageUp, KeyRound, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Building2, CreditCard, Download, Globe2, History, Image, ImageUp, KeyRound, Lock, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
 import axios from "axios";
 import { brandPalette } from "../../company/brand";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import { errorText } from "../../access/accessApi";
-import { CompanyProfile, companyApi, useCompany } from "../../company/companyApi";
+import { CompanyProfile, CurrencyLock, companyApi, useCompany } from "../../company/companyApi";
 import {
   INDIAN_STATES, findIndianState, validateEmail, validateGstin, validatePan, validatePhone, validatePinCode,
   validatePinState, validateWebsite,
@@ -106,6 +106,8 @@ export default function CompanySettingsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Once the company has transactions its currency can't change (the server refuses it too)
+  const [currencyLock, setCurrencyLock] = useState<CurrencyLock | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -113,6 +115,17 @@ export default function CompanySettingsPage() {
   }, [company]);
 
   const editable = !!company?.editable;
+  const currencyLocked = !!currencyLock?.locked;
+
+  // Asked only by those who may edit; when it can't be told, the field stays open and the server decides
+  useEffect(() => {
+    if (!editable) return;
+    let cancelled = false;
+    companyApi.currencyLock()
+      .then((lock) => { if (!cancelled) setCurrencyLock(lock); })
+      .catch(() => { if (!cancelled) setCurrencyLock(null); });
+    return () => { cancelled = true; };
+  }, [editable, company?.currency]);
   const dirty = !!company && !!form && JSON.stringify(toForm(company)) !== JSON.stringify(form);
   const india = (form?.country || "India").toLowerCase() === "india";
   const countryList = useMemo(() => countries(), []);
@@ -133,8 +146,13 @@ export default function CompanySettingsPage() {
       set("country", name);
       return;
     }
-    setForm({ ...form, country: name, ...presetForCountry(country), taxRegime: taxRegimeForCountry(country) ?? form.taxRegime });
-    ToasterService.info(`Currency, time zone, weekend, number format and tax registration set for ${country.name}. Change them below if needed.`);
+    // A locked currency stays as it is; the country's other settings still apply
+    const preset = presetForCountry(country);
+    const keep = currencyLocked ? { currency: form.currency, currencyDecimals: form.currencyDecimals } : {};
+    setForm({ ...form, country: name, ...preset, ...keep, taxRegime: taxRegimeForCountry(country) ?? form.taxRegime });
+    ToasterService.info(currencyLocked
+      ? `Time zone, weekend, number format and tax registration set for ${country.name}. The currency stays ${form.currency}. Change them below if needed.`
+      : `Currency, time zone, weekend, number format and tax registration set for ${country.name}. Change them below if needed.`);
   };
 
   const changeCurrency = (code: string) => form && setForm({ ...form, currency: code, currencyDecimals: currencyDigits(code) });
@@ -176,7 +194,11 @@ export default function CompanySettingsPage() {
         taxNumber: form.taxRegime === "VAT" ? form.taxNumber?.replace(/\s+/g, "").toUpperCase() : null });
       ToasterService.success("Company details saved.");
     } catch (err) {
-      ToasterService.error(errorText(err, "Could not save the company details."));
+      const message = errorText(err, "Could not save the company details.");
+      // "currency: …" (e.g. the currency is locked): shown under the field, without the field name
+      const field = /^(currency):\s*(.*)$/s.exec(message);
+      if (field) setErrors((current) => ({ ...current, [field[1]]: field[2] }));
+      ToasterService.error(field ? field[2] : message);
     } finally {
       setSaving(false);
     }
@@ -349,14 +371,25 @@ export default function CompanySettingsPage() {
 
                 <section className={`${CARD} p-4`}>
                   {sectionTitle(Globe2, "Regional settings")}
+                  {currencyLocked && currencyLock?.reason && (
+                    <p className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                      <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{currencyLock.reason}</span>
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div>
-                      <label className={LABEL} htmlFor="company-currency">{t("Currency")}</label>
-                      <select id="company-currency" className={INPUT} disabled={!editable} value={form.currency}
+                      <label className={LABEL} htmlFor="company-currency">
+                        {t("Currency")}
+                        {currencyLocked && <Lock className="ml-1 inline h-3 w-3 text-slate-400" aria-label={t("Locked")} />}
+                      </label>
+                      <select id="company-currency" className={INPUT} disabled={!editable || currencyLocked} value={form.currency}
+                        title={currencyLocked ? currencyLock?.reason ?? undefined : undefined}
                         onChange={(e) => changeCurrency(e.target.value)}>
                         {!currencyList.some((c) => c.code === form.currency) && <option value={form.currency}>{form.currency}</option>}
                         {currencyList.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
                       </select>
+                      {errors.currency && <p className="mt-1 text-xs text-red-600">{t(errors.currency)}</p>}
                     </div>
                     <div>
                       <label className={LABEL} htmlFor="company-decimals">{t("Decimal places for amounts")}</label>

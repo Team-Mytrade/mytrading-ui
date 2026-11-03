@@ -438,7 +438,8 @@ const ServiceSchedules: React.FC = () => {
   const salesOrderOptions = useMemo(
     () =>
       salesOrders
-        .filter((order) => !hasOrderTypeInfo || order.quotationType === "SERVICE")
+        // Orders with services to schedule: services only, or products and services together
+        .filter((order) => !hasOrderTypeInfo || order.quotationType === "SERVICE" || order.quotationType === "MIXED")
         .map((order) => ({
           id: String(order.id),
           name:

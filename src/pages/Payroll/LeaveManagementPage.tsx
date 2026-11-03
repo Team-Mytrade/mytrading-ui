@@ -240,7 +240,7 @@ const LeaveManagementPage: React.FC = () => {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gray-900/40 backdrop-blur-md"
                     >
-                        <motion.div
+                        <motion.div data-overlay-panel
                             initial={{ scale: 0.95, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             className="bg-white rounded-[3rem] w-full max-w-lg shadow-2xl overflow-hidden relative"

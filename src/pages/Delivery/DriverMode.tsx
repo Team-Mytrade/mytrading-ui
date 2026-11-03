@@ -697,8 +697,8 @@ const Banner: React.FC<{ tone: "red" | "amber" | "green"; icon: React.ReactNode;
 };
 
 const Sheet: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-    <div
+  <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+    <div data-overlay-panel
       className="w-full max-w-xl rounded-t-2xl bg-white p-5 pb-8 shadow-xl dark:bg-gray-900 sm:rounded-2xl sm:pb-5"
       onClick={(e) => e.stopPropagation()}
       role="dialog"

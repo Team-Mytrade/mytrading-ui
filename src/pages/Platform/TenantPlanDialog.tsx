@@ -62,8 +62,8 @@ export default function TenantPlanDialog({ tenant, plans, current, onClose, onSa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className={`${CARD} max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto p-5`} role="dialog" aria-labelledby="tenant-plan-title">
+    <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div data-overlay-panel className={`${CARD} max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto p-5`} role="dialog" aria-labelledby="tenant-plan-title">
         <div className="flex items-center justify-between">
           <h3 id="tenant-plan-title" className="text-sm font-semibold text-slate-900 dark:text-white">{t("Plan of")} {tenant.tenantName}</h3>
           <button type="button" aria-label={t("Close")} onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>

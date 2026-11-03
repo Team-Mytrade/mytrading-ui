@@ -351,7 +351,7 @@ const AttendanceManagementPage: React.FC = () => {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm"
                     >
-                        <motion.div
+                        <motion.div data-overlay-panel
                             initial={{ scale: 0.95, y: 10 }}
                             animate={{ scale: 1, y: 0 }}
                             className="bg-white rounded-2xl w-full max-w-xl shadow-xl overflow-hidden relative"

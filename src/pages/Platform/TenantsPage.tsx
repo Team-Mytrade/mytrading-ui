@@ -371,8 +371,8 @@ export default function TenantsPage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div data-overlay-panel className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Edit")} {editing.tenantName}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -423,8 +423,8 @@ export default function TenantsPage() {
       )}
 
       {statusFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className={`${CARD} w-full max-w-lg space-y-4 p-5`} role="dialog" aria-labelledby="tenant-status-title">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div data-overlay-panel className={`${CARD} w-full max-w-lg space-y-4 p-5`} role="dialog" aria-labelledby="tenant-status-title">
             <div className="flex items-center justify-between">
               <h3 id="tenant-status-title" className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Status of")} {statusFor.tenantName}</h3>
               <button type="button" onClick={() => setStatusFor(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -461,8 +461,8 @@ export default function TenantsPage() {
       )}
 
       {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form onSubmit={provision} className={`${CARD} max-h-full w-full max-w-lg space-y-4 overflow-y-auto p-5`}>
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <form data-overlay-panel onSubmit={provision} className={`${CARD} max-h-full w-full max-w-lg space-y-4 overflow-y-auto p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("New tenant")}</h3>
               <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>

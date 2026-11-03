@@ -731,9 +731,9 @@ const AttendanceRequestsPage: React.FC = () => {
         const detail = firstDetail(viewingRequest) || ({} as RequestDetail);
         const status = (viewingRequest.overallStatus || 'PENDING').toUpperCase();
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:!border-transparent space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:!border-transparent">
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+            <div data-overlay-panel className="bg-white dark:bg-[#191919] text-slate-900 dark:text-white rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:!border-transparent space-y-4 max-h-[90vh] overflow-y-auto">
+              <div data-overlay-header className="flex items-center justify-between pb-3 border-b border-slate-100 dark:!border-transparent">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="p-2 bg-cyan-50 dark:bg-[#222222] text-cyan-700 dark:text-cyan-300 rounded-xl border border-cyan-200 dark:!border-transparent shrink-0">
                     <FileText className="w-5 h-5" />

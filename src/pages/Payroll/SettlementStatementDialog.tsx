@@ -60,10 +60,10 @@ export default function SettlementStatementDialog({ exitRequestId, onClose }: Pr
     ));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-[#191919]"
+    <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div data-overlay-panel className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-[#191919]"
         onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t("Final settlement")}>
-        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
+        <div data-overlay-header className="flex items-start justify-between border-b border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
           <div>
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t("Final settlement")}</h3>
             {statement && (

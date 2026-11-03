@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import SearchableSelect, { SearchableOption } from "../../components/inputfeild/SearchableSelect";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { allowsFraction, cellInput, NumberCell, taxRateFromCode } from "../Purchase/LineItemsEditor";
 import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
@@ -149,7 +150,7 @@ const SERVICE_UNITS = [
   { value: "PIECES", label: "Pieces" },
 ];
 
-const headCell = "px-2 py-2";
+const fieldLabel = "mb-0.5 block text-[11px] font-medium text-slate-500 dark:text-gray-400";
 const addButton =
   "inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/40";
 
@@ -213,8 +214,56 @@ export default function QuotationItemsEditor({
   /** Picking a product copies its code, name, unit, price and GST % onto the line, then asks for the customer's rate. */
   const pickProduct = (index: number, productId: string) => {
     const product = products.find((item) => String(item.id) === productId);
-    update(index, { ...productLinePatch(product, lines[index].taxRate), priceAuto: !!product, priceSource: "CATALOGUE", priceListName: undefined });
+    // Clearing the product keeps the category chosen to look in
+    const category = product ? {} : { categoryId: lines[index].categoryId, categoryName: lines[index].categoryName };
+    update(index, { ...productLinePatch(product, lines[index].taxRate), ...category, priceAuto: !!product, priceSource: "CATALOGUE", priceListName: undefined });
     if (product) reprice([lines[index].key]);
+  };
+
+  // The categories the catalogue's products are in (the line keeps the product's own category when saved)
+  const categoryOf = (product: QuotationProduct) => product.category?.id ?? product.categoryId;
+  const categoryOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    products.forEach((product) => {
+      const id = categoryOf(product);
+      if (id != null) byId.set(String(id), product.category?.categoryName || product.categoryName || `Category #${id}`);
+    });
+    return [...byId].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [products]);
+
+  /**
+   * The products a line can pick: those in its category (all when none is chosen), not already on another line.
+   * The line's own saved product stays listed even if it left the catalogue.
+   */
+  const productOptions = (line: QuotationLine, usedElsewhere: Set<string>): SearchableOption[] => {
+    const options: SearchableOption[] = products
+      .filter((product) => !usedElsewhere.has(String(product.id)))
+      .filter((product) => !line.categoryId || String(categoryOf(product)) === String(line.categoryId))
+      .map((product) => ({
+        value: String(product.id),
+        label: product.productName || product.shortName || `Product #${product.id}`,
+        keywords: [product.productCode, product.shortName].filter((word): word is string => !!word),
+      }));
+    if (line.productId && !options.some((option) => option.value === String(line.productId))) {
+      options.unshift({ value: String(line.productId), label: line.productName || `Product #${line.productId}` });
+    }
+    return options;
+  };
+
+  /** Choosing a category narrows the products; a product from another category is cleared. */
+  const pickCategory = (index: number, categoryId: string) => {
+    const line = lines[index];
+    const product = products.find((item) => String(item.id) === String(line.productId));
+    const keepsProduct = !categoryId || (product && String(categoryOf(product)) === categoryId);
+    const name = categoryOptions.find((option) => option.value === categoryId)?.label || "";
+    update(index, {
+      categoryId: categoryId ? Number(categoryId) : undefined,
+      categoryName: name,
+      ...(keepsProduct ? {} : {
+        ...productLinePatch(undefined, 0), categoryId: Number(categoryId), categoryName: name,
+        priceAuto: false, priceSource: undefined, priceListName: undefined,
+      }),
+    });
   };
 
   /** A new quantity may reach another quantity break. */
@@ -262,152 +311,155 @@ export default function QuotationItemsEditor({
           <span className="font-medium text-slate-700 dark:text-gray-200">{t("Service")}</span> {t("to build the quotation.")}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-gray-800 dark:text-gray-400">
-              <tr>
-                <th className={`${headCell} min-w-[190px] pl-4`}>{t("Item")}</th>
-                <th className={`${headCell} w-[76px] text-right`}>{t("Qty")}</th>
-                <th className={`${headCell} w-[104px] text-right`}>{t("Rate ({currency})", { currency: code })}</th>
-                <th className={`${headCell} w-[72px] text-right`}>{t("Disc %")}</th>
-                <th className={`${headCell} w-[72px] text-right`}>{t("Tax %")}</th>
-                <th className={`${headCell} w-[110px] text-right`}>{t("Amount")}</th>
-                <th className="w-9 px-1 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
-              {lines.map((line, index) => {
-                const error = showErrors ? lineError(line) : null;
-                // A product already on another line can't be picked again (change that line's quantity instead)
-                const usedElsewhere = new Set(
-                  lines
-                    .filter((other, i) => i !== index && other.itemType === "PRODUCT" && other.productId)
-                    .map((other) => String(other.productId))
-                );
-                const meta = [line.productCode, line.uom].filter(Boolean).join(" · ");
-                return (
-                  <tr key={line.key} className="align-top">
-                    <td className="px-2 py-2 pl-4">
-                      {line.itemType === "PRODUCT" ? (
-                        <select
-                          value={line.productId ? String(line.productId) : ""}
-                          onChange={(event) => pickProduct(index, event.target.value)}
-                          aria-label={t("Product")}
-                          className={`${cellInput} ${line.productId ? "" : "text-slate-400 dark:text-gray-500"}`}
-                        >
-                          <option value="">{t("Select product")}</option>
-                          {/* Keep a saved product visible even if it is no longer in the catalogue list */}
-                          {line.productId && !products.some((p) => String(p.id) === String(line.productId)) && (
-                            <option value={String(line.productId)}>{line.productName || `Product #${line.productId}`}</option>
-                          )}
-                          {products.map((product) => (
-                            <option
-                              key={product.id}
-                              value={String(product.id)}
-                              disabled={usedElsewhere.has(String(product.id))}
-                            >
-                              {product.productName || product.shortName || `Product #${product.id}`}
-                              {usedElsewhere.has(String(product.id)) ? " (already added)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          value={line.productName}
-                          onChange={(event) => update(index, { productName: event.target.value })}
-                          placeholder={t("Service name")}
-                          aria-label={t("Service name")}
-                          maxLength={150}
-                          className={cellInput}
+        <ul className="space-y-3 p-3">
+          {lines.map((line, index) => {
+            const error = showErrors ? lineError(line) : null;
+            // A product already on another line can't be picked again (change that line's quantity instead)
+            const usedElsewhere = new Set(
+              lines
+                .filter((other, i) => i !== index && other.itemType === "PRODUCT" && other.productId)
+                .map((other) => String(other.productId))
+            );
+            const meta = [line.productCode, line.uom].filter(Boolean).join(" · ");
+            const isService = line.itemType === "SERVICE";
+            return (
+              <li
+                key={line.key}
+                className={`rounded-lg border bg-white p-3 dark:bg-gray-900 ${error ? "border-red-300 dark:border-red-700" : "border-slate-200 dark:border-gray-700"}`}
+              >
+                {/* What is quoted: a catalogue product or a free-text service */}
+                <div className="flex items-start gap-2">
+                  <span className={`mt-1.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${isService
+                    ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+                    : "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300"}`}>
+                    {index + 1}. {t(isService ? "Service" : "Product")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {isService ? (
+                      <input
+                        value={line.productName}
+                        onChange={(event) => update(index, { productName: event.target.value })}
+                        placeholder={t("Service name")}
+                        aria-label={t("Service name")}
+                        maxLength={150}
+                        className={cellInput}
+                      />
+                    ) : (
+                      // Category first (optional, only narrows the list), then the product; both searchable
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[220px_minmax(0,1fr)]">
+                        <SearchableSelect
+                          label={t("Category")}
+                          value={line.categoryId ? String(line.categoryId) : ""}
+                          options={categoryOptions}
+                          onChange={(value) => pickCategory(index, value)}
+                          placeholder={t("Type a category")}
+                          emptyOptionLabel={t("All categories")}
                         />
-                      )}
-                      {line.itemType === "SERVICE" ? (
-                        <div className="mt-1.5 flex gap-1.5">
-                          <input
-                            value={line.description}
-                            onChange={(event) => update(index, { description: event.target.value })}
-                            placeholder={t("Description (optional)")}
-                            aria-label={t("Service description")}
-                            maxLength={250}
-                            className={`${cellInput} min-w-0 flex-1 text-xs`}
-                          />
-                          <select
-                            value={line.uom}
-                            onChange={(event) => update(index, { uom: event.target.value })}
-                            aria-label={t("Unit")}
-                            title={t("Unit")}
-                            className={`${cellInput} w-[84px] shrink-0 text-xs ${line.uom ? "" : "text-slate-400 dark:text-gray-500"}`}
-                          >
-                            <option value="">{t("Unit")}</option>
-                            {SERVICE_UNITS.map((unit) => (
-                              <option key={unit.value} value={unit.value}>
-                                {unit.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : (
-                        meta && <div className="mt-1 truncate px-0.5 text-[11px] text-slate-400 dark:text-gray-500">{meta}</div>
-                      )}
-                      {line.itemType === "PRODUCT" && line.priceAuto && line.priceSource && line.priceSource !== "CATALOGUE" && (
-                        <div className="mt-0.5 px-0.5 text-[11px] font-medium text-cyan-700 dark:text-cyan-400">
-                          {line.priceSource === "CUSTOMER" ? t("Customer price") : `${t("Price list")}: ${line.priceListName ?? ""}`}
-                        </div>
-                      )}
-                      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumberCell
-                        label={t("Quantity")}
-                        value={line.quantity}
-                        decimals={allowsFraction(line.uom) ? 3 : 0}
-                        onValue={(quantity) => changeQuantity(index, quantity)}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumberCell
-                        label={t("Rate")}
-                        value={line.unitPrice}
-                        decimals={priceDecimals}
-                        onValue={(unitPrice) => update(index, { unitPrice, priceAuto: false, priceSource: undefined, priceListName: undefined })}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumberCell
-                        label={t("Discount %")}
-                        value={line.discountPercentage}
-                        decimals={2}
-                        onValue={(discountPercentage) => update(index, { discountPercentage: Math.min(100, discountPercentage) })}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <NumberCell
-                        label={t("Tax %")}
-                        value={line.taxRate}
-                        decimals={2}
-                        onValue={(taxRate) => update(index, { taxRate: Math.min(100, taxRate) })}
-                      />
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-2 pt-3.5 text-right text-sm font-medium text-slate-800 dark:text-gray-100">
+                        <SearchableSelect
+                          label={t("Product")}
+                          value={line.productId ? String(line.productId) : ""}
+                          options={productOptions(line, usedElsewhere)}
+                          onChange={(value) => pickProduct(index, value)}
+                          placeholder={t("Type a product name or code")}
+                          noResultsText={line.categoryId ? t("No product in this category") : t("No match found")}
+                        />
+                      </div>
+                    )}
+                    {!isService && meta && <div className="mt-1 truncate px-0.5 text-[11px] text-slate-400 dark:text-gray-500">{meta}</div>}
+                    {!isService && line.priceAuto && line.priceSource && line.priceSource !== "CATALOGUE" && (
+                      <div className="mt-0.5 px-0.5 text-[11px] font-medium text-cyan-700 dark:text-cyan-400">
+                        {line.priceSource === "CUSTOMER" ? t("Customer price") : `${t("Price list")}: ${line.priceListName ?? ""}`}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onChange(lines.filter((_, i) => i !== index))}
+                    className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    title={t("Remove this line")}
+                    aria-label={t("Remove this line")}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {isService && (
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
+                    <input
+                      value={line.description}
+                      onChange={(event) => update(index, { description: event.target.value })}
+                      placeholder={t("Description (optional)")}
+                      aria-label={t("Service description")}
+                      maxLength={250}
+                      className={`${cellInput} text-xs`}
+                    />
+                    <select
+                      value={line.uom}
+                      onChange={(event) => update(index, { uom: event.target.value })}
+                      aria-label={t("Unit")}
+                      title={t("Unit")}
+                      className={`${cellInput} text-xs ${line.uom ? "" : "text-slate-400 dark:text-gray-500"}`}
+                    >
+                      <option value="">{t("Unit (optional)")}</option>
+                      {SERVICE_UNITS.map((unit) => (
+                        <option key={unit.value} value={unit.value}>
+                          {unit.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* The numbers, each with its own label */}
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  <label className="block">
+                    <span className={fieldLabel}>{t("Qty")}</span>
+                    <NumberCell
+                      label={t("Quantity")}
+                      value={line.quantity}
+                      decimals={allowsFraction(line.uom) ? 3 : 0}
+                      onValue={(quantity) => changeQuantity(index, quantity)}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={fieldLabel}>{t("Rate ({currency})", { currency: code })}</span>
+                    <NumberCell
+                      label={t("Rate")}
+                      value={line.unitPrice}
+                      decimals={priceDecimals}
+                      onValue={(unitPrice) => update(index, { unitPrice, priceAuto: false, priceSource: undefined, priceListName: undefined })}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={fieldLabel}>{t("Disc %")}</span>
+                    <NumberCell
+                      label={t("Discount %")}
+                      value={line.discountPercentage}
+                      decimals={2}
+                      onValue={(discountPercentage) => update(index, { discountPercentage: Math.min(100, discountPercentage) })}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={fieldLabel}>{t("Tax %")}</span>
+                    <NumberCell
+                      label={t("Tax %")}
+                      value={line.taxRate}
+                      decimals={2}
+                      onValue={(taxRate) => update(index, { taxRate: Math.min(100, taxRate) })}
+                    />
+                  </label>
+                  <div className="col-span-2 sm:col-span-1">
+                    <span className={fieldLabel}>{t("Amount")}</span>
+                    <div className="rounded-md bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold text-slate-800 dark:bg-gray-800 dark:text-gray-100">
                       {formatPrice(lineAmounts(line, currency).total, currency)}
-                    </td>
-                    <td className="px-1 py-2">
-                      <button
-                        type="button"
-                        onClick={() => onChange(lines.filter((_, i) => i !== index))}
-                        className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                        title={t("Remove this line")}
-                        aria-label={t("Remove this line")}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </div>
+                </div>
+                {error && <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{error}</p>}
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {/* Totals, worked out the same way the server does */}

@@ -760,8 +760,8 @@ const Shipment: React.FC = () => {
 
         {/* ================= CREATE/EDIT MODAL ================= */}
         {showFormModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <form
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <form data-overlay-panel
               onSubmit={handleSaveShipment}
               className="bg-white p-6 rounded-xl w-[800px] max-h-[90vh] overflow-y-auto"
             >
@@ -949,8 +949,8 @@ const Shipment: React.FC = () => {
 
         {/* ================= DETAIL VIEW MODAL ================= */}
         {showDetailModal && selectedShipment && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[700px] max-h-[90vh] overflow-y-auto">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-[700px] max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <TruckIcon className="h-6 w-6 text-cyan-600" />
@@ -1071,8 +1071,8 @@ const Shipment: React.FC = () => {
 
         {/* ================= DELETE CONFIRMATION MODAL ================= */}
         {showDeleteModal && selectedShipment && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[450px]">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-[450px]">
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                   <TrashIcon className="h-6 w-6 text-red-600" />
@@ -1114,8 +1114,8 @@ const Shipment: React.FC = () => {
 
         {/* ================= UPDATE STATUS MODAL ================= */}
         {showStatusModal && selectedShipment && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-[450px]">
+          <div data-overlay-dim data-overlay className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div data-overlay-panel className="bg-white p-6 rounded-xl w-[450px]">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <PencilIcon className="h-6 w-6 text-purple-600" />
                 {t("Update Status")}

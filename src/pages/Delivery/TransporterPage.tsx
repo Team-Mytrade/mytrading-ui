@@ -580,13 +580,13 @@ useEffect(() => {
         {/* Add / Edit Modal — portal, modernized sectioned layout */}
         {showForm &&
           createPortal(
-            <div
+            <div data-overlay-dim data-overlay
               key="transporter-modal"
               className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto p-4 sm:items-center"
             >
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
+              <div data-overlay-panel className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-auto max-h-[calc(100vh-2rem)] overflow-y-auto animate-slide-up">
                 {/* Header */}
-                <div className="flex items-center justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-cyan-50/60 to-blue-50/40 px-6 py-5">
+                <div data-overlay-header className="flex items-center justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-cyan-50/60 to-blue-50/40 px-6 py-5">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-sm">
                       <TruckIcon className="h-5 w-5 text-white" />

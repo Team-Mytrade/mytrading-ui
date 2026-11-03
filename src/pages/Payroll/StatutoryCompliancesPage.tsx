@@ -602,14 +602,14 @@ const StatutoryCompliancesPage: React.FC = () => {
       {/* Download Modal */}
       <AnimatePresence>
         {showDownloadModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <motion.div
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <motion.div data-overlay-panel
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-lg w-full max-w-md overflow-hidden"
             >
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div data-overlay-header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">{t("Download ECR Report")}</h3>
                 <button
                   onClick={() => setShowDownloadModal(false)}
@@ -665,14 +665,14 @@ const StatutoryCompliancesPage: React.FC = () => {
       {/* Form Modal */}
       <AnimatePresence>
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <motion.div
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <motion.div data-overlay-panel
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
             >
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div data-overlay-header className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
                     {t(isEditMode ? 'Update' : 'Add')} Statutory Record

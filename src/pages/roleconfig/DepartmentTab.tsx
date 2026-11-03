@@ -389,9 +389,9 @@ const DepartmentTab: React.FC<DepartmentTabProps> = ({ selectedDomainFilter, onC
 
       {/* Form Modal */}
       {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div data-overlay-header className="flex items-center justify-between p-5 border-b">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   {t(editingId ? "Edit Department" : "New Department")}
@@ -499,8 +499,8 @@ const DepartmentTab: React.FC<DepartmentTabProps> = ({ selectedDomainFilter, onC
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 text-center">
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 text-center">
             <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
               <TrashIcon className="h-6 w-6 text-red-600" />
             </div>
