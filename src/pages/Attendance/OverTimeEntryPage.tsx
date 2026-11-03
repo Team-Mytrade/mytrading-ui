@@ -71,7 +71,7 @@ interface OvertimeEntry {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_URL = "/v1/api/attendance/overtime";
-const EMPLOYEE_API = "/v1/api/payroll/employee";
+const EMPLOYEE_API = "/v1/api/common/employee";
 const RULE_API = "/v1/api/attendance/overtime-rules";
 
 const PAGE_SIZE = 10;

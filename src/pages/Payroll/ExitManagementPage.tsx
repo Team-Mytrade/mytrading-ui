@@ -21,6 +21,7 @@ import { ToasterService } from '../../Services/ToasterService';
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { apiError } from "../../utils/apiError";
 import { t } from "../../i18n/i18n";
+import { useActingEmployee } from "../../access/useActingEmployee";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, STATS_ROW, TOOL_BUTTON } from './hrmsUi';
 
 const EXIT_REASONS = [
@@ -101,6 +102,8 @@ const emptyForm = () => ({ resignationDate: todayIso(), noticePeriod: 90, lastWo
 
 const ExitManagementPage: React.FC = () => {
     const { canApprove } = usePermissions();
+    // Admins may raise an exit for another employee (e.g. one who absconded); it goes to their manager
+    const { employee: acting, onBehalf, picker } = useActingEmployee("HRM");
     const [loading, setLoading] = useState(false);
     const [notLinked, setNotLinked] = useState<string | null>(null);
     const [requests, setRequests] = useState<ExitRequest[]>([]);
@@ -125,12 +128,12 @@ const ExitManagementPage: React.FC = () => {
 
     useEffect(() => {
         fetchMyRequests();
-    }, []);
+    }, [onBehalf, acting.id]);
 
     const fetchMyRequests = async () => {
         setLoading(true);
         try {
-            setRequests(await ExitManagementService.getMyExitRequests());
+            setRequests(onBehalf ? await ExitManagementService.getExitRequestByEmployeeId(acting.id) : await ExitManagementService.getMyExitRequests());
             setNotLinked(null);
         } catch (error) {
             // An account without an employee record can't resign here
@@ -170,13 +173,15 @@ const ExitManagementPage: React.FC = () => {
 
         try {
             await ExitManagementService.submitExitRequest({
+                employeeId: onBehalf ? acting.id : undefined,
                 resignationDate: formData.resignationDate || todayIso(),
                 lastWorkingDay: effectiveLWD,
                 reason: formData.reason + (formData.comment.trim() ? ` - ${formData.comment.trim()}` : ''),
             });
             setIsResigning(false);
             setFormData(emptyForm());
-            ToasterService.success("Resignation submitted", "HR will review it.");
+            ToasterService.success(onBehalf ? `Exit request raised for ${acting.name}` : "Resignation submitted",
+                onBehalf ? "Their reporting manager decides it, and they are notified." : "HR will review it.");
             await fetchMyRequests();
         } catch (error) {
             ToasterService.error(apiError(error, "Failed to submit the resignation"));
@@ -221,7 +226,7 @@ const ExitManagementPage: React.FC = () => {
                 actions={
                     canStart ? (
                         <AddButton label={t("Start Resignation")} permission={null} disabled={loading} onClick={() => setIsResigning(true)} />
-                    ) : isOpen && !resignation?.withdrawalRequested ? (
+                    ) : isOpen && !onBehalf && !resignation?.withdrawalRequested ? (
                         <button type="button" className={TOOL_BUTTON} disabled={loading} onClick={() => setWithdrawing(true)}>
                             <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
                             {t("Withdraw Resignation")}
@@ -231,6 +236,7 @@ const ExitManagementPage: React.FC = () => {
             />
 
             <div className={PAGE_BODY}>
+                {picker}
                 {/* This page is the user's own resignation; approvers handle everyone's on Exit Approvals */}
                 {canApprove && (
                     <p className="mb-3 rounded-lg border border-[rgb(var(--brand-100,178_235_242))] bg-[rgb(var(--brand-50,224_247_250))] px-3 py-2 text-xs text-slate-700">

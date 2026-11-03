@@ -72,8 +72,16 @@ const monthLabel = (key: string, withYear = false) => {
 };
 
 const SOURCES = {
-  employees: () => getList<Employee>(`${PAYROLL}/employee/all`),
-  departments: () => countOf(`${PAYROLL}/department/listAll`),
+  // Employees are in the common service, their salaries in payroll
+  employees: async () => {
+    const [employees, salaries] = await Promise.all([
+      getList<Employee>(`/v1/api/common/employee/all?includeInactive=true`),
+      getList<{ employeeId?: number }>(`${PAYROLL}/employee-salaries`),
+    ]);
+    const withSalary = new Map(salaries.map((s) => [s.employeeId, s]));
+    return employees.map((e) => ({ ...e, salary: withSalary.get(e.id) }));
+  },
+  departments: () => countOf(`/v1/api/common/department/listAll`),
   // Payroll runs, plus the department split of the latest completed run
   payroll: async () => {
     const batches = await getList<PayrollBatch>(`${PAYROLL}/getPayrollBatchInfo`);

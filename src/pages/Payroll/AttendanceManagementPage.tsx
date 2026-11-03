@@ -42,8 +42,8 @@ import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
 const ATTENDANCE_API_URL = "/v1/api/payroll/attendance";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
-const DEPARTMENT_API_URL = "/v1/api/payroll/department";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
+const DEPARTMENT_API_URL = "/v1/api/common/department";
 
 const AttendanceManagementPage: React.FC = () => {
   const { canCreate, canDelete, canUpdate } = usePermissions();
@@ -377,7 +377,7 @@ const AttendanceManagementPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("Date")}</label>
-                                    <input type="date" className="w-full h-10 bg-gray-50 border border-gray-200 rounded-lg px-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700" value={formData.date ?? ''} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+                                    <input type="date" className="w-full h-10 bg-gray-50 border border-gray-200 rounded-lg px-4 outline-none focus:border-indigo-500 transition-colors text-sm font-medium text-gray-700" value={formData.date ?? ''} min={employees.find(e => e.id === formData.employee.id)?.joiningDate?.slice(0, 10) || undefined} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">

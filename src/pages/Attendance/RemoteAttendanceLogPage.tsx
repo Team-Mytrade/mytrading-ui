@@ -58,7 +58,7 @@ interface RemoteAttendanceLog {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const EMPLOYEE_API = "/v1/api/payroll/employee";
+const EMPLOYEE_API = "/v1/api/common/employee";
 const REMOTE_API = "/v1/api/attendance/remote-attendance";
 
 const PAGE_SIZE = 10;

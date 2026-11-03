@@ -32,7 +32,7 @@ import { AttendanceRecord } from "../../shared/types/attendance.types";
 
 import { t } from "../../i18n/i18n";
 const ATTENDANCE_API_URL = "/v1/api/payroll/attendance";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
 const LEAVE_BALANCE_API_URL = "/v1/api/payroll/leave-balances";
 const PERFORMANCE_API_URL = "/v1/api/payroll/performance/appraisal";
 const LEAVE_API_URL = "/v1/api/payroll/leaves";
@@ -42,6 +42,8 @@ const EmployeeSelfDashboard: React.FC = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
     const [resolvedEmployeeId, setResolvedEmployeeId] = useState<number | null>(null);
+    // Leave can't start before the employee joined
+    const [joiningDate, setJoiningDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [workDuration, setWorkDuration] = useState("00h 00m 00s");
 
@@ -92,6 +94,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                 `${emp.firstName} ${emp.lastName}`.toLowerCase() === user?.fullName?.toLowerCase()
             );
             setResolvedEmployeeId(match?.id || 1);
+            setJoiningDate(match?.joiningDate?.slice(0, 10) || '');
         } catch { setResolvedEmployeeId(1); }
     };
 
@@ -387,6 +390,7 @@ const EmployeeSelfDashboard: React.FC = () => {
                 isOpen={isLeaveModalOpen}
                 onClose={() => setIsLeaveModalOpen(false)}
                 employeeId={resolvedEmployeeId}
+                joiningDate={joiningDate}
             />
         </div>
     );
@@ -432,7 +436,7 @@ const ActionButton: React.FC<{ label: string, icon: React.ReactNode, href: strin
 
 // --- Leave Modal ---
 
-const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employeeId: number | null }> = ({ isOpen, onClose, employeeId }) => {
+const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employeeId: number | null, joiningDate: string }> = ({ isOpen, onClose, employeeId, joiningDate }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         leaveType: 'Annual',
@@ -509,6 +513,7 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                                     <input
                                         type="date"
                                         value={formData.startDate}
+                                        min={joiningDate || undefined}
                                         onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                                         className="w-full h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none focus:border-gray-900 transition-colors text-sm"
                                     />
@@ -518,6 +523,7 @@ const ApplyLeaveModal: React.FC<{ isOpen: boolean, onClose: () => void, employee
                                     <input
                                         type="date"
                                         value={formData.endDate}
+                                        min={formData.startDate || joiningDate || undefined}
                                         onChange={e => setFormData({ ...formData, endDate: e.target.value })}
                                         className="w-full h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none focus:border-gray-900 transition-colors text-sm"
                                     />

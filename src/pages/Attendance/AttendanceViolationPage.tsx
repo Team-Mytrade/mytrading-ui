@@ -66,7 +66,7 @@ interface AttendanceViolation {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const BASE_URL = "/v1/api/attendance/violations";
-const EMPLOYEE_URL = "/v1/api/payroll/employee";
+const EMPLOYEE_URL = "/v1/api/common/employee";
 
 const PAGE_SIZE = 10;
 

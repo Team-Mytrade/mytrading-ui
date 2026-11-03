@@ -70,8 +70,10 @@ const NO_GEO_DATA: GeoData = {
   City: { getCitiesOfState: () => [] },
 };
 
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
-const DEPARTMENT_API_URL = "/v1/api/payroll/department";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
+const DEPARTMENT_API_URL = "/v1/api/common/department";
+const PAY_COMPONENTS_API_URL = "/v1/api/payroll/employee";
+const SALARY_API_URL = "/v1/api/payroll/employee-salaries";
 // Roles with a "grantable" flag for the signed-in user (needs Users access)
 const ROLE_API_URL = "/v1/api/user/access/roles";
 
@@ -321,7 +323,7 @@ const AddEmployeePage: React.FC = () => {
 
   const fetchPayComponents = async () => {
     try {
-      const res = await axios.get(`${EMPLOYEE_API_URL}/getPayroleComponents`);
+      const res = await axios.get(`${PAY_COMPONENTS_API_URL}/getPayroleComponents`);
       setPayComponents(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error(apiError(error, "Designations could not be loaded"));
@@ -377,13 +379,8 @@ const AddEmployeePage: React.FC = () => {
   const fetchManagers = async () => {
     try {
       const res = await axios.get(`${EMPLOYEE_API_URL}/all`);
-      const managerList = (Array.isArray(res.data) ? res.data : []).filter(
-        (emp: Employee) =>
-          emp.designation?.toLowerCase().includes("manager") ||
-          emp.designation?.toLowerCase().includes("lead") ||
-          emp.designation?.toLowerCase().includes("head")
-      );
-      setManagers(managerList);
+      // Any employee can be a reporting manager; admin decides
+      setManagers(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error("Error fetching managers:", error);
     }
@@ -394,6 +391,8 @@ const AddEmployeePage: React.FC = () => {
     try {
       const res = await axios.get(`${EMPLOYEE_API_URL}/read/${id}`);
       const employeeData = res.data;
+      // The salary is payroll's; an employee may not have one yet
+      employeeData.salary = await axios.get(`${SALARY_API_URL}/${id}`).then((r) => r.data).catch(() => null);
       employeeData.dateOfBirth = fromApiDate(employeeData.dateOfBirth);
       employeeData.joiningDate = fromApiDate(employeeData.joiningDate);
       employeeData.exitDate = fromApiDate(employeeData.exitDate);
@@ -833,33 +832,53 @@ const AddEmployeePage: React.FC = () => {
           aadhaar: form.aadhaarNumber,
           ...gulfToCountryData(form.countryCode, form.gulf),
         },
-        salary: {
-          currency: form.salary.currency,
-          ctc: form.salary.ctc,
-          role: form.designation,
-          country: salaryCountry(form.countryCode),
-          countrySpecificData: {
-            pf_number: form.pfNumber,
-            uan: form.uan,
-            esi_applicable: form.esiApplicable,
-            isMetrocity: form.metroCity,
-            taxRegime: form.taxRegime === "New Regime" ? "NEW" : "OLD"
-          },
-          earnings: earningsObject,
-          additionalBenefits: additionalBenefitsObject,
-          variablePay: variablePayObject,
-        },
       };
 
-      if (editId) {
-        await axios.put(`${EMPLOYEE_API_URL}/update/${editId}`, submitData);
-        ToasterService.success("Employee updated");
-      } else {
-        const res = await axios.post(`${EMPLOYEE_API_URL}/create`, submitData);
+      const salaryData = {
+        currency: form.salary.currency,
+        ctc: form.salary.ctc,
+        role: form.designation,
+        country: salaryCountry(form.countryCode),
+        countrySpecificData: {
+          pf_number: form.pfNumber,
+          uan: form.uan,
+          esi_applicable: form.esiApplicable,
+          isMetrocity: form.metroCity,
+          taxRegime: form.taxRegime === "New Regime" ? "NEW" : "OLD"
+        },
+        earnings: earningsObject,
+        additionalBenefits: additionalBenefitsObject,
+        variablePay: variablePayObject,
+      };
+
+      // Checked first, so a designation without pay components stops before anything is saved
+      const check = await axios.get(`${SALARY_API_URL}/check-designation`, { params: { designation: form.designation } });
+      const designation = check.data.designation;
+      const employeeBody = { ...submitData, designation };
+
+      const created = editId ? null : (await axios.post(`${EMPLOYEE_API_URL}/create`, employeeBody)).data;
+      if (editId) await axios.put(`${EMPLOYEE_API_URL}/update/${editId}`, employeeBody);
+      const employeeId = editId ?? created.id;
+
+      // Salaries belong to payroll. The employee is already saved here, so say so if only this part fails
+      try {
+        await axios.put(`${SALARY_API_URL}/employee/${employeeId}`, { designation, salary: salaryData });
+      } catch (salaryError) {
+        ToasterService.error(apiError(salaryError, "The salary could not be saved"),
+          "The employee details are saved. Check the salary and save again.");
+        setCurrentStep(FIELD_STEPS["salary.ctc"]);
+        // A new employee now exists: saving again must update them, not add them twice
+        if (!editId) navigate(`/addEmployee?editId=${employeeId}`, { replace: true });
+        return;
+      }
+
+      if (created) {
         ToasterService.success(
-          res.data?.employeeCode ? `Employee ${res.data.employeeCode} added` : "Employee added",
-          `They sign in as ${res.data?.userDto?.username ?? form.officialEmail.toLowerCase()}`
+          created.employeeCode ? `Employee ${created.employeeCode} added` : "Employee added",
+          `They sign in as ${created.userDto?.username ?? form.officialEmail.toLowerCase()}`
         );
+      } else {
+        ToasterService.success("Employee updated");
       }
       navigate(-1);
     } catch (error) {
@@ -1406,7 +1425,7 @@ const AddEmployeePage: React.FC = () => {
                             className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition bg-white"
                           >
                             <option value="">{t("Select Manager")}</option>
-                            {managers.map((manager) => (
+                            {managers.filter((manager) => String(manager.id) !== editId).map((manager) => (
                               <option key={manager.id} value={manager.id}>
                                 {manager.firstName} {manager.lastName} - {manager.designation}
                               </option>
@@ -1804,6 +1823,12 @@ const AddEmployeePage: React.FC = () => {
                           <option value="New Regime">{t("New Regime")}</option>
                           <option value="Old Regime">{t("Old Regime")}</option>
                         </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {t(form.taxRegime === "Old Regime"
+                            ? "TDS uses the old slabs with the 50,000 standard deduction, approved IT declarations, the employee's PF under 80C (up to 1.5 L) and professional tax."
+                            : "TDS uses the new slabs with the 75,000 standard deduction; no tax up to 12 L of taxable income. IT declarations don't apply.")}
+                          {" "}{t("A submitted IT declaration's regime takes precedence for its financial year.")}
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1817,6 +1842,7 @@ const AddEmployeePage: React.FC = () => {
                           <div>
                             <div className="text-sm font-medium text-gray-900">{t("ESI Applicable")}</div>
                             <div className="text-xs text-gray-500">{t("Employee State Insurance Corporation")}</div>
+                            <div className="text-xs text-gray-500">{t("Deducted (0.75%, employer 3.25%) while the monthly gross is ₹21,000 or less")}</div>
                           </div>
                         </label>
                         <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition">
@@ -1832,6 +1858,11 @@ const AddEmployeePage: React.FC = () => {
                           </div>
                         </label>
                       </div>
+                      <p className="text-xs text-gray-500">
+                        {t("Professional tax is deducted by the state in the current address")}
+                        {form.currentAddress?.state ? ` (${form.currentAddress.state})` : ""}.
+                        {" "}{t("States without professional tax deduct none.")}
+                      </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                         <div>
@@ -1839,7 +1870,8 @@ const AddEmployeePage: React.FC = () => {
                           <input
                             type="text"
                             value={form.panNumber}
-                            onChange={(e) => handleChange("panNumber", e.target.value.toUpperCase())}
+                            onChange={(e) => handleChange("panNumber", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))}
+                            maxLength={10}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${(errors as any).panNumber ? "border-red-500" : "border-gray-300"}`}
                             placeholder={t("ABCDE1234F")}
                           />

@@ -116,7 +116,7 @@ const LeaveDashboardPage: React.FC = () => {
   useEffect(() => {
     const resolveUserEmployeeId = async () => {
       try {
-        const empRes = await axios.get('/v1/api/payroll/employee/all');
+        const empRes = await axios.get('/v1/api/common/employee/all?includeInactive=true');
         if (Array.isArray(empRes.data) && empRes.data.length > 0) {
           const map: Record<number, string> = {};
           empRes.data.forEach((e: any) => {

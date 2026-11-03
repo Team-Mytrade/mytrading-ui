@@ -31,7 +31,7 @@ import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
-import { t } from "../../i18n/i18n";
+import { t } from "../../i18n/i18n";
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
 // Amounts are YEARLY, as payroll stores them; a month pays one twelfth
@@ -48,10 +48,10 @@ type SalaryStructure = {
     effectiveFrom: string;
 };
 
-type EmployeeOption = { id: number; employeeCode?: string; firstName?: string; lastName?: string };
+type EmployeeOption = { id: number; employeeCode?: string; firstName?: string; lastName?: string; joiningDate?: string };
 
 const API_URL = "/v1/api/payroll/salary-structures";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee/all";
+const EMPLOYEE_API_URL = "/v1/api/common/employee/all";
 const PAGE_SIZE = 10;
 
 const emptyForm = { employeeId: '', basic: 0, hra: 0, allowances: 0, ctc: 0, effectiveFrom: todayIso() };
@@ -458,7 +458,7 @@ const SalaryStructurePage: React.FC = () => {
                                 disabled={editingId !== null}
                                 required
                             />,
-                            <FloatingInput key="effectiveFrom" label={t("Effective From")} name="effectiveFrom" type="date" value={form.effectiveFrom} onChange={handleChange} required />,
+                            <FloatingInput key="effectiveFrom" label={t("Effective From")} name="effectiveFrom" type="date" min={employees.find(e => String(e.id) === String(form.employeeId))?.joiningDate?.slice(0, 10) || undefined} value={form.effectiveFrom} onChange={handleChange} required />,
                             <FloatingInput key="basic" label={t("Basic (yearly)")} name="basic" type="number" min={0} value={form.basic === 0 ? "" : form.basic} onChange={handleChange} required />,
                             <FloatingInput key="hra" label={t("HRA (yearly)")} name="hra" type="number" min={0} value={form.hra === 0 ? "" : form.hra} onChange={handleChange} />,
                             <FloatingInput key="allowances" label={t("Other Allowances (yearly)")} name="allowances" type="number" min={0} value={form.allowances === 0 ? "" : form.allowances} onChange={handleChange} />,

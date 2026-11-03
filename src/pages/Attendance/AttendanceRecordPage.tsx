@@ -80,7 +80,7 @@ interface AttendanceRecord {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_URL = "/v1/api/attendance/records";
-const EMPLOYEE_URL = "/v1/api/payroll/employee";
+const EMPLOYEE_URL = "/v1/api/common/employee";
 const SHIFT_URL = "/v1/api/attendance/shifts";
 
 const PAGE_SIZE = 10;

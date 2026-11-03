@@ -155,6 +155,9 @@ export const navItems: NavItem[] = [
       { name: "Vendors", path: "/common/vendors", icon: Store, section: "Master data" },
       { name: "Product Categories", path: "/common/categories", icon: FolderTree, section: "Master data" },
       { name: "Products", path: "/common/products", icon: Package, section: "Master data" },
+      // Employees and departments are kept by the common service too (HRM permissions as before)
+      { name: "Employees", path: "/employeeRecords", icon: Users, section: "People" },
+      { name: "Departments", path: "/employeeDepartments", icon: Building2, section: "People" },
       { name: "Payment Terms", path: "/paymentTerms", icon: CalendarClock, section: "Terms & tax" },
       { name: "Tax Types", path: "/taxTypes", icon: Percent, section: "Terms & tax" },
       { name: "Tax Details", path: "/taxDetails", icon: FileText, section: "Terms & tax" },
@@ -276,8 +279,6 @@ export const navItems: NavItem[] = [
     icon: <Briefcase className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
-      { name: "Employees", path: "/employeeRecords", icon: Users, section: "People" },
-      { name: "Departments", path: "/employeeDepartments", icon: Building2, section: "People" },
       { name: "Documents", path: "/employeeDocuments", icon: FolderOpen, section: "People" },
       // Pay components → structures → salaries → declarations → run → payslips
       { name: "Compensation", path: "/employeeCompensation", icon: Coins, section: "Payroll" },

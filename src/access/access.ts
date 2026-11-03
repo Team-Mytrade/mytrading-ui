@@ -277,9 +277,17 @@ const SHARED_ROUTES: [string, AppModule][] = [
   ["/exit-management", "HRM"],
 ];
 
+// Request pages where admins (MODULE:ADMIN) raise requests on behalf of an employee (useActingEmployee),
+// so they open for admins without an employee record of their own
+const ON_BEHALF_ROUTES = ["/att_leaveRequest", "/att_timesheetManagement", "/att_requests"];
+
 export const canAccessPath = (access: AccessInfo, pathname: string): boolean => {
   const selfService = isSelfServicePath(pathname);
   if (selfService) {
+    if (ON_BEHALF_ROUTES.includes(pathname) && hasModule(access, selfService)
+        && hasPermission(access, `${selfService}:ADMIN`)) {
+      return true;
+    }
     return (
       access.employeeId != null &&
       (hasModule(access, selfService) || access.tenantModules.includes(selfService))

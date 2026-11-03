@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -51,7 +51,8 @@ import { formatNumber, formatDate as companyFormatDate, companyCurrency } from "
 import { GULF_LABELS, PAYROLL_COUNTRIES, contributionSummary, gulfFromCountryData, gulfToCountryData, gulfValueLabel, isGcc } from "./gulfPayroll";
 
 import { t } from "../../i18n/i18n";
-const EMPLOYEE_API_URL = "/v1/api/payroll/employee";
+import { AuthContext } from "../../context/AuthContext";
+const EMPLOYEE_API_URL = "/v1/api/common/employee";
 
 interface EmployeeData {
   id: number;
@@ -132,6 +133,7 @@ const EmployeeViewPage: React.FC = () => {
   const { canUpdate } = usePermissions();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { access } = useContext(AuthContext);
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +164,9 @@ const EmployeeViewPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await axios.get(`${EMPLOYEE_API_URL}/read/${id}`);
-      setEmployee(res.data);
+      // The salary is payroll's; an employee may not have one yet
+      const salary = await axios.get(`/v1/api/payroll/employee-salaries/${id}`).then((r) => r.data).catch(() => null);
+      setEmployee({ ...res.data, salary });
     } catch (err: any) {
       console.error("Error fetching employee details:", err);
       setError("Failed to load employee details.");
@@ -745,6 +749,41 @@ const EmployeeViewPage: React.FC = () => {
         {/* <div className="mt-8">
           <MyPayslipsTab employeeId={employee.id} />
         </div> */}
+
+        {/* Requests an admin raises for this employee (e.g. they can't sign in); their manager decides them */}
+        {(access.superAdmin || access.permissions.includes("ATTENDANCE:ADMIN") || access.permissions.includes("HRM:ADMIN")) && employee.active && (
+          <div className="mt-8">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-cyan-600" />
+                {t("Act on behalf of")} {employee.firstName}
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">{t("The request goes to their reporting manager, and they are notified.")}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { icon: Calendar, title: "Apply leave", link: "/att_leaveRequest", permission: "ATTENDANCE:ADMIN" },
+                  { icon: Clock, title: "On duty / WFH request", link: "/att_requests", permission: "ATTENDANCE:ADMIN" },
+                  { icon: FileText, title: "Regularize attendance", link: "/att_timesheetManagement", permission: "ATTENDANCE:ADMIN" },
+                  { icon: DoorOpen, title: "Raise exit request", link: "/exit-management", permission: "HRM:ADMIN" },
+                ].filter((a) => access.superAdmin || access.permissions.includes(a.permission)).map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.link}
+                      onClick={() => navigate(`${action.link}?employeeId=${employee.id}`)}
+                      className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 group-hover:bg-cyan-100 flex items-center justify-center transition">
+                        <Icon className="w-5 h-5 text-gray-600 group-hover:text-cyan-600" />
+                      </div>
+                      <span className="text-xs font-medium text-gray-700 group-hover:text-cyan-700 text-center">{t(action.title)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Navigation Cards - Quick Links */}
         <div className="mt-8">

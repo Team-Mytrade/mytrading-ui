@@ -164,6 +164,9 @@ const ExitApprovalsPage: React.FC = () => {
                 <div className="flex flex-col">
                     <span className="font-semibold text-gray-900 dark:text-white">{row.employeeName || `EMP-${row.employeeId}`}</span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{row.employeeCode || '—'} • {row.designation || '—'}</span>
+                    {row.approval?.onBehalf && (
+                        <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">{t("Raised by")} {row.approval.submittedByName || 'HR'}</span>
+                    )}
                 </div>
             )
         },

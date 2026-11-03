@@ -1,4 +1,5 @@
 import axios from "axios";
+import { useEffect, useState } from "react";
 import { t } from "../../i18n/i18n";
 
 // Shared calls and labels for the attendance pages (attendance service under /v1/api/attendance).
@@ -67,6 +68,32 @@ export interface CalendarDay {
   regularized?: boolean;
   attendanceMode?: string | null;
 }
+
+/**
+ * The employee's joining date (yyyy-mm-dd) from the calendar endpoint, "" while unknown. Requests can't be raised
+ * for earlier days, so pickers use it as their first selectable date.
+ */
+export const useJoiningDate = (employeeId?: number, enabled = true): string => {
+  const [joiningDate, setJoiningDate] = useState("");
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const now = new Date();
+    const url = employeeId ? `${ATTENDANCE_API}/records/my-calendar/${employeeId}` : `${ATTENDANCE_API}/records/my-calendar`;
+    axios.get(url, { params: { year: now.getFullYear(), month: now.getMonth() + 1 } })
+      .then((res) => { if (!cancelled) setJoiningDate(res.data?.joiningDate || ""); })
+      .catch(() => { if (!cancelled) setJoiningDate(""); });
+    return () => { cancelled = true; };
+  }, [employeeId, enabled]);
+  return joiningDate;
+};
+
+/** Whether a yyyy-mm-dd day is before the joining date. */
+export const beforeJoining = (date: string, joiningDate: string) => !!joiningDate && date < joiningDate;
+
+/** Whether the month (0-based) holds no day on or after the joining date, so the calendar can't go back to it. */
+export const monthBeforeJoining = (year: number, month0: number, joiningDate: string) =>
+  !!joiningDate && `${year}-${String(month0 + 1).padStart(2, "0")}-31` < joiningDate;
 
 export const fetchMonth = async (year: number, month1: number, employeeId?: number): Promise<CalendarDay[]> => {
   const url = employeeId ? `${ATTENDANCE_API}/records/my-calendar/${employeeId}` : `${ATTENDANCE_API}/records/my-calendar`;

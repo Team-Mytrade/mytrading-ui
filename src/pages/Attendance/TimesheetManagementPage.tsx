@@ -1,4 +1,4 @@
-import { useCurrentEmployee } from "../../access/useCurrentEmployee";
+import { useActingEmployee } from "../../access/useActingEmployee";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, X, Search, Calendar, AlertCircle, Clock, FileText } from 'lucide-react';
@@ -7,7 +7,7 @@ import { TOOL_BUTTON } from '../Payroll/hrmsUi';
 import PageMeta from '../../components/common/PageMeta';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from '../../utils/localDate';
-import { apiError, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, timeOf, withBrowserOffset } from './attendanceApi';
+import { apiError, beforeJoining, CalendarDay, DAY_KIND_LABEL, dayKind, fetchMonth, hoursOf, monthBeforeJoining, timeOf, useJoiningDate, withBrowserOffset } from './attendanceApi';
 import { leadingDays, weekdayLabels, liveMonthNames } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
 
@@ -51,7 +51,8 @@ const TimesheetManagementPage: React.FC = () => {
   const today = todayIso();
 
   // Own employee identity from the login token (no hard-coded ids)
-  const currentUser = useCurrentEmployee();
+  // Admins may regularize another employee's days (On behalf of)
+  const { employee: currentUser, onBehalf, picker } = useActingEmployee("ATTENDANCE");
 
   const [firstClickDate, setFirstClickDate] = useState<string | null>(null);
   const [selectedCards, setSelectedCards] = useState<DateRequestCardState[]>([]);
@@ -70,12 +71,12 @@ const TimesheetManagementPage: React.FC = () => {
   const fetchRegularizationLogs = useCallback(async () => {
     if (!currentUser.hasEmployee) return;
     try {
-      const res = await axios.get(`${REGULARIZATION_URL}/my`);
+      const res = await axios.get(`${REGULARIZATION_URL}/my`, { params: onBehalf ? { employeeId: currentUser.id } : undefined });
       setRegularizationLogs(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       ToasterService.error(apiError(err, 'Could not load your regularization requests.'));
     }
-  }, [currentUser.hasEmployee]);
+  }, [currentUser.hasEmployee, onBehalf, currentUser.id]);
 
   useEffect(() => {
     fetchRegularizationLogs();
@@ -84,12 +85,12 @@ const TimesheetManagementPage: React.FC = () => {
   const loadMonth = useCallback(async (year: number, month1: number) => {
     if (!currentUser.hasEmployee) return;
     try {
-      const list = await fetchMonth(year, month1);
+      const list = await fetchMonth(year, month1, onBehalf ? currentUser.id : undefined);
       setDays((prev) => ({ ...prev, ...Object.fromEntries(list.map((d) => [d.date, d])) }));
     } catch {
       // The calendar still works without day details
     }
-  }, [currentUser.hasEmployee]);
+  }, [currentUser.hasEmployee, onBehalf, currentUser.id]);
 
   useEffect(() => {
     loadMonth(currentYear, currentMonth + 1);
@@ -103,7 +104,10 @@ const TimesheetManagementPage: React.FC = () => {
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (month: number, year: number) => leadingDays(year, month);
 
-  const handlePrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+  // Days before the employee joined can't be regularized
+  const joiningDate = useJoiningDate(onBehalf ? currentUser.id : undefined, currentUser.hasEmployee);
+  const prevMonthBlocked = monthBeforeJoining(currentYear, currentMonth - 1, joiningDate);
+  const handlePrevMonth = () => { if (!prevMonthBlocked) setCurrentDate(new Date(currentYear, currentMonth - 1, 1)); };
   const handleNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
 
   // A new card starts from what the day already has: a missing check-out keeps the real check-in
@@ -124,7 +128,7 @@ const TimesheetManagementPage: React.FC = () => {
   // Past working days only; one request per day while another is pending
   const selectable = (date: string) => {
     const day = days[date];
-    return date <= today && !pendingDates.has(date) && !(day?.holidayName || day?.weeklyOff || day?.status === 'ON_LEAVE');
+    return date <= today && !beforeJoining(date, joiningDate) && !pendingDates.has(date) && !(day?.holidayName || day?.weeklyOff || day?.status === 'ON_LEAVE');
   };
 
   const datesBetween = (a: string, b: string) => {
@@ -187,7 +191,8 @@ const TimesheetManagementPage: React.FC = () => {
       const missingPunch = date < today && (kind === 'ABSENT' || kind === 'HALF_DAY' || (day?.inTime && !day?.outTime));
       const isSelected = selectedDates.has(date) || firstClickDate === date;
       const disabled = !selectable(date);
-      const title = pendingDates.has(date) ? 'A request is already pending'
+      const title = beforeJoining(date, joiningDate) ? t('Before the joining date')
+        : pendingDates.has(date) ? 'A request is already pending'
         : day?.holidayName || (day?.weeklyOff ? 'Weekly off' : DAY_KIND_LABEL[kind]) || undefined;
 
       cells.push(
@@ -244,6 +249,7 @@ const TimesheetManagementPage: React.FC = () => {
     for (const card of selectedCards) {
       try {
         await axios.post(REGULARIZATION_URL, {
+          employeedId: onBehalf ? currentUser.id : undefined,
           attendanceDate: card.date,
           // Typed in the browser's time zone; the offset lets the server store the right moment
           inTime: card.reasonType !== 'FORGOT_OUT' ? withBrowserOffset(`${card.date}T${card.inTime}:00`) : null,
@@ -297,6 +303,8 @@ const TimesheetManagementPage: React.FC = () => {
         }
       />
 
+      {picker}
+
       <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-200">
 
         {firstClickDate && (
@@ -314,7 +322,7 @@ const TimesheetManagementPage: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:!border-transparent pb-2.5">
                 <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#222222] px-2 py-1 rounded-xl border border-slate-200/80 dark:!border-transparent shadow-2xs">
-                  <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer">
+                  <button type="button" onClick={handlePrevMonth} disabled={prevMonthBlocked} className="p-1 hover:bg-white dark:hover:bg-[#2a2a2a] rounded-md text-slate-600 dark:text-gray-300 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider min-w-[120px] text-center">

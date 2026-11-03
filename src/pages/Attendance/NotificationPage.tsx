@@ -58,7 +58,7 @@ interface Notification extends AttendanceNotificationRecord {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_URL = "/v1/api/attendance/notifications";
-const EMPLOYEE_API = "/v1/api/payroll/employee";
+const EMPLOYEE_API = "/v1/api/common/employee";
 
 const PAGE_SIZE = 10;
 

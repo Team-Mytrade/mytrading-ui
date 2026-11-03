@@ -111,7 +111,7 @@ const EmployeeSalaryPage: React.FC = () => {
         try {
             const [salariesRes, empRes] = await Promise.all([
                 axios.get(SALARY_API),
-                axios.get('/v1/api/payroll/employee/all')
+                axios.get('/v1/api/common/employee/all?includeInactive=true')
             ]);
             
             const data = Array.isArray(salariesRes.data) ? salariesRes.data : [];
