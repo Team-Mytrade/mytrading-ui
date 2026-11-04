@@ -25,6 +25,8 @@ import {
   todayInput,
 } from "./invoiceShared";
 import { DialogFooter, StatusBadge } from "./invoiceUi";
+import { defaultBankAccountId, useBankAccounts } from "./bankShared";
+import BankAccountField from "./BankAccountField";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/expenses-revenue`;
@@ -40,12 +42,17 @@ interface Item {
   paymentMethod?: string;
   referenceNumber?: string;
   generalAccount?: Pick<GeneralAccount, "id" | "accountCode" | "accountName"> | null;
+  bankAccountId?: number | null;
+  /** In the ledger: new entries post as they are saved; older ones when someone posts them. */
+  posted?: boolean;
 }
 
-// Expense and revenue first; the rest are the service's other movement types
-const TYPE_OPTIONS: Option[] = ["EXPENSE", "REVENUE", "REFUND", "ADJUSTMENT", "TRANSFER", "CREDIT_NOTE", "DEBIT_NOTE", "CHARGEBACK", "WRITE_OFF", "OTHER"].map(
-  (id) => ({ id, name: id === "REVENUE" ? "Revenue (income)" : labelOf(id) })
-);
+// Each entry posts to the ledger, so only expenses and income are recorded here (the rest go in as journal entries)
+const TYPE_OPTIONS: Option[] = [
+  { id: "EXPENSE", name: "Expense" },
+  { id: "REVENUE", name: "Revenue (income)" },
+];
+const POSTABLE = new Set(["EXPENSE", "REVENUE"]);
 
 const CATEGORY_OPTIONS: Option[] = [
   "RENT", "SALARY", "UTILITIES", "FREIGHT", "OFFICE_SUPPLIES", "MAINTENANCE", "TRAVEL", "ENTERTAINMENT",
@@ -69,6 +76,7 @@ const emptyForm = () => ({
   transactionDate: todayInput(),
   paymentMethod: "BANK_TRANSFER",
   generalAccountId: "",
+  bankAccountId: "",
 });
 
 const ExpenseRevenue: React.FC = () => {
@@ -83,6 +91,9 @@ const ExpenseRevenue: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Item | null>(null);
+  const [posting, setPosting] = useState<Item | null>(null);
+  const bankAccounts = useBankAccounts();
+  const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -115,22 +126,40 @@ const ExpenseRevenue: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm());
+    const fresh = emptyForm();
+    setForm({ ...fresh, bankAccountId: bankAccounts ? defaultBankAccountId(bankAccounts, fresh.paymentMethod) : "" });
     setFormOpen(true);
   };
 
   const openEdit = (item: Item) => {
     setEditing(item);
     setForm({
-      revenueExpenseType: item.revenueExpenseType ?? "EXPENSE",
+      // An older movement type is recorded again as an expense or income (only those post)
+      revenueExpenseType: item.revenueExpenseType && POSTABLE.has(item.revenueExpenseType) ? item.revenueExpenseType : "EXPENSE",
       revenueExpenseCategory: item.revenueExpenseCategory ?? "",
       description: item.description ?? "",
       amount: item.amount != null ? String(item.amount) : "",
       transactionDate: item.transactionDate ?? todayInput(),
       paymentMethod: item.paymentMethod || "BANK_TRANSFER",
       generalAccountId: item.generalAccount?.id ? String(item.generalAccount.id) : "",
+      bankAccountId: item.bankAccountId != null ? String(item.bankAccountId) : "",
     });
     setFormOpen(true);
+  };
+
+  const postOlder = async () => {
+    if (!posting) return;
+    setBusy(true);
+    try {
+      await axios.post(`${API_URL}/${posting.id}/post`);
+      ToasterService.success(`${posting.referenceNumber ?? "Item"}: ${t("posted to the ledger")}`);
+      setPosting(null);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not post the item"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const save = async (event: React.FormEvent) => {
@@ -148,6 +177,7 @@ const ExpenseRevenue: React.FC = () => {
       transactionDate: form.transactionDate || null,
       paymentMethod: form.paymentMethod || null,
       generalAccount: form.generalAccountId ? { id: Number(form.generalAccountId) } : null,
+      bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
     };
     setBusy(true);
     try {
@@ -229,6 +259,26 @@ const ExpenseRevenue: React.FC = () => {
       render: (row) => (
         <span className={`text-sm font-semibold ${row.revenueExpenseType === "REVENUE" ? "text-emerald-700" : "text-slate-900"}`}>{money(row.amount)}</span>
       ),
+    },
+    {
+      key: "posted",
+      label: "In the books",
+      sortable: true,
+      sortValueGetter: (row) => (row.posted ? 1 : 0),
+      render: (row) =>
+        row.posted ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+            <CheckCircleIcon className="h-4 w-4" /> {t("Posted")}
+          </span>
+        ) : POSTABLE.has(row.revenueExpenseType ?? "") && canCreate ? (
+          <button type="button" onClick={() => setPosting(row)} className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-100">
+            {t("Post to the ledger")}
+          </button>
+        ) : (
+          <span className="text-xs text-slate-400" title={POSTABLE.has(row.revenueExpenseType ?? "") ? undefined : t("Only expenses and income post; record this as a journal entry")}>
+            {t("Not posted")}
+          </span>
+        ),
     },
     {
       key: "actions",
@@ -323,9 +373,21 @@ const ExpenseRevenue: React.FC = () => {
               <FloatingInput label={t("Date")} name="transactionDate" type="date" value={form.transactionDate}
                 onChange={(event) => setForm((current) => ({ ...current, transactionDate: event.target.value }))} />
               <FloatingSelect1 label={t("Payment method")} name="paymentMethod" value={form.paymentMethod} options={PAYMENT_METHOD_OPTIONS}
-                onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))} />
-              <FloatingSelect1 label={t("Ledger account (optional)")} name="generalAccountId" value={form.generalAccountId} options={accountOptions}
-                onChange={(event) => setForm((current) => ({ ...current, generalAccountId: event.target.value }))} />
+                onChange={(event) => {
+                  const paymentMethod = event.target.value;
+                  setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
+                }} />
+              <BankAccountField accounts={bankAccounts} label={t(form.revenueExpenseType === "REVENUE" ? "Received into" : "Paid from")}
+                value={form.bankAccountId} onChange={setBankAccount} />
+              <div className="sm:col-span-2">
+                <FloatingSelect1 label={t("Ledger account (optional)")} name="generalAccountId" value={form.generalAccountId} options={accountOptions}
+                  onChange={(event) => setForm((current) => ({ ...current, generalAccountId: event.target.value }))} />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {t(form.revenueExpenseType === "REVENUE"
+                    ? "Posted to this income account; blank: Other income."
+                    : "Posted to this expense account; blank: Purchases and expenses.")}
+                </p>
+              </div>
             </div>
             <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Record")} busy={busy} />
           </form>
@@ -340,6 +402,15 @@ const ExpenseRevenue: React.FC = () => {
         variant="danger"
         onConfirm={remove}
         onCancel={() => setDeleting(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(posting)}
+        title={t("Post to the ledger")}
+        message={`${posting?.referenceNumber ?? ""}: ${posting?.description ?? ""} (${money(posting?.amount)}). ${t("It was recorded before entries posted automatically. Post it only if it is not already in the books, for example through its bank statement line.")}`}
+        confirmLabel={t("Post")}
+        onConfirm={postOlder}
+        onCancel={() => setPosting(null)}
       />
     </>
   );

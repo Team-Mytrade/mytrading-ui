@@ -9,6 +9,8 @@ import { hasPermission } from "../../access/access";
 import { GeneralAccount, INVOICE_API, accountLabel, apiError } from "./invoiceShared";
 import { CARD, CARD_TITLE, PAGE_BODY, TOOL_BUTTON } from "../Payroll/hrmsUi";
 import PeriodLockCard from "./PeriodLockCard";
+import FxRevaluationCard from "./FxRevaluationCard";
+import YearEndCloseCard from "./YearEndCloseCard";
 
 import { t } from "../../i18n/i18n";
 interface PostingAccountView {
@@ -39,6 +41,8 @@ const USED_FOR: Record<string, string> = {
   SALES: "Sales invoices (before tax).",
   SALES_RETURNS: "Credit notes (before tax).",
   EXCHANGE_DIFFERENCES: "Gains and losses when a foreign-currency invoice or bill is settled at a different rate.",
+  RETAINED_EARNINGS: "Each closed year's profit or loss (the year-end close).",
+  UNREALISED_EXCHANGE:"Month-end revaluation of open foreign-currency invoices and bills (reversed the next day).",
   OUTPUT_TAX: "VAT / GST charged on sales, and reverse-charge VAT on purchases.",
   CUSTOMER_CREDIT: "Advances, overpayments and credit notes kept for customers.",
   CASH: "Receipts and payments made in cash, when no cash box is set up in Bank & Cash.",
@@ -46,7 +50,8 @@ const USED_FOR: Record<string, string> = {
   PAYABLES: "What the company owes vendors: bills, payments, debit notes.",
   INPUT_TAX: "VAT / GST paid on bills, reclaimable.",
   GOODS_RECEIVED_NOT_BILLED: "Goods received into stock until their bill is recorded (cleared by bills and debit notes).",
-  PURCHASES: "Bills that are not for received goods (services, expenses).",
+  PURCHASES: "Bills that are not for received goods (services, expenses), and expenses recorded without an account.",
+  OTHER_INCOME: "Income recorded on Expenses & Revenue without an account of its own.",
   INVENTORY: "Stock value: receipts in, sales and write-offs out, at average cost.",
   COST_OF_SALES: "Cost of the goods sold and returned.",
   STOCK_ADJUSTMENTS: "Stock counted up, written off or damaged.",
@@ -55,6 +60,15 @@ const USED_FOR: Record<string, string> = {
   ACCUMULATED_DEPRECIATION: "Depreciation so far on those assets.",
   DEPRECIATION_EXPENSE: "Each month's depreciation.",
   ASSET_DISPOSALS: "Gains and losses when assets are sold or scrapped.",
+  // Payroll runs and salary payments (from the payroll service)
+  SALARIES_EXPENSE: "Each payroll run's earnings, less loss of pay and unpaid sick days.",
+  EMPLOYER_CONTRIBUTIONS: "The employer's share of pension, social insurance, PF and ESI.",
+  GRATUITY_EXPENSE: "Each month's end-of-service gratuity earned.",
+  SALARIES_PAYABLE: "Net pay owed from a payroll run until the salary payment is recorded.",
+  SOCIAL_SECURITY_PAYABLE: "Pension, social insurance, PF and ESI withheld or owed, until paid to the authority.",
+  PAYROLL_TAX_PAYABLE: "Income tax (TDS) and professional tax withheld from salaries.",
+  PAYROLL_DEDUCTIONS: "Other deductions from pay, such as loan recoveries.",
+  GRATUITY_PROVISION: "End-of-service gratuity earned so far; used when it is paid to a leaving employee.",
 };
 
 const SELECT =
@@ -72,6 +86,8 @@ export default function PostingAccounts() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  // Bumped when a year-end close moves the lock date, so the lock card shows it
+  const [lockVersion, setLockVersion] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -142,7 +158,9 @@ export default function PostingAccounts() {
         ) : undefined}
       />
       <div className={PAGE_BODY}>
-        <PeriodLockCard editable={editable} />
+        <PeriodLockCard key={lockVersion} editable={editable} />
+        <FxRevaluationCard editable={editable} />
+        <YearEndCloseCard editable={editable} onLockChanged={() => setLockVersion((v) => v + 1)} />
         <section className={`${CARD} p-5`}>
           <h3 className={`${CARD_TITLE} mb-2 flex items-center gap-2`}>
             <BookOpenIcon className="h-4 w-4 text-cyan-600" /> {t("Automatic postings")}
@@ -163,7 +181,7 @@ export default function PostingAccounts() {
                       {role.label}
                       <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">{role.requiredType.toLowerCase()}</span>
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-gray-400">{USED_FOR[role.role]}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-gray-400">{USED_FOR[role.role] ? t(USED_FOR[role.role]) : null}</p>
                   </div>
                   <select
                     aria-label={`Account for ${role.label}`}

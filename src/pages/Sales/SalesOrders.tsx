@@ -2,6 +2,7 @@ import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "rea
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  ArchiveBoxXMarkIcon,
   BanknotesIcon,
   CalendarDaysIcon,
   CheckBadgeIcon,
@@ -11,8 +12,10 @@ import {
   ShoppingCartIcon,
   TrashIcon,
   TruckIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
+import CloseOrderDialog from "../../components/common/CloseOrderDialog";
 import DynamicPopup from "../../components/common/Popup";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -118,14 +121,19 @@ type SalesOrder = {
   paymentTerms: string;
   dueDate: string;
   items: SalesOrderItem[];
+  // Cancelled or closed short: when and why
+  closedAt?: string | null;
+  closeReason?: string | null;
 };
 
 /** What is still left to dispatch on one order line. */
 type DispatchableItem = {
   salesOrderItemId: number;
-  productId: number;
+  productId?: number | null;
   productCode?: string;
   productName?: string;
+  /** PRODUCT, or SERVICE / LABOUR / MISC / OTHER: lines delivered without stock */
+  itemType?: string;
   orderedQuantity: number;
   dispatchedQuantity: number;
   /** Held by draft dispatches that are not confirmed yet */
@@ -304,6 +312,22 @@ const DISPATCH_API_URL = "/v1/api/sales/dispatch";
 const WAREHOUSE_API_URL = "/v1/api/inventory/warehouses";
 // Confirmed orders ship in one or more dispatches; a confirmed dispatch issues the stock and can be invoiced
 const DISPATCHABLE_STATUSES = ["CONFIRMED", "PARTIALLY_DELIVERED"];
+// Services are dispatched (delivered) too, without stock. Orders delivered before that may still have some left.
+const canDispatchOrder = (order: SalesOrder) =>
+  !order.closedAt && (DISPATCHABLE_STATUSES.includes(order.status) ||
+  (order.status === "DELIVERED" && (order.items || []).some((item) => Number(item.pendingQuantity) > 0)));
+// Only products are reserved in a warehouse; an order of services alone needs none
+const needsWarehouse = (order: SalesOrder | null) =>
+  !!order && (order.items || []).some((item) => (item.itemType || "PRODUCT") === "PRODUCT");
+const isServiceLine = (itemType?: string) => !!itemType && itemType !== "PRODUCT";
+// Nothing delivered yet: cancel; part delivered: close short (SALES:APPROVE; the server checks the same)
+const canCancelOrder = (order: SalesOrder) =>
+  !order.closedAt && ["CONFIRMED", "APPROVED", "PROCESSING"].includes(order.status)
+  && !(order.items || []).some((item) => Number(item.deliveredQuantity) > 0);
+const canCloseShort = (order: SalesOrder) =>
+  !order.closedAt && ["PARTIALLY_DELIVERED", "DELIVERED"].includes(order.status)
+  && (order.items || []).some((item) => Number(item.deliveredQuantity) > 0)
+  && (order.items || []).some((item) => Number(item.pendingQuantity) > 0);
 const EDITABLE_STATUSES = ["DRAFT"];
 const DELETABLE_STATUSES = ["DRAFT", "CANCELLED"];
 const PAGE_SIZE = 10;
@@ -596,6 +620,8 @@ const SalesOrders: React.FC = () => {
   const [confirmWarehouseId, setConfirmWarehouseId] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [dispatchOrder, setDispatchOrder] = useState<SalesOrder | null>(null);
+  // Cancelling an order, or closing it short, with a reason
+  const [closingOrder, setClosingOrder] = useState<{ order: SalesOrder; kind: "cancel" | "close" } | null>(null);
   const [dispatchableItems, setDispatchableItems] = useState<DispatchableItem[]>([]);
   const [dispatchQuantities, setDispatchQuantities] = useState<Record<number, string>>({});
   const [dispatchDetails, setDispatchDetails] = useState<DispatchDetails>(emptyDispatchDetails);
@@ -1090,6 +1116,7 @@ const SalesOrders: React.FC = () => {
   const openConfirm = async (order: SalesOrder) => {
     setConfirmOrder(order);
     setConfirmWarehouseId("");
+    if (!needsWarehouse(order)) return;
     try {
       const response = await axios.get<WarehouseOption[]>(WAREHOUSE_API_URL, { headers });
       const listedWarehouses = Array.isArray(response.data) ? response.data : [];
@@ -1120,7 +1147,9 @@ const SalesOrders: React.FC = () => {
 
   const confirmSalesOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!confirmOrder || !isPositiveNumber(confirmWarehouseId)) {
+    if (!confirmOrder) return;
+    const warehouseNeeded = needsWarehouse(confirmOrder);
+    if (warehouseNeeded && !isPositiveNumber(confirmWarehouseId)) {
       ToasterService.error("Warehouse required", "Select the warehouse that will fulfil this sales order.");
       return;
     }
@@ -1129,7 +1158,7 @@ const SalesOrders: React.FC = () => {
       setConfirming(true);
       const response = await axios.post<SalesOrder>(
         `${API_URL}/${confirmOrder.id}/confirm`,
-        { warehouseId: toNumber(confirmWarehouseId) },
+        { warehouseId: warehouseNeeded ? toNumber(confirmWarehouseId) : null },
         { headers }
       );
       upsertOrder(response.data);
@@ -1140,6 +1169,24 @@ const SalesOrders: React.FC = () => {
       ToasterService.error("Unable to confirm sales order", getErrorMessage(error, "Please try again."));
     } finally {
       setConfirming(false);
+    }
+  };
+
+  // Cancels an order nothing was delivered from, or closes a part-delivered one short; its stock goes back
+  const closeOrder = async (reason: string) => {
+    if (!closingOrder) return;
+    const { order, kind } = closingOrder;
+    try {
+      const response = await axios.post<SalesOrder>(`${API_URL}/${order.id}/${kind}`, { reason }, { headers });
+      upsertOrder(response.data);
+      setClosingOrder(null);
+      ToasterService.success(
+        `${order.orderNumber}: ${t(kind === "cancel" ? "cancelled" : "closed short")}`,
+        t("The stock it still reserved is available again.")
+      );
+    } catch (error) {
+      ToasterService.error(kind === "cancel" ? "Unable to cancel the order" : "Unable to close the order",
+        getErrorMessage(error, "Please try again."));
     }
   };
 
@@ -1231,7 +1278,7 @@ const SalesOrders: React.FC = () => {
       if (confirmDispatchNow && canApprove) {
         try {
           await confirmDispatch(response.data.id);
-          ToasterService.success(`Dispatch ${response.data.dispatchNumber} confirmed`, "Stock issued; it can now be invoiced.");
+          ToasterService.success(`Dispatch ${response.data.dispatchNumber} confirmed`, "Delivered; it can now be invoiced.");
         } catch (error) {
           ToasterService.error(
             `Dispatch ${response.data.dispatchNumber} saved as draft`,
@@ -1239,7 +1286,7 @@ const SalesOrders: React.FC = () => {
           );
         }
       } else {
-        ToasterService.success(`Dispatch ${response.data.dispatchNumber} created`, "Confirm it once the goods leave the warehouse.");
+        ToasterService.success(`Dispatch ${response.data.dispatchNumber} created`, "Confirm it once the goods leave or the service is done.");
       }
       setDispatchDetails(emptyDispatchDetails);
       await refreshOrder(orderId);
@@ -1256,7 +1303,7 @@ const SalesOrders: React.FC = () => {
     try {
       setDispatching(true);
       await confirmDispatch(dispatch.id);
-      ToasterService.success(`Dispatch ${dispatch.dispatchNumber} confirmed`, "Stock issued; it can now be invoiced.");
+      ToasterService.success(`Dispatch ${dispatch.dispatchNumber} confirmed`, "Delivered; it can now be invoiced.");
       await refreshOrder(Number(dispatchOrder.id));
       await loadDispatchData(Number(dispatchOrder.id));
     } catch (error) {
@@ -1409,9 +1456,21 @@ const SalesOrders: React.FC = () => {
       label: "Status",
       sortable: true,
       render: (order) => (
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
-          {order.status || "N/A"}
-        </span>
+        <div className="flex flex-col items-start gap-1">
+          <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+            {order.status || "N/A"}
+          </span>
+          {order.closedAt && order.status !== "CANCELLED" && (
+            <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400" title={order.closeReason || undefined}>
+              {t("Closed short")}
+            </span>
+          )}
+          {order.closedAt && order.closeReason && order.status === "CANCELLED" && (
+            <span className="max-w-[180px] truncate text-[11px] text-slate-500 dark:text-slate-400" title={order.closeReason}>
+              {order.closeReason}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -1446,13 +1505,31 @@ const SalesOrders: React.FC = () => {
           >
             <CheckBadgeIcon className="h-4 w-4" />
           </button>)}
-          {canCreate && DISPATCHABLE_STATUSES.includes(order.status) && (<button
+          {canCreate && canDispatchOrder(order) && (<button
             type="button"
             onClick={() => openDispatch(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400"
             title={t("Dispatch goods")}
           >
             <TruckIcon className="h-4 w-4" />
+          </button>)}
+          {canApprove && canCancelOrder(order) && (<button
+            type="button"
+            onClick={() => setClosingOrder({ order, kind: "cancel" })}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+            title={t("Cancel order")}
+            aria-label={t("Cancel order")}
+          >
+            <XCircleIcon className="h-4 w-4" />
+          </button>)}
+          {canApprove && canCloseShort(order) && (<button
+            type="button"
+            onClick={() => setClosingOrder({ order, kind: "close" })}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-amber-50 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
+            title={t("Close short")}
+            aria-label={t("Close short")}
+          >
+            <ArchiveBoxXMarkIcon className="h-4 w-4" />
           </button>)}
           {canUpdate && EDITABLE_STATUSES.includes(order.status || "DRAFT") && (<button
             type="button"
@@ -2230,10 +2307,24 @@ const SalesOrders: React.FC = () => {
         ]}
       />
 
+      {closingOrder && (
+        <CloseOrderDialog
+          title={closingOrder.kind === "cancel" ? t("Cancel sales order") : t("Close sales order short")}
+          subtitle={closingOrder.kind === "cancel"
+            ? `${closingOrder.order.orderNumber}: ${t("nothing will be dispatched, and its reserved stock is released.")}`
+            : `${closingOrder.order.orderNumber}: ${t("what wasn't dispatched won't be; what was delivered stays invoiceable.")}`}
+          submitLabel={closingOrder.kind === "cancel" ? t("Cancel order") : t("Close short")}
+          onSubmit={closeOrder}
+          onClose={() => setClosingOrder(null)}
+        />
+      )}
+
       <PaginatedPopup
         isOpen={!!confirmOrder}
         title={t("Confirm Sales Order")}
-        subtitle={`Select the fulfilment warehouse for ${confirmOrder?.orderNumber || "this sales order"}.`}
+        subtitle={needsWarehouse(confirmOrder)
+          ? `Select the fulfilment warehouse for ${confirmOrder?.orderNumber || "this sales order"}.`
+          : `Confirm ${confirmOrder?.orderNumber || "this sales order"}.`}
         onClose={() => {
           setConfirmOrder(null);
           setConfirmWarehouseId("");
@@ -2242,7 +2333,11 @@ const SalesOrders: React.FC = () => {
         submitLabel={t("Confirm Order")}
         submitting={confirming}
         maxWidthClassName="max-w-md"
-        fields={[
+        fields={!needsWarehouse(confirmOrder) ? [
+          <p key="no-warehouse" className="text-sm text-gray-600 dark:text-gray-300">
+            {t("This order has only services, so no stock is reserved and no warehouse is needed.")}
+          </p>,
+        ] : [
           <FloatingSelect
             key="warehouseId"
             label={t("Warehouse")}
@@ -2332,6 +2427,12 @@ const SalesOrders: React.FC = () => {
                       : "Nothing is left to dispatch on this order."}
                   </p>
                 ) : (
+                  <>
+                  {dispatchableItems.some((item) => isServiceLine(item.itemType)) && (
+                    <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                      {t("Services take no stock: confirming their dispatch marks them delivered, ready to invoice.")}
+                    </p>
+                  )}
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-slate-800">
@@ -2349,6 +2450,11 @@ const SalesOrders: React.FC = () => {
                             <td className="px-3 py-2 text-gray-900">
                               {item.productName || `Product #${item.productId}`}
                               {item.productCode && <span className="ml-1 text-xs text-gray-500">{item.productCode}</span>}
+                              {isServiceLine(item.itemType) && (
+                                <span className="ml-2 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                                  {t("Service")}
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-2 text-right text-gray-500">{item.orderedQuantity}</td>
                             <td className="px-3 py-2 text-right text-gray-500">
@@ -2380,6 +2486,7 @@ const SalesOrders: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </section>
 

@@ -28,6 +28,8 @@ interface Payable {
   amountPaid: number;
   debitNoteAmount?: number | null;
   balance: number;
+  /** The balance in the company's currency at the bill's rate (what the totals add up). */
+  companyBalance?: number | null;
   accountsPayableStatus: string;
   lastPaymentDate?: string;
   dueDate?: string;
@@ -118,9 +120,11 @@ const AccountsPayable: React.FC = () => {
   const stats = useMemo(() => {
     const open = rows.filter((row) => Number(row.balance) > 0);
     const week = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+    // Bills in other currencies count at their own rate, so the totals are in the company's currency
+    const owed = (row: Payable) => Number(row.companyBalance ?? row.balance ?? 0);
     return {
-      due: open.reduce((sum, row) => sum + Number(row.balance || 0), 0),
-      overdue: open.filter((row) => daysOverdue(row.dueDate) > 0).reduce((sum, row) => sum + Number(row.balance || 0), 0),
+      due: open.reduce((sum, row) => sum + owed(row), 0),
+      overdue: open.filter((row) => daysOverdue(row.dueDate) > 0).reduce((sum, row) => sum + owed(row), 0),
       dueThisWeek: open.filter((row) => row.dueDate && row.dueDate <= week && daysOverdue(row.dueDate) === 0).length,
       bills: open.length,
     };
