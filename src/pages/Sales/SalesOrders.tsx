@@ -3,10 +3,12 @@ import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArchiveBoxXMarkIcon,
+  LockOpenIcon,
   BanknotesIcon,
   CalendarDaysIcon,
   CheckBadgeIcon,
   CheckCircleIcon,
+  DocumentTextIcon,
   ExclamationTriangleIcon,
   PencilSquareIcon,
   ShoppingCartIcon,
@@ -32,6 +34,9 @@ import { ToasterService } from "../../Services/ToasterService";
 import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { formatAmount, companyCurrency } from "../../company/format";
+import { useCompany } from "../../company/companyApi";
+import DocumentEmailDialog from "../../components/common/DocumentEmailDialog";
+import { createProformaPdf } from "./proformaPdf";
 
 import { t } from "../../i18n/i18n";
 type Address = {
@@ -124,6 +129,14 @@ type SalesOrder = {
   // Cancelled or closed short: when and why
   closedAt?: string | null;
   closeReason?: string | null;
+  // Over the customer's available credit: not confirmable until an approver (not its creator) releases it
+  creditHold?: boolean;
+  creditShortfall?: number;
+  creditReleasedBy?: string | null;
+  creditReleaseReason?: string | null;
+  // Its proforma invoice (PF-YYYY-NNNNN), once issued
+  proformaNumber?: string | null;
+  proformaIssuedAt?: string | null;
 };
 
 /** What is still left to dispatch on one order line. */
@@ -622,6 +635,11 @@ const SalesOrders: React.FC = () => {
   const [dispatchOrder, setDispatchOrder] = useState<SalesOrder | null>(null);
   // Cancelling an order, or closing it short, with a reason
   const [closingOrder, setClosingOrder] = useState<{ order: SalesOrder; kind: "cancel" | "close" } | null>(null);
+  const [releasingOrder, setReleasingOrder] = useState<SalesOrder | null>(null);
+  // Proforma invoice: the order it was issued for, and whether its email dialog is open
+  const [proforma, setProforma] = useState<SalesOrder | null>(null);
+  const [proformaEmailing, setProformaEmailing] = useState(false);
+  const { company } = useCompany();
   const [dispatchableItems, setDispatchableItems] = useState<DispatchableItem[]>([]);
   const [dispatchQuantities, setDispatchQuantities] = useState<Record<number, string>>({});
   const [dispatchDetails, setDispatchDetails] = useState<DispatchDetails>(emptyDispatchDetails);
@@ -947,15 +965,7 @@ const SalesOrders: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (creditCheck.status === "insufficient") {
-      ToasterService.error(
-        "Insufficient credit",
-        `Available: ${money(creditCheck.availableCredit)}, required: ${money(
-          form.grandTotal
-        )}. Reduce the order, clear the customer's outstanding balance, or raise their credit limit before submitting.`
-      );
-      return;
-    }
+    // Over the customer's credit the order is still saved, on credit hold until an approver releases it
 
     if (!form.customerId || !form.orderDate) {
       ToasterService.error("Required fields missing", "Customer ID and order date are required.");
@@ -1024,7 +1034,12 @@ const SalesOrders: React.FC = () => {
         : await axios.post<SalesOrder>(API_URL, payload, config);
 
       upsertOrder(res.data);
-      ToasterService.success(editingId ? "Sales order updated" : "Sales order created");
+      if (res.data?.creditHold) {
+        ToasterService.success(t(editingId ? "Sales order updated, on credit hold" : "Sales order saved on credit hold"),
+          `${t("It is over the customer's available credit by")} ${money(res.data.creditShortfall)}. ${t("Someone with approval rights, other than you, must release the hold before it can be confirmed.")}`);
+      } else {
+        ToasterService.success(editingId ? "Sales order updated" : "Sales order created");
+      }
       closeForm();
     } catch (error) {
       ToasterService.error(
@@ -1173,6 +1188,66 @@ const SalesOrders: React.FC = () => {
   };
 
   // Cancels an order nothing was delivered from, or closes a part-delivered one short; its stock goes back
+  // The customer's name as the proforma shows it
+  const proformaCustomer = (order: SalesOrder) =>
+    order.billingAddress?.customerName
+    || customers.find((c) => Number(c.id) === Number(order.customerId))?.customerName
+    || `Customer #${order.customerId}`;
+
+  /** Issues (or reopens) the order's proforma invoice; its number stays the same each time. */
+  const openProforma = async (order: SalesOrder) => {
+    try {
+      const response = await axios.post<SalesOrder>(`${API_URL}/${order.id}/proforma`, {}, { headers });
+      upsertOrder(response.data);
+      // The full order (lines and addresses) for the PDF
+      const full = await axios.get<SalesOrder>(`${API_URL}/${order.id}`, { headers });
+      setProforma({ ...full.data, proformaNumber: response.data.proformaNumber, proformaIssuedAt: response.data.proformaIssuedAt });
+    } catch (error) {
+      ToasterService.error("Unable to issue the proforma invoice", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  const proformaPdf = (order: SalesOrder) => createProformaPdf(order, company, proformaCustomer(order));
+
+  const downloadProforma = async (order: SalesOrder) => {
+    try {
+      const url = URL.createObjectURL(await proformaPdf(order));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${String(order.proformaNumber || order.orderNumber).replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      ToasterService.error("Failed to make the proforma PDF", getErrorMessage(error, "Please try again."));
+    }
+  };
+
+  // An advance against the proforma: a receipt without invoices, kept as the customer's credit for the final invoice
+  const recordAdvance = (order: SalesOrder) => {
+    const params = new URLSearchParams({
+      customerId: String(order.customerId),
+      amount: String(order.grandTotal ?? ""),
+      currency: order.currencyCode || "",
+      notes: `Advance for proforma ${order.proformaNumber} (sales order ${order.orderNumber})`,
+      reference: order.proformaNumber || "",
+    });
+    navigate(`/paymentReceipts?${params.toString()}`);
+  };
+
+  const releaseCredit = async (reason: string) => {
+    if (!releasingOrder) return;
+    try {
+      const response = await axios.post<SalesOrder>(`${API_URL}/${releasingOrder.id}/release-credit`, { reason }, { headers });
+      upsertOrder(response.data);
+      setReleasingOrder(null);
+      ToasterService.success(`${releasingOrder.orderNumber}: ${t("credit hold released")}`, t("The order can now be confirmed."));
+    } catch (error) {
+      ToasterService.error("Unable to release the credit hold", getErrorMessage(error, "Please try again."));
+    }
+  };
+
   const closeOrder = async (reason: string) => {
     if (!closingOrder) return;
     const { order, kind } = closingOrder;
@@ -1465,6 +1540,17 @@ const SalesOrders: React.FC = () => {
               {t("Closed short")}
             </span>
           )}
+          {order.creditHold && order.status === "DRAFT" && (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+              title={`${t("Over the customer's available credit by")} ${money(order.creditShortfall)}`}>
+              {t("Credit hold")} · {money(order.creditShortfall)}
+            </span>
+          )}
+          {!order.creditHold && order.creditReleasedBy && order.status === "DRAFT" && (
+            <span className="max-w-[180px] truncate text-[11px] text-emerald-700 dark:text-emerald-400" title={order.creditReleaseReason || undefined}>
+              {t("Credit hold released")}
+            </span>
+          )}
           {order.closedAt && order.closeReason && order.status === "CANCELLED" && (
             <span className="max-w-[180px] truncate text-[11px] text-slate-500 dark:text-slate-400" title={order.closeReason}>
               {order.closeReason}
@@ -1497,7 +1583,25 @@ const SalesOrders: React.FC = () => {
       className: "text-right",
       render: (order) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {canApprove && order.status === "DRAFT" && (<button
+          {order.status !== "CANCELLED" && (<button
+            type="button"
+            onClick={() => void openProforma(order)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
+            title={t("Proforma invoice")}
+            aria-label={t("Proforma invoice")}
+          >
+            <DocumentTextIcon className="h-4 w-4" />
+          </button>)}
+          {canApprove && order.status === "DRAFT" && order.creditHold && (<button
+            type="button"
+            onClick={() => setReleasingOrder(order)}
+            className="rounded-lg p-1.5 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+            title={t("Release credit hold")}
+            aria-label={t("Release credit hold")}
+          >
+            <LockOpenIcon className="h-4 w-4" />
+          </button>)}
+          {canApprove && order.status === "DRAFT" && !order.creditHold && (<button
             type="button"
             onClick={() => openConfirm(order)}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
@@ -1762,16 +1866,15 @@ const SalesOrders: React.FC = () => {
                     <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {t("Insufficient credit for this customer. Available:")}{" "}
-                      {money(creditCheck.availableCredit)}, this order requires{" "}
-                      {money(form.grandTotal)}. The backend will reject this order as-is — reduce
-                      the order, clear outstanding balance, or raise the credit limit first.
+                      {money(creditCheck.availableCredit)}, {t("this order requires")}{" "}
+                      {money(form.grandTotal)}. {t("It will be saved on credit hold: it can't be confirmed until someone with approval rights, other than you, releases the hold.")}
                     </span>
                   </div>
                 )}
                 {creditCheck.status === "error" && (
                   <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                    Could not verify credit automatically ({creditCheck.message}). The order may
-                    still be rejected on submit if credit is insufficient.
+                    Could not verify credit automatically ({creditCheck.message}). If the order is over the
+                    customer's credit it is saved on credit hold.
                   </div>
                 )}
               </div>,
@@ -2316,6 +2419,58 @@ const SalesOrders: React.FC = () => {
           submitLabel={closingOrder.kind === "cancel" ? t("Cancel order") : t("Close short")}
           onSubmit={closeOrder}
           onClose={() => setClosingOrder(null)}
+        />
+      )}
+
+      <PaginatedPopup
+        isOpen={!!proforma && !proformaEmailing}
+        title={`${t("Proforma invoice")} ${proforma?.proformaNumber ?? ""}`}
+        subtitle={proforma ? `${t("Sales order")} ${proforma.orderNumber} · ${proformaCustomer(proforma)} · ${money(proforma.grandTotal)} ${proforma.currencyCode || ""}` : ""}
+        onClose={() => setProforma(null)}
+        maxWidthClassName="max-w-lg"
+        content={proforma ? (
+          <div className="space-y-3 px-4 py-4 sm:px-5">
+            <p className="text-xs text-slate-600 dark:text-gray-300">
+              {t("For the customer to pay in advance, open a letter of credit or clear customs. It is not a tax invoice: nothing is posted and nothing is e-invoiced. Printing it again keeps the same number.")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => void downloadProforma(proforma)}
+                className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-700">{t("Download PDF")}</button>
+              <button type="button" onClick={() => setProformaEmailing(true)}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-200">{t("Email to customer")}</button>
+              <button type="button" onClick={() => recordAdvance(proforma)}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-200">{t("Record advance")}</button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              {t("Record advance opens Payment Receipts for this customer: the money is kept as their credit and applied to the tax invoice when it is issued.")}
+            </p>
+          </div>
+        ) : null}
+      />
+
+      {proforma && proformaEmailing && (
+        <DocumentEmailDialog
+          documentLabel="Proforma invoice"
+          number={proforma.proformaNumber || proforma.orderNumber}
+          endpoint={`${API_URL}/${proforma.id}/proforma`}
+          recipient="customer"
+          defaultTo={proforma.email || customers.find((c) => Number(c.id) === Number(proforma.customerId))?.email || ""}
+          defaultSubject={`Proforma invoice ${proforma.proformaNumber} from ${company?.companyName || ""}`.trim()}
+          defaultMessage={`Dear ${proformaCustomer(proforma)},\n\nPlease find attached our proforma invoice ${proforma.proformaNumber} for sales order ${proforma.orderNumber}.\n\nRegards,\n${company?.companyName || ""}`}
+          markSent={false}
+          getPdf={() => proformaPdf(proforma)}
+          onClose={() => setProformaEmailing(false)}
+          onSent={() => setProformaEmailing(false)}
+        />
+      )}
+
+      {releasingOrder && (
+        <CloseOrderDialog
+          title={t("Release credit hold")}
+          subtitle={`${releasingOrder.orderNumber} ${t("would go over the customer's available credit by")} ${money(releasingOrder.creditShortfall)}. ${t("Releasing lets the order be confirmed; it is recorded with your reason.")}`}
+          submitLabel={t("Release hold")}
+          onSubmit={releaseCredit}
+          onClose={() => setReleasingOrder(null)}
         />
       )}
 

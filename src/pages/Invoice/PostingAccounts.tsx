@@ -11,6 +11,7 @@ import { CARD, CARD_TITLE, PAGE_BODY, TOOL_BUTTON } from "../Payroll/hrmsUi";
 import PeriodLockCard from "./PeriodLockCard";
 import FxRevaluationCard from "./FxRevaluationCard";
 import YearEndCloseCard from "./YearEndCloseCard";
+import PaymentApprovalCard from "./PaymentApprovalCard";
 
 import { t } from "../../i18n/i18n";
 interface PostingAccountView {
@@ -41,6 +42,9 @@ const USED_FOR: Record<string, string> = {
   SALES: "Sales invoices (before tax).",
   SALES_RETURNS: "Credit notes (before tax).",
   EXCHANGE_DIFFERENCES: "Gains and losses when a foreign-currency invoice or bill is settled at a different rate.",
+  CHEQUES_RECEIVED: "Customers' post-dated cheques held until they clear into the bank (Banking → Cheques).",
+  CHEQUES_ISSUED: "Post-dated cheques given to vendors until the bank pays them.",
+  BANK_CHARGES: "Charges the bank makes, such as on a bounced or stopped cheque.",
   RETAINED_EARNINGS: "Each closed year's profit or loss (the year-end close).",
   UNREALISED_EXCHANGE:"Month-end revaluation of open foreign-currency invoices and bills (reversed the next day).",
   OUTPUT_TAX: "VAT / GST charged on sales, and reverse-charge VAT on purchases.",
@@ -69,6 +73,9 @@ const USED_FOR: Record<string, string> = {
   PAYROLL_TAX_PAYABLE: "Income tax (TDS) and professional tax withheld from salaries.",
   PAYROLL_DEDUCTIONS: "Other deductions from pay, such as loan recoveries.",
   GRATUITY_PROVISION: "End-of-service gratuity earned so far; used when it is paid to a leaving employee.",
+  // Sales commission (Invoice → Sales Commission)
+  SALES_COMMISSION: "Sales people's commission, booked when a month's statement is approved.",
+  COMMISSION_PAYABLE: "Approved commission owed to sales people, until paid from the bank or with salaries.",
 };
 
 const SELECT =
@@ -159,6 +166,7 @@ export default function PostingAccounts() {
       />
       <div className={PAGE_BODY}>
         <PeriodLockCard key={lockVersion} editable={editable} />
+        <PaymentApprovalCard editable={editable} />
         <FxRevaluationCard editable={editable} />
         <YearEndCloseCard editable={editable} onLockChanged={() => setLockVersion((v) => v + 1)} />
         <section className={`${CARD} p-5`}>

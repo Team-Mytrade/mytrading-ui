@@ -133,7 +133,14 @@ const UAE_STATUS_TONE: Record<string, string> = {
   REJECTED: "text-rose-700",
 };
 
-type Dialog = "generate" | "edit" | "cancel" | "creditNote" | "applyCredit" | null;
+type Dialog = "generate" | "edit" | "cancel" | "creditNote" | "applyCredit" | "salesPerson" | null;
+
+interface SalesPersonOption {
+  id: number;
+  name: string;
+  code?: string | null;
+  active?: boolean | null;
+}
 
 const Invoices: React.FC = () => {
   const navigate = useNavigate();
@@ -157,6 +164,9 @@ const Invoices: React.FC = () => {
   const [creditNoteForm, setCreditNoteForm] = useState({ amount: "", creditNoteType: "DISCOUNT", reason: "" });
   const [credits, setCredits] = useState<CustomerCredit[]>([]);
   const [applyForm, setApplyForm] = useState({ creditId: "", amount: "", remarks: "" });
+  // Who earns the commission
+  const [salesPersons, setSalesPersons] = useState<SalesPersonOption[] | null>(null);
+  const [salesPersonId, setSalesPersonId] = useState("");
   // Detail extras
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [documents, setDocuments] = useState<InvoiceDocument[]>([]);
@@ -311,6 +321,38 @@ const Invoices: React.FC = () => {
       openDetail(res.data);
     } catch (err) {
       ToasterService.error(apiError(err, "Could not generate the invoice"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openSalesPerson = async () => {
+    if (!selected) return;
+    setSalesPersonId(selected.salesPersonId ? String(selected.salesPersonId) : "");
+    setDialog("salesPerson");
+    if (salesPersons === null) {
+      try {
+        const res = await axios.get<SalesPersonOption[]>(`${INVOICE_API}/commission/sales-persons`);
+        setSalesPersons(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        setSalesPersons([]);
+        ToasterService.error(apiError(err, "Could not load the sales persons"));
+      }
+    }
+  };
+
+  const saveSalesPerson = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await axios.put(`${INVOICE_API}/commission/invoices/${selected.id}/sales-person`, { salesPersonId: salesPersonId ? Number(salesPersonId) : null });
+      ToasterService.success("Sales person changed", "Commission already approved for this invoice is adjusted in the next statement.");
+      setDialog(null);
+      await refreshSelected(selected.id);
+      await fetchInvoices();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not change the sales person"));
     } finally {
       setBusy(false);
     }
@@ -544,7 +586,12 @@ const Invoices: React.FC = () => {
       key: "customerName",
       label: "Customer",
       sortable: true,
-      render: (invoice) => <span className="text-sm text-slate-700">{invoice.customerName || `Customer #${invoice.customerId}`}</span>,
+      render: (invoice) => (
+        <span className="text-sm text-slate-700">
+          {invoice.customerName || `Customer #${invoice.customerId}`}
+          {invoice.salesPersonName && <span className="block text-xs text-slate-400">{t("Sales person")}: {invoice.salesPersonName}</span>}
+        </span>
+      ),
     },
     {
       key: "invoiceDate",
@@ -635,6 +682,17 @@ const Invoices: React.FC = () => {
           <div><dt className="text-xs text-slate-500">{t("Dispatch")}</dt><dd className="font-medium text-slate-800">{selected.salesDispatchNumber || "—"}</dd></div>
           <div><dt className="text-xs text-slate-500">{t("Customer reference")}</dt><dd className="font-medium text-slate-800">{selected.customerReference || "—"}</dd></div>
           <div><dt className="text-xs text-slate-500">{t("Currency")}</dt><dd className="font-medium text-slate-800">{selected.currencyCode || companyCurrency()}</dd></div>
+          <div>
+            <dt className="text-xs text-slate-500">{t("Sales person")}</dt>
+            <dd className="font-medium text-slate-800">
+              {selected.salesPersonName || "—"}
+              {canUpdate && selected.status !== "CANCELLED" && selected.status !== "VOID" && (
+                <button type="button" onClick={() => void openSalesPerson()} className="ml-2 text-xs font-medium text-cyan-700 hover:underline">
+                  {t("Change")}
+                </button>
+              )}
+            </dd>
+          </div>
         </dl>
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -992,6 +1050,30 @@ const Invoices: React.FC = () => {
                 onChange={(event) => setEditForm((form) => ({ ...form, invoiceDate: event.target.value }))} />
               <FloatingTextarea label={t("Remarks")} name="remarks" rows={3} value={editForm.remarks}
                 onChange={(event) => setEditForm((form) => ({ ...form, remarks: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Save")} busy={busy} />
+          </form>
+        }
+      />
+
+      {/* Who earns the commission */}
+      <PaginatedPopup
+        isOpen={dialog === "salesPerson"}
+        title={`${t("Sales person on")} ${selected?.invoiceNumber ?? ""}`}
+        subtitle={t("They earn the sales commission on this invoice. It comes from the sales order.")}
+        onClose={() => setDialog(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={saveSalesPerson} className="flex flex-col">
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              <FloatingSelect1 label={t("Sales person")} name="salesPersonId" value={salesPersonId}
+                options={(salesPersons ?? [])
+                  .filter((p) => p.active !== false || String(p.id) === salesPersonId)
+                  .map((p) => ({ id: String(p.id), name: p.code ? `${p.name} (${p.code})` : p.name }))}
+                onChange={(event) => setSalesPersonId(event.target.value)} />
+              <p className="text-xs text-slate-500">
+                {t("Leave it empty for no commission. Commission already approved for this invoice is taken back from the previous sales person, and given to the new one, in the next statement.")}
+              </p>
             </div>
             <DialogFooter onCancel={() => setDialog(null)} submitLabel={t("Save")} busy={busy} />
           </form>

@@ -11,7 +11,7 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { FloatingInput, FloatingSelect1 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
-import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, dateLabel, money, paymentMethodLabel, todayInput } from "./invoiceShared";
+import { INVOICE_API, PAYMENT_METHOD_OPTIONS, apiError, chequeStatusLabel, dateLabel, money, paymentMethodLabel, todayInput } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
 import { defaultBankAccountId, useBankAccounts } from "./bankShared";
 import BankAccountField from "./BankAccountField";
@@ -33,7 +33,19 @@ interface VendorPayment {
   paidBy?: string;
   /** The amount in the company's currency at the payment's rate (what the totals add up). */
   companyAmount?: number | null;
+  // A post-dated cheque (dated after the payment date): ISSUED, CLEARED or CANCELLED (no longer pays the bill)
+  chequeDate?: string | null;
+  chequeStatus?: string | null;
+  // Over the company's payment approval limit: PENDING until someone else approves or rejects it
+  approvalStatus?: string | null;
+  rejectReason?: string | null;
+  // Whether it pays its bill (not awaiting approval, rejected or a cancelled cheque)
+  active?: boolean;
 }
+
+const awaiting = (payment: VendorPayment) => payment.approvalStatus === "PENDING" || payment.approvalStatus === "REJECTED";
+// A cleared or cancelled cheque's payment stays as it is; one awaiting approval or rejected is withdrawn, not edited
+const locked = (payment: VendorPayment) => payment.chequeStatus === "CLEARED" || payment.chequeStatus === "CANCELLED";
 
 interface Vendor {
   id: number;
@@ -62,6 +74,7 @@ const emptyPayForm = () => ({
   paymentMethod: "BANK_TRANSFER",
   bankAccountId: "",
   paymentReference: "",
+  chequeDate: "",
   paidBy: "",
   // Amount per bill (purchase invoice id)
   amounts: {} as Record<string, string>,
@@ -84,11 +97,12 @@ const emptyForm = () => ({
   paymentMethod: "BANK_TRANSFER",
   bankAccountId: "",
   paymentReference: "",
+  chequeDate: "",
   paidBy: "",
 });
 
 const VendorPayments: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { canCreate, canUpdate, canDelete, canApprove } = usePermissions();
   const [payments, setPayments] = useState<VendorPayment[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [payables, setPayables] = useState<Payable[]>([]);
@@ -99,6 +113,8 @@ const VendorPayments: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<VendorPayment | null>(null);
+  const [rejecting, setRejecting] = useState<VendorPayment | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const bankAccounts = useBankAccounts();
   const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
   // One payment across a vendor's bills (the rest kept as an advance), and the advances
@@ -201,11 +217,19 @@ const VendorPayments: React.FC = () => {
         bankAccountId: payForm.bankAccountId ? Number(payForm.bankAccountId) : null,
         paymentReference: payForm.paymentReference.trim() || null,
         paidBy: payForm.paidBy.trim() || null,
+        chequeDate: payForm.paymentMethod === "CHEQUE" && payForm.chequeDate ? payForm.chequeDate : null,
         allocations: billsToPay
           .map((row) => ({ invoiceId: row.purchaseInvoice?.id, amount: Number(payForm.amounts[String(row.purchaseInvoice?.id)] || 0) }))
           .filter((line) => line.amount > 0),
       });
       const bills = data.payments?.length ?? 0;
+      if (data.payments?.some((p) => p.approvalStatus === "PENDING")) {
+        ToasterService.success(`${money(payTotal, payCurrency)} ${t("recorded; awaiting approval")}`,
+          t("It is over the payment approval limit: the bills are paid once someone else approves it."));
+        setPayOpen(false);
+        await fetchAll();
+        return;
+      }
       ToasterService.success(`${money(payTotal, payCurrency)} paid`,
         [bills ? `${bills} ${t(bills === 1 ? "bill" : "bills")}` : "", data.advance ? `${money(data.advance.amount, data.advance.currency)} ${t("kept as an advance")}` : ""]
           .filter(Boolean).join(" · "));
@@ -292,6 +316,7 @@ const VendorPayments: React.FC = () => {
       paymentMethod: payment.paymentMethod || "BANK_TRANSFER",
       bankAccountId: payment.bankAccountId != null ? String(payment.bankAccountId) : "",
       paymentReference: payment.paymentReference ?? "",
+      chequeDate: payment.chequeDate ?? "",
       paidBy: payment.paidBy ?? "",
     });
     setFormOpen(true);
@@ -318,6 +343,7 @@ const VendorPayments: React.FC = () => {
       bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
       paymentReference: form.paymentReference.trim() || null,
       paidBy: form.paidBy.trim() || null,
+      chequeDate: form.paymentMethod === "CHEQUE" && form.chequeDate ? form.chequeDate : null,
     };
     setBusy(true);
     try {
@@ -325,8 +351,13 @@ const VendorPayments: React.FC = () => {
         await axios.put(`${API_URL}/${editing.id}`, { ...common, vendorId: Number(form.vendorId), invoiceId: Number(form.invoiceId) });
         ToasterService.success("Payment updated");
       } else {
-        await axios.post(API_URL, { ...common, vendor: { id: Number(form.vendorId) }, invoice: { id: Number(form.invoiceId) } });
-        ToasterService.success(`${money(amount)} paid`);
+        const { data } = await axios.post<VendorPayment>(API_URL, { ...common, vendor: { id: Number(form.vendorId) }, invoice: { id: Number(form.invoiceId) } });
+        if (data?.approvalStatus === "PENDING") {
+          ToasterService.success(`${money(amount)} ${t("recorded; awaiting approval")}`,
+            t("It is over the payment approval limit: the bill is paid once someone else approves it."));
+        } else {
+          ToasterService.success(`${money(amount)} paid`);
+        }
       }
       setFormOpen(false);
       await fetchAll();
@@ -337,12 +368,42 @@ const VendorPayments: React.FC = () => {
     }
   };
 
+  const approve = async (payment: VendorPayment) => {
+    setBusy(true);
+    try {
+      await axios.post(`${API_URL}/${payment.id}/approve`);
+      ToasterService.success(`${money(payment.amountPaid, payment.invoice?.currency)} ${t("approved and paid")}`);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not approve the payment"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reject = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rejecting) return;
+    if (!rejectReason.trim()) return ToasterService.error("Say why the payment is rejected");
+    setBusy(true);
+    try {
+      await axios.post(`${API_URL}/${rejecting.id}/reject`, { reason: rejectReason.trim() });
+      ToasterService.success("Payment rejected; nothing was paid");
+      setRejecting(null);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not reject the payment"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const remove = async () => {
     if (!deleting) return;
     setBusy(true);
     try {
       await axios.delete(`${API_URL}/${deleting.id}`);
-      ToasterService.success("Payment deleted; the bill is due again");
+      ToasterService.success(awaiting(deleting) ? "Payment withdrawn" : "Payment deleted; the bill is due again");
       setDeleting(null);
       await fetchAll();
     } catch (err) {
@@ -360,11 +421,13 @@ const VendorPayments: React.FC = () => {
   const stats = useMemo(() => {
     const month = todayInput().slice(0, 7);
     // Totals in the company's currency: payments at their rate, bills still owed at theirs
+    // Only payments that pay their bill: not a cancelled cheque, nor one awaiting approval or rejected
+    const standing = payments.filter((payment) => payment.active !== false && payment.chequeStatus !== "CANCELLED" && !awaiting(payment));
     const paid = (payment: VendorPayment) => Number(payment.companyAmount ?? payment.amountPaid ?? 0);
     return {
-      count: payments.length,
-      total: payments.reduce((sum, payment) => sum + paid(payment), 0),
-      thisMonth: payments.filter((payment) => payment.paymentDate?.startsWith(month)).reduce((sum, payment) => sum + paid(payment), 0),
+      count: standing.length,
+      total: standing.reduce((sum, payment) => sum + paid(payment), 0),
+      thisMonth: standing.filter((payment) => payment.paymentDate?.startsWith(month)).reduce((sum, payment) => sum + paid(payment), 0),
       toPay: payables.reduce((sum, row) => sum + Math.max(Number(row.companyBalance ?? row.balance ?? 0), 0), 0),
     };
   }, [payments, payables]);
@@ -388,7 +451,21 @@ const VendorPayments: React.FC = () => {
       render: (row) => <span className="text-sm text-slate-700">{row.invoice?.invoiceNumber ?? "—"}</span>,
     },
     { key: "paymentMethod", label: "Method", sortable: true, render: (row) => <span className="text-sm text-slate-600">{paymentMethodLabel(row.paymentMethod)}</span> },
-    { key: "paymentReference", label: "Reference", sortable: true, render: (row) => <span className="text-sm text-slate-600">{row.paymentReference || "—"}</span> },
+    {
+      key: "paymentReference",
+      label: "Reference",
+      sortable: true,
+      render: (row) => (
+        <span className="text-sm text-slate-600">
+          {row.paymentReference || "—"}
+          {row.chequeStatus ? (
+            <span className={`block text-xs ${row.chequeStatus === "CANCELLED" ? "text-slate-400 line-through" : "text-amber-700"}`}>
+              {t("Post-dated")} {dateLabel(row.chequeDate)} · {t(chequeStatusLabel(row.chequeStatus))}
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
     {
       key: "amountPaid",
       label: "Amount",
@@ -396,7 +473,17 @@ const VendorPayments: React.FC = () => {
       headerClassName: "text-right",
       className: "text-right",
       sortValueGetter: (row) => Number(row.amountPaid || 0),
-      render: (row) => <span className="text-sm font-semibold text-slate-900">{money(row.amountPaid, row.invoice?.currency)}</span>,
+      render: (row) => (
+        <span className={`text-sm font-semibold ${row.approvalStatus === "REJECTED" ? "text-slate-400 line-through" : "text-slate-900"}`}>
+          {money(row.amountPaid, row.invoice?.currency)}
+          {row.approvalStatus === "PENDING" && <span className="block text-xs font-medium text-amber-700">{t("Awaiting approval")}</span>}
+          {row.approvalStatus === "REJECTED" && (
+            <span className="block text-xs font-medium text-red-600 no-underline" title={row.rejectReason ?? undefined}>
+              {t("Rejected")}{row.rejectReason ? `: ${row.rejectReason}` : ""}
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       key: "actions",
@@ -406,13 +493,26 @@ const VendorPayments: React.FC = () => {
       className: "text-right",
       render: (row) => (
         <div className="flex justify-end gap-0.5">
-          {canUpdate && (
+          {canApprove && row.approvalStatus === "PENDING" && (
+            <>
+              <button type="button" onClick={() => void approve(row)} disabled={busy}
+                className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50" title={t("Approve payment")}>
+                {t("Approve")}
+              </button>
+              <button type="button" onClick={() => { setRejectReason(""); setRejecting(row); }} disabled={busy}
+                className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50" title={t("Reject payment")}>
+                {t("Reject")}
+              </button>
+            </>
+          )}
+          {canUpdate && !locked(row) && !awaiting(row) && (
             <button type="button" onClick={() => openEdit(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600" title={t("Edit payment")}>
               <PencilSquareIcon className="h-4 w-4" />
             </button>
           )}
-          {canDelete && (
-            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("Delete payment")}>
+          {canDelete && (awaiting(row) || !locked(row)) && (
+            <button type="button" onClick={() => setDeleting(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+              title={t(awaiting(row) ? "Withdraw payment" : "Delete payment")}>
               <TrashIcon className="h-4 w-4" />
             </button>
           )}
@@ -577,8 +677,17 @@ const VendorPayments: React.FC = () => {
                   setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
                 }} />
               <BankAccountField accounts={bankAccounts} label={t("Paid from")} value={form.bankAccountId} onChange={setBankAccount} />
-              <FloatingInput label={t("Reference (UTR, cheque no.)")} name="paymentReference" value={form.paymentReference}
+              <FloatingInput label={t(form.paymentMethod === "CHEQUE" ? "Cheque number" : "Reference (UTR, cheque no.)")} name="paymentReference" value={form.paymentReference}
                 onChange={(event) => setForm((current) => ({ ...current, paymentReference: event.target.value }))} />
+              {form.paymentMethod === "CHEQUE" && (
+                <FloatingInput label={t("Cheque date")} name="chequeDate" type="date" value={form.chequeDate}
+                  onChange={(event) => setForm((current) => ({ ...current, chequeDate: event.target.value }))} />
+              )}
+              {form.paymentMethod === "CHEQUE" && form.chequeDate && form.chequeDate > (form.paymentDate || todayInput()) && (
+                <p className="text-xs text-amber-700 sm:col-span-2">
+                  {t("Post-dated: the bill is paid now, and the cheque is owed in Post-dated cheques issued until it clears. Clear or cancel it under Banking → Cheques.")}
+                </p>
+              )}
               <FloatingInput label={t("Paid by")} name="paidBy" value={form.paidBy}
                 onChange={(event) => setForm((current) => ({ ...current, paidBy: event.target.value }))} />
             </div>
@@ -668,8 +777,17 @@ const VendorPayments: React.FC = () => {
                   setPayForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
                 }} />
               <BankAccountField accounts={bankAccounts} label={t("Paid from")} value={payForm.bankAccountId} onChange={setPayBankAccount} />
-              <FloatingInput label={t("Reference (UTR, cheque no.)")} name="payReference" value={payForm.paymentReference}
+              <FloatingInput label={t(payForm.paymentMethod === "CHEQUE" ? "Cheque number" : "Reference (UTR, cheque no.)")} name="payReference" value={payForm.paymentReference}
                 onChange={(event) => setPayForm((current) => ({ ...current, paymentReference: event.target.value }))} />
+              {payForm.paymentMethod === "CHEQUE" && (
+                <FloatingInput label={t("Cheque date")} name="payChequeDate" type="date" value={payForm.chequeDate}
+                  onChange={(event) => setPayForm((current) => ({ ...current, chequeDate: event.target.value }))} />
+              )}
+              {payForm.paymentMethod === "CHEQUE" && payForm.chequeDate && payForm.chequeDate > (payForm.paymentDate || todayInput()) && (
+                <p className="text-xs text-amber-700 sm:col-span-2">
+                  {t("Post-dated: the bills are paid now, and the cheque is owed in Post-dated cheques issued until it clears. A post-dated cheque pays bills only, not an advance.")}
+                </p>
+              )}
               <FloatingInput label={t("Paid by")} name="payPaidBy" value={payForm.paidBy}
                 onChange={(event) => setPayForm((current) => ({ ...current, paidBy: event.target.value }))} />
             </div>
@@ -720,12 +838,32 @@ const VendorPayments: React.FC = () => {
 
       <ConfirmDialog
         isOpen={Boolean(deleting)}
-        title={t("Delete payment")}
-        message={`Delete the ${money(deleting?.amountPaid)} payment to ${deleting?.vendor?.name ?? "the vendor"}? Bill ${deleting?.invoice?.invoiceNumber ?? ""} will show that amount as due again.`}
-        confirmLabel={t("Delete")}
+        title={t(deleting && awaiting(deleting) ? "Withdraw payment" : "Delete payment")}
+        message={deleting && awaiting(deleting)
+          ? `${t("Withdraw the")} ${money(deleting.amountPaid)} ${t("payment to")} ${deleting.vendor?.name ?? ""}? ${t("It never paid anything, so nothing changes on the bill.")}`
+          : `Delete the ${money(deleting?.amountPaid)} payment to ${deleting?.vendor?.name ?? "the vendor"}? Bill ${deleting?.invoice?.invoiceNumber ?? ""} will show that amount as due again.`}
+        confirmLabel={t(deleting && awaiting(deleting) ? "Withdraw" : "Delete")}
         variant="danger"
         onConfirm={remove}
         onCancel={() => setDeleting(null)}
+      />
+
+      <PaginatedPopup
+        isOpen={Boolean(rejecting)}
+        title={t("Reject payment")}
+        subtitle={rejecting ? `${rejecting.vendor?.name ?? ""} · ${money(rejecting.amountPaid, rejecting.invoice?.currency)} · ${rejecting.invoice?.invoiceNumber ?? ""}` : undefined}
+        onClose={() => setRejecting(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={reject} className="flex flex-col">
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              <FloatingInput label={t("Why is it rejected?")} name="rejectReason" required value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)} />
+              <p className="text-xs text-slate-500">{t("Nothing is paid; the payment stays on the list, marked rejected.")}</p>
+            </div>
+            <DialogFooter onCancel={() => setRejecting(null)} submitLabel={t("Reject payment")} busy={busy} danger />
+          </form>
+        }
       />
     </>
   );
