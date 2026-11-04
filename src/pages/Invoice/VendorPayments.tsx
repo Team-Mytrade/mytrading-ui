@@ -31,18 +31,48 @@ interface VendorPayment {
   // Bank account / cash box it was paid from (none on older payments)
   bankAccountId?: number | null;
   paidBy?: string;
+  /** The amount in the company's currency at the payment's rate (what the totals add up). */
+  companyAmount?: number | null;
 }
 
 interface Vendor {
   id: number;
   name: string;
+  currency?: string;
 }
+
+// Paid to a vendor ahead of their bills (or beyond the bills a payment paid), used on later bills
+interface VendorAdvance {
+  id: number;
+  vendor?: { id: number; name?: string };
+  advanceDate?: string;
+  reference?: string;
+  amount: number;
+  appliedAmount: number;
+  remainingAmount: number;
+  currency?: string;
+  applications?: { id: number; invoice?: { id: number; invoiceNumber?: string }; amount: number; appliedOn?: string }[];
+}
+
+const emptyPayForm = () => ({
+  vendorId: "",
+  total: "",
+  currency: "",
+  paymentDate: todayInput(),
+  paymentMethod: "BANK_TRANSFER",
+  bankAccountId: "",
+  paymentReference: "",
+  paidBy: "",
+  // Amount per bill (purchase invoice id)
+  amounts: {} as Record<string, string>,
+});
 
 interface Payable {
   id: number;
   purchaseInvoice?: { id: number; invoiceNumber?: string; currency?: string };
   vendor?: { id: number; name?: string };
   balance: number;
+  companyBalance?: number | null;
   dueDate?: string;
 }
 
@@ -71,19 +101,29 @@ const VendorPayments: React.FC = () => {
   const [deleting, setDeleting] = useState<VendorPayment | null>(null);
   const bankAccounts = useBankAccounts();
   const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
+  // One payment across a vendor's bills (the rest kept as an advance), and the advances
+  const [payOpen, setPayOpen] = useState(false);
+  const [payForm, setPayForm] = useState(emptyPayForm);
+  const setPayBankAccount = useCallback((bankAccountId: string) => setPayForm((current) => ({ ...current, bankAccountId })), []);
+  const [advances, setAdvances] = useState<VendorAdvance[]>([]);
+  const [applying, setApplying] = useState<VendorAdvance | null>(null);
+  const [applyForm, setApplyForm] = useState({ invoiceId: "", amount: "", appliedOn: todayInput() });
+  const [deletingAdvance, setDeletingAdvance] = useState<VendorAdvance | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [paymentRes, vendorRes, payableRes] = await Promise.all([
+      const [paymentRes, vendorRes, payableRes, advanceRes] = await Promise.all([
         axios.get<VendorPayment[]>(API_URL),
         // Vendors are the common list Purchase uses too
         axios.get<Vendor[]>("/v1/api/common/vendors"),
         axios.get<Payable[]>(`${INVOICE_API}/accounts-payable`),
+        axios.get<VendorAdvance[]>(`${INVOICE_API}/vendor-advances`),
       ]);
       setPayments(Array.isArray(paymentRes.data) ? paymentRes.data : []);
       setVendors(Array.isArray(vendorRes.data) ? vendorRes.data : []);
       setPayables(Array.isArray(payableRes.data) ? payableRes.data : []);
+      setAdvances(Array.isArray(advanceRes.data) ? advanceRes.data : []);
     } catch (err) {
       ToasterService.error(apiError(err, "Failed to load vendor payments"));
     } finally {
@@ -110,11 +150,136 @@ const VendorPayments: React.FC = () => {
 
   const selectedBill = billOptions.find(({ row }) => String(row.purchaseInvoice?.id) === form.invoiceId);
 
+  // A new payment: to a vendor, across their bills, the rest kept as an advance
   const openCreate = () => {
-    setEditing(null);
-    const fresh = emptyForm();
-    setForm({ ...fresh, bankAccountId: bankAccounts ? defaultBankAccountId(bankAccounts, fresh.paymentMethod) : "" });
-    setFormOpen(true);
+    const fresh = emptyPayForm();
+    setPayForm({ ...fresh, bankAccountId: bankAccounts ? defaultBankAccountId(bankAccounts, fresh.paymentMethod) : "" });
+    setPayOpen(true);
+  };
+
+  // The chosen vendor's unpaid bills, oldest due first, in the payment's currency
+  const vendorBills = useMemo(() => payables
+    .filter((row) => String(row.vendor?.id) === payForm.vendorId && Number(row.balance || 0) > 0)
+    .sort((a, b) => String(a.dueDate ?? "").localeCompare(String(b.dueDate ?? ""))), [payables, payForm.vendorId]);
+  const billCurrencies = useMemo(() => Array.from(new Set(vendorBills.map((row) => row.purchaseInvoice?.currency || ""))), [vendorBills]);
+  const payCurrency = payForm.currency || billCurrencies[0] || "";
+  const billsToPay = vendorBills.filter((row) => (row.purchaseInvoice?.currency || "") === payCurrency || billCurrencies.length <= 1);
+  const allocated = billsToPay.reduce((sum, row) => sum + Number(payForm.amounts[String(row.purchaseInvoice?.id)] || 0), 0);
+  const payTotal = Number(payForm.total || 0);
+  const extra = Math.round((payTotal - allocated) * 1000) / 1000;
+
+  const chooseVendor = (vendorId: string) => setPayForm((current) => ({ ...current, vendorId, currency: "", amounts: {} }));
+
+  // Spreads the amount paid over the bills, the oldest due first
+  const fillOldestFirst = () => {
+    let rest = payTotal;
+    const amounts: Record<string, string> = {};
+    for (const row of billsToPay) {
+      const take = Math.min(rest, Number(row.balance || 0));
+      if (take > 0) amounts[String(row.purchaseInvoice?.id)] = String(Math.round(take * 1000) / 1000);
+      rest -= take;
+    }
+    setPayForm((current) => ({ ...current, amounts }));
+  };
+
+  const payVendor = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!payForm.vendorId) return ToasterService.error("Choose the vendor");
+    if (!payTotal || payTotal <= 0) return ToasterService.error("Enter the amount paid");
+    const over = billsToPay.find((row) => Number(payForm.amounts[String(row.purchaseInvoice?.id)] || 0) - Number(row.balance || 0) > 0.001);
+    if (over) return ToasterService.error(`Only ${money(over.balance, over.purchaseInvoice?.currency)} is due on ${over.purchaseInvoice?.invoiceNumber ?? "that bill"}`);
+    if (extra < -0.001) return ToasterService.error(`The bills take ${money(allocated, payCurrency)}, more than the ${money(payTotal, payCurrency)} paid`);
+    const vendor = vendors.find((row) => String(row.id) === payForm.vendorId);
+    setBusy(true);
+    try {
+      const { data } = await axios.post<{ payments: VendorPayment[]; advance: VendorAdvance | null }>(`${API_URL}/pay-bills`, {
+        vendorId: Number(payForm.vendorId),
+        paymentDate: payForm.paymentDate || null,
+        totalAmount: payTotal,
+        currency: payCurrency || vendor?.currency || null,
+        paymentMethod: payForm.paymentMethod,
+        bankAccountId: payForm.bankAccountId ? Number(payForm.bankAccountId) : null,
+        paymentReference: payForm.paymentReference.trim() || null,
+        paidBy: payForm.paidBy.trim() || null,
+        allocations: billsToPay
+          .map((row) => ({ invoiceId: row.purchaseInvoice?.id, amount: Number(payForm.amounts[String(row.purchaseInvoice?.id)] || 0) }))
+          .filter((line) => line.amount > 0),
+      });
+      const bills = data.payments?.length ?? 0;
+      ToasterService.success(`${money(payTotal, payCurrency)} paid`,
+        [bills ? `${bills} ${t(bills === 1 ? "bill" : "bills")}` : "", data.advance ? `${money(data.advance.amount, data.advance.currency)} ${t("kept as an advance")}` : ""]
+          .filter(Boolean).join(" · "));
+      setPayOpen(false);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not record the payment"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Using an advance on one of the vendor's bills in the same currency
+  const applyBills = useMemo(() => !applying ? [] : payables.filter((row) => String(row.vendor?.id) === String(applying.vendor?.id)
+    && Number(row.balance || 0) > 0 && (!row.purchaseInvoice?.currency || !applying.currency || row.purchaseInvoice.currency === applying.currency)),
+  [payables, applying]);
+
+  const openApply = (advance: VendorAdvance) => {
+    setApplying(advance);
+    setApplyForm({ invoiceId: "", amount: "", appliedOn: todayInput() });
+  };
+
+  const chooseApplyBill = (invoiceId: string) => {
+    const bill = applyBills.find((row) => String(row.purchaseInvoice?.id) === invoiceId);
+    const amount = bill && applying ? Math.min(Number(bill.balance || 0), Number(applying.remainingAmount || 0)) : 0;
+    setApplyForm((current) => ({ ...current, invoiceId, amount: amount ? String(amount) : current.amount }));
+  };
+
+  const applyAdvance = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!applying) return;
+    if (!applyForm.invoiceId) return ToasterService.error("Choose the bill");
+    const amount = Number(applyForm.amount);
+    if (!amount || amount <= 0) return ToasterService.error("Enter the amount to use");
+    setBusy(true);
+    try {
+      await axios.post(`${INVOICE_API}/vendor-advances/${applying.id}/apply`,
+        { invoiceId: Number(applyForm.invoiceId), amount, appliedOn: applyForm.appliedOn || null });
+      ToasterService.success(`${money(amount, applying.currency)} ${t("of the advance used on the bill")}`);
+      setApplying(null);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not use the advance"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unapply = async (applicationId: number) => {
+    setBusy(true);
+    try {
+      await axios.delete(`${INVOICE_API}/vendor-advances/applications/${applicationId}`);
+      ToasterService.success("Taken off the bill; it is due again");
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not take the advance off the bill"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeAdvance = async () => {
+    if (!deletingAdvance) return;
+    setBusy(true);
+    try {
+      await axios.delete(`${INVOICE_API}/vendor-advances/${deletingAdvance.id}`);
+      ToasterService.success("Advance deleted");
+      setDeletingAdvance(null);
+      await fetchAll();
+    } catch (err) {
+      ToasterService.error(apiError(err, "Could not delete the advance"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const openEdit = (payment: VendorPayment) => {
@@ -194,11 +359,13 @@ const VendorPayments: React.FC = () => {
 
   const stats = useMemo(() => {
     const month = todayInput().slice(0, 7);
+    // Totals in the company's currency: payments at their rate, bills still owed at theirs
+    const paid = (payment: VendorPayment) => Number(payment.companyAmount ?? payment.amountPaid ?? 0);
     return {
       count: payments.length,
-      total: payments.reduce((sum, payment) => sum + Number(payment.amountPaid || 0), 0),
-      thisMonth: payments.filter((payment) => payment.paymentDate?.startsWith(month)).reduce((sum, payment) => sum + Number(payment.amountPaid || 0), 0),
-      toPay: payables.reduce((sum, row) => sum + Math.max(Number(row.balance || 0), 0), 0),
+      total: payments.reduce((sum, payment) => sum + paid(payment), 0),
+      thisMonth: payments.filter((payment) => payment.paymentDate?.startsWith(month)).reduce((sum, payment) => sum + paid(payment), 0),
+      toPay: payables.reduce((sum, row) => sum + Math.max(Number(row.companyBalance ?? row.balance ?? 0), 0), 0),
     };
   }, [payments, payables]);
 
@@ -254,10 +421,70 @@ const VendorPayments: React.FC = () => {
     },
   ];
 
+  const advanceColumns: ColumnDef<VendorAdvance>[] = [
+    { key: "advanceDate", label: "Date", sortable: true, render: (row) => <span className="text-sm text-slate-600">{dateLabel(row.advanceDate)}</span> },
+    {
+      key: "vendor",
+      label: "Vendor",
+      sortable: true,
+      sortValueGetter: (row) => row.vendor?.name ?? "",
+      filterValueGetter: (row) => row.vendor?.name ?? "",
+      render: (row) => <span className="text-sm font-medium text-slate-800">{row.vendor?.name ?? "—"}</span>,
+    },
+    { key: "reference", label: "Reference", sortable: true, render: (row) => <span className="text-sm text-slate-600">{row.reference || "—"}</span> },
+    {
+      key: "amount", label: "Paid", sortable: true, headerClassName: "text-right", className: "text-right",
+      render: (row) => <span className="text-sm text-slate-700">{money(row.amount, row.currency)}</span>,
+    },
+    {
+      key: "remainingAmount", label: "Left", sortable: true, headerClassName: "text-right", className: "text-right",
+      render: (row) => <span className={`text-sm font-semibold ${Number(row.remainingAmount) > 0 ? "text-emerald-700" : "text-slate-400"}`}>{money(row.remainingAmount, row.currency)}</span>,
+    },
+    {
+      key: "applications",
+      label: "Used on",
+      sortable: false,
+      render: (row) => (
+        <div className="flex flex-wrap gap-1">
+          {(row.applications ?? []).length === 0 && <span className="text-xs text-slate-400">—</span>}
+          {(row.applications ?? []).map((used) => (
+            <span key={used.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+              {used.invoice?.invoiceNumber ?? "#"} · {money(used.amount, row.currency)}
+              {canDelete && (
+                <button type="button" onClick={() => unapply(used.id)} disabled={busy} className="text-slate-400 hover:text-red-600"
+                  title={t("Take off this bill")} aria-label={t("Take off this bill")}>×</button>
+              )}
+            </span>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex justify-end gap-0.5">
+          {canCreate && Number(row.remainingAmount) > 0 && (
+            <button type="button" onClick={() => openApply(row)} className="rounded-lg px-2 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50"
+              title={t("Use on a bill")}>{t("Use on a bill")}</button>
+          )}
+          {canDelete && Number(row.appliedAmount) === 0 && (
+            <button type="button" onClick={() => setDeletingAdvance(row)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("Delete advance")}>
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <>
       <PageMeta title={t("Vendor Payments")} description="Payments made to vendors against their bills" />
-      <PageBreadcrumb pageTitle="Vendor Payments" actions={canCreate ? <AddButton onClick={openCreate} label={t("Pay a bill")} /> : undefined} />
+      <PageBreadcrumb pageTitle="Vendor Payments" actions={canCreate ? <AddButton onClick={openCreate} label={t("Pay vendor")} /> : undefined} />
 
       <div className="w-full max-w-none space-y-4 py-4">
 
@@ -293,6 +520,20 @@ const VendorPayments: React.FC = () => {
             </div>
           }
         />
+
+        <div className="pt-2">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t("Advances to vendors")}</h3>
+          <p className="mb-2 text-xs text-slate-500 dark:text-gray-400">
+            {t("Paid ahead of the bills, or beyond the bills a payment paid. Use what is left on the vendor's next bills.")}
+          </p>
+          <ReusableTable
+            data={advances}
+            columns={advanceColumns}
+            pageSize={PAGE_SIZE}
+            loading={loading}
+            emptyState={<p className="py-6 text-center text-sm text-gray-500">{t("No advances to vendors")}</p>}
+          />
+        </div>
       </div>
 
       <PaginatedPopup
@@ -344,6 +585,137 @@ const VendorPayments: React.FC = () => {
             <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Record payment")} busy={busy} />
           </form>
         }
+      />
+
+      <PaginatedPopup
+        isOpen={payOpen}
+        title={t("Pay vendor")}
+        subtitle={t("One payment across the vendor's bills; anything beyond them is kept as an advance")}
+        onClose={() => setPayOpen(false)}
+        maxWidthClassName="max-w-3xl"
+        content={
+          <form onSubmit={payVendor} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <FloatingSelect1 label={t("Vendor")} name="payVendorId" required value={payForm.vendorId}
+                options={vendors.map((vendor) => ({ id: String(vendor.id), name: vendor.name }))}
+                onChange={(event) => chooseVendor(event.target.value)} />
+              <FloatingInput label={t("Amount paid")} name="payTotal" type="number" required value={payForm.total}
+                onChange={(event) => setPayForm((current) => ({ ...current, total: event.target.value }))} />
+              {billCurrencies.length > 1 && (
+                <FloatingSelect1 label={t("Currency")} name="payCurrency" value={payCurrency} includeEmptyOption={false}
+                  options={billCurrencies.map((code) => ({ id: code, name: code || t("Company currency") }))}
+                  onChange={(event) => setPayForm((current) => ({ ...current, currency: event.target.value, amounts: {} }))} />
+              )}
+              {payForm.vendorId && (
+                <div className="sm:col-span-2">
+                  {billsToPay.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-600">
+                      {t("This vendor has no unpaid bills: the whole amount is kept as an advance.")}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Bills")}</span>
+                        <button type="button" onClick={fillOldestFirst} disabled={!payTotal}
+                          className="text-xs font-medium text-cyan-700 hover:underline disabled:opacity-40">{t("Fill oldest first")}</button>
+                      </div>
+                      <div className="overflow-x-auto rounded-lg border border-slate-200">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-slate-50 text-left text-xs text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2 font-medium">{t("Bill")}</th>
+                              <th className="px-3 py-2 font-medium">{t("Due")}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t("Owed")}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t("Pay now")}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {billsToPay.map((row) => {
+                              const id = String(row.purchaseInvoice?.id);
+                              return (
+                                <tr key={id}>
+                                  <td className="px-3 py-2 text-slate-800">{row.purchaseInvoice?.invoiceNumber ?? row.id}</td>
+                                  <td className="px-3 py-2 text-slate-500">{dateLabel(row.dueDate)}</td>
+                                  <td className="px-3 py-2 text-right text-slate-600">{money(row.balance, row.purchaseInvoice?.currency)}</td>
+                                  <td className="px-3 py-2 text-right">
+                                    <input type="number" min={0} max={row.balance} step="any" value={payForm.amounts[id] ?? ""}
+                                      aria-label={`${t("Pay now")} ${row.purchaseInvoice?.invoiceNumber ?? ""}`}
+                                      onChange={(event) => setPayForm((current) => ({ ...current, amounts: { ...current.amounts, [id]: event.target.value } }))}
+                                      className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm focus:border-cyan-500 focus:outline-none" />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                  {payTotal > 0 && (
+                    <p className={`mt-2 text-sm ${extra < -0.001 ? "text-red-600" : "text-slate-600"}`}>
+                      {t("Bills")}: {money(allocated, payCurrency)}
+                      {extra > 0.001 && <> · {t("Kept as an advance")}: <strong>{money(extra, payCurrency)}</strong></>}
+                      {extra < -0.001 && <> · {t("More than the amount paid")}</>}
+                    </p>
+                  )}
+                </div>
+              )}
+              <FloatingInput label={t("Payment date")} name="payDate" type="date" value={payForm.paymentDate}
+                onChange={(event) => setPayForm((current) => ({ ...current, paymentDate: event.target.value }))} />
+              <FloatingSelect1 label={t("Method")} name="payMethod" value={payForm.paymentMethod} options={PAYMENT_METHOD_OPTIONS} includeEmptyOption={false}
+                onChange={(event) => {
+                  const paymentMethod = event.target.value;
+                  setPayForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
+                }} />
+              <BankAccountField accounts={bankAccounts} label={t("Paid from")} value={payForm.bankAccountId} onChange={setPayBankAccount} />
+              <FloatingInput label={t("Reference (UTR, cheque no.)")} name="payReference" value={payForm.paymentReference}
+                onChange={(event) => setPayForm((current) => ({ ...current, paymentReference: event.target.value }))} />
+              <FloatingInput label={t("Paid by")} name="payPaidBy" value={payForm.paidBy}
+                onChange={(event) => setPayForm((current) => ({ ...current, paidBy: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setPayOpen(false)} submitLabel={t("Record payment")} busy={busy} />
+          </form>
+        }
+      />
+
+      <PaginatedPopup
+        isOpen={Boolean(applying)}
+        title={t("Use an advance on a bill")}
+        subtitle={applying ? `${applying.vendor?.name ?? ""} · ${money(applying.remainingAmount, applying.currency)} ${t("left")}` : undefined}
+        onClose={() => setApplying(null)}
+        maxWidthClassName="max-w-lg"
+        content={
+          <form onSubmit={applyAdvance} className="flex flex-col">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <div className="sm:col-span-2">
+                <FloatingSelect1 label={t("Bill")} name="applyInvoiceId" required value={applyForm.invoiceId}
+                  options={applyBills.map((row) => ({
+                    id: String(row.purchaseInvoice?.id),
+                    name: `${row.purchaseInvoice?.invoiceNumber ?? row.id} · ${money(row.balance, row.purchaseInvoice?.currency)} due ${dateLabel(row.dueDate)}`,
+                  }))}
+                  onChange={(event) => chooseApplyBill(event.target.value)} />
+                {applyBills.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">{t("This vendor has no unpaid bills in this currency.")}</p>
+                )}
+              </div>
+              <FloatingInput label={t("Amount")} name="applyAmount" type="number" required value={applyForm.amount}
+                onChange={(event) => setApplyForm((current) => ({ ...current, amount: event.target.value }))} />
+              <FloatingInput label={t("Date")} name="applyDate" type="date" value={applyForm.appliedOn}
+                onChange={(event) => setApplyForm((current) => ({ ...current, appliedOn: event.target.value }))} />
+            </div>
+            <DialogFooter onCancel={() => setApplying(null)} submitLabel={t("Use on the bill")} busy={busy} />
+          </form>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deletingAdvance)}
+        title={t("Delete advance")}
+        message={`Delete the ${money(deletingAdvance?.amount, deletingAdvance?.currency)} advance to ${deletingAdvance?.vendor?.name ?? "the vendor"}? Its entry in the books is reversed.`}
+        confirmLabel={t("Delete")}
+        variant="danger"
+        onConfirm={removeAdvance}
+        onCancel={() => setDeletingAdvance(null)}
       />
 
       <ConfirmDialog

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 import * as XLSX from "xlsx";
 import {
+    BanknotesIcon,
+    BookOpenIcon,
     CloudArrowDownIcon,
     ArrowPathIcon,
     DocumentArrowDownIcon,
@@ -22,7 +24,9 @@ import { usePermissions } from "../../access/usePermissions";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { apiError } from "../../utils/apiError";
-import { formatMoney } from "../../company/format";
+import { formatDate, formatMoney } from "../../company/format";
+import PaginatedPopup from "../../components/common/unpopup";
+import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 
 import { t } from "../../i18n/i18n";
 export interface UploadedFile {
@@ -47,6 +51,18 @@ interface MonthReview {
 }
 
 type UploadKind = "earnings" | "deductions" | "attendance";
+
+// Finance's bank accounts (invoice service), for where the salaries were paid from
+interface BankAccountOption {
+    id: number;
+    accountName: string;
+    bankName?: string;
+    currency?: string;
+    active?: boolean;
+}
+
+// No "Saved" toast: these calls report their own outcome
+const QUIET = { quiet: true } as AxiosRequestConfig;
 
 const localMonth = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 const rupees = (value: number | undefined) => formatMoney((value ?? 0));
@@ -85,6 +101,13 @@ const PayrollProcessingEnginePage: React.FC = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [fullMonthConfirmed, setFullMonthConfirmed] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Runs in the books: the run being sent now, and the salary payment being recorded
+    const [postingRef, setPostingRef] = useState<string | null>(null);
+    const [paymentRun, setPaymentRun] = useState<any | null>(null);
+    const [paidOn, setPaidOn] = useState("");
+    const [paidFrom, setPaidFrom] = useState("");
+    const [bankAccounts, setBankAccounts] = useState<BankAccountOption[] | null>(null);
+    const [recordingPayment, setRecordingPayment] = useState(false);
 
     useEffect(() => {
         setFullMonthConfirmed(false);
@@ -233,6 +256,67 @@ const PayrollProcessingEnginePage: React.FC = () => {
             setBatchInfo(Array.isArray(response.data) ? response.data : []);
         } catch (error) {
             ToasterService.error(apiError(error, "Payroll runs could not be loaded"));
+        }
+    };
+
+    const replaceRun = (run: any) =>
+        setBatchInfo((current) => current.map((b) => (b.batchReference === run.batchReference ? run : b)));
+
+    // Sends the run to the ledger now (runs from before automatic postings too); the answer says how it went
+    const postToLedger = async (row: any) => {
+        setPostingRef(row.batchReference);
+        try {
+            const response = await axios.post(`/v1/api/payroll/batches/${encodeURIComponent(row.batchReference)}/ledger`, {}, QUIET);
+            replaceRun(response.data);
+            if (response.data?.ledgerState === "POSTED") {
+                ToasterService.success(`${row.batchReference}: ${t("posted to the ledger")}`);
+            } else {
+                ToasterService.error(response.data?.ledgerError || t("The run is waiting for the books"));
+            }
+        } catch (error) {
+            ToasterService.error(apiError(error, "The run could not be sent to the books"));
+        } finally {
+            setPostingRef(null);
+        }
+    };
+
+    const openPayment = async (row: any) => {
+        setPaymentRun(row);
+        setPaidOn(row.paidOn || new Date().toLocaleDateString("en-CA"));
+        setPaidFrom(row.paidBankAccountId ? String(row.paidBankAccountId) : "");
+        if (bankAccounts === null) {
+            // Only people who see finance's bank accounts can pick one; otherwise the payment goes to the Bank account
+            try {
+                const response = await axios.get<BankAccountOption[]>("/v1/api/invoice/bank-accounts", QUIET);
+                setBankAccounts((Array.isArray(response.data) ? response.data : []).filter((a) => a.active !== false));
+            } catch {
+                setBankAccounts([]);
+            }
+        }
+    };
+
+    const recordPayment = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!paymentRun) return;
+        if (!paidOn) {
+            ToasterService.error(t("Enter the day the salaries were paid"));
+            return;
+        }
+        setRecordingPayment(true);
+        try {
+            const response = await axios.put(`/v1/api/payroll/batches/${encodeURIComponent(paymentRun.batchReference)}/payment`,
+                { paidOn, bankAccountId: paidFrom ? Number(paidFrom) : null }, QUIET);
+            replaceRun(response.data);
+            setPaymentRun(null);
+            if (response.data?.paymentState === "POSTED") {
+                ToasterService.success(`${paymentRun.batchReference}: ${t("salary payment posted to the ledger")}`);
+            } else {
+                ToasterService.error(response.data?.ledgerError || t("The payment is waiting for the books"));
+            }
+        } catch (error) {
+            ToasterService.error(apiError(error, "The salary payment could not be recorded"));
+        } finally {
+            setRecordingPayment(false);
         }
     };
 
@@ -668,18 +752,74 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             )
                                         },
                                         {
+                                            // The run's entry in the ledger: salaries against what is owed
+                                            key: "ledgerState",
+                                            label: "In the books",
+                                            sortable: true,
+                                            render: (row: any) => (
+                                                <div className="flex max-w-[240px] flex-col gap-1">
+                                                    <span className={`inline-flex w-fit items-center px-3 py-1 rounded-full text-xs font-semibold dark:bg-transparent ${row.ledgerState === "POSTED"
+                                                        ? "bg-green-100 text-green-800 dark:text-green-300"
+                                                        : row.ledgerState === "PENDING"
+                                                            ? "bg-amber-100 text-amber-800 dark:text-amber-300"
+                                                            : "bg-gray-100 text-gray-600 dark:text-gray-400"}`}>
+                                                        {t(row.ledgerState === "POSTED" ? "Posted" : row.ledgerState === "PENDING" ? "Waiting" : "Not posted")}
+                                                    </span>
+                                                    {row.ledgerError && (
+                                                        <span className="text-xs text-red-600 dark:text-red-400 line-clamp-2" title={row.ledgerError}>{row.ledgerError}</span>
+                                                    )}
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: "paidOn",
+                                            label: "Salaries paid",
+                                            sortable: true,
+                                            render: (row: any) => row.paidOn ? (
+                                                <div className="flex flex-col">
+                                                    <span>{formatDate(row.paidOn)}</span>
+                                                    {row.paymentState !== "POSTED" && (
+                                                        <span className="text-xs text-amber-600 dark:text-amber-400">{t("Waiting for the books")}</span>
+                                                    )}
+                                                </div>
+                                            ) : <span className="text-gray-400">—</span>
+                                        },
+                                        {
                                             key: "action",
                                             label: "Action",
                                             className: "text-right",
                                             headerClassName: "text-right",
                                             render: (row: any) => (
-                                                canExport && <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDownloadReport(row.batchReference, row.salaryMonth); }}
-                                                    className="text-cyan-600 hover:text-cyan-900 dark:text-gray-400 dark:hover:text-gray-200 bg-cyan-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer"
-                                                    title={t("Download Bank Report")}
-                                                >
-                                                    <DocumentArrowDownIcon className="h-5 w-5" />
-                                                </button>
+                                                <div className="inline-flex items-center justify-end gap-2">
+                                                    {canApprove && row.ledgerState !== "POSTED" && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); postToLedger(row); }}
+                                                            disabled={postingRef === row.batchReference}
+                                                            className="text-emerald-600 hover:text-emerald-800 dark:text-gray-400 dark:hover:text-gray-200 bg-emerald-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer disabled:opacity-50"
+                                                            title={t("Post to the ledger")}
+                                                            aria-label={t("Post to the ledger")}
+                                                        >
+                                                            <BookOpenIcon className="h-5 w-5" />
+                                                        </button>
+                                                    )}
+                                                    {canApprove && row.ledgerState && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); openPayment(row); }}
+                                                            className="text-indigo-600 hover:text-indigo-800 dark:text-gray-400 dark:hover:text-gray-200 bg-indigo-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer"
+                                                            title={t(row.paidOn ? "Change the salary payment" : "Record the salary payment")}
+                                                            aria-label={t(row.paidOn ? "Change the salary payment" : "Record the salary payment")}
+                                                        >
+                                                            <BanknotesIcon className="h-5 w-5" />
+                                                        </button>
+                                                    )}
+                                                    {canExport && <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDownloadReport(row.batchReference, row.salaryMonth); }}
+                                                        className="text-cyan-600 hover:text-cyan-900 dark:text-gray-400 dark:hover:text-gray-200 bg-cyan-50 dark:bg-[#222222] p-2.5 rounded-full transition-colors inline-block cursor-pointer"
+                                                        title={t("Download Bank Report")}
+                                                    >
+                                                        <DocumentArrowDownIcon className="h-5 w-5" />
+                                                    </button>}
+                                                </div>
                                             )
                                         }
                                     ]}
@@ -699,6 +839,49 @@ const PayrollProcessingEnginePage: React.FC = () => {
                     </div>
                 </div>
             </div>
+            <PaginatedPopup
+                isOpen={!!paymentRun}
+                title={t("Salary payment")}
+                subtitle={paymentRun ? `${paymentRun.batchReference} · ${rupees(paymentRun.totalSalaryAmount)}` : undefined}
+                onClose={() => setPaymentRun(null)}
+                onSubmit={recordPayment}
+                submitLabel={t("Record Payment")}
+                submitting={recordingPayment}
+                maxWidthClassName="max-w-md"
+                fields={[
+                    <FloatingInput
+                        key="paidOn"
+                        label={t("Paid on")}
+                        name="paidOn"
+                        type="date"
+                        value={paidOn}
+                        max={new Date().toLocaleDateString("en-CA")}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaidOn(e.target.value)}
+                        required
+                    />,
+                    bankAccounts && bankAccounts.length > 0 ? (
+                        <FloatingSelect
+                            key="paidFrom"
+                            label={t("Paid from")}
+                            name="paidFrom"
+                            value={paidFrom}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPaidFrom(e.target.value)}
+                            emptyOptionLabel={t("Bank (default account)")}
+                            options={bankAccounts.map((a) => ({
+                                id: String(a.id),
+                                name: [a.accountName, a.bankName, a.currency].filter(Boolean).join(" · "),
+                            }))}
+                        />
+                    ) : (
+                        <p key="paidFromNote" className="text-sm text-gray-600 dark:text-gray-300">
+                            {t("The payment is posted out of the Bank account.")}
+                        </p>
+                    ),
+                    <p key="paymentNote" className="text-xs text-gray-500 dark:text-gray-400">
+                        {t("The payment clears the run's salaries payable in the books.")}
+                    </p>,
+                ]}
+            />
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 title={confirmState.title}

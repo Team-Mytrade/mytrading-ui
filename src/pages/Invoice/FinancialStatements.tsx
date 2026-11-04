@@ -341,7 +341,7 @@ const FinancialStatements: React.FC = () => {
                   <tr className="border-t border-slate-100 dark:border-gray-800">
                     <td className="px-4 py-2 pl-8 text-slate-700 dark:text-gray-200">
                       {t("Profit to date")}
-                      <span className="block text-[11px] text-slate-400">{t("Income less expenses so far, until closed into retained earnings")}</span>
+                      <span className="block text-[11px] text-slate-400">{t("Income less expenses since the last year-end close (Posting Accounts), which moves them to retained earnings")}</span>
                     </td>
                     <td className="px-4 py-2 text-right text-slate-700 dark:text-gray-200">{money(sheet.profitToDate)}</td>
                   </tr>

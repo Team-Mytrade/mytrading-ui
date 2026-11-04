@@ -30,7 +30,10 @@ export interface ApAging {
     invoiceNumber: string | null;
     vendorName: string;
     dueDate: string;
+    /** In the bill's currency; the totals above are in the company's. */
     balance: number;
+    currency?: string | null;
+    companyBalance?: number | null;
   }[];
 }
 
@@ -136,7 +139,12 @@ export const PayablesAging: React.FC<{ aging: ApAging | null }> = ({ aging }) =>
                   <div className="text-sm font-medium text-slate-800">{bill.vendorName}</div>
                   <div className="text-xs text-slate-400">{t("Bill")} {bill.invoiceNumber ?? "—"} · due {dateLabel(bill.dueDate)}</div>
                 </div>
-                <span className="text-sm font-semibold text-slate-900">{money(bill.balance)}</span>
+                <span className="text-end text-sm font-semibold text-slate-900">
+                  {money(bill.balance, bill.currency)}
+                  {bill.currency && bill.companyBalance != null && Number(bill.companyBalance) !== Number(bill.balance) && (
+                    <span className="block text-[11px] font-normal text-slate-400">≈ {money(bill.companyBalance)}</span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
