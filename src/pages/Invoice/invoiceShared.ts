@@ -78,6 +78,9 @@ export interface Invoice {
   customerName?: string;
   customerTaxNumber?: string;
   customerEmail?: string;
+  // Who earns the sales commission on it (from the sales order; finance can change it)
+  salesPersonId?: number | null;
+  salesPersonName?: string | null;
   currencyCode?: string;
   // Company currency per unit of the invoice's, fixed when issued
   exchangeRate?: number | null;
@@ -136,6 +139,27 @@ export const PAYMENT_METHOD_OPTIONS: Option[] = [
 
 export const paymentMethodLabel = (method?: string | null) =>
   PAYMENT_METHOD_OPTIONS.find((option) => option.id === method)?.name ?? labelOf(method);
+
+// Post-dated cheques: received ones are in hand, deposited, cleared or bounced; issued ones issued, cleared or cancelled
+const CHEQUE_STATUS_LABELS: Record<string, string> = {
+  IN_HAND: "In hand",
+  DEPOSITED: "Deposited",
+  ISSUED: "Issued",
+  CLEARED: "Cleared",
+  BOUNCED: "Bounced",
+  CANCELLED: "Cancelled",
+};
+
+export const chequeStatusLabel = (status?: string | null) => (status ? CHEQUE_STATUS_LABELS[status] ?? labelOf(status) : "");
+
+export const CHEQUE_STATUS_TONES: Record<string, string> = {
+  IN_HAND: "bg-amber-50 text-amber-700 border-amber-200",
+  ISSUED: "bg-amber-50 text-amber-700 border-amber-200",
+  DEPOSITED: "bg-sky-50 text-sky-700 border-sky-200",
+  CLEARED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  BOUNCED: "bg-red-50 text-red-700 border-red-200",
+  CANCELLED: "bg-gray-100 text-gray-500 border-gray-200",
+};
 
 export const CREDIT_NOTE_TYPE_OPTIONS: Option[] = [
   { id: "SALES_RETURN", name: "Sales return" },

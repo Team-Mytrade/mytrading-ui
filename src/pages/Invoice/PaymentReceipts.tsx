@@ -16,6 +16,7 @@ import {
   Invoice,
   PAYMENT_METHOD_OPTIONS,
   apiError,
+  chequeStatusLabel,
   dateLabel,
   isOpenInvoice,
   labelOf,
@@ -61,6 +62,10 @@ interface Receipt {
   // The money's currency (its invoices'), and the company-currency rate on the payment date
   currency?: string | null;
   exchangeRate?: number | null;
+  // A post-dated cheque (dated after the payment date): IN_HAND, DEPOSITED, CLEARED, BOUNCED or CANCELLED
+  chequeDate?: string | null;
+  chequeBank?: string | null;
+  chequeStatus?: string | null;
   receivedBy?: string;
   notes?: string;
   allocations?: Allocation[];
@@ -78,6 +83,9 @@ const emptyForm = () => ({
   // The customer's open invoices decide it; an advance can be in any currency
   currency: companyCurrency(),
   referenceNumber: "",
+  // Cheques only: a date after the payment date makes it post-dated (held until it clears)
+  chequeDate: "",
+  chequeBank: "",
   notes: "",
 });
 
@@ -154,13 +162,28 @@ const PaymentReceipts: React.FC = () => {
     loadOutstanding(customerId, invoiceId, true);
   };
 
-  // From an invoice: ?customerId=&invoiceId= opens the form for that invoice
+  // From an invoice: ?customerId=&invoiceId= opens the form for that invoice; from a proforma invoice also
+  // &amount=&currency=&reference=&notes= (an advance, kept as the customer's credit)
   useEffect(() => {
     const customerId = searchParams.get("customerId");
     if (!customerId || !canCreate) return;
     openForm(customerId, Number(searchParams.get("invoiceId")) || undefined);
-    searchParams.delete("customerId");
-    searchParams.delete("invoiceId");
+    const preset = {
+      amount: searchParams.get("amount"),
+      currency: searchParams.get("currency"),
+      referenceNumber: searchParams.get("reference"),
+      notes: searchParams.get("notes"),
+    };
+    if (Object.values(preset).some(Boolean)) {
+      setForm((current) => ({
+        ...current,
+        ...(preset.amount ? { amount: preset.amount } : {}),
+        ...(preset.currency ? { currency: preset.currency.toUpperCase() } : {}),
+        ...(preset.referenceNumber ? { referenceNumber: preset.referenceNumber } : {}),
+        ...(preset.notes ? { notes: preset.notes } : {}),
+      }));
+    }
+    ["customerId", "invoiceId", "amount", "currency", "reference", "notes"].forEach((key) => searchParams.delete(key));
     setSearchParams(searchParams, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -202,6 +225,8 @@ const PaymentReceipts: React.FC = () => {
         // Only an advance (no invoices) takes it; otherwise it must be the invoices' own
         currency: form.currency.trim().toUpperCase() || null,
         referenceNumber: form.referenceNumber.trim() || null,
+        chequeDate: form.paymentMethod === "CHEQUE" && form.chequeDate ? form.chequeDate : null,
+        chequeBank: form.paymentMethod === "CHEQUE" ? form.chequeBank.trim() || null : null,
         notes: form.notes.trim() || null,
         allocations: Object.entries(allocations)
           .filter(([, value]) => Number(value) > 0)
@@ -274,6 +299,11 @@ const PaymentReceipts: React.FC = () => {
         <span className="text-sm text-slate-600">
           {paymentMethodLabel(receipt.paymentMethod)}
           {receipt.referenceNumber ? <span className="block text-xs text-slate-400">{receipt.referenceNumber}</span> : null}
+          {receipt.chequeStatus ? (
+            <span className="block text-xs text-amber-700">
+              {t("Post-dated")} {dateLabel(receipt.chequeDate)} · {t(chequeStatusLabel(receipt.chequeStatus))}
+            </span>
+          ) : null}
         </span>
       ),
     },
@@ -380,8 +410,21 @@ const PaymentReceipts: React.FC = () => {
                     setForm((current) => ({ ...current, paymentMethod, bankAccountId: defaultBankAccountId(bankAccounts ?? [], paymentMethod) }));
                   }} />
                 <BankAccountField accounts={bankAccounts} label={t("Deposit to")} value={form.bankAccountId} onChange={setBankAccount} />
-                <FloatingInput label={t("Reference (UTR, cheque no.)")} name="referenceNumber" value={form.referenceNumber}
+                <FloatingInput label={t(form.paymentMethod === "CHEQUE" ? "Cheque number" : "Reference (UTR, cheque no.)")} name="referenceNumber" value={form.referenceNumber}
                   onChange={(event) => setForm((current) => ({ ...current, referenceNumber: event.target.value }))} />
+                {form.paymentMethod === "CHEQUE" && (
+                  <>
+                    <FloatingInput label={t("Cheque date")} name="chequeDate" type="date" value={form.chequeDate}
+                      onChange={(event) => setForm((current) => ({ ...current, chequeDate: event.target.value }))} />
+                    <FloatingInput label={t("Drawn on (bank)")} name="chequeBank" value={form.chequeBank}
+                      onChange={(event) => setForm((current) => ({ ...current, chequeBank: event.target.value }))} />
+                    {form.chequeDate && form.chequeDate > (form.paymentDate || todayInput()) && (
+                      <p className="text-xs text-amber-700 sm:col-span-2">
+                        {t("Post-dated: the invoices are settled now, and the cheque is held in Post-dated cheques received until it clears. Clear or bounce it under Banking → Cheques.")}
+                      </p>
+                    )}
+                  </>
+                )}
                 <FloatingInput label={t("Notes")} name="notes" value={form.notes}
                   onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
               </div>
@@ -459,6 +502,10 @@ const PaymentReceipts: React.FC = () => {
                   <div><dt className="text-xs text-slate-500">{t("Received")}</dt><dd className="font-semibold text-slate-900">{money(selected.totalAmountReceived)}</dd></div>
                   <div><dt className="text-xs text-slate-500">{t("Method")}</dt><dd className="text-slate-800">{paymentMethodLabel(selected.paymentMethod)}</dd></div>
                   <div><dt className="text-xs text-slate-500">{t("Reference")}</dt><dd className="text-slate-800">{selected.referenceNumber || "—"}</dd></div>
+                  {selected.chequeStatus && (
+                    <div><dt className="text-xs text-slate-500">{t("Post-dated cheque")}</dt>
+                      <dd className="text-slate-800">{dateLabel(selected.chequeDate)}{selected.chequeBank ? ` · ${selected.chequeBank}` : ""} · {t(chequeStatusLabel(selected.chequeStatus))}</dd></div>
+                  )}
                   {bankAccountName(bankAccounts, selected.bankAccountId) && (
                     <div><dt className="text-xs text-slate-500">{t("Deposited to")}</dt><dd className="text-slate-800">{bankAccountName(bankAccounts, selected.bankAccountId)}</dd></div>
                   )}

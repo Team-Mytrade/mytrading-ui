@@ -58,6 +58,7 @@ const GoodsReceiptNotes = lazy(() => import("./pages/purchase-service/GoodsRecei
 const PurchaseReturns = lazy(() => import("./pages/purchase-service/PurchaseReturns"));
 const LandedCostsPage = lazy(() => import("./pages/purchase-service/LandedCostsPage"));
 const RfqPage = lazy(() => import("./pages/purchase-service/RfqPage"));
+const ApprovalLimits = lazy(() => import("./pages/purchase-service/ApprovalLimits"));
 const CostCentres = lazy(() => import("./pages/Invoice/CostCentres"));
 const Budgets = lazy(() => import("./pages/Invoice/Budgets"));
 const FixedAssets = lazy(() => import("./pages/Invoice/FixedAssets"));
@@ -193,6 +194,9 @@ const GeneralLedger = lazy(() => import("./pages/Invoice/GeneralLedger"));
 const PostingAccounts = lazy(() => import("./pages/Invoice/PostingAccounts"));
 const FinancialStatements = lazy(() => import("./pages/Invoice/FinancialStatements"));
 const BankAccounts = lazy(() => import("./pages/Invoice/BankAccounts"));
+const Cheques = lazy(() => import("./pages/Invoice/Cheques"));
+const RecurringInvoices = lazy(() => import("./pages/Invoice/RecurringInvoices"));
+const SalesCommission = lazy(() => import("./pages/Invoice/SalesCommission"));
 const BankReconciliation = lazy(() => import("./pages/Invoice/BankReconciliation"));
 const ExchangeRates = lazy(() => import("./pages/Invoice/ExchangeRates"));
 const ZatcaSettings = lazy(() => import("./pages/Invoice/ZatcaSettings"));
@@ -288,6 +292,7 @@ export default function AppRouter() {
           <Route path="/purchase-service/goods-receipt-notes" element={<GoodsReceiptNotes />} />
           <Route path="/purchase-service/returns" element={<PurchaseReturns />} />
           <Route path="/purchase-service/landed-costs" element={<LandedCostsPage />} />
+          <Route path="/purchase-service/approval-limits" element={<ApprovalLimits />} />
           <Route path="/purchase-service/rfqs" element={<RfqPage />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
           <Route path="/purchase-orders" element={<Navigate to="/purchase-service/orders" replace />} />
@@ -333,6 +338,9 @@ export default function AppRouter() {
           <Route path="/postingAccounts" element={<PostingAccounts />} />
           <Route path="/financialStatements" element={<FinancialStatements />} />
           <Route path="/bankAccounts" element={<BankAccounts />} />
+          <Route path="/cheques" element={<Cheques />} />
+          <Route path="/recurringInvoices" element={<RecurringInvoices />} />
+          <Route path="/salesCommission" element={<SalesCommission />} />
           <Route path="/bankAccounts/:id/reconcile" element={<BankReconciliation />} />
           <Route path="/exchangeRates" element={<ExchangeRates />} />
           <Route path="/costCentres" element={<CostCentres />} />

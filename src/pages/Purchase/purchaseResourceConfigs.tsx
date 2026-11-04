@@ -663,7 +663,8 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
     const status = (row: PurchaseRecord) => String(row.status || "").toUpperCase();
     return [
       { key: "ALL", label: "All Orders", match: () => true, tone: "cyan" },
-      { key: "PENDING", label: "Pending Approval", match: (row) => approval(row) === "PENDING", tone: "blue" },
+      // In review: a large order with its first of two approvals
+      { key: "PENDING", label: "Pending Approval", match: (row) => approval(row) === "PENDING" || approval(row) === "IN_REVIEW", tone: "blue" },
       { key: "APPROVED", label: "Approved", match: (row) => approval(row) === "APPROVED", tone: "green" },
       { key: "REJECTED", label: "Rejected", match: (row) => approval(row) === "REJECTED", tone: "red" },
       { key: "RECEIVED", label: "Received", match: (row) => status(row) === "RECEIVED", tone: "slate" },
@@ -712,10 +713,13 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
   inlineSelectFields: [
     {
       name: "approvalStatus",
-      options: ["PENDING", "APPROVED", "REJECTED"].map((value) => ({
-        value,
-        label: value.charAt(0) + value.slice(1).toLowerCase(),
-      })),
+      // In review: over the company's second-approval limit, approved once; choosing Approved again (another person) approves it
+      options: [
+        { value: "PENDING", label: "Pending" },
+        { value: "IN_REVIEW", label: "1 of 2 approved" },
+        { value: "APPROVED", label: "Approved" },
+        { value: "REJECTED", label: "Rejected" },
+      ],
       widthClassName: "w-[136px]",
       // Approval-status changes need PURCHASE:APPROVE, and are decided only while the PO is a draft
       permission: "APPROVE",
