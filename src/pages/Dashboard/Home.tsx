@@ -6,6 +6,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { getAccessibleDashboards, type DashboardEntry } from "./dashboardRegistry";
 import ModuleSnapshot from "./ModuleSnapshot";
 import AttentionPanel from "./AttentionPanel";
+import GettingStartedBanner from "./GettingStartedBanner";
 import { t } from "../../i18n/i18n";
 import "../../styles/Home.css";
 
@@ -112,6 +113,7 @@ export default function Home() {
           </div>
         </header>
 
+        <GettingStartedBanner />
         <AttentionPanel />
 
         <div className="cc-panel">
