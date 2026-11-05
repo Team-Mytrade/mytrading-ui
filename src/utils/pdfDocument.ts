@@ -33,6 +33,7 @@ const loadFonts = (): Promise<string[] | null> => {
 
 const RTL = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]/;
 const MIRRORED: Record<string, string> = { "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<" };
+const CLOSER: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
 
 /**
  * A line in display order: the Unicode bidi rules, without embedding marks. Numbers stay whole, with
@@ -60,6 +61,31 @@ export const toDisplayOrder = (line: string): string => {
   const sides = types.map((type) => {
     if (type === "R" || type === "L") strong = type;
     return type === "O" ? "" : type === "N" ? strong : type;
+  });
+  // Brackets pair up (the Unicode bracket rule): a pair holding text of the line's direction takes that direction;
+  // holding only the other one, it follows the text before it. "Name (EMP-12) | Last day" in an Arabic line keeps
+  // "(EMP-12)" whole instead of splitting its brackets.
+  const opposite = base === "R" ? "L" : "R";
+  const open: { closer: string; index: number }[] = [];
+  const pairs: [number, number][] = [];
+  chars.forEach((c, i) => {
+    if (types[i] !== "O") return;
+    if (CLOSER[c]) {
+      open.push({ closer: CLOSER[c], index: i });
+      return;
+    }
+    const at = open.map((bracket) => bracket.closer).lastIndexOf(c);
+    if (at >= 0) {
+      pairs.push([open[at].index, i]);
+      open.length = at;
+    }
+  });
+  pairs.sort((a, b) => a[0] - b[0]).forEach(([from, to]) => {
+    const inside = sides.slice(from + 1, to).filter(Boolean);
+    let side = "";
+    if (inside.includes(base)) side = base;
+    else if (inside.includes(opposite)) side = (sides.slice(0, from).reverse().find(Boolean) ?? base) === opposite ? opposite : base;
+    if (side) sides[from] = sides[to] = side;
   });
   // Punctuation between two runs of the same side joins them, otherwise it takes the line's direction
   const levels = sides.map((side, i) => {
@@ -91,13 +117,27 @@ export const toDisplayOrder = (line: string): string => {
 
 const hasRtl = (text: unknown): boolean => (Array.isArray(text) ? text.some(hasRtl) : typeof text === "string" && RTL.test(text));
 
-/** Lines with Arabic are joined and put in display order before jsPDF gets them, and jsPDF told to leave the order alone. */
+type PdfEvents = {
+  getTopics(): Record<string, Record<string, [unknown, boolean]>>;
+  unsubscribe(token: string): boolean;
+};
+
+/**
+ * Lines with Arabic are joined and put in display order before jsPDF gets them, and jsPDF told to leave the order
+ * alone. Trailing spaces are dropped first: in a right-to-left line they would show as an indent on the left.
+ */
 const orderArabicText = (doc: jsPDF): void => {
   const api = doc as unknown as { processArabic(text: string): string };
+  // jsPDF shapes Arabic again in every text() call; this text is already shaped and in display order, where its
+  // ligature table would join a lam to the alef beside it (المالية would print as الملاية)
+  const events = (doc.internal as unknown as { events: PdfEvents }).events;
+  Object.entries(events.getTopics().preProcessText ?? {}).forEach(([token, [callback]]) => {
+    if (callback === api.processArabic) events.unsubscribe(token);
+  });
   const order = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(order);
     if (typeof value !== "string" || !RTL.test(value)) return value;
-    return value.split("\n").map((line) => toDisplayOrder(api.processArabic(line))).join("\n");
+    return value.split("\n").map((line) => toDisplayOrder(api.processArabic(line.replace(/\s+$/u, "")))).join("\n");
   };
   const text = doc.text.bind(doc) as (...args: unknown[]) => jsPDF;
   (doc as unknown as { text: unknown }).text = (value: unknown, x: unknown, y: unknown, options: unknown, ...rest: unknown[]) =>

@@ -42,8 +42,14 @@ type Refund = {
   refundDate: string;
   status: string;
   paymentMethod: string;
+  bankAccountId?: number | null;
   returnRequestId?: number;
+  // Set by finance once processed: the credit notes on the order's invoices, and how much went back to the customer
+  creditNoteNumbers?: string | null;
+  amountPaidBack?: number | null;
 };
+
+type BankAccountOption = { id: number; accountName: string; kind?: string; currency?: string; active?: boolean };
 
 type ReturnRequest = {
   id: number;
@@ -112,6 +118,7 @@ type RefundForm = {
   refundDate: string;
   status: string;
   paymentMethod: string;
+  bankAccountId: string;
 };
 
 const API_URL = "/v1/api/sales/returns";
@@ -166,6 +173,7 @@ const emptyRefundForm: RefundForm = {
   refundDate: toLocalDateTimeInput(new Date()),
   status: "PENDING",
   paymentMethod: "BANK_TRANSFER",
+  bankAccountId: "",
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -274,10 +282,16 @@ const ReturnRequests: React.FC = () => {
   const [scheduleOrders, setScheduleOrders] = useState<ScheduleOrderOption[]>([]);
   const [scheduleOrdersLoading, setScheduleOrdersLoading] = useState(false);
   const [scheduleOrdersError, setScheduleOrdersError] = useState(false);
+  // Finance's bank accounts and cash boxes a refund can be paid from (needs INVOICE:VIEW; without it the default is used)
+  const [bankAccounts, setBankAccounts] = useState<BankAccountOption[]>([]);
 
   useEffect(() => {
     fetchReturns();
     fetchScheduleOrders();
+    axios
+      .get<BankAccountOption[]>("/v1/api/invoice/bank-accounts", { headers })
+      .then((res) => setBankAccounts((Array.isArray(res.data) ? res.data : []).filter((account) => account.active !== false)))
+      .catch(() => setBankAccounts([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -589,6 +603,7 @@ const ReturnRequests: React.FC = () => {
         refundDate: toIsoDateTime(refundForm.refundDate),
         status: refundForm.status || "PENDING",
         paymentMethod: refundForm.paymentMethod || "BANK_TRANSFER",
+        bankAccountId: refundForm.bankAccountId ? toNumber(refundForm.bankAccountId) : null,
         returnRequestId,
       };
 
@@ -610,7 +625,18 @@ const ReturnRequests: React.FC = () => {
         );
       }
 
-      ToasterService.success("Refund created");
+      if (refund.status === "PROCESSED" && refund.creditNoteNumbers) {
+        const paidBack = Number(refund.amountPaidBack || 0);
+        ToasterService.success(
+          t("Refund recorded"),
+          `${t("Credit note")} ${refund.creditNoteNumbers}. ` +
+            (paidBack > 0
+              ? `${money(paidBack)} ${t("paid back to the customer")}`
+              : t("Nothing was paid yet, so it comes off what the customer owes"))
+        );
+      } else {
+        ToasterService.success("Refund created");
+      }
       setRefundForm(emptyRefundForm);
       setShowRefundModal(false);
     } catch (error) {
@@ -715,7 +741,17 @@ const ReturnRequests: React.FC = () => {
         <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
           {item.status === "COMPLETED" ? "Exchanged" : "Exchange"}
         </span>
-      ) : (item.refund ? `${money(item.refund.amount)} (${item.refund.status})` : "--"),
+      ) : item.refund ? (
+        <div className="leading-tight">
+          <div>{`${money(item.refund.amount)} (${item.refund.status})`}</div>
+          {item.refund.creditNoteNumbers && (
+            <div className="text-[11px] text-slate-500">
+              {item.refund.creditNoteNumbers}
+              {Number(item.refund.amountPaidBack || 0) > 0 ? ` · ${t("paid back")} ${money(item.refund.amountPaidBack ?? 0)}` : ""}
+            </div>
+          )}
+        </div>
+      ) : "--",
     },
     {
       key: "actions",
@@ -1053,6 +1089,25 @@ const ReturnRequests: React.FC = () => {
                   name: toFriendlyLabel(method),
                 }))}
               />,
+              ...(bankAccounts.length > 0
+                ? [
+                    <FloatingSelect
+                      key="refundBankAccount"
+                      label={t("Paid From")}
+                      name="bankAccountId"
+                      value={refundForm.bankAccountId}
+                      onChange={handleRefundChange}
+                      emptyOptionLabel={t("Default account for the method")}
+                      options={bankAccounts.map((account) => ({
+                        id: String(account.id),
+                        name: `${account.accountName}${account.currency ? ` (${account.currency})` : ""}`,
+                      }))}
+                    />,
+                  ]
+                : []),
+              <p key="refundFinanceNote" className="self-center text-[11px] text-slate-500">
+                {t("Once processed, finance raises a credit note on the order's invoice. What the customer had paid is paid back from this account; anything still owed is simply reduced.")}
+              </p>,
             ],
           },
         ]}
