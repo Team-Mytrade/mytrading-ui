@@ -6204,4 +6204,12 @@ export const ar: Record<string, string> = {
   "Could not change the sales person": "تعذّر تغيير مندوب المبيعات",
   "Sales people's commission, booked when a month's statement is approved.": "عمولة مندوبي المبيعات، تُقيَّد عند اعتماد كشف الشهر.",
   "Approved commission owed to sales people, until paid from the bank or with salaries.": "العمولة المعتمدة المستحقة لمندوبي المبيعات حتى تُدفع من البنك أو مع الرواتب.",
+
+  // ---------------- Sales return refunds ----------------
+  "Refund recorded": "تم تسجيل الاسترداد",
+  "paid back to the customer": "أُعيدت إلى العميل",
+  "Nothing was paid yet, so it comes off what the customer owes": "لم يُدفع شيء بعد، لذلك يُخصم من المبلغ المستحق على العميل",
+  "Default account for the method": "الحساب الافتراضي لطريقة الدفع",
+  "Once processed, finance raises a credit note on the order's invoice. What the customer had paid is paid back from this account; anything still owed is simply reduced.": "عند المعالجة، تُصدر المالية إشعارًا دائنًا على فاتورة الطلب. ما دفعه العميل يُعاد من هذا الحساب؛ وما زال مستحقًا يُخفَّض فقط.",
+  "paid back": "مُعاد",
 };
