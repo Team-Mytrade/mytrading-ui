@@ -57,6 +57,8 @@ const Deliveries = lazy(() => import("./pages/Purchase/Deliveries"));
 const GoodsReceiptNotes = lazy(() => import("./pages/purchase-service/GoodsReceiptNotes"));
 const PurchaseReturns = lazy(() => import("./pages/purchase-service/PurchaseReturns"));
 const LandedCostsPage = lazy(() => import("./pages/purchase-service/LandedCostsPage"));
+const InboundShipmentsPage = lazy(() => import("./pages/purchase-service/InboundShipmentsPage"));
+const CustomsPage = lazy(() => import("./pages/purchase-service/CustomsPage"));
 const RfqPage = lazy(() => import("./pages/purchase-service/RfqPage"));
 const ApprovalLimits = lazy(() => import("./pages/purchase-service/ApprovalLimits"));
 const CostCentres = lazy(() => import("./pages/Invoice/CostCentres"));
@@ -294,6 +296,8 @@ export default function AppRouter() {
           <Route path="/purchase-service/goods-receipt-notes" element={<GoodsReceiptNotes />} />
           <Route path="/purchase-service/returns" element={<PurchaseReturns />} />
           <Route path="/purchase-service/landed-costs" element={<LandedCostsPage />} />
+          <Route path="/purchase-service/shipments" element={<InboundShipmentsPage />} />
+          <Route path="/purchase-service/customs" element={<CustomsPage />} />
           <Route path="/purchase-service/approval-limits" element={<ApprovalLimits />} />
           <Route path="/purchase-service/rfqs" element={<RfqPage />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
+import { shipmentApi } from "../../purchase/shipmentApi";
 import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -20,10 +22,15 @@ const TD = "px-3 py-2 align-top text-sm text-slate-700 dark:text-gray-200";
 
 interface Vendor { id: number; vendorCode?: string; name?: string; active?: boolean }
 type ChargeRow = { key: string; chargeType: string; description: string; amount: string; taxAmount: string; vendorId: string; billNumber: string; billDate: string };
-type Form = { id: number | null; voucherDate: string; allocationMethod: "VALUE" | "QUANTITY"; notes: string; grnIds: number[]; charges: ChargeRow[] };
+type Form = { id: number | null; voucherDate: string; allocationMethod: "VALUE" | "QUANTITY"; notes: string; grnIds: number[]; charges: ChargeRow[];
+  shipmentId: number | null; shipmentNumber: string | null;
+  // A shipment's costs: only its receipts are offered
+  shipmentGrnIds: number[] | null };
 
 let seq = 0;
 const chargeRow = (type = "FREIGHT"): ChargeRow => ({ key: `c${seq++}`, chargeType: type, description: "", amount: "", taxAmount: "", vendorId: "", billNumber: "", billDate: "" });
+// Customs entries put each product's own duty on it
+const methodLabel = (method: string) => (method === "VALUE" ? "Value" : method === "SPECIFIED" ? "Each product's duty (customs)" : "Quantity");
 const typeLabel = (type: string) => t(type.charAt(0) + type.slice(1).toLowerCase());
 const money = (value: number | null | undefined) => (value == null ? "—" : formatMoney(value, { currency: companyCurrency() }));
 const asArray = <T,>(data: unknown): T[] =>
@@ -58,13 +65,30 @@ export default function LandedCostsPage() {
 
   const startNew = () => {
     setShown(null);
-    setForm({ id: null, voucherDate: todayIso(), allocationMethod: "VALUE", notes: "", grnIds: [], charges: [chargeRow("FREIGHT")] });
+    setForm({ id: null, voucherDate: todayIso(), allocationMethod: "VALUE", notes: "", grnIds: [], charges: [chargeRow("FREIGHT")],
+      shipmentId: null, shipmentNumber: null, shipmentGrnIds: null });
   };
+
+  // From an inbound shipment (?shipment=id): its receipts, named after it
+  const [params, setParams] = useSearchParams();
+  const fromShipment = Number(params.get("shipment")) || null;
+  useEffect(() => {
+    if (!fromShipment) return;
+    shipmentApi.get(fromShipment).then((s) => {
+      setShown(null);
+      const ids = s.receipts.filter((r) => r.status !== "CANCELLED").map((r) => r.id);
+      setForm({ id: null, voucherDate: todayIso(), allocationMethod: "VALUE", notes: `${t("Shipment")} ${s.shipmentNumber}`,
+        grnIds: ids, charges: [chargeRow("FREIGHT"), chargeRow("DUTY")], shipmentId: s.id, shipmentNumber: s.shipmentNumber, shipmentGrnIds: ids });
+    }).catch((err) => ToasterService.error("The shipment could not be loaded", errorText(err, "Please try again.")))
+      .finally(() => setParams({}, { replace: true }));
+  }, [fromShipment, setParams]);
 
   const edit = (v: LandedCostVoucher) => {
     setShown(v);
     setForm({
-      id: v.id, voucherDate: v.voucherDate, allocationMethod: v.allocationMethod, notes: v.notes ?? "",
+      id: v.id, voucherDate: v.voucherDate, allocationMethod: v.allocationMethod === "QUANTITY" ? "QUANTITY" : "VALUE", notes: v.notes ?? "",
+      shipmentId: v.shipmentId ?? null, shipmentNumber: v.shipmentNumber ?? null,
+      shipmentGrnIds: v.shipmentId ? v.receipts.map((r) => r.id) : null,
       grnIds: v.receipts.map((r) => r.id),
       charges: v.charges.map((c) => ({ key: `c${seq++}`, chargeType: c.chargeType, description: c.description ?? "", amount: String(c.amount),
         taxAmount: c.taxAmount == null ? "" : String(c.taxAmount), vendorId: c.vendorId ? String(c.vendorId) : "", billNumber: c.billNumber ?? "",
@@ -93,6 +117,7 @@ export default function LandedCostsPage() {
     try {
       const saved = await landedCostApi.save(form.id, {
         voucherDate: form.voucherDate || null, allocationMethod: form.allocationMethod, notes: form.notes || null, grnIds: form.grnIds,
+        shipmentId: form.shipmentId,
         charges: form.charges.map((c) => ({
           chargeType: c.chargeType, description: c.description || null, amount: Number(c.amount),
           taxAmount: c.taxAmount === "" ? null : Number(c.taxAmount), vendorId: c.vendorId ? Number(c.vendorId) : null,
@@ -185,7 +210,7 @@ export default function LandedCostsPage() {
                       <td className={`${TD} font-medium`}>{v.voucherNumber}</td>
                       <td className={`${TD} whitespace-nowrap`}>{formatDate(v.voucherDate)}</td>
                       <td className={TD}>{v.receipts.map((r) => r.receiptNumber).join(", ")}</td>
-                      <td className={TD}>{t(v.allocationMethod === "VALUE" ? "Value" : "Quantity")}</td>
+                      <td className={TD}>{t(methodLabel(v.allocationMethod))}</td>
                       <td className={`${TD} whitespace-nowrap text-end`}>{money(v.totalCharges)}</td>
                       <td className={TD}>
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${v.status === "POSTED"
@@ -221,6 +246,9 @@ export default function LandedCostsPage() {
         {form && (
           <div className={`${CARD} space-y-4 p-4`}>
             <h2 className={CARD_TITLE}>{shown ? `${t("Landed cost")} ${shown.voucherNumber} (${t("Draft")})` : t("New landed cost")}</h2>
+            {form.shipmentNumber && (
+              <p className="text-xs text-slate-500">{t("For inbound shipment {number}: only its goods receipts can be chosen.", { number: form.shipmentNumber })}</p>
+            )}
             <div className="grid gap-3 md:grid-cols-3">
               <div>
                 <label className={LABEL} htmlFor="lc-date">{t("Date")}</label>
@@ -253,7 +281,7 @@ export default function LandedCostsPage() {
                     {receipts.length === 0 && (
                       <tr><td className="px-3 py-4 text-sm text-slate-400">{t("No goods receipts in stock yet.")}</td></tr>
                     )}
-                    {receipts.map((r) => (
+                    {receipts.filter((r) => !form.shipmentGrnIds || form.shipmentGrnIds.includes(r.id)).map((r) => (
                       <tr key={r.id}>
                         <td className={`${TD} w-8`}>
                           <input type="checkbox" aria-label={r.receiptNumber} checked={form.grnIds.includes(r.id)}
@@ -345,7 +373,7 @@ export default function LandedCostsPage() {
             </div>
             <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4 dark:text-gray-200">
               <div><span className={LABEL}>{t("Date")}</span>{formatDate(shown.voucherDate)}</div>
-              <div><span className={LABEL}>{t("Spread by")}</span>{t(shown.allocationMethod === "VALUE" ? "Value" : "Quantity")}</div>
+              <div><span className={LABEL}>{t("Spread by")}</span>{t(methodLabel(shown.allocationMethod))}</div>
               <div><span className={LABEL}>{t("Added to stock value")}</span>{money(shown.onHandAmount)}</div>
               <div><span className={LABEL}>{t("To cost of sales (already sold)")}</span>{money(shown.soldAmount)}</div>
               {shown.postedAt && <div className="sm:col-span-2"><span className={LABEL}>{t("Posted")}</span>{formatDateTime(shown.postedAt)} · {shown.postedBy}</div>}

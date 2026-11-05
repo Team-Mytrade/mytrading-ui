@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  AlertTriangle, BellRing, CalendarCheck, CalendarClock, CheckCircle2, ChevronDown, ClipboardCheck, ClipboardPen, FilePen,
+  AlertTriangle, BellRing, CalendarCheck, Container, CalendarClock, CheckCircle2, ChevronDown, ClipboardCheck, ClipboardPen, FilePen,
   FileText, HandCoins, LogOut, Mail, PackageCheck, PackageX, RefreshCw, Truck, UserX, Wallet, type LucideIcon,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
@@ -57,6 +57,8 @@ const ITEMS: Item[] = [
     module: "PURCHASE", permission: "PURCHASE:APPROVE",
     load: () => count<Row>("/v1/api/purchase/purchase-orders",
       (r) => r.status !== "CANCELLED" && ["PENDING", "IN_REVIEW"].includes(String(r.approvalStatus))) },
+  { key: "shipments", label: "Inbound shipments overdue", icon: Container, tone: "amber", route: "/purchase-service/shipments",
+    module: "PURCHASE", permission: "PURCHASE:VIEW", load: () => count<Row>("/v1/api/purchase/shipments", (r) => r.overdue === true) },
   { key: "grns", label: "Goods receipts in draft", icon: PackageCheck, tone: "cyan", route: "/purchase-service/goods-receipt-notes",
     module: "PURCHASE", permission: "PURCHASE:UPDATE", load: () => count<Row>("/v1/api/purchase/grns", (r) => r.status === "DRAFT") },
   { key: "orders", label: "Sales orders to confirm", icon: FilePen, tone: "emerald", route: "/sales-orders",

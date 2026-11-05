@@ -41,7 +41,8 @@ export interface LandedCostVoucher {
   id: number;
   voucherNumber: string;
   voucherDate: string;
-  allocationMethod: "VALUE" | "QUANTITY";
+  // SPECIFIED: each product's own amount (posted customs entries)
+  allocationMethod: "VALUE" | "QUANTITY" | "SPECIFIED";
   status: "DRAFT" | "POSTED";
   notes: string | null;
   receipts: LandedCostReceipt[];
@@ -52,6 +53,9 @@ export interface LandedCostVoucher {
   soldAmount: number | null;
   postedAt: string | null;
   postedBy: string | null;
+  // The inbound shipment whose costs these are
+  shipmentId?: number | null;
+  shipmentNumber?: string | null;
 }
 
 export interface LandedCostRequest {
@@ -60,6 +64,7 @@ export interface LandedCostRequest {
   notes: string | null;
   grnIds: number[];
   charges: Omit<LandedCostCharge, "id" | "vendorName" | "billId">[];
+  shipmentId?: number | null;
 }
 
 export const landedCostApi = {
