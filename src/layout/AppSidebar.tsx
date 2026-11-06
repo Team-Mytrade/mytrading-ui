@@ -11,6 +11,8 @@ import {
   History,
   FileUp,
   Rocket,
+  KeyRound,
+  Webhook,
   Tags,
   Ship,
   Container,
@@ -372,6 +374,8 @@ export const navItems: NavItem[] = [
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
       { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
       { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
+      { name: "API keys", path: "/api-keys", permission: "USERS:ADMIN", icon: KeyRound, section: "Company" },
+      { name: "Webhooks", path: "/webhooks", permission: "USERS:ADMIN", icon: Webhook, section: "Company" },
       { name: "Customer Portal", path: "/portal-accounts", permission: "USERS:VIEW", icon: Store, section: "Company" },
       { name: "Data Import", path: "/data-import", permission: "PRODUCT_CATALOGUE:CREATE|CRM:CREATE|INVENTORY:CREATE|INVOICE:CREATE|INVOICE:ADMIN", icon: FileUp, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this

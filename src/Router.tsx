@@ -170,6 +170,8 @@ const NotificationSettingsPage = lazy(() => import("./pages/company/Notification
 const AuditLogPage = lazy(() => import("./pages/company/AuditLogPage"));
 const DataImportPage = lazy(() => import("./pages/company/DataImportPage"));
 const GettingStartedPage = lazy(() => import("./pages/company/GettingStartedPage"));
+const ApiKeysPage = lazy(() => import("./pages/company/ApiKeysPage"));
+const WebhooksPage = lazy(() => import("./pages/company/WebhooksPage"));
 const Batch = lazy(() => import("./pages/Inventory/batch"));
 const EmployeeCompensationPage = lazy(() => import("./pages/Payroll/EmployeeCompensationPage"));
 const EmployeeDepartmentsPage = lazy(() => import("./pages/Payroll/EmployeeDepartments"));
@@ -265,6 +267,8 @@ export default function AppRouter() {
           <Route path="/audit-log" element={<AuditLogPage />} />
           <Route path="/data-import" element={<DataImportPage />} />
           <Route path="/getting-started" element={<GettingStartedPage />} />
+          <Route path="/api-keys" element={<ApiKeysPage />} />
+          <Route path="/webhooks" element={<WebhooksPage />} />
           <Route path="/portal-accounts" element={<PortalAccounts />} />
 
           <Route path="/service-schedule-notify" element={<ServiceScheduleNotify />} />
