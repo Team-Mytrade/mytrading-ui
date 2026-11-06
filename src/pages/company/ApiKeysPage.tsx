@@ -9,6 +9,9 @@ import { formatDate, formatDateTime } from "../../company/format";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
 import { t } from "../../i18n/i18n";
 
+// Times from the server are UTC without a zone mark (like the audit log); shown in the company's zone
+const utc = (value: string | null | undefined) => (value ? `${value}Z` : null);
+
 const BASE = "/v1/api/user/company/api-keys";
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
@@ -236,11 +239,11 @@ export default function ApiKeysPage() {
                   <tr key={k.id}>
                     <td className={TD}>
                       <span className="font-medium">{k.name}</span>
-                      <span className="block text-xs text-slate-400">{t("By {who} on {date}", { who: k.createdBy ?? "—", date: formatDate(k.createdAt) })}</span>
+                      <span className="block text-xs text-slate-400">{t("By {who} on {date}", { who: k.createdBy ?? "—", date: formatDate(utc(k.createdAt)) })}</span>
                     </td>
                     <td className={`${TD} font-mono text-xs`} dir="ltr">{k.keyPrefix}_…</td>
                     <td className={`${TD} text-xs`}>{k.permissions.join(", ")}</td>
-                    <td className={`${TD} whitespace-nowrap text-xs`}>{k.lastUsedAt ? formatDateTime(k.lastUsedAt) : t("Never")}</td>
+                    <td className={`${TD} whitespace-nowrap text-xs`}>{k.lastUsedAt ? formatDateTime(utc(k.lastUsedAt)) : t("Never")}</td>
                     <td className={TD}>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE[k.status]}`}>{t(k.status === "ACTIVE" ? "Active" : k.status === "REVOKED" ? "Revoked" : "Expired")}</span>
                       {k.expiresOn && k.status === "ACTIVE" && <span className="block text-[11px] text-slate-400">{t("Until {date}", { date: formatDate(k.expiresOn) })}</span>}
