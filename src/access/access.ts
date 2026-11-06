@@ -157,6 +157,9 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/salesReports", "SALES"],
 
   ["/warehouse", "INVENTORY"],
+  ["/bins", "INVENTORY"],
+  ["/pick-pack", "INVENTORY"],
+  ["/consignment", "INVENTORY"],
   ["/quality-inspection", "INVENTORY"],
   ["/batch", "INVENTORY"],
   ["/serial-number", "INVENTORY"],
@@ -189,6 +192,8 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/financialStatements", "INVOICE"],
   ["/bankAccounts", "INVOICE"],
   ["/cheques", "INVOICE"],
+  ["/lettersOfCredit", "INVOICE"],
+  ["/exportEvidence", "INVOICE"],
   ["/recurringInvoices", "INVOICE"],
   ["/salesCommission", "INVOICE"],
   ["/exchangeRates", "INVOICE"],

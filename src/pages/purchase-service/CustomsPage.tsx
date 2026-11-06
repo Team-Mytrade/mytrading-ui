@@ -7,7 +7,7 @@ import { Calculator, Eye, Pencil, Plus, Save, Stamp, Trash2 } from "lucide-react
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
-import { errorText } from "../../access/accessApi";
+import { apiError as errorText } from "../../utils/apiError";
 import { usePermissions } from "../../access/usePermissions";
 import { Declaration, HsTariff, customsApi } from "../../purchase/customsApi";
 import { Shipment, shipmentApi } from "../../purchase/shipmentApi";

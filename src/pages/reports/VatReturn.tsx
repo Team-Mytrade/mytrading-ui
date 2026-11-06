@@ -32,6 +32,9 @@ interface VatReturnData {
   netVatDue: number;
   invoiceCount: number;
   billCount: number;
+  // Designated-zone sales, outside VAT; exports past 90 days without proof of exit
+  outOfScopeSales?: Box;
+  exportsWithoutEvidence?: number;
 }
 
 type Period = "thisMonth" | "lastMonth" | "thisQuarter" | "lastQuarter" | "custom";
@@ -107,6 +110,9 @@ const VatReturn: React.FC = () => {
       { group: "", label: "Zero-rated supplies", note: "Exports and other 0% supplies", box: data.zeroRatedSales, vat: false },
       { group: "", label: "Exempt supplies", note: "Outside VAT (e.g. residential rent)", box: data.exemptSales, vat: false },
       { group: "", label: "Supplies under reverse charge", note: "The customer accounts for the VAT", box: data.reverseChargeSales, vat: false },
+      ...(data.outOfScopeSales && data.outOfScopeSales.documents > 0
+        ? [{ group: "", label: "Outside the scope of VAT", note: "Goods sold into a designated zone; not reported as sales", box: data.outOfScopeSales, vat: false }]
+        : []),
       { group: "", label: "Credit notes issued", note: "Reduce output VAT in the month issued", box: data.creditNotes, vat: true, negative: true },
       { group: "Purchases (input)", label: "Standard-rated expenses", note: "VAT on vendor bills, recoverable", box: data.standardRatedPurchases, vat: true },
       { group: "", label: "Imports and services under reverse charge", note: "You account for this VAT as output and input", box: data.reverseChargePurchases, vat: true },
@@ -148,6 +154,12 @@ const VatReturn: React.FC = () => {
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             {t("Your company is not set as VAT registered. Set the tax registration and TRN in")}{" "}
             <Link to="/company-settings" className="font-semibold underline">{t("Company Settings")}</Link>.
+          </p>
+        )}
+        {data && (data.exportsWithoutEvidence ?? 0) > 0 && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            {t("{count} zero-rated export(s) in this period have no proof of exit after 90 days; without it they are taxed at the standard rate.", { count: data.exportsWithoutEvidence ?? 0 })}{" "}
+            <Link to="/exportEvidence" className="font-semibold underline">{t("Export Evidence")}</Link>
           </p>
         )}
         {data && data.currencies.some((c) => c !== company?.currency) && (

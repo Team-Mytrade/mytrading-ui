@@ -184,11 +184,21 @@ export const monthNames = (style: "short" | "long" = "short"): string[] =>
 
 const monthName = (month: number) => monthNames("short")[month - 1];
 /**
+ * An array whose items are read afresh on every use. Both traps are needed: map / forEach / filter ask whether
+ * each index exists (has) before reading it (get); without "has" they skipped every item and gave [].
+ */
+const liveArray = (read: () => string[]): string[] =>
+  new Proxy([] as string[], {
+    get: (_target, key) => Reflect.get(read(), key),
+    has: (_target, key) => Reflect.has(read(), key),
+  });
+
+/**
  * A month-name array that always reads in the current screen language (for module-level constants that
  * pages index or map over; the language can change after they are created).
  */
-export const liveMonthNames = (style: "short" | "long" = "short"): string[] =>
-  new Proxy([] as string[], { get: (_target, key) => Reflect.get(monthNames(style), key) });
+export const liveMonthNames = (style: "short" | "long" = "short"): string[] => liveArray(() => monthNames(style));
+
 
 /**
  * Locale for the browser's own date formatting (toLocaleDateString, Intl.DateTimeFormat) in the screen language:
@@ -367,7 +377,7 @@ export const weekdayName = (day: string | number | Date, style: "min" | "short" 
 
 /** Sun…Sat names (Sunday first, as Date.getDay()) that always read in the current screen language. */
 export const liveWeekdayNames = (style: "min" | "short" | "long" = "short"): string[] =>
-  new Proxy([] as string[], { get: (_target, key) => Reflect.get([0, 1, 2, 3, 4, 5, 6].map((d) => weekdayName(d, style)), key) });
+  liveArray(() => [0, 1, 2, 3, 4, 5, 6].map((d) => weekdayName(d, style)));
 /** Column headers in week order: "min" Su Mo…, "short" Sun Mon… (Arabic names when the screen is Arabic). */
 export const weekdayLabels = (style: "min" | "short" = "short"): string[] => weekDays().map((d) => weekdayName(d, style));
 

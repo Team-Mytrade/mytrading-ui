@@ -113,6 +113,10 @@ type SalesOrder = {
   customerNotes: string;
   billingAddress: Address;
   shippingAddress: Address;
+  // Where the goods go, for VAT (7.2.1 step 4)
+  supplyType?: SupplyType;
+  importEntryNumber?: string | null;
+  designatedZone?: string | null;
   salesPersonId: number;
   subject: string;
   termsAndConditions: string;
@@ -317,8 +321,19 @@ type OrderForm = {
   termsAndConditions: string;
   billingAddressSnapshot: Partial<Address>;
   shippingAddressSnapshot: Partial<Address>;
+  supplyType: SupplyType;
+  importEntryNumber: string;
+  designatedZone: string;
   items: OrderItemForm[];
 };
+
+type SupplyType = "DOMESTIC" | "EXPORT" | "RE_EXPORT" | "DESIGNATED_ZONE";
+const SUPPLY_OPTIONS: { id: SupplyType; name: string }[] = [
+  { id: "DOMESTIC", name: "Domestic — VAT as on the lines" },
+  { id: "EXPORT", name: "Export outside the GCC — zero-rated" },
+  { id: "RE_EXPORT", name: "Re-export of imported goods — zero-rated" },
+  { id: "DESIGNATED_ZONE", name: "Into a designated zone — outside VAT" },
+];
 
 const API_URL = "/v1/api/sales/sales-orders";
 const DISPATCH_API_URL = "/v1/api/sales/dispatch";
@@ -462,6 +477,9 @@ const emptyForm: OrderForm = {
   termsAndConditions: "",
   billingAddressSnapshot: {},
   shippingAddressSnapshot: {},
+  supplyType: "DOMESTIC",
+  importEntryNumber: "",
+  designatedZone: "",
   items: [],
 };
 
@@ -861,6 +879,10 @@ const SalesOrders: React.FC = () => {
     const { name, value } = e.target;
     setForm((current) => {
       const next = { ...current, [name]: value };
+      // Exports, re-exports and designated-zone sales carry no VAT (the server drops it too)
+      if (name === "supplyType" && value !== "DOMESTIC") {
+        next.items = current.items.map((item) => ({ ...item, taxRate: "0" }));
+      }
 
       if (name === "quotationId") {
         const quotation = quotations.find((item) => String(getQuotationId(item)) === value);
@@ -947,6 +969,9 @@ const SalesOrders: React.FC = () => {
     customerNotes: form.customerNotes,
     billingAddress: buildAddress(form, "BILLING"),
     shippingAddress: buildAddress(form, "SHIPPING"),
+    supplyType: form.supplyType,
+    importEntryNumber: form.supplyType === "RE_EXPORT" ? form.importEntryNumber.trim() || null : null,
+    designatedZone: form.supplyType === "DESIGNATED_ZONE" ? form.designatedZone.trim() || null : null,
     salesPersonId: toNumber(form.salesPersonId),
     subject: form.subject,
     termsAndConditions: form.termsAndConditions,
@@ -1107,6 +1132,9 @@ const SalesOrders: React.FC = () => {
       termsAndConditions: order.termsAndConditions || "",
       billingAddressSnapshot: order.billingAddress || {},
       shippingAddressSnapshot: order.shippingAddress || {},
+      supplyType: order.supplyType || "DOMESTIC",
+      importEntryNumber: order.importEntryNumber || "",
+      designatedZone: order.designatedZone || "",
       items: (order.items || []).map(itemFromOrderItem),
     });
   };
@@ -2087,7 +2115,9 @@ const SalesOrders: React.FC = () => {
                               name="taxRate"
                               type="number"
                               className={inputClass}
-                              value={item.taxRate}
+                              value={form.supplyType !== "DOMESTIC" ? "0" : item.taxRate}
+                              disabled={form.supplyType !== "DOMESTIC"}
+                              title={form.supplyType !== "DOMESTIC" ? t("No VAT: this order is an export, re-export or designated-zone sale") : undefined}
                               onChange={handleItemInputChange(index)}
                             />
                           </div>
@@ -2259,6 +2289,45 @@ const SalesOrders: React.FC = () => {
                 onChange={handleChange}
                 disabled
               />,
+            ],
+          },
+          {
+            label: "VAT & export",
+            fields: [
+              <FloatingSelect
+                key="supplyType"
+                label={t("Where the goods go")}
+                name="supplyType"
+                value={form.supplyType}
+                onChange={handleChange}
+                includeEmptyOption={false}
+                options={SUPPLY_OPTIONS.map((o) => ({ id: o.id, name: t(o.name) }))}
+              />,
+              ...(form.supplyType === "RE_EXPORT" ? [
+                <FloatingInput
+                  key="importEntryNumber"
+                  label={t("Import customs entry (bill of entry) no.")}
+                  name="importEntryNumber"
+                  value={form.importEntryNumber}
+                  onChange={handleChange}
+                />,
+              ] : []),
+              ...(form.supplyType === "DESIGNATED_ZONE" ? [
+                <FloatingInput
+                  key="designatedZone"
+                  label={t("Designated zone")}
+                  name="designatedZone"
+                  value={form.designatedZone}
+                  onChange={handleChange}
+                />,
+              ] : []),
+              <p key="supplyHint" className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400">
+                {t(form.supplyType === "DOMESTIC"
+                  ? "Each line's VAT applies."
+                  : form.supplyType === "DESIGNATED_ZONE"
+                    ? "Goods sold into a designated zone and staying there are outside the scope of VAT: no VAT on any line."
+                    : "Zero-rated: no VAT on any line. Fill in the shipping address abroad (with its country), and record the proof of exit on the invoice within 90 days.")}
+              </p>,
             ],
           },
           {
