@@ -1186,7 +1186,13 @@ export const goodsReceiptNoteConfig: PurchaseResourceConfig = {
       <GoodsReceiptEditor
         form={form}
         purchaseOrders={approvedPurchaseOrders}
-        warehouses={options.warehouseId || []}
+        // Goods go into a warehouse in use (the server refuses an inactive one, and a vendor's consignment location);
+        // a receipt being edited keeps showing the warehouse it already names
+        warehouses={(options.warehouseId || []).filter(
+          (option) =>
+            String(option.value) === String(form.warehouseId ?? "") ||
+            (option.raw?.active !== false && option.raw?.isActive !== false && option.raw?.consignmentType !== "VENDOR_OWNED")
+        )}
         isEditing={Boolean(editingRow)}
         onChange={(name, value) => setForm((current) => ({ ...current, [name]: value }))}
         onCancel={onClose}

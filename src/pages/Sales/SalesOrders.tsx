@@ -230,6 +230,8 @@ type QuotationItemOption = {
 
 type QuotationOption = {
   id?: number;
+  status?: string;
+  convertedSalesOrderId?: number | null;
   quotationId?: number;
   quoteId?: number;
   quoteNumber?: string;
@@ -1800,6 +1802,10 @@ const SalesOrders: React.FC = () => {
                 onChange={handleChange}
                 emptyOptionLabel=""
                 options={quotations
+                  // A quotation becomes one order, once accepted: offer those still free, and this order's own
+                  .filter((quotation) =>
+                    String(getQuotationId(quotation)) === form.quotationId ||
+                    (quotation.status === "ACCEPTED" && !quotation.convertedSalesOrderId))
                   .map((quotation) => {
                     const id = getQuotationId(quotation);
                     return {
