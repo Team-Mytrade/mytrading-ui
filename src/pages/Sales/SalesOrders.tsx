@@ -208,6 +208,7 @@ type CustomerOption = {
   tradeName?: string;
   email?: string;
   currencyCode?: string;
+  addresses?: Partial<Address>[];
 };
 
 type QuotationItemOption = {
@@ -249,6 +250,8 @@ type QuotationOption = {
   grandTotal?: number;
   totalAmount?: number;
   items?: QuotationItemOption[];
+  billingAddress?: Partial<Address> | null;
+  shippingAddress?: Partial<Address> | null;
 };
 
 type OrderItemForm = {
@@ -552,6 +555,31 @@ function customerOptionLabel(customer: CustomerOption) {
   return customer.customerName || customer.tradeName || `Customer #${customer.id}`;
 }
 
+function hasAddress(address?: Partial<Address> | null): address is Partial<Address> {
+  return !!address && [address.addressLine1, address.addressLine2, address.street, address.city, address.postalCode]
+    .some((part) => !!part && String(part).trim() !== "");
+}
+
+function customerAddresses(customer?: CustomerOption) {
+  const list = (customer?.addresses || []).filter(hasAddress);
+  const billing = list.find((address) => address.type === "BILLING") || list[0];
+  const shipping = list.find((address) => address.type === "SHIPPING") || billing;
+  return { billing, shipping };
+}
+
+/** Copies an address into the form's billing or shipping fields (blank when there is none). */
+function fillAddress(form: OrderForm, prefix: "billing" | "shipping", address?: Partial<Address>) {
+  const target = form as unknown as Record<string, unknown>;
+  target[`${prefix}AddressLine1`] = address?.addressLine1 || "";
+  target[`${prefix}AddressLine2`] = address?.addressLine2 || "";
+  target[`${prefix}Street`] = address?.street || "";
+  target[`${prefix}City`] = address?.city || "";
+  target[`${prefix}State`] = address?.state || "";
+  target[`${prefix}Country`] = address?.country || "";
+  target[`${prefix}PostalCode`] = address?.postalCode || "";
+  target[`${prefix}AddressSnapshot`] = address || {};
+}
+
 function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
   const prefix = type === "BILLING" ? "billing" : "shipping";
   const snapshot = form[`${prefix}AddressSnapshot` as keyof OrderForm] as Partial<Address>;
@@ -576,10 +604,15 @@ function buildAddress(form: OrderForm, type: "BILLING" | "SHIPPING"): Address {
 function computeItemTotals(item: OrderItemForm) {
   const quantity = toNumber(item.quantity);
   const unitPrice = toNumber(item.unitPrice);
-  const discountAmount = toNumber(item.discountAmount);
   const additionalDiscount = toNumber(item.additionalDiscount);
   const taxRate = toNumber(item.taxRate);
   const grossAmount = quantity * unitPrice;
+  // As the server works it out: the discount amount when one is entered, else the discount %
+  const enteredAmount = toNumber(item.discountAmount);
+  const discountPercent = toNumber(item.discountPercentage);
+  const discountAmount = enteredAmount > 0
+    ? enteredAmount
+    : discountPercent > 0 ? Number(((grossAmount * discountPercent) / 100).toFixed(2)) : 0;
   const taxableAmount = Math.max(0, grossAmount - discountAmount - additionalDiscount);
   const taxAmount = Number(((taxableAmount * taxRate) / 100).toFixed(2));
   const lineTotal = Number((taxableAmount + taxAmount).toFixed(2));
@@ -905,6 +938,12 @@ const SalesOrders: React.FC = () => {
           next.email =
             matchedCustomer?.email || quotation.customer?.email || quotation.email || "";
           next.subject = quotation.subject || next.subject;
+          // The quotation's addresses, or the customer's where the quotation has none
+          const fromCustomer = customerAddresses(matchedCustomer);
+          const billing = hasAddress(quotation.billingAddress) ? quotation.billingAddress : fromCustomer.billing;
+          fillAddress(next, "billing", billing);
+          fillAddress(next, "shipping",
+            hasAddress(quotation.shippingAddress) ? quotation.shippingAddress : fromCustomer.shipping || billing);
 
           next.items =
             quotation.items && quotation.items.length > 0
@@ -920,6 +959,12 @@ const SalesOrders: React.FC = () => {
         if (customer) {
           next.email = customer.email || next.email;
           next.currencyCode = customer.currencyCode || next.currencyCode || companyCurrency();
+          // Another customer: their addresses (kept as they are when this customer has none on file)
+          const { billing, shipping } = customerAddresses(customer);
+          if (billing) {
+            fillAddress(next, "billing", billing);
+            fillAddress(next, "shipping", shipping);
+          }
         }
       }
 

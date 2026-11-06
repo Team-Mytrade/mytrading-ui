@@ -683,7 +683,7 @@ const Quotations: React.FC = () => {
     }
   };
 
-  /** Sets one field. Picking a customer copies its currency, addresses and sales person; a sales person, their email. */
+  /** Sets one field. Picking a customer copies its currency, addresses, email and sales person. */
   const setField = (name: keyof QuotationForm, value: string) => {
     setForm((current) => {
       const next = { ...current, [name]: value };
@@ -716,12 +716,9 @@ const Quotations: React.FC = () => {
         const customerSalesPerson = salesPersons.find((person) => person.id === customer?.salesPersonId);
         if (!current.salesPersonId && customerSalesPerson) {
           next.salesPersonId = String(customerSalesPerson.id);
-          next.email = customerSalesPerson.email || "";
         }
-      }
-      if (name === "salesPersonId") {
-        const person = salesPersons.find((item) => String(item.id) === value);
-        next.email = person?.email || "";
+        // The quotation's email is the customer's: it is printed under Customer and is where the quotation is sent
+        next.email = customer?.email || "";
       }
       return next;
     });
