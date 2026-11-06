@@ -35,6 +35,7 @@ const Refunds = lazy(() => import("./pages/Sales/Refunds"));
 const CreditLimit = lazy(() => import("./pages/Sales/CreditLimit"));
 const PriceListsPage = lazy(() => import("./pages/Sales/PriceListsPage"));
 const PointOfSale = lazy(() => import("./pages/Sales/PointOfSale"));
+const OnlineStores = lazy(() => import("./pages/Sales/OnlineStores"));
 const CustomerPortal = lazy(() => import("./pages/Portal/CustomerPortal"));
 const PortalAccounts = lazy(() => import("./pages/Portal/PortalAccounts"));
 const Warehouse = lazy(() => import("./pages/Inventory/warehouse"));
@@ -207,6 +208,7 @@ const PickPack = lazy(() => import("./pages/Inventory/PickPack"));
 const Consignment = lazy(() => import("./pages/Inventory/Consignment"));
 const RecurringInvoices = lazy(() => import("./pages/Invoice/RecurringInvoices"));
 const SalesCommission = lazy(() => import("./pages/Invoice/SalesCommission"));
+const MarketplacePayouts = lazy(() => import("./pages/Invoice/MarketplacePayouts"));
 const BankReconciliation = lazy(() => import("./pages/Invoice/BankReconciliation"));
 const ExchangeRates = lazy(() => import("./pages/Invoice/ExchangeRates"));
 const ZatcaSettings = lazy(() => import("./pages/Invoice/ZatcaSettings"));
@@ -281,6 +283,7 @@ export default function AppRouter() {
           <Route path="/credit-limit" element={<CreditLimit />} />
           <Route path="/sales-price-lists" element={<PriceListsPage />} />
           <Route path="/sales-pos" element={<PointOfSale />} />
+          <Route path="/sales-online-stores" element={<OnlineStores />} />
           <Route path="/sales-channels" element={<SalesChannels />} />
           <Route path="/service-schedules" element={<ServiceSchedules />} />
           <Route path="/sales-dashboard" element={<SalesDashboard />} />
@@ -361,6 +364,7 @@ export default function AppRouter() {
           <Route path="/exportEvidence" element={<ExportEvidence />} />
           <Route path="/recurringInvoices" element={<RecurringInvoices />} />
           <Route path="/salesCommission" element={<SalesCommission />} />
+              <Route path="/marketplacePayouts" element={<MarketplacePayouts />} />
           <Route path="/bankAccounts/:id/reconcile" element={<BankReconciliation />} />
           <Route path="/exchangeRates" element={<ExchangeRates />} />
           <Route path="/costCentres" element={<CostCentres />} />

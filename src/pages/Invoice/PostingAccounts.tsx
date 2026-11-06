@@ -45,6 +45,7 @@ const USED_FOR: Record<string, string> = {
   CHEQUES_RECEIVED: "Customers' post-dated cheques held until they clear into the bank (Banking → Cheques).",
   CHEQUES_ISSUED: "Post-dated cheques given to vendors until the bank pays them.",
   BANK_CHARGES: "Charges the bank makes, such as on a bounced or stopped cheque.",
+  MARKETPLACE_FEES: "Amazon and noon commissions and fees taken from their payouts, and other payout adjustments.",
   RETAINED_EARNINGS: "Each closed year's profit or loss (the year-end close).",
   UNREALISED_EXCHANGE:"Month-end revaluation of open foreign-currency invoices and bills (reversed the next day).",
   OUTPUT_TAX: "VAT / GST charged on sales, and reverse-charge VAT on purchases.",

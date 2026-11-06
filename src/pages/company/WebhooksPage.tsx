@@ -9,6 +9,9 @@ import { formatDateTime } from "../../company/format";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
 import { t } from "../../i18n/i18n";
 
+// Times from the server are UTC without a zone mark (like the audit log); shown in the company's zone
+const utc = (value: string | null | undefined) => (value ? `${value}Z` : null);
+
 const BASE = "/v1/api/user/company/webhooks";
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
@@ -224,7 +227,7 @@ export default function WebhooksPage() {
                     </td>
                     <td className={`${TD} font-mono text-[11px]`} dir="ltr">{s.events.join(", ")}</td>
                     <td className={`${TD} whitespace-nowrap text-xs`}>
-                      {s.lastDeliveryAt ? <>{formatDateTime(s.lastDeliveryAt)}<span className={`ms-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_TONE[s.lastResult ?? ""] ?? ""}`}>{t(s.lastResult === "DELIVERED" ? "Delivered" : "Failed")}</span></> : t("Never")}
+                      {s.lastDeliveryAt ? <>{formatDateTime(utc(s.lastDeliveryAt))}<span className={`ms-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_TONE[s.lastResult ?? ""] ?? ""}`}>{t(s.lastResult === "DELIVERED" ? "Delivered" : "Failed")}</span></> : t("Never")}
                     </td>
                     <td className={TD}>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.active ? STATUS_TONE.DELIVERED : "bg-slate-100 text-slate-600"}`}>{t(s.active ? "Active" : "Paused")}</span>
@@ -279,8 +282,8 @@ export default function WebhooksPage() {
                       <td className={TD}><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[d.status]}`}>{t(d.status === "DELIVERED" ? "Delivered" : d.status === "PENDING" ? "Waiting" : "Failed")}</span></td>
                       <td className={TD}>{d.attempts}</td>
                       <td className={`${TD} text-xs`}>{d.responseStatus ?? "—"}{d.lastError && <span className="block max-w-xs truncate text-red-600" title={d.lastError}>{d.lastError}</span>}</td>
-                      <td className={`${TD} whitespace-nowrap text-xs`}>{d.lastAttemptAt ? formatDateTime(d.lastAttemptAt) : "—"}</td>
-                      <td className={`${TD} whitespace-nowrap text-xs`}>{d.status === "PENDING" && d.nextAttemptAt ? formatDateTime(d.nextAttemptAt) : "—"}</td>
+                      <td className={`${TD} whitespace-nowrap text-xs`}>{d.lastAttemptAt ? formatDateTime(utc(d.lastAttemptAt)) : "—"}</td>
+                      <td className={`${TD} whitespace-nowrap text-xs`}>{d.status === "PENDING" && d.nextAttemptAt ? formatDateTime(utc(d.nextAttemptAt)) : "—"}</td>
                       <td className={`${TD} text-end`}>
                         {d.status !== "PENDING" && (
                           <button type="button" className={ROW_ICON_BUTTON} title={t("Send again")} aria-label={t("Send again")} disabled={busy}
