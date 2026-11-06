@@ -6,7 +6,7 @@ import AppSidebar from "./AppSidebar";
 import { AuthContext } from "../context/AuthContext";
 import SignIn from "../pages/AuthPages/SignIn";
 import { useContext } from "react";
-import { canAccessPath } from "../access/access";
+import { canAccessPath, getSelectedTenant } from "../access/access";
 import NoAccess from "../access/NoAccess";
 import TenantBanner from "../access/TenantBanner";
 import { useRegionalVersion } from "../company/companyApi";
@@ -25,6 +25,14 @@ const LayoutContent: React.FC = () => {
   const regional = useRegionalVersion(isLoggedIn);
   const lang = useLanguage();
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+  // The company a Super Admin works in: switching it reloads the open page with that company's data
+  const [tenantId, setTenantId] = useState(getSelectedTenant());
+
+  useEffect(() => {
+    const update = () => setTenantId(getSelectedTenant());
+    window.addEventListener("app-tenant-changed", update);
+    return () => window.removeEventListener("app-tenant-changed", update);
+  }, []);
   const isSalesModule = [
     "/sales-dashboard", "/sales-targets", "/sales-persons", "/sales-orders",
     "/return-requests", "/refunds", "/quotations", "/quote-view", "/credit-limit",
@@ -68,9 +76,9 @@ const LayoutContent: React.FC = () => {
           {!regional.ready && isLoggedIn ? (
             <PageLoading />
           ) : canAccessPath(access, location.pathname) ? (
-            // Pages are loaded on demand; header and sidebar stay while one loads. A new language or regional
-            // setting draws the page again.
-            <Suspense key={`${regional.version}-${lang}`} fallback={<PageLoading />}>
+            // Pages are loaded on demand; header and sidebar stay while one loads. A new language, regional
+            // setting or company (Super Admin) draws the page again.
+            <Suspense key={`${regional.version}-${lang}-${tenantId ?? "all"}`} fallback={<PageLoading />}>
               <Outlet />
             </Suspense>
           ) : (

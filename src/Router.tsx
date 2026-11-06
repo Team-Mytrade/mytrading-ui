@@ -198,6 +198,11 @@ const PostingAccounts = lazy(() => import("./pages/Invoice/PostingAccounts"));
 const FinancialStatements = lazy(() => import("./pages/Invoice/FinancialStatements"));
 const BankAccounts = lazy(() => import("./pages/Invoice/BankAccounts"));
 const Cheques = lazy(() => import("./pages/Invoice/Cheques"));
+const LettersOfCredit = lazy(() => import("./pages/Invoice/LettersOfCredit"));
+const ExportEvidence = lazy(() => import("./pages/Invoice/ExportEvidence"));
+const BinsPutaway = lazy(() => import("./pages/Inventory/BinsPutaway"));
+const PickPack = lazy(() => import("./pages/Inventory/PickPack"));
+const Consignment = lazy(() => import("./pages/Inventory/Consignment"));
 const RecurringInvoices = lazy(() => import("./pages/Invoice/RecurringInvoices"));
 const SalesCommission = lazy(() => import("./pages/Invoice/SalesCommission"));
 const BankReconciliation = lazy(() => import("./pages/Invoice/BankReconciliation"));
@@ -278,6 +283,9 @@ export default function AppRouter() {
           <Route path="/quote-view/:id" element={<Quotations />} />
 
           <Route path="/warehouse" element={<Warehouse />} />
+          <Route path="/bins" element={<BinsPutaway />} />
+          <Route path="/pick-pack" element={<PickPack />} />
+          <Route path="/consignment" element={<Consignment />} />
            <Route path="/products" element={<Navigate to="/common/products" replace />} />
           <Route path="/inventory" element={<InventoryModule />} />
           <Route path="/stock-movement" element={<StockMovement />} />
@@ -345,6 +353,8 @@ export default function AppRouter() {
           <Route path="/financialStatements" element={<FinancialStatements />} />
           <Route path="/bankAccounts" element={<BankAccounts />} />
           <Route path="/cheques" element={<Cheques />} />
+          <Route path="/lettersOfCredit" element={<LettersOfCredit />} />
+          <Route path="/exportEvidence" element={<ExportEvidence />} />
           <Route path="/recurringInvoices" element={<RecurringInvoices />} />
           <Route path="/salesCommission" element={<SalesCommission />} />
           <Route path="/bankAccounts/:id/reconcile" element={<BankReconciliation />} />

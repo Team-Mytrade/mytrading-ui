@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ArchiveBoxXMarkIcon, EnvelopeIcon, InformationCircleIcon, PrinterIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { ArchiveBoxXMarkIcon, BuildingLibraryIcon, EnvelopeIcon, InformationCircleIcon, PrinterIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import DocumentEmailDialog from "../../components/common/DocumentEmailDialog";
 import CloseOrderDialog from "../../components/common/CloseOrderDialog";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { AuthContext } from "../../context/AuthContext";
+import { hasPermission } from "../../access/access";
 import { companyDisplayName } from "../../company/companyApi";
 import { formatDate } from "../../company/format";
 import { PurchaseOrderDoc, isPoApproved, loadPurchaseOrderDoc, printPurchaseOrder, purchaseOrderPdf } from "./purchaseOrderPdf";
@@ -39,6 +42,10 @@ export default function PurchaseOrderDocumentActions({
 }) {
   // Emailing is a POST (PURCHASE:CREATE); marking as sent without an email is a PUT (PURCHASE:UPDATE)
   const { canCreate, canUpdate, canApprove } = usePermissions("PURCHASE");
+  const navigate = useNavigate();
+  const { access } = useContext(AuthContext);
+  // Letters of credit are finance's (INVOICE); one is opened for an approved order still to come
+  const canOpenLc = hasPermission(access, "INVOICE:CREATE") || hasPermission(access, "INVOICE:ADMIN");
   const [busy, setBusy] = useState(false);
   const [emailing, setEmailing] = useState<PurchaseOrderDoc | null>(null);
   const [closing, setClosing] = useState<"cancel" | "close" | null>(null);
@@ -98,6 +105,12 @@ export default function PurchaseOrderDocumentActions({
         <button type="button" title={t("Email to vendor")} aria-label={t("Email to vendor")} className={ICON} disabled={busy}
           onClick={(e) => { e.stopPropagation(); void withDoc((doc) => setEmailing(doc)); }}>
           <EnvelopeIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
+      {sendable && canOpenLc && (
+        <button type="button" title={t("Letter of credit")} aria-label={t("Letter of credit")} className={ICON}
+          onClick={(e) => { e.stopPropagation(); navigate(`/lettersOfCredit?po=${id}`); }}>
+          <BuildingLibraryIcon className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
       {canApprove && !row.closedAt && CANCELLABLE.includes(status) && (

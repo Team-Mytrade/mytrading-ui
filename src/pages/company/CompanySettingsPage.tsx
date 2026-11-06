@@ -108,6 +108,8 @@ export default function CompanySettingsPage() {
   const [uploading, setUploading] = useState(false);
   // Once the company has transactions its currency can't change (the server refuses it too)
   const [currencyLock, setCurrencyLock] = useState<CurrencyLock | null>(null);
+  // The lock couldn't be checked (e.g. the server doesn't have it yet): said on screen, the server still decides
+  const [currencyLockUnknown, setCurrencyLockUnknown] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -122,8 +124,8 @@ export default function CompanySettingsPage() {
     if (!editable) return;
     let cancelled = false;
     companyApi.currencyLock()
-      .then((lock) => { if (!cancelled) setCurrencyLock(lock); })
-      .catch(() => { if (!cancelled) setCurrencyLock(null); });
+      .then((lock) => { if (!cancelled) { setCurrencyLock(lock); setCurrencyLockUnknown(false); } })
+      .catch(() => { if (!cancelled) { setCurrencyLock(null); setCurrencyLockUnknown(true); } });
     return () => { cancelled = true; };
   }, [editable, company?.currency]);
   const dirty = !!company && !!form && JSON.stringify(toForm(company)) !== JSON.stringify(form);
@@ -390,6 +392,11 @@ export default function CompanySettingsPage() {
                         {currencyList.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
                       </select>
                       {errors.currency && <p className="mt-1 text-xs text-red-600">{t(errors.currency)}</p>}
+                      {!currencyLocked && currencyLockUnknown && editable && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                          {t("Couldn't check whether the currency can still change. It can't once the company has quotations, invoices or other transactions.")}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className={LABEL} htmlFor="company-decimals">{t("Decimal places for amounts")}</label>

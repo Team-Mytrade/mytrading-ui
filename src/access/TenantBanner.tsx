@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Building2, Globe, Settings2, ShieldCheck } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { getSelectedTenant, setSelectedTenant } from "./access";
@@ -7,6 +7,26 @@ import { TenantAccess, platformApi, tenantStatusOf } from "./accessApi";
 import { ToasterService } from "../Services/ToasterService";
 
 const ALL = "";
+
+// A record id in a path or query: digits, or a UUID
+const RECORD_ID = /^(\d+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+/**
+ * The same page for another company, without the previous company's record: "/quotations/123" becomes
+ * "/quotations", and "?editId=5" is dropped. Other query values (e.g. "?tab=roles") stay.
+ */
+const pageForOtherCompany = (pathname: string, search: string): string => {
+  const segments = pathname.split("/");
+  const firstId = segments.findIndex((segment, i) => i > 0 && RECORD_ID.test(segment));
+  const path = firstId > 0 ? segments.slice(0, firstId).join("/") || "/" : pathname;
+  const params = new URLSearchParams(search);
+  [...params.keys()].forEach((key) => {
+    const value = params.get(key) ?? "";
+    if (/id$/i.test(key) || RECORD_ID.test(value)) params.delete(key);
+  });
+  const query = params.toString();
+  return path + (query ? `?${query}` : "");
+};
 
 // Cyan theme (matches the #4DD0E1 Add buttons and the sidebar). The select sets its own height with no
 // vertical padding: the forms plugin's padding and line height cut the text off in a short select.
@@ -21,11 +41,13 @@ const BAR_BUTTON =
 
 /**
  * Super Admin bar under the header: which company their actions apply to, and a picker to switch.
- * Switching reloads the workspace from the dashboard so no page keeps another company's data.
+ * Switching keeps the open page and reloads it with the new company's data (AppLayout); a page opened for one
+ * record of the previous company goes back to its list.
  */
 export default function TenantBanner() {
   const { access } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [tenantId, setTenantId] = useState(getSelectedTenant());
   const [tenants, setTenants] = useState<TenantAccess[]>([]);
 
@@ -51,7 +73,8 @@ export default function TenantBanner() {
     setSelectedTenant(value);
     const name = value ? tenants.find((t) => t.tenantId === value)?.tenantName ?? value : null;
     ToasterService.success(name ? `Now working in ${name}` : "Now working across all tenants");
-    navigate("/");
+    const page = pageForOtherCompany(location.pathname, location.search);
+    if (page !== location.pathname + location.search) navigate(page, { replace: true });
   };
 
   return (
