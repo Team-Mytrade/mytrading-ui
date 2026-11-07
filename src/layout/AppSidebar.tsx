@@ -17,6 +17,9 @@ import {
   Ship,
   Container,
   Stamp,
+  PackageSearch,
+  TrendingUp,
+  ScanText,
   BookMarked,
   BookOpen,
   BookmarkCheck,
@@ -94,6 +97,7 @@ import {
   Wallet,
   Warehouse,
   type LucideIcon,
+  Sparkles,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
@@ -153,6 +157,12 @@ export const navItems: NavItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />,
     name: "Dashboard",
     path: "/",
+  },
+  {
+    // Questions answered from the reports (7.2.3); each report checks the asker's own rights
+    icon: <Sparkles className="w-5 h-5" />,
+    name: "Ask MyTrade",
+    path: "/ask",
   },
 
   {
@@ -216,6 +226,7 @@ export const navItems: NavItem[] = [
       { name: "Purchase Requisitions", path: "/purchase-service/requisitions", icon: ClipboardList, section: "Buying" },
       { name: "Requests for Quotation", path: "/purchase-service/rfqs", icon: Scale, section: "Buying" },
       { name: "Purchase Orders", path: "/purchase-service/orders", icon: ShoppingBag, section: "Buying" },
+      { name: "Reorder Suggestions", path: "/purchase-service/reorder", icon: PackageSearch, section: "Buying" },
       { name: "Inbound Shipments", path: "/purchase-service/shipments", icon: Container, section: "Receiving" },
       { name: "Customs", path: "/purchase-service/customs", icon: Stamp, section: "Receiving" },
       { name: "Goods Receipts (GRN)", path: "/purchase-service/goods-receipt-notes", icon: PackageCheck, section: "Receiving" },
@@ -276,10 +287,12 @@ export const navItems: NavItem[] = [
       { name: "Sales Commission", path: "/salesCommission", icon: BadgePercent, section: "Receivables" },
       { name: "Marketplace Payouts", path: "/marketplacePayouts", icon: Wallet, section: "Receivables" },
       { name: "Purchase Invoices", path: "/purchaseInvoices", icon: FileText, section: "Payables" },
+      { name: "Read a Vendor Bill", path: "/billReader", icon: ScanText, section: "Payables" },
       { name: "Vendor Payments", path: "/vendorPayments", icon: Banknote, section: "Payables" },
       { name: "Accounts Payable", path: "/accountsPayable", icon: Wallet, section: "Payables" },
       { name: "Bank & Cash", path: "/bankAccounts", icon: PiggyBank, section: "Banking" },
       { name: "Cheques", path: "/cheques", icon: Coins, section: "Banking" },
+      { name: "Cash Flow Forecast", path: "/cashFlowForecast", icon: TrendingUp, section: "Banking" },
       { name: "Letters of Credit", path: "/lettersOfCredit", icon: ScrollText, section: "Banking" },
       { name: "Journal Entries", path: "/journalEntries", icon: BookOpen, section: "Accounting" },
       { name: "General Ledger", path: "/generalLedger", icon: BookMarked, section: "Accounting" },

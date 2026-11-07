@@ -11,6 +11,8 @@ export interface Plan {
   /** Empty: no limit. */
   maxUsers: number | null;
   maxStorageMb: number | null;
+  /** AI uses a month, bill readings and questions (empty: no limit, 0: not included). */
+  maxAiDocuments: number | null;
   monthlyPrice: number | null;
   yearlyPrice: number | null;
   currency: string | null;
@@ -30,6 +32,7 @@ export interface CompanyPlan {
   modules: string[];
   maxUsers: number | null;
   maxStorageMb: number | null;
+  maxAiDocuments: number | null;
   monthlyPrice: number | null;
   yearlyPrice: number | null;
   currency: string | null;
@@ -71,6 +74,7 @@ export interface AssignForm {
   modules?: string[] | null;
   maxUsers: number | null;
   maxStorageMb: number | null;
+  maxAiDocuments?: number | null;
   monthlyPrice: number | null;
   yearlyPrice: number | null;
   note: string | null;
@@ -144,6 +148,10 @@ export const planPrice = (value: number | null, currency: string | null) =>
 
 /** "10 users" / "No limit". */
 export const limitText = (value: number | null, unit: string) => (value == null ? "No limit" : `${value} ${unit}`);
+
+/** AI uses a month: "No limit", "Not included" or "100 a month". */
+export const aiText = (value: number | null | undefined) =>
+  value == null ? "No limit" : value === 0 ? "Not included" : `${value} AI uses a month`;
 
 /** Storage in MB shown as GB from 1024. */
 export const storageText = (mb: number | null) =>

@@ -7,7 +7,7 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { APP_MODULES, AppModule, MODULE_LABELS } from "../../access/access";
 import { errorText } from "../../access/accessApi";
-import { BillingEvent, Plan, PlanForm, limitText, planPrice as price, plansApi, storageText } from "../../platform/plansApi";
+import { BillingEvent, Plan, PlanForm, aiText, limitText, planPrice as price, plansApi, storageText } from "../../platform/plansApi";
 import { formatDateTime } from "../../company/format";
 import { currencies } from "../../company/regional";
 import { CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
@@ -20,7 +20,7 @@ const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-30
 const OPTIONAL_MODULES = APP_MODULES.filter((m) => m !== "USERS");
 
 const EMPTY: PlanForm = {
-  code: "", name: "", description: "", modules: [], maxUsers: null, maxStorageMb: null, monthlyPrice: null, yearlyPrice: null,
+  code: "", name: "", description: "", modules: [], maxUsers: null, maxStorageMb: null, maxAiDocuments: null, monthlyPrice: null, yearlyPrice: null,
   currency: "", active: true, sortOrder: 0,
 };
 
@@ -166,6 +166,7 @@ export default function PlansPage() {
     },
     { key: "maxUsers", label: "Users", render: (p) => t(limitText(p.maxUsers, "users")) },
     { key: "maxStorageMb", label: "Storage", render: (p) => t(storageText(p.maxStorageMb)) },
+    { key: "maxAiDocuments", label: "AI uses", render: (p) => t(aiText(p.maxAiDocuments)) },
     { key: "monthlyPrice", label: "Monthly", render: (p) => price(p.monthlyPrice, p.currency) },
     { key: "yearlyPrice", label: "Yearly", render: (p) => price(p.yearlyPrice, p.currency) },
     { key: "companies", label: "Companies", sortable: true },
@@ -240,6 +241,12 @@ export default function PlansPage() {
                 <label className={LABEL} htmlFor="plan-storage">{t("Most storage (MB)")}</label>
                 <input id="plan-storage" type="number" min={1} className={INPUT} value={form.maxStorageMb ?? ""} placeholder={t("No limit")}
                   onChange={(e) => set("maxStorageMb", numberOrNull(e.target.value))} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={LABEL} htmlFor="plan-ai">{t("AI uses a month (bill readings and questions)")}</label>
+                <input id="plan-ai" type="number" min={0} className={INPUT} value={form.maxAiDocuments ?? ""} placeholder={t("No limit")}
+                  onChange={(e) => set("maxAiDocuments", numberOrNull(e.target.value))} />
+                <p className="mt-1 text-[11px] text-slate-500">{t("0: not included. Each reading of a vendor bill counts one; companies also have to turn AI on.")}</p>
               </div>
               <div>
                 <label className={LABEL} htmlFor="plan-monthly">{t("Monthly price")}</label>
