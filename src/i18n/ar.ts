@@ -7114,4 +7114,14 @@ export const ar: Record<string, string> = {
   "Turn AI features on? Vendor bills your team chooses to read, and the report figures a question needs, are sent to Anthropic. You can turn this off at any time.": "تشغيل ميزات الذكاء الاصطناعي؟ تُرسل إلى Anthropic فواتير الموردين التي يختار فريقك قراءتها، وأرقام التقارير التي يحتاجها السؤال. يمكنك إيقاف ذلك في أي وقت.",
   "Use AI (Claude, by Anthropic): read vendor bills and answer questions": "استخدام الذكاء الاصطناعي (Claude من Anthropic): قراءة فواتير الموردين والإجابة عن الأسئلة",
   "Ask MyTrade answers questions from the reports each person can open; the figures a question needs are sent with it. Nothing is changed.": "يجيب «اسأل MyTrade» عن الأسئلة من التقارير التي يمكن لكل شخص فتحها، وتُرسل معه الأرقام التي يحتاجها السؤال. لا يتغير شيء.",
+  // Point of sale: services, tax-inclusive tills, supervisor prices, cash difference (backlog 7.1.1)
+  "Prices at this till include tax (shelf prices); the invoice shows them net plus tax": "الأسعار في هذا الصندوق تشمل الضريبة (أسعار الرف)؛ وتُظهرها الفاتورة صافية مع الضريبة",
+  "Price incl. tax": "السعر شامل الضريبة",
+  "Only a supervisor can sell below the price": "لا يبيع بأقل من السعر إلا المشرف",
+  "Only a supervisor can give a discount": "لا يمنح الخصم إلا المشرف",
+  "{product}: only a supervisor can sell below the price or give a discount.": "{product}: لا يبيع بأقل من السعر أو يمنح خصمًا إلا المشرف.",
+  "The cash difference is in the ledger.": "سُجّل فرق النقد في دفتر الأستاذ.",
+  "The cash difference could not be posted yet.": "تعذّر تسجيل فرق النقد حتى الآن.",
+  "The cash difference of {amount} isn't in the ledger yet": "فرق النقد البالغ {amount} لم يُسجَّل في دفتر الأستاذ بعد",
+  "Post it now": "سجّله الآن",
 };
