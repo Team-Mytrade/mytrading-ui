@@ -13,6 +13,10 @@ export interface TenantAdmin {
 // SUSPENDED and INACTIVE companies' users can't sign in; SUSPENDED is meant to be temporary
 export type TenantStatus = "ACTIVE" | "SUSPENDED" | "INACTIVE";
 
+/** Fired after a company is created, renamed or changes status, so lists of companies reload. */
+export const TENANTS_CHANGED_EVENT = "app-tenants-changed";
+export const announceTenantsChanged = () => window.dispatchEvent(new Event(TENANTS_CHANGED_EVENT));
+
 export interface TenantAccess {
   tenantId: string;
   tenantName: string;

@@ -11,7 +11,7 @@ import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { APP_MODULES, AppModule, MODULE_LABELS, getSelectedTenant, setSelectedTenant } from "../../access/access";
-import { TenantAccess, TenantAdmin, TenantStatus, platformApi, tenantStatusOf } from "../../access/accessApi";
+import { TenantAccess, TenantAdmin, TenantStatus, announceTenantsChanged, platformApi, tenantStatusOf } from "../../access/accessApi";
 import {
   CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
@@ -89,6 +89,12 @@ export default function TenantsPage() {
     load();
   }, [load]);
 
+  // The list tools' Refresh button reloads the companies (a tenant created elsewhere shows up)
+  useEffect(() => {
+    window.addEventListener("reusable-table:refresh", load);
+    return () => window.removeEventListener("reusable-table:refresh", load);
+  }, [load]);
+
   const stats = useMemo(() => ({
     total: tenants.length,
     active: tenants.filter((t) => tenantStatusOf(t) === "ACTIVE").length,
@@ -121,6 +127,7 @@ export default function TenantsPage() {
       ToasterService.success(`${editName.trim()} saved.`);
       setEditing(null);
       load();
+      announceTenantsChanged();
     } catch (e) {
       ToasterService.error(message(e, "Could not save the tenant."));
     } finally {
@@ -147,6 +154,7 @@ export default function TenantsPage() {
       ToasterService.success(`${statusFor.tenantName} is now ${STATUS[nextStatus].label.toLowerCase()}.`);
       setStatusFor(null);
       load();
+      announceTenantsChanged();
     } catch (e) {
       ToasterService.error(message(e, "Could not change the status."));
     } finally {
@@ -187,7 +195,10 @@ export default function TenantsPage() {
       else ToasterService.error(`${tenant.tenantName} was created, but the invite email could not be sent. Use "Send invite" to try again.`);
       setCreating(false);
       setForm(emptyForm);
+      // List the new company straight away, before the reload returns
+      setTenants((all) => (all.some((x) => x.tenantId === tenant.tenantId) ? all : [...all, tenant]));
       load();
+      announceTenantsChanged();
     } catch (err) {
       ToasterService.error(message(err, "Could not create the tenant."));
     } finally {
@@ -203,6 +214,17 @@ export default function TenantsPage() {
 
   const moduleChecklist = (value: AppModule[], onChange: (v: AppModule[]) => void) => (
     <div>
+      <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={OPTIONAL_MODULES.every((m) => value.includes(m))}
+          ref={(el) => {
+            if (el) el.indeterminate = value.length > 0 && !OPTIONAL_MODULES.every((m) => value.includes(m));
+          }}
+          onChange={(e) => onChange(e.target.checked ? [...OPTIONAL_MODULES] : [])}
+        />
+        {tr("Select all")}
+      </label>
       <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 dark:border-gray-700">
         {OPTIONAL_MODULES.map((m) => (
           <label key={m} className="flex items-center gap-2 text-xs text-slate-700 dark:text-gray-300">
@@ -395,6 +417,32 @@ export default function TenantsPage() {
             <div>
               <label className={LABEL}>{tr("Modules")}</label>
               {moduleChecklist(editModules, setEditModules)}
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 text-xs dark:border-gray-700">
+              <div className="mb-1 font-semibold text-slate-700 dark:text-gray-200">{tr("Tenant admin")}</div>
+              {editing.admins.length === 0 ? (
+                <p className="text-amber-600">{tr("None")}</p>
+              ) : (
+                editing.admins.map((a) => (
+                  <div key={a.userId} className="flex items-center justify-between gap-2 py-0.5">
+                    <span className="text-slate-700 dark:text-gray-300">{a.fullName} <span className="text-slate-500">{a.email}</span></span>
+                    {a.invitePending && (
+                      <button type="button" className="font-semibold text-cyan-600 hover:underline" onClick={() => inviteAdmin(editing, a)}>{tr("Resend invite")}</button>
+                    )}
+                  </div>
+                ))
+              )}
+              <button
+                type="button"
+                className="mt-2 font-semibold text-cyan-600 hover:underline"
+                onClick={() => {
+                  setSelectedTenant(editing.tenantId);
+                  setEditing(null);
+                  navigate("/company-settings");
+                }}
+              >
+                {tr("Edit company details (address, tax ids, logo, currency)")} →
+              </button>
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" className={SECONDARY_BUTTON} onClick={() => setEditing(null)}>{tr("Cancel")}</button>

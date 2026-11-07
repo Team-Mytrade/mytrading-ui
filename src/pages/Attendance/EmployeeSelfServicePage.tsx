@@ -55,12 +55,75 @@ export interface CalendarDayItem {
   leaveType?: string;
 }
 
+/** Status words for the day details panel. */
+const DAY_STATUS_TEXT: Record<string, string> = {
+  PRESENT: 'Present', LATE: 'Late', HALF_DAY: 'Half day', ABSENT: 'Absent', ON_LEAVE: 'On leave', LEAVE: 'On leave',
+  HOLIDAY: 'Holiday', WEEKLY_OFF: 'Weekly off', WEEK_OFF: 'Weekly off', ON_DUTY: 'On duty', WFH: 'Work from home',
+  CHECKED_IN: 'Checked in',
+};
+
+/** One day of the attendance calendar: punches, hours and why the day counts the way it does. */
+const DayDetailsPanel: React.FC<{
+  date: string;
+  day?: CalendarDay;
+  minDate?: string;
+  onPick: (date: string) => void;
+  onClose: () => void;
+}> = ({ date, day, minDate, onPick, onClose }) => {
+  const status = day?.weeklyOff && !day?.inTime ? 'WEEKLY_OFF' : (day?.status ?? '');
+  const row = (label: string, value: React.ReactNode) => (
+    <div className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-100 dark:border-[#303030] text-xs">
+      <span className="text-slate-500 dark:text-gray-400">{t(label)}</span>
+      <span className="font-medium text-slate-800 dark:text-gray-100 text-right">{value}</span>
+    </div>
+  );
+  const longDate = new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  return (
+    <aside className="absolute inset-0 z-10 w-full md:static md:inset-auto md:z-auto md:w-72 shrink-0 border-l border-slate-100 dark:border-[#303030] bg-white dark:bg-[#191919] p-4 overflow-y-auto" aria-label={t("Day details")}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <input
+          type="date"
+          value={date}
+          min={minDate}
+          onChange={(e) => onPick(e.target.value)}
+          aria-label={t("Pick a date")}
+          className="px-2 py-1 text-xs border border-slate-200 dark:border-[#303030] rounded-lg bg-white dark:bg-[#222222] text-slate-800 dark:text-white"
+        />
+        <button type="button" onClick={onClose} title={t("Close")} className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-[#222222]">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{longDate}</h3>
+      {status && (
+        <span className="mt-1 inline-block rounded-full bg-slate-100 dark:bg-[#222222] px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:text-gray-200">
+          {t(DAY_STATUS_TEXT[status] ?? status)}
+        </span>
+      )}
+      <div className="mt-3">
+        {row("In time", timeOf(day?.inTime) || "—")}
+        {row("Out time", timeOf(day?.outTime) || "—")}
+        {row("Hours worked", day?.workedMinutes ? hoursOf(day.workedMinutes) : "—")}
+        {row("Late by", day?.lateMinutes ? `${day.lateMinutes}m` : "—")}
+        {row("Early exit", day?.earlyExitMinutes ? `${day.earlyExitMinutes}m` : "—")}
+        {row("Overtime", day?.overtimeMinutes ? hoursOf(day.overtimeMinutes) : "—")}
+        {day?.leaveType && row("Leave", `${leaveTypeLabel(day.leaveType)}${day.halfDayLeave ? ` (${t("half day")})` : ''}`)}
+        {day?.holidayName && row("Holiday", day.holidayName)}
+        {day?.attendanceMode && row("Mode", day.attendanceMode.replace(/_/g, ' '))}
+        {day?.regularized && row("Regularized", t("Yes"))}
+      </div>
+      {!day && <p className="mt-3 text-xs text-slate-400">{t("No attendance recorded for this day.")}</p>}
+    </aside>
+  );
+};
+
 const EmployeeSelfServicePage: React.FC = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [activeRequestFilter, setActiveRequestFilter] = useState<string>('ALL');
   const [showRequestDropdown, setShowRequestDropdown] = useState<boolean>(false);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState<boolean>(false);
+  // The day opened in the calendar's details panel (yyyy-mm-dd)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // User Profile
   // Own employee identity from the login token (no hard-coded ids)
@@ -754,6 +817,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 ))}
               </div>
 
+              <div className="relative flex-1 flex min-h-0 overflow-hidden">
               {/* Minimal Calendar Grid Container */}
               <div className="p-2 sm:p-3 flex-1 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-[#141414] min-h-0">
                 {/* Weekday Labels */}
@@ -788,8 +852,12 @@ const EmployeeSelfServicePage: React.FC = () => {
                     return (
                       <div
                         key={idx}
+                        role="button"
+                        tabIndex={0}
                         title={day.details || `Date: ${day.dateStr}`}
-                        className={`h-full min-h-0 p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer overflow-hidden ${cardStyle}`}
+                        onClick={() => setSelectedDate(day.dateStr)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDate(day.dateStr); } }}
+                        className={`h-full min-h-0 p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer overflow-hidden ${cardStyle} ${selectedDate === day.dateStr ? 'ring-2 ring-cyan-500' : ''}`}
                       >
                         {/* Day Card Header: Day Number + Minimal Status Badge */}
                         <div className="flex items-center justify-between gap-1 leading-none shrink-0 mb-0.5">
@@ -835,6 +903,21 @@ const EmployeeSelfServicePage: React.FC = () => {
                     );
                   })}
                 </div>
+              </div>
+              {selectedDate && (
+                <DayDetailsPanel
+                  date={selectedDate}
+                  day={monthDays.find((d) => d.date === selectedDate)}
+                  minDate={joiningDate || undefined}
+                  onPick={(next) => {
+                    if (!next) return;
+                    const [y, m] = next.split('-').map(Number);
+                    if (y !== year || m - 1 !== month) setCurrentDate(new Date(y, m - 1, 1));
+                    setSelectedDate(next);
+                  }}
+                  onClose={() => setSelectedDate(null)}
+                />
+              )}
               </div>
 
             </div>

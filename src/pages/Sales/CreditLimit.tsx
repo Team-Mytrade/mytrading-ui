@@ -351,14 +351,28 @@ const CreditLimit: React.FC = () => {
     fetchCustomers();
   }, [headers]);
 
+  const AMOUNT_FIELD: Partial<Record<CreditMethod, string>> = {
+    check: "orderAmount",
+    addOutstanding: "outstandingAmount",
+    clearOutstanding: "clearingBalance",
+    create: "clearingBalance",
+  };
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    // Block negative values on numeric amount fields.
+    if (name === "customerId" && value) {
+      const field = AMOUNT_FIELD[selectedMethod];
+      if (field) window.setTimeout(() => (document.getElementById(field) as HTMLInputElement | null)?.focus(), 0);
+    }
+
+    // Amounts are plain positive numbers with up to 2 decimals: digits and one point only, so a typed or
+    // pasted "784-4464-464664" can't end up in the field (number fields showed it while their value was empty)
     if (name === "orderAmount" || name === "outstandingAmount" || name === "clearingBalance") {
-      if (value !== "" && Number(value) < 0) {
-        return;
-      }
+      const [whole, ...rest] = value.replace(/[^\d.]/g, "").split(".");
+      const amount = rest.length ? `${whole}.${rest.join("").slice(0, 2)}` : whole;
+      setForm((current) => ({ ...current, [name]: amount }));
+      return;
     }
 
     setForm((current) => ({ ...current, [name]: value }));
@@ -496,7 +510,11 @@ const CreditLimit: React.FC = () => {
         availableCredit,
         creditLimit: toNumberValue(res.data.creditLimit),
       });
-      ToasterService.success(res.data.sufficient ? "Credit is sufficient" : "Credit is not sufficient");
+      if (res.data.sufficient) {
+        ToasterService.success("Credit is sufficient");
+      } else {
+        ToasterService.warning("Credit is not sufficient", `Available credit is ${availableCredit.toLocaleString()}.`);
+      }
       void fetchRecentTransactions(true);
     } catch (error) {
       ToasterService.error("Failed to check credit", getErrorMessage(error, "Please try again."));
@@ -922,6 +940,54 @@ const CreditLimit: React.FC = () => {
                     required
                   />
 
+                  {/* The amount sits right under the customer; picking a customer moves the cursor here */}
+                  <div className="mt-2">
+                  {selectedMethod === "check" && (
+                    <FloatingInput
+                      label={t("Order Amount")}
+                      name="orderAmount"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={form.orderAmount}
+                      onChange={handleChange}
+                    />
+                  )}
+                  {selectedMethod === "addOutstanding" && (
+                    <FloatingInput
+                      label={t("Outstanding Amount")}
+                      name="outstandingAmount"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={form.outstandingAmount}
+                      onChange={handleChange}
+                    />
+                  )}
+                  {selectedMethod === "available" && (
+                    <div className="rounded-lg border border-teal-100 bg-teal-50/40 px-3 py-3 text-sm leading-6 text-slate-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-slate-300">
+                      {t("No input required — just confirm the customer and submit.")}
+                    </div>
+                  )}
+                  {isClearAction && (
+                    <div className="space-y-2">
+                      <FloatingInput
+                        label={t("Clearing Balance")}
+                        name="clearingBalance"
+                        type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                        value={form.clearingBalance}
+                        onChange={handleChange}
+                      />
+                      <div className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-rose-800 dark:bg-rose-900/20 dark:text-slate-300">
+                        {t("Backend requires")} <span className="font-semibold">{t("clearingBalance")}</span> on this endpoint.
+                        Enter the amount you want to clear, then submit.
+                      </div>
+                    </div>
+                  )}
+                  </div>
+
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <button
                       type="submit"
@@ -992,58 +1058,6 @@ const CreditLimit: React.FC = () => {
                       );
                     })}
                   </div>
-                </div>
-              </div>
-
-              <div className="mt-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/60">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                    {t("Required Input")}
-                  </div>
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-white dark:bg-gray-800 ${activeMethod.toneClassName}`}>
-                    <ActiveMethodIcon className="h-3.5 w-3.5" />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                  {selectedMethod === "check" && (
-                    <FloatingInput
-                      label={t("Order Amount")}
-                      name="orderAmount"
-                      type="number"
-                      value={form.orderAmount}
-                      onChange={handleChange}
-                    />
-                  )}
-                  {selectedMethod === "addOutstanding" && (
-                    <FloatingInput
-                      label={t("Outstanding Amount")}
-                      name="outstandingAmount"
-                      type="number"
-                      value={form.outstandingAmount}
-                      onChange={handleChange}
-                    />
-                  )}
-                  {selectedMethod === "available" && (
-                    <div className="rounded-lg border border-teal-100 bg-teal-50/40 px-3 py-3 text-sm leading-6 text-slate-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-slate-300">
-                      {t("No input required — just confirm the customer and submit.")}
-                    </div>
-                  )}
-                  {isClearAction && (
-                    <div className="space-y-2">
-                      <FloatingInput
-                        label={t("Clearing Balance")}
-                        name="clearingBalance"
-                        type="number"
-                        value={form.clearingBalance}
-                        onChange={handleChange}
-                      />
-                      <div className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-rose-800 dark:bg-rose-900/20 dark:text-slate-300">
-                        {t("Backend requires")} <span className="font-semibold">{t("clearingBalance")}</span> on this endpoint.
-                        Enter the amount you want to clear, then submit.
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 

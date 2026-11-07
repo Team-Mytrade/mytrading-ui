@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { Building2, Globe, Settings2, ShieldCheck } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { getSelectedTenant, setSelectedTenant } from "./access";
-import { TenantAccess, platformApi, tenantStatusOf } from "./accessApi";
+import { TENANTS_CHANGED_EVENT, TenantAccess, platformApi, tenantStatusOf } from "./accessApi";
 import { ToasterService } from "../Services/ToasterService";
 
 const ALL = "";
@@ -59,7 +59,11 @@ export default function TenantBanner() {
 
   useEffect(() => {
     if (!access.superAdmin) return;
-    platformApi.tenants().then(setTenants, () => setTenants([]));
+    const reload = () => platformApi.tenants().then(setTenants, () => setTenants([]));
+    reload();
+    // Tenants & Modules announces created, renamed or re-statused companies so the picker lists them at once
+    window.addEventListener(TENANTS_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(TENANTS_CHANGED_EVENT, reload);
   }, [access.superAdmin, tenantId]);
 
   if (!access.superAdmin) return null;

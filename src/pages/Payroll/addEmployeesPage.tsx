@@ -907,6 +907,26 @@ const AddEmployeePage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Clicking a step in the progress bar: earlier steps open directly; a later step opens only
+  // when every step before it is valid (the same check Continue does), else the first incomplete one opens.
+  const goToStep = (target: number) => {
+    if (target === currentStep) return;
+    if (target > currentStep) {
+      for (let step = currentStep; step < target; step++) {
+        if (!validateStep(step)) {
+          // Stop on the first step that still needs details, with its errors showing
+          if (step !== currentStep) {
+            setCurrentStep(step);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+          return;
+        }
+      }
+    }
+    setCurrentStep(target);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const maskString = (str: string, visibleChars: number = 4) => {
     if (!str || str.length <= visibleChars) return str;
     return str.slice(0, visibleChars) + "*".repeat(str.length - visibleChars);
@@ -1022,8 +1042,13 @@ const AddEmployeePage: React.FC = () => {
                 return (
                   <React.Fragment key={step.num}>
                     <div className="flex flex-col items-center">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${isComplete
+                      <button
+                        type="button"
+                        onClick={() => goToStep(step.num)}
+                        title={t(step.label)}
+                        aria-label={t(step.label)}
+                        aria-current={isCurrent ? "step" : undefined}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer hover:ring-2 hover:ring-cyan-200 ${isComplete
                           ? "bg-cyan-600 text-white"
                           : isCurrent
                             ? "bg-white dark:bg-[#191919] border-2 border-cyan-600 text-cyan-600"
@@ -1031,7 +1056,7 @@ const AddEmployeePage: React.FC = () => {
                           }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
-                      </div>
+                      </button>
                     </div>
                     {!isLast && (
                       <div className="flex-1 h-0.5 bg-gray-200 dark:bg-[#2a2a2a] mx-2">
@@ -1044,7 +1069,7 @@ const AddEmployeePage: React.FC = () => {
             </div>
             <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 px-1">
               {steps.map((step) => (
-                <span key={step.num} className={currentStep === step.num ? "text-gray-900 dark:text-gray-200 font-medium" : ""}>{step.label}</span>
+                <button type="button" key={step.num} onClick={() => goToStep(step.num)} className={`hover:text-cyan-700 ${currentStep === step.num ? "text-gray-900 dark:text-gray-200 font-medium" : ""}`}>{t(step.label)}</button>
               ))}
             </div>
           </div>
@@ -1156,8 +1181,10 @@ const AddEmployeePage: React.FC = () => {
                           onChange={(date) => handleChange("dateOfBirth", date)}
                           dateFormat="dd/MM/yyyy"
                           maxDate={new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
+                          showMonthDropdown
                           showYearDropdown
-                          scrollableYearDropdown
+                          dropdownMode="select"
+                          popperPlacement="bottom-start"
                           yearDropdownItemNumber={100}
                           placeholderText="Select date of birth"
                           className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.dateOfBirth ? "border-red-500" : "border-gray-300"}`}
@@ -1407,6 +1434,10 @@ const AddEmployeePage: React.FC = () => {
                           selected={form.joiningDate}
                           onChange={(date) => handleChange("joiningDate", date)}
                           dateFormat="dd/MM/yyyy"
+                          showMonthDropdown
+                          showYearDropdown
+                          dropdownMode="select"
+                          popperPlacement="bottom-start"
                           placeholderText="Select joining date"
                           className={`w-full px-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.joiningDate ? "border-red-500" : "border-gray-300"}`}
                         />
@@ -1439,6 +1470,10 @@ const AddEmployeePage: React.FC = () => {
                           selected={form.exitDate}
                           onChange={(date) => handleChange("exitDate", date)}
                           dateFormat="dd/MM/yyyy"
+                          showMonthDropdown
+                          showYearDropdown
+                          dropdownMode="select"
+                          popperPlacement="bottom-start"
                           placeholderText="Select exit date (if applicable)"
                           className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                         />
@@ -1905,7 +1940,8 @@ const AddEmployeePage: React.FC = () => {
                           <input
                             type="text"
                             value={form.pfNumber}
-                            onChange={(e) => handleChange("pfNumber", e.target.value.toUpperCase())}
+                            onChange={(e) => handleChange("pfNumber", e.target.value.toUpperCase().replace(/[^A-Z0-9/]/g, "").slice(0, 22))}
+                            maxLength={22}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                             placeholder={t("KN1234567890")}
                           />

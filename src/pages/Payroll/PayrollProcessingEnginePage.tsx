@@ -396,7 +396,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             min={previousMonth}
                                             max={currentMonth}
                                             onChange={(e) => setSalaryMonth(e.target.value || currentMonth)}
-                                            className="block w-full text-sm text-gray-900 dark:text-gray-200 px-3 py-2 border border-gray-300 dark:border-transparent rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 bg-white dark:bg-[#222222] cursor-pointer [color-scheme:dark]"
+                                            className="block w-full text-sm text-gray-900 dark:text-gray-200 px-3 py-2 border border-gray-300 dark:border-transparent rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 bg-white dark:bg-[#222222] cursor-pointer dark:[color-scheme:dark]"
                                         />
                                     </div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 sm:pb-2">

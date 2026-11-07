@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import { AlertTriangle, Download, FileText, Save } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { usePermissions } from "../../access/usePermissions";
+import { AuthContext } from "../../context/AuthContext";
+import { getSelectedTenant } from "../../access/access";
 import { ToasterService } from "../../Services/ToasterService";
 import { apiError, apiFieldErrors } from "../../utils/apiError";
 import { formatMoney, todayIso } from "../../company/format";
@@ -84,6 +86,9 @@ const save = (data: BlobPart, name: string, type: string) => {
 /** UAE WPS salary files and Saudi Mudad files per payroll run, the month's GOSI / GPSSA contributions, and the company's registrations. */
 export default function GulfPayFilesPage() {
   const { canUpdate, canExport } = usePermissions();
+  const { access } = useContext(AuthContext);
+  // A Super Admin working across all tenants has no company here: registrations and pay files belong to one
+  const platformWide = access.superAdmin && !getSelectedTenant();
   const [month, setMonth] = useState(todayIso().slice(0, 7));
   const [settings, setSettings] = useState<Settings>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -94,19 +99,22 @@ export default function GulfPayFilesPage() {
   const [busy, setBusy] = useState("");
 
   useEffect(() => {
+    if (platformWide) return;
     axios.get<Settings>(`${API}/settings`).then((r) => setSettings({ ...EMPTY, ...r.data }), () => undefined);
-  }, []);
+  }, [platformWide]);
 
   const loadRuns = useCallback(() => {
+    if (platformWide) return;
     axios.get<RunFiles[]>(`${API}/runs`, { params: { month } })
       .then((r) => setRuns(r.data), (e) => ToasterService.error(apiError(e, "The payroll runs could not be loaded")));
-  }, [month]);
+  }, [month, platformWide]);
   useEffect(loadRuns, [loadRuns]);
 
   useEffect(() => {
+    if (platformWide) return;
     axios.get<ContributionReport>(`${API}/contributions`, { params: { month, country } })
       .then((r) => setReport(r.data), (e) => ToasterService.error(apiError(e, "The contributions could not be loaded")));
-  }, [month, country]);
+  }, [month, country, platformWide]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -185,6 +193,14 @@ export default function GulfPayFilesPage() {
         pageTitle="Gulf Pay Files"
         actions={<input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className={TOOL_INPUT} aria-label={t("Payroll month")} />}
       />
+      {platformWide ? (
+        <div className={PAGE_BODY}>
+          <section className={`${CARD} p-4 text-sm text-slate-600 dark:text-gray-300`}>
+            <h3 className={CARD_TITLE}>{t("Pick a company")}</h3>
+            <p className="mt-2">{t("Gulf pay files and company registrations belong to one company. Choose it in \"Working in\" at the top to see and edit them.")}</p>
+          </section>
+        </div>
+      ) : (
       <div className={`${PAGE_BODY} space-y-4`}>
         <section className={`${CARD} p-4`}>
           <h3 className={CARD_TITLE}>{t("Company registrations")}</h3>
@@ -306,6 +322,7 @@ export default function GulfPayFilesPage() {
           )}
         </section>
       </div>
+      )}
     </>
   );
 }

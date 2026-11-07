@@ -5,6 +5,7 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
+import { useCompany } from "../../company/companyApi";
 import { ToasterService } from "../../Services/ToasterService";
 import {
     CameraIcon,
@@ -230,6 +231,7 @@ const CropModal = ({
 };
 
 export default function UserMetaCard() {
+    const { company } = useCompany();
     const { isOpen, openModal, closeModal } = useModal();
     const [profileImage, setProfileImage] = useState("");
     const [isUploading, setIsUploading] = useState(false);
@@ -509,7 +511,7 @@ export default function UserMetaCard() {
                         </div>
                         <div className="px-4 py-2.5">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Company</p>
-                            <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">{userData?.tenantId || "—"}</p>
+                            <p className="mt-0.5 truncate text-sm font-semibold text-slate-900" title={userData?.tenantId}>{company?.companyName || userData?.tenantId || "—"}</p>
                         </div>
                         <div className="px-4 py-2.5">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</p>

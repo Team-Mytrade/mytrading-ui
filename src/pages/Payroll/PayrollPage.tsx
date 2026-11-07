@@ -109,7 +109,8 @@ interface EmployeeSalary {
 }
 
 const PayrollPage: React.FC = () => {
-  const { canCreate, canExport } = usePermissions();
+  // Generate and Rollback change everyone's payroll: HR and managers (HRM:APPROVE) only. Others see their own slip.
+  const { canApprove, canExport } = usePermissions();
     const [searchParams] = useSearchParams();
     const [salaries, setSalaries] = useState<EmployeeSalary[]>([]);
     const [search, setSearch] = useState(() => {
@@ -540,7 +541,7 @@ const PayrollPage: React.FC = () => {
                     >
                         <DocumentArrowDownIcon className="h-3.5 w-3.5" />
                     </button>
-                    <button
+                    {canExport && <button
                         onClick={() => {
                             setZipEmployee({ id: row.employee?.id as number, name: `${row.employee?.firstName} ${row.employee?.lastName}` });
                             setIsZipModalOpen(true);
@@ -549,9 +550,9 @@ const PayrollPage: React.FC = () => {
                         title={t("Download Range (ZIP)")}
                     >
                         <FolderArrowDownIcon className="h-3.5 w-3.5" />
-                    </button>
+                    </button>}
                     {row.isProcessed && (
-                        canCreate && <button
+                        canApprove && <button
                             onClick={() => rollback(row.id, `${row.employee?.firstName} ${row.employee?.lastName}`)}
                             className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-rose-400 p-1.5 rounded-md transition-colors cursor-pointer"
                             title={t("Rollback")}
@@ -628,7 +629,7 @@ const PayrollPage: React.FC = () => {
                             )}
                         </div>
 
-                        {canCreate && (
+                        {canApprove && (
                             <button
                                 type="button"
                                 onClick={() => { setGenerateMonth(filterMonth); setIsGenerateModalOpen(true); }}

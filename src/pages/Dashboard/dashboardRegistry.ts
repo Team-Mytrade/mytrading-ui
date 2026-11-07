@@ -1,5 +1,5 @@
 import { lazy, type ComponentType } from "react";
-import { type AccessInfo, hasModule } from "../../access/access";
+import { type AccessInfo, hasModule, hasPermission } from "../../access/access";
 import {
   BarChart3,
   Box,
@@ -62,8 +62,14 @@ const DASHBOARD_MODULES: Record<string, string[]> = {
   Attendance: ["ATTENDANCE"],
 };
 
+// Dashboards built from everyone's records: the HRMS one shows company payroll, so HR and managers only
+const DASHBOARD_PERMISSIONS: Record<string, string> = {
+  HRMS: "HRM:APPROVE",
+};
+
 export function getAccessibleDashboards(access: AccessInfo): DashboardEntry[] {
   return dashboardRegistry.filter((entry) =>
-    (DASHBOARD_MODULES[entry.key] ?? []).some((module) => hasModule(access, module)),
+    (DASHBOARD_MODULES[entry.key] ?? []).some((module) => hasModule(access, module))
+    && (!DASHBOARD_PERMISSIONS[entry.key] || hasPermission(access, DASHBOARD_PERMISSIONS[entry.key])),
   );
 }
