@@ -47,8 +47,8 @@
     "framer-motion": "^12.23.26",
     "grid": "^4.10.8",
     "json2csv": "^6.0.0-alpha.2",
-    "jspdf": "^3.0.4",
-    "jspdf-autotable": "^5.0.8",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.552.0",
     "rc-drawer": "^7.3.0",
@@ -83,7 +83,7 @@
     "themify-icons": "^1.0.0",
     "uninstall": "^0.0.0",
     "world-countries": "^5.1.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
