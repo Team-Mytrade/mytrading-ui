@@ -314,19 +314,22 @@ export const navItems: NavItem[] = [
     icon: <Briefcase className="w-5 h-5" />,
     name: "HRMS",
     subItems: [
-      { name: "Documents", path: "/employeeDocuments", icon: FolderOpen, section: "People" },
+      // Everyone's pay and HR records need HRM:APPROVE (HR, managers): the payroll service refuses them to plain
+      // HRM:VIEW. Payslips, IT Declaration and Exit Management stay: they show the user's own records.
+      { name: "Documents", path: "/employeeDocuments", permission: "HRM:APPROVE", icon: FolderOpen, section: "People" },
       // Pay components → structures → salaries → declarations → run → payslips
       { name: "Compensation", path: "/employeeCompensation", icon: Coins, section: "Payroll" },
       { name: "Salary Structure", path: "/salaryStructure", icon: Layers, section: "Payroll" },
-      { name: "Salary", path: "/employeeSalary", icon: Banknote, section: "Payroll" },
+      { name: "Salary", path: "/employeeSalary", permission: "HRM:APPROVE", icon: Banknote, section: "Payroll" },
       { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
       { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
       { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
-      { name: "Gulf Pay Files", path: "/gulfPayFiles", icon: FileSpreadsheet, section: "Payroll" },
+      { name: "Gulf Pay Files", path: "/gulfPayFiles", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll" },
       {
         name: "Payroll Reports",
         icon: BarChart3,
         section: "Payroll",
+        permission: "HRM:APPROVE",
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary", icon: PieChart },
           { name: "Department Summary", path: "/departmentSummary", icon: Building },
@@ -356,7 +359,7 @@ export const navItems: NavItem[] = [
       { name: "On-Duty Approvals", path: "/att_onDutyApproval", permission: "ATTENDANCE:APPROVE", icon: BadgeCheck, section: "Approvals" },
 
       { name: "Attendance Tracking", path: "/att_attendanceTracking", icon: Activity, section: "Team" },
-      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:UPDATE", icon: CalendarClock, section: "Team" },
+      { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:ADMIN", icon: CalendarClock, section: "Team" },
       { name: "Attendance Reports", path: "/att_reports", icon: BarChart3, section: "Team" },
 
       { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN", icon: Clock, section: "Set-up" },

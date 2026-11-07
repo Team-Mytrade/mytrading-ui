@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, FileText, Building, Calendar, User, CreditCard } from 'lucide-react';
 import { useCompany } from '../../company/companyApi';
-import { formatMoney } from "../../company/format";
+import { formatMoney, companyCurrency } from "../../company/format";
+import { amountInWords, isContribution } from "../../utils/amountInWords";
 
 interface PayslipPreviewModalProps {
     isOpen: boolean;
@@ -23,6 +24,13 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
 }) => {
     const { company, logo } = useCompany();
     if (!isOpen) return null;
+
+    // B: statutory contributions (PF, ESI, LWF, pension); C: income tax and every other deduction
+    const lineName = (d: any) => d.componentName || d.name || d.deductionName || '';
+    const deductions: any[] = payslipData?.deductions ?? [];
+    const contributions = deductions.filter((d) => isContribution(lineName(d)));
+    const taxesAndDeductions = deductions.filter((d) => !isContribution(lineName(d)));
+    const sumOf = (lines: any[]) => lines.reduce((total, d) => total + (Number(d.amount) || 0), 0);
 
     return (
         <AnimatePresence>
@@ -176,35 +184,51 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                                 ))}
                                             </div>
                                             <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
-                                                <span className="font-bold text-gray-800">Total Earnings</span>
+                                                <span className="font-bold text-gray-800">Total Earnings (A)</span>
                                                 <span className="font-bold text-gray-900">{formatMoney((payslipData.totalEarnings ?? payslipData.grossSalary))}</span>
                                             </div>
                                         </div>
 
-                                        {/* Deductions */}
-                                        <div className="p-4">
-                                            <h5 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Deductions</h5>
-                                            <div className="space-y-3 text-sm">
-                                                {payslipData.deductions?.length > 0 ? (
-                                                    payslipData.deductions.map((d: any, i: number) => (
-                                                        <div key={i} className="flex justify-between">
-                                                            <span className="text-gray-600">{d.componentName || d.name || d.deductionName}</span>
-                                                            <span className="font-medium text-red-600">{formatMoney(d.amount)}</span>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-gray-400 italic">No deductions</div>
-                                                )}
-                                            </div>
-                                            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
-                                                <span className="font-bold text-gray-800">Total Deductions</span>
-                                                <span className="font-bold text-red-600">{formatMoney(payslipData.totalDeductions)}</span>
-                                            </div>
+                                        {/* Contributions (B) and taxes & deductions (C) */}
+                                        <div className="p-4 space-y-5">
+                                            {[
+                                                { title: "Contributions", total: "Total Contributions (B)", lines: contributions },
+                                                { title: "Taxes & Deductions", total: "Total Taxes & Deductions (C)", lines: taxesAndDeductions },
+                                            ].map((section) => (
+                                                <div key={section.title}>
+                                                    <h5 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{section.title}</h5>
+                                                    <div className="space-y-3 text-sm">
+                                                        {section.lines.length > 0 ? (
+                                                            section.lines.map((d: any, i: number) => (
+                                                                <div key={i} className="flex justify-between">
+                                                                    <span className="text-gray-600">{lineName(d)}</span>
+                                                                    <span className="font-medium">{formatMoney(d.amount)}</span>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-gray-400 italic">None</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between">
+                                                        <span className="font-bold text-gray-800">{section.total}</span>
+                                                        <span className="font-bold text-gray-900">{formatMoney(sumOf(section.lines))}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                    <div className="bg-cyan-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
-                                        <span className="font-bold text-gray-800 text-lg">Net Payable</span>
-                                        <span className="font-bold text-cyan-700 text-2xl">{formatMoney(payslipData.netSalary)}</span>
+                                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-6 gap-y-3 text-sm items-center">
+                                        <span className="text-gray-700">Net Salary Payable ( A - B - C )</span>
+                                        <span className="font-bold text-cyan-700 text-xl">{formatMoney(payslipData.netSalary)}</span>
+                                        {amountInWords(payslipData.netSalary, companyCurrency()) && (
+                                            <>
+                                                <span className="text-gray-700">Net Salary in words</span>
+                                                <span className="font-semibold text-gray-900">{amountInWords(payslipData.netSalary, companyCurrency())}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                    <div className="px-6 py-3 text-xs text-gray-600">
+                                        <span className="font-semibold">**Note:</span> <i>All amounts displayed in this payslip are in <b>{companyCurrency()}</b></i>
                                     </div>
                                 </div>
                             </div>

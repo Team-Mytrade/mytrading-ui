@@ -11,6 +11,8 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { usePermissions } from "../../access/usePermissions";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { apiError, LEAVE_TYPE_LABELS, leaveTypeLabel } from "./attendanceApi";
 import { LEAVE_POLICY_TEMPLATES, LeavePolicyTemplate, policyFromTemplate } from "./leavePolicyTemplates";
 
@@ -53,6 +55,7 @@ export interface EmployeeOption {
 
 const LeavePolicyPage: React.FC = () => {
   const { canCreate, canDelete, canUpdate } = usePermissions();
+  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
   const [policies, setPolicies] = useState<LeavePolicyModel[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -341,6 +344,14 @@ const LeavePolicyPage: React.FC = () => {
   };
 
   const handleDeletePolicy = async (id: number) => {
+    const policy = policies.find((p) => p.id === id);
+    const ok = await confirm({
+      title: t("Delete leave policy"),
+      message: `Delete ${policy?.policyName ?? "this leave policy"}? A policy already given to employees is switched off instead, and their balances stay.`,
+      confirmLabel: t("Delete"),
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteApi(id);
       ToasterService.success("Leave policy removed (policies already given to employees are switched off instead).");
@@ -842,6 +853,16 @@ const LeavePolicyPage: React.FC = () => {
         )}
 
       </div>
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmLabel={confirmState.confirmLabel}
+        cancelLabel={confirmState.cancelLabel}
+        variant={confirmState.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </>
   );
 };

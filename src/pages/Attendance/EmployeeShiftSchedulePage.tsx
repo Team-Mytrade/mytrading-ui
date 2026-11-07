@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { 
   UserCheck, Calendar, Users, Edit2, Clock, 
@@ -12,7 +12,8 @@ import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import TableToolbar from '../../components/common/TableToolbar';
 import { ToasterService } from '../../Services/ToasterService';
 import { todayIso } from "../../utils/localDate";
-import { usePermissions } from "../../access/usePermissions";
+import { AuthContext } from "../../context/AuthContext";
+import { hasPermission } from "../../access/access";
 
 import { t } from "../../i18n/i18n";
 // Relative API Base URL (routing via Vite dev proxy)
@@ -57,7 +58,11 @@ export interface CurrentShiftModel {
 }
 
 const EmployeeShiftSchedulePage: React.FC = () => {
-  const { canCreate, canUpdate } = usePermissions();
+  // Assigning and editing shifts is attendance administration: Attendance Users (create/edit for their own
+  // requests) see the schedule but can't change it
+  const { access } = useContext(AuthContext);
+  const canCreate = hasPermission(access, "ATTENDANCE:ADMIN");
+  const canUpdate = canCreate;
   // ── States ─────────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);

@@ -1175,8 +1175,12 @@ html:not(.dark) .app-content-tight :is(.rounded-lg, .rounded-xl, .rounded-2xl):i
   line-height: 1.4;
   border-radius: 8px !important;
 }
-:where(.app-content-tight, [role="dialog"], .fixed.inset-0) input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]):not(.page-breadcrumb *, .peer, table *, .stats-card *, [class*="pl-"]) {
+:where(.app-content-tight, [role="dialog"], .fixed.inset-0) input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]):not(.page-breadcrumb *, .peer, table *, .stats-card *, [class*="pl-"], .react-tel-input *) {
   padding-left: 10px !important;
+}
+/* Phone fields: the number starts after the country flag (Login.css's .form-control padding would hide it) */
+.react-tel-input .form-control {
+  padding-left: 48px !important;
 }
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) textarea:not(.peer) {
   font-size: 12px !important;

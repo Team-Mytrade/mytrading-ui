@@ -6,8 +6,8 @@ import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
 import { APP_MODULES, AppModule, MODULE_LABELS } from "../../access/access";
-import { errorText } from "../../access/accessApi";
-import { BillingEvent, Plan, PlanForm, aiText, limitText, planPrice as price, plansApi, storageText } from "../../platform/plansApi";
+import { TenantAccess, errorText, platformApi } from "../../access/accessApi";
+import { BillingEvent, CompanyPlan, Plan, PlanForm, aiText, limitText, planPrice as price, plansApi, storageText } from "../../platform/plansApi";
 import { formatDateTime } from "../../company/format";
 import { currencies } from "../../company/regional";
 import { CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
@@ -84,6 +84,9 @@ export default function PlansPage() {
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
   const [form, setForm] = useState<PlanForm>(EMPTY);
   const [saving, setSaving] = useState(false);
+  // The companies on one plan, opened from its Companies count
+  const [companiesOf, setCompaniesOf] = useState<Plan | null>(null);
+  const [companyRows, setCompanyRows] = useState<{ plan: CompanyPlan; tenant?: TenantAccess }[] | null>(null);
   const currencyList = useMemo(() => currencies(), []);
 
   const load = useCallback(async () => {
@@ -100,6 +103,19 @@ export default function PlansPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const showCompanies = async (plan: Plan) => {
+    setCompaniesOf(plan);
+    setCompanyRows(null);
+    try {
+      const [assigned, tenants] = await Promise.all([plansApi.companies(), platformApi.tenants().catch(() => [] as TenantAccess[])]);
+      setCompanyRows(assigned.filter((c) => c.planId === plan.id)
+        .map((c) => ({ plan: c, tenant: tenants.find((x) => x.tenantId === c.tenantId) })));
+    } catch (err) {
+      setCompanyRows([]);
+      ToasterService.error(errorText(err, t("Could not load the companies.")));
+    }
+  };
 
   const open = (plan: Plan | "new") => {
     setEditing(plan);
@@ -169,7 +185,13 @@ export default function PlansPage() {
     { key: "maxAiDocuments", label: "AI uses", render: (p) => t(aiText(p.maxAiDocuments)) },
     { key: "monthlyPrice", label: "Monthly", render: (p) => price(p.monthlyPrice, p.currency) },
     { key: "yearlyPrice", label: "Yearly", render: (p) => price(p.yearlyPrice, p.currency) },
-    { key: "companies", label: "Companies", sortable: true },
+    {
+      key: "companies", label: "Companies", sortable: true,
+      render: (p) => p.companies > 0 ? (
+        <button type="button" className="font-semibold text-cyan-600 hover:underline" title={t("Show the companies on this plan")}
+          onClick={() => showCompanies(p)}>{p.companies}</button>
+      ) : <span>0</span>,
+    },
     {
       key: "actions", label: "Actions",
       render: (p) => (
@@ -193,6 +215,40 @@ export default function PlansPage() {
         <ReusableTable data={plans} columns={columns} loading={loading} pageSize={10} defaultSortKey="name" enableRowDetails={false} />
         <BillingEvents />
       </div>
+
+      {companiesOf && (
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div data-overlay-panel className={`${CARD} max-h-[80vh] w-full max-w-lg space-y-3 overflow-y-auto p-5`} role="dialog" aria-labelledby="plan-companies-title">
+            <div className="flex items-center justify-between">
+              <h3 id="plan-companies-title" className="text-sm font-semibold text-slate-900 dark:text-white">{t("Companies on")} {companiesOf.name}</h3>
+              <button type="button" onClick={() => setCompaniesOf(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            {companyRows === null ? (
+              <p className="text-xs text-slate-500">{t("Loading...")}</p>
+            ) : companyRows.length === 0 ? (
+              <p className="text-xs text-slate-500">{t("No companies are on this plan.")}</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 text-xs dark:divide-gray-800">
+                {companyRows.map(({ plan: c, tenant }) => (
+                  <li key={c.tenantId} className="flex items-center justify-between gap-2 py-2">
+                    <div>
+                      <div className="font-semibold text-slate-800 dark:text-gray-100">{tenant?.tenantName ?? c.tenantId}</div>
+                      <div className="text-[11px] text-slate-500">{c.tenantId}{tenant ? ` · ${tenant.userCount} user(s)` : ""}</div>
+                    </div>
+                    <div className="text-right text-[11px] text-slate-500">
+                      {c.assignedAt && <div>{t("Since")} {formatDateTime(c.assignedAt)}</div>}
+                      {c.overridden.length > 0 && <div className="text-violet-700">{t("agreed differently")}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-end">
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => setCompaniesOf(null)}>{t("Close")}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
