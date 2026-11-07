@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CompanyPlan, STORAGE_SOURCES, SUBSCRIPTION_TONE, Usage, bytesText, limitText, planPrice, plansApi, storageText, subscriptionText } from "../../platform/plansApi";
-import { Building2, CreditCard, Download, Globe2, History, Image, ImageUp, KeyRound, Lock, MapPin, Palette, Phone, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Building2, CreditCard, Download, Globe2, History, Image, ImageUp, KeyRound, Lock, MapPin, Palette, Phone, Save, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import axios from "axios";
 import { brandPalette } from "../../company/brand";
 import PageMeta from "../../components/common/PageMeta";
@@ -533,6 +533,8 @@ export default function CompanySettingsPage() {
 
                 <PlanSection />
 
+                <AiSection editable={editable} />
+
                 {editable && <DataExportSection />}
 
                 {editable && <RetentionSection />}
@@ -716,6 +718,58 @@ function SecuritySection({ editable }: { editable: boolean }) {
       </select>
       <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
         {t("After the password, sign-in asks for a code from an authenticator app. Administrators are users with any Admin permission. A lost phone: reset the person's two-step sign-in on the Users page.")}
+      </p>
+    </section>
+  );
+}
+
+interface AiStatus { enabled: boolean; changedBy: string | null; changedAt: string | null; usedThisMonth: number; monthlyLimit: number | null; resetsOn: string | null }
+
+/**
+ * AI features (7.2.3): off until an administrator turns them on, since documents (vendor bills) are then sent to
+ * Anthropic's Claude to be read; with this month's use against the plan's allowance. Hidden without USERS:ADMIN.
+ */
+function AiSection({ editable }: { editable: boolean }) {
+  const [ai, setAi] = useState<AiStatus | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    axios.get<AiStatus>("/v1/api/user/company/ai").then((r) => setAi(r.data)).catch(() => setAi(null));
+  }, []);
+
+  const change = async (enabled: boolean) => {
+    if (enabled && !window.confirm(t("Turn AI features on? Vendor bills your team chooses to read, and the report figures a question needs, are sent to Anthropic. You can turn this off at any time."))) return;
+    setSaving(true);
+    try {
+      const res = await axios.put<AiStatus>("/v1/api/user/company/ai", { enabled });
+      setAi(res.data);
+      ToasterService.success(enabled ? t("AI features are on.") : t("AI features are off."));
+    } catch (err) {
+      ToasterService.error(errorText(err, t("Could not change the AI setting.")));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (ai === null) return null;
+  return (
+    <section className={`${CARD} p-4`}>
+      {sectionTitle(Sparkles, "AI features")}
+      <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-gray-200">
+        <input type="checkbox" className="mt-1" checked={ai.enabled} disabled={!editable || saving} onChange={(e) => change(e.target.checked)} />
+        <span>{t("Use AI (Claude, by Anthropic): read vendor bills and answer questions")}</span>
+      </label>
+      <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
+        {t("When on, Finance can upload a vendor bill and have it read into the bill form. Only the files people choose to read are sent; nothing is saved until they create the bill.")}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">
+        {t("Ask MyTrade answers questions from the reports each person can open; the figures a question needs are sent with it. Nothing is changed.")}
+      </p>
+      <p className="mt-2 text-xs text-slate-600 dark:text-gray-300">
+        {ai.monthlyLimit != null
+          ? t("{used} of {limit} AI uses this month.", { used: ai.usedThisMonth, limit: ai.monthlyLimit })
+          : t("{used} AI uses this month.", { used: ai.usedThisMonth })}
+        {ai.changedBy ? ` · ${t("changed by {name}", { name: ai.changedBy })}` : ""}
       </p>
     </section>
   );

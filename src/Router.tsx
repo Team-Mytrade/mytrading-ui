@@ -60,6 +60,7 @@ const PurchaseReturns = lazy(() => import("./pages/purchase-service/PurchaseRetu
 const LandedCostsPage = lazy(() => import("./pages/purchase-service/LandedCostsPage"));
 const InboundShipmentsPage = lazy(() => import("./pages/purchase-service/InboundShipmentsPage"));
 const CustomsPage = lazy(() => import("./pages/purchase-service/CustomsPage"));
+const ReorderSuggestionsPage = lazy(() => import("./pages/purchase-service/ReorderSuggestionsPage"));
 const RfqPage = lazy(() => import("./pages/purchase-service/RfqPage"));
 const ApprovalLimits = lazy(() => import("./pages/purchase-service/ApprovalLimits"));
 const CostCentres = lazy(() => import("./pages/Invoice/CostCentres"));
@@ -209,6 +210,9 @@ const Consignment = lazy(() => import("./pages/Inventory/Consignment"));
 const RecurringInvoices = lazy(() => import("./pages/Invoice/RecurringInvoices"));
 const SalesCommission = lazy(() => import("./pages/Invoice/SalesCommission"));
 const MarketplacePayouts = lazy(() => import("./pages/Invoice/MarketplacePayouts"));
+const CashFlowForecast = lazy(() => import("./pages/Invoice/CashFlowForecast"));
+const BillReader = lazy(() => import("./pages/Invoice/BillReader"));
+const AskPage = lazy(() => import("./pages/Ask/AskPage"));
 const BankReconciliation = lazy(() => import("./pages/Invoice/BankReconciliation"));
 const ExchangeRates = lazy(() => import("./pages/Invoice/ExchangeRates"));
 const ZatcaSettings = lazy(() => import("./pages/Invoice/ZatcaSettings"));
@@ -313,6 +317,7 @@ export default function AppRouter() {
           <Route path="/purchase-service/landed-costs" element={<LandedCostsPage />} />
           <Route path="/purchase-service/shipments" element={<InboundShipmentsPage />} />
           <Route path="/purchase-service/customs" element={<CustomsPage />} />
+          <Route path="/purchase-service/reorder" element={<ReorderSuggestionsPage />} />
           <Route path="/purchase-service/approval-limits" element={<ApprovalLimits />} />
           <Route path="/purchase-service/rfqs" element={<RfqPage />} />
           <Route path="/purchase-requisitions" element={<Navigate to="/purchase-service/requisitions" replace />} />
@@ -365,6 +370,9 @@ export default function AppRouter() {
           <Route path="/recurringInvoices" element={<RecurringInvoices />} />
           <Route path="/salesCommission" element={<SalesCommission />} />
               <Route path="/marketplacePayouts" element={<MarketplacePayouts />} />
+          <Route path="/cashFlowForecast" element={<CashFlowForecast />} />
+          <Route path="/billReader" element={<BillReader />} />
+          <Route path="/ask" element={<AskPage />} />
           <Route path="/bankAccounts/:id/reconcile" element={<BankReconciliation />} />
           <Route path="/exchangeRates" element={<ExchangeRates />} />
           <Route path="/costCentres" element={<CostCentres />} />

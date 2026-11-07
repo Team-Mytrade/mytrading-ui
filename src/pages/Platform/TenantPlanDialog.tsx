@@ -2,7 +2,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { ToasterService } from "../../Services/ToasterService";
 import { TenantAccess, errorText } from "../../access/accessApi";
-import { CompanyPlan, Plan, limitText, planPrice, plansApi, storageText } from "../../platform/plansApi";
+import { CompanyPlan, Plan, aiText, limitText, planPrice, plansApi, storageText } from "../../platform/plansApi";
 import { CARD, PRIMARY_BUTTON, SECONDARY_BUTTON } from "../Payroll/hrmsUi";
 import TenantSubscriptionPanel from "./TenantSubscriptionPanel";
 
@@ -30,6 +30,7 @@ export default function TenantPlanDialog({ tenant, plans, current, onClose, onSa
   const [planId, setPlanId] = useState<number | "">(current?.planId ?? "");
   const [maxUsers, setMaxUsers] = useState(field(current, "maxUsers", current?.maxUsers ?? null));
   const [maxStorage, setMaxStorage] = useState(field(current, "maxStorageMb", current?.maxStorageMb ?? null));
+  const [maxAi, setMaxAi] = useState(field(current, "maxAiDocuments", current?.maxAiDocuments ?? null));
   const [monthly, setMonthly] = useState(field(current, "monthlyPrice", current?.monthlyPrice ?? null));
   const [yearly, setYearly] = useState(field(current, "yearlyPrice", current?.yearlyPrice ?? null));
   const [note, setNote] = useState(current?.note ?? "");
@@ -49,7 +50,7 @@ export default function TenantPlanDialog({ tenant, plans, current, onClose, onSa
         planId,
         // Keep the agreed modules only when staying on the same plan
         modules: keepModules && current && current.planId === planId ? current.modules : null,
-        maxUsers: numberOrNull(maxUsers), maxStorageMb: numberOrNull(maxStorage),
+        maxUsers: numberOrNull(maxUsers), maxStorageMb: numberOrNull(maxStorage), maxAiDocuments: numberOrNull(maxAi),
         monthlyPrice: numberOrNull(monthly), yearlyPrice: numberOrNull(yearly), note: note.trim() || null,
       });
       ToasterService.success(`${tenant.tenantName} ${t("is on plan")} ${saved.planName}.`);
@@ -76,7 +77,7 @@ export default function TenantPlanDialog({ tenant, plans, current, onClose, onSa
           </select>
           {plan && (
             <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">
-              {t(limitText(plan.maxUsers, "users"))} · {t(storageText(plan.maxStorageMb))} · {planPrice(plan.monthlyPrice, plan.currency)} {t("a month")}
+              {t(limitText(plan.maxUsers, "users"))} · {t(storageText(plan.maxStorageMb))} · {t(aiText(plan.maxAiDocuments))} · {planPrice(plan.monthlyPrice, plan.currency)} {t("a month")}
             </p>
           )}
           <p className="mt-1 text-[11px] text-amber-700">{t("The company's modules change to the plan's when you save.")}</p>
@@ -99,6 +100,12 @@ export default function TenantPlanDialog({ tenant, plans, current, onClose, onSa
               <label className={LABEL} htmlFor="tp-storage">{t("Most storage (MB)")}</label>
               <input id="tp-storage" type="number" min={1} className={INPUT} value={maxStorage} placeholder={plan?.maxStorageMb?.toString() ?? t("No limit")}
                 onChange={(e) => setMaxStorage(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={LABEL} htmlFor="tp-ai">{t("AI uses a month (bill readings and questions)")}</label>
+              <input id="tp-ai" type="number" min={0} className={INPUT} value={maxAi}
+                placeholder={plan?.maxAiDocuments != null ? plan.maxAiDocuments.toString() : t("No limit")}
+                onChange={(e) => setMaxAi(e.target.value)} />
             </div>
             <div>
               <label className={LABEL} htmlFor="tp-monthly">{t("Monthly price")}</label>
