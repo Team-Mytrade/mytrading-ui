@@ -5,7 +5,6 @@ import "./styles/rtl.css";
 import "./styles/overlay.css";
 // Sets the page's language and direction before the first render
 import "./i18n/i18n";
-import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
 import App from "./App.tsx";
 import { AppWrapper } from "./components/common/PageMeta.tsx";
