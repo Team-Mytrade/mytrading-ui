@@ -5,7 +5,6 @@ import PageLoading from "./components/common/PageLoading";
 import SessionDraftRestorer from "./components/common/SessionDraftRestorer";
 import SignIn from "./pages/AuthPages/SignIn";
 import SsoComplete from "./pages/AuthPages/SsoComplete";
-const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const Forget = lazy(() => import("./pages/AuthPages/Forget"));
 const ResetPasswordPage = lazy(() => import("./pages/AuthPages/ResetPasswordPage"));
 const Contact = lazy(() => import("./pages/AuthPages/Contact"));
@@ -232,7 +231,8 @@ export default function AppRouter() {
       <Routes>
         <Route path="/auth" element={<AuthLayout children={undefined} />}>
           <Route path="signin" element={<SignIn />} />
-          <Route path="signup" element={<SignUp />} />
+          {/* No self sign-up: accounts come from an administrator's invitation (security sweep 7.0.4) */}
+          <Route path="signup" element={<Navigate to="/auth/signin" replace />} />
           <Route path="forgetpassword" element={<Forget />} />
           <Route path="contactus" element={<Contact />} />
           <Route path="privacypolicy" element={<Privacy />} />
@@ -536,7 +536,7 @@ export default function AppRouter() {
 
         <Route path="/signin" element={<SignIn />} />
         <Route path="/sso-complete" element={<SsoComplete />} />
-        <Route path="/signup" element={<SignUp />} />
+        <Route path="/signup" element={<Navigate to="/signin" replace />} />
         <Route path="/forgetpassword" element={<Forget />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/contactus" element={<Contact />} />

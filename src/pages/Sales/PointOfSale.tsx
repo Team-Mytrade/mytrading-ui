@@ -24,11 +24,11 @@ const TH = "px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide t
 const TD = "px-3 py-2 align-top text-sm text-slate-700 dark:text-gray-200";
 const TILL_KEY = "pos.till";
 
-interface Till { id: number; code: string; name: string; warehouseId: number; walkInCustomerId: number; currencyCode: string; cashAccountId: number | null; cardAccountId: number | null; active: boolean }
+interface Till { id: number; code: string; name: string; warehouseId: number; walkInCustomerId: number; currencyCode: string; cashAccountId: number | null; cardAccountId: number | null; active: boolean; pricesIncludeTax?: boolean | null }
 interface Shift {
   id: number; tillId: number; status: string; openedAt: string; openedBy: string | null; openingCash: number; closedAt: string | null; expectedCash: number;
   countedCash: number | null; cashDifference: number | null; saleCount: number; invoicesPending: number; cashSales: number; cardSales: number; taxTotal: number; salesTotal: number;
-  cashRefunds: number; cardRefunds: number; returnsPending: number;
+  cashRefunds: number; cardRefunds: number; returnsPending: number; differencePosted?: boolean | null; differenceError?: string | null;
 }
 interface ReturnableSale {
   id: number; saleNumber: string; invoiceNumber: string | null; soldAt: string; customerName: string | null; currencyCode: string; status: string;
@@ -44,11 +44,14 @@ interface SaleLine { productCode: string | null; productName: string | null; qua
 interface Sale {
   id: number; saleNumber: string; soldAt: string; soldBy: string | null; customerName: string | null; currencyCode: string; invoiceNumber: string | null; status: string; invoiceError: string | null;
   subTotal: number; taxAmount: number; grandTotal: number; cashAmount: number; cardAmount: number; cashTendered: number; changeGiven: number; cardReference: string | null; lines: SaleLine[];
+  // The tax invoice QR (PNG data URI) for the receipt; none outside VAT
+  receiptQr?: string | null;
 }
 interface Product { id: number; productCode?: string; productName?: string; barcode?: string | null; sellingPrice?: number | null; taxCode?: string | null; stockItem?: boolean; active?: boolean; batchTracking?: boolean; serialTracking?: boolean; expiryTracking?: boolean }
 interface Named { id: number; name?: string; accountName?: string; customerName?: string; customerCode?: string; active?: boolean }
-type CartLine = { key: string; product: Product; quantity: string; unitPrice: string; discount: string; batchNumber: string; serials: string };
-type TillForm = { id: number | null; code: string; name: string; warehouseId: string; walkInCustomerId: string; currencyCode: string; cashAccountId: string; cardAccountId: string; active: boolean };
+// listPrice: the price the till filled in (the customer's, price list's or catalogue's); below it, or a discount, needs a supervisor
+type CartLine = { key: string; product: Product; quantity: string; unitPrice: string; listPrice: string; discount: string; batchNumber: string; serials: string };
+type TillForm = { id: number | null; code: string; name: string; warehouseId: string; walkInCustomerId: string; currencyCode: string; cashAccountId: string; cardAccountId: string; active: boolean; pricesIncludeTax: boolean };
 
 let seq = 0;
 const asArray = <T,>(data: unknown): T[] =>
@@ -84,6 +87,8 @@ export default function PointOfSale() {
   const [tillForm, setTillForm] = useState<TillForm | null>(null);
   const [openingCash, setOpeningCash] = useState("");
   const [closing, setClosing] = useState<{ counted: string; notes: string } | null>(null);
+  // A closed shift whose cash difference finance couldn't take yet
+  const [unposted, setUnposted] = useState<Shift | null>(null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [customerId, setCustomerId] = useState("");
@@ -110,7 +115,7 @@ export default function PointOfSale() {
 
   useEffect(() => {
     loadTills();
-    axios.get("/v1/api/common/products").then((r) => setProducts(asArray<Product>(r.data).filter((p) => p.active !== false && p.stockItem !== false))).catch(() => setProducts([]));
+    axios.get("/v1/api/common/products").then((r) => setProducts(asArray<Product>(r.data).filter((p) => p.active !== false))).catch(() => setProducts([]));
     axios.get("/v1/api/common/customers").then((r) => setCustomers(asArray<Named>(r.data))).catch(() => setCustomers([]));
     axios.get("/v1/api/inventory/warehouses").then((r) => setWarehouses(asArray<Named>(r.data))).catch(() => setWarehouses([]));
     // Finance's accounts are optional here: a cashier without finance access just uses the company's defaults
@@ -167,13 +172,18 @@ export default function PointOfSale() {
       return;
     }
     const key = `c${seq++}`;
-    const price = product.sellingPrice != null ? String(product.sellingPrice) : "";
-    setCart((c) => [...c, { key, product, quantity: "1", unitPrice: price, discount: "", batchNumber: "", serials: "" }]);
+    // Prices are kept net; a tax-inclusive till shows and takes them with the tax in
+    const shown = (net: number) => String(till?.pricesIncludeTax ? round(net * (1 + (taxRateFromCode(product.taxCode) ?? 0) / 100)) : net);
+    const price = product.sellingPrice != null ? shown(Number(product.sellingPrice)) : "";
+    setCart((c) => [...c, { key, product, quantity: "1", unitPrice: price, listPrice: price, discount: "", batchNumber: "", serials: "" }]);
     // The customer's or price list's price, when there is one
     const customer = Number(customerId) || till?.walkInCustomerId || null;
     try {
       const [line] = await pricingApi.prices(customer, currency, todayIso(), [{ productId: product.id, quantity: 1 }]);
-      if (line?.unitPrice != null) setCart((c) => c.map((l) => (l.key === key ? { ...l, unitPrice: String(line.unitPrice) } : l)));
+      if (line?.unitPrice != null) {
+        const listed = shown(Number(line.unitPrice));
+        setCart((c) => c.map((l) => (l.key === key ? { ...l, unitPrice: listed, listPrice: listed } : l)));
+      }
     } catch { /* the catalogue price stays */ }
   };
 
@@ -190,13 +200,20 @@ export default function PointOfSale() {
 
   const setLine = (key: string, patch: Partial<CartLine>) => setCart((c) => c.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
+  const inclusive = !!till?.pricesIncludeTax;
   const lineAmounts = useCallback((line: CartLine) => {
     const gross = round((Number(line.quantity) || 0) * (Number(line.unitPrice) || 0));
-    const taxable = Math.max(0, round(gross - (Number(line.discount) || 0)));
     const rate = taxRateFromCode(line.product.taxCode) ?? 0;
+    if (inclusive) {
+      // The price already holds the tax: the line's total is what the customer pays
+      const total = Math.max(0, round(gross - (Number(line.discount) || 0)));
+      const taxable = round(total / (1 + rate / 100));
+      return { taxable, rate, tax: round(total - taxable), total };
+    }
+    const taxable = Math.max(0, round(gross - (Number(line.discount) || 0)));
     const tax = round((taxable * rate) / 100);
     return { taxable, rate, tax, total: round(taxable + tax) };
-  }, [round]);
+  }, [round, inclusive]);
 
   const totals = useMemo(() => {
     const rows = cart.map(lineAmounts);
@@ -225,6 +242,11 @@ export default function PointOfSale() {
     if (!shift || cart.length === 0) return;
     if (cart.some((l) => !(Number(l.quantity) > 0) || l.unitPrice === "" || Number(l.unitPrice) < 0)) {
       ToasterService.error("Each item needs a quantity and a price.");
+      return;
+    }
+    const lowered = !canApprove && cart.find((l) => (l.listPrice !== "" && Number(l.unitPrice) < Number(l.listPrice) - 0.005) || Number(l.discount) > 0);
+    if (lowered) {
+      ToasterService.error(t("{product}: only a supervisor can sell below the price or give a discount.", { product: lowered.product.productCode ?? "" }));
       return;
     }
     const noSerials = cart.find((l) => l.product.serialTracking && l.serials.split(/[\s,]+/).filter(Boolean).length !== Number(l.quantity));
@@ -357,11 +379,31 @@ export default function PointOfSale() {
       const difference = Number(data.cashDifference);
       ToasterService.success(difference === 0 ? t("Shift closed. The cash matches.")
         : t("Shift closed. Cash is {state} by {amount}.", { state: t(difference < 0 ? "short" : "over"), amount: money(Math.abs(difference)) }));
+      // The difference goes to the ledger (Cash over and short); if finance couldn't take it, it can be sent again
+      setUnposted(difference !== 0 && data.differencePosted === false ? data : null);
       setClosing(null);
       setLastSale(null);
       await loadShift();
     } catch (err) {
       ToasterService.error("The shift could not be closed", errorText(err, "Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const postDifference = async (closed: Shift) => {
+    setBusy(true);
+    try {
+      const { data } = await axios.post<Shift>(`${POS}/shifts/${closed.id}/post-difference`);
+      if (data.differencePosted) {
+        ToasterService.success(t("The cash difference is in the ledger."));
+        setUnposted(null);
+      } else {
+        ToasterService.error(t("The cash difference could not be posted yet."), data.differenceError ?? undefined);
+        setUnposted(data);
+      }
+    } catch (err) {
+      ToasterService.error(t("The cash difference could not be posted yet."), errorText(err, "Please try again."));
     } finally {
       setBusy(false);
     }
@@ -378,6 +420,7 @@ export default function PointOfSale() {
       const body = {
         code: tillForm.code, name: tillForm.name, warehouseId: Number(tillForm.warehouseId), walkInCustomerId: Number(tillForm.walkInCustomerId), currencyCode: tillForm.currencyCode,
         cashAccountId: tillForm.cashAccountId ? Number(tillForm.cashAccountId) : null, cardAccountId: tillForm.cardAccountId ? Number(tillForm.cardAccountId) : null, active: tillForm.active,
+        pricesIncludeTax: tillForm.pricesIncludeTax,
       };
       const { data } = await (tillForm.id ? axios.put<Till>(`${POS}/tills/${tillForm.id}`, body) : axios.post<Till>(`${POS}/tills`, body));
       setTillForm(null);
@@ -409,6 +452,7 @@ export default function PointOfSale() {
         <tr><td>${Number(l.quantity)} x ${escapeHtml(amount(l.unitPrice))}${Number(l.discountAmount) ? ` - ${escapeHtml(amount(l.discountAmount))}` : ""}${l.taxRate != null ? ` (${Number(l.taxRate)}%)` : ""}</td><td class="r">${escapeHtml(amount(l.lineTotal))}</td></tr>`).join("")}</table>
       <table>${line("Subtotal", amount(sale.subTotal), true)}${line(company?.taxRegime === "GST" ? "GST" : "VAT", amount(sale.taxAmount))}${line("Total", amount(sale.grandTotal), true)}
       ${sale.cashAmount ? line("Cash", amount(sale.cashTendered)) : ""}${sale.cardAmount ? line("Card", amount(sale.cardAmount)) : ""}${sale.changeGiven ? line("Change", amount(sale.changeGiven)) : ""}</table>
+      ${sale.receiptQr && sale.receiptQr.startsWith("data:image/png;base64,") ? `<p style="margin-top:6px"><img src="${escapeHtml(sale.receiptQr)}" width="140" height="140" alt="QR"></p>` : ""}
       <p style="margin-top:8px">Thank you</p></body></html>`;
     const win = window.open("", "_blank", "width=340,height=600");
     if (!win) {
@@ -422,7 +466,7 @@ export default function PointOfSale() {
   };
 
   const newTillForm = (): TillForm => ({
-    id: null, code: "", name: "", warehouseId: "", walkInCustomerId: "", currencyCode: companyCurrency(), cashAccountId: "", cardAccountId: "", active: true,
+    id: null, code: "", name: "", warehouseId: "", walkInCustomerId: "", currencyCode: companyCurrency(), cashAccountId: "", cardAccountId: "", active: true, pricesIncludeTax: false,
   });
   const nameOf = (n: Named) => n.name ?? n.accountName ?? n.customerName ?? String(n.id);
 
@@ -440,7 +484,8 @@ export default function PointOfSale() {
             {canUpdate && till && (
               <button type="button" className={ROW_ICON_BUTTON} title={t("Till settings")} aria-label={t("Till settings")}
                 onClick={() => setTillForm({ id: till.id, code: till.code, name: till.name, warehouseId: String(till.warehouseId), walkInCustomerId: String(till.walkInCustomerId), currencyCode: till.currencyCode,
-                  cashAccountId: till.cashAccountId ? String(till.cashAccountId) : "", cardAccountId: till.cardAccountId ? String(till.cardAccountId) : "", active: till.active })}>
+                  cashAccountId: till.cashAccountId ? String(till.cashAccountId) : "", cardAccountId: till.cardAccountId ? String(till.cardAccountId) : "", active: till.active,
+                  pricesIncludeTax: !!till.pricesIncludeTax })}>
                 <Settings className="h-4 w-4" />
               </button>
             )}
@@ -457,6 +502,13 @@ export default function PointOfSale() {
             </div>
           )}
         </div>
+
+        {unposted && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <span>{t("The cash difference of {amount} isn't in the ledger yet", { amount: money(Number(unposted.cashDifference)) })}{unposted.differenceError ? `: ${unposted.differenceError}` : ""}</span>
+            <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => void postDifference(unposted)}>{t("Post it now")}</button>
+          </div>
+        )}
 
         {tillForm && (
           <div className={`${CARD} space-y-3 p-4`}>
@@ -499,6 +551,10 @@ export default function PointOfSale() {
               </div>
               <label className="inline-flex items-center gap-2 self-end pb-2 text-sm text-slate-700 dark:text-gray-200">
                 <input type="checkbox" checked={tillForm.active} onChange={(e) => setTillForm({ ...tillForm, active: e.target.checked })} /> {t("Active")}
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200 md:col-span-3">
+                <input type="checkbox" checked={tillForm.pricesIncludeTax} onChange={(e) => setTillForm({ ...tillForm, pricesIncludeTax: e.target.checked })} />
+                {t("Prices at this till include tax (shelf prices); the invoice shows them net plus tax")}
               </label>
             </div>
             <div className="flex justify-end gap-2">
@@ -617,7 +673,7 @@ export default function PointOfSale() {
                     <tr>
                       <th className={TH}>{t("Item")}</th>
                       <th className={TH}>{t("Qty")}</th>
-                      <th className={TH}>{t("Price")}</th>
+                      <th className={TH}>{t(inclusive ? "Price incl. tax" : "Price")}</th>
                       <th className={TH}>{t("Discount")}</th>
                       <th className={`${TH} text-end`}>{t("Tax")}</th>
                       <th className={`${TH} text-end`}>{t("Total")}</th>
@@ -632,7 +688,7 @@ export default function PointOfSale() {
                         <tr key={l.key}>
                           <td className={TD}>
                             <div className="font-medium">{l.product.productName}</div>
-                            <div className="text-xs text-slate-500">{l.product.productCode}</div>
+                            <div className="text-xs text-slate-500">{l.product.productCode}{l.product.stockItem === false ? ` · ${t("Service")}` : ""}</div>
                             {(l.product.batchTracking || l.product.expiryTracking) && (
                               <input className={`${INPUT} mt-1`} placeholder={t("Batch number")} aria-label={t("Batch number")} value={l.batchNumber} onChange={(e) => setLine(l.key, { batchNumber: e.target.value })} />
                             )}
@@ -647,8 +703,13 @@ export default function PointOfSale() {
                               <button type="button" className={ROW_ICON_BUTTON} aria-label={t("More")} onClick={() => setLine(l.key, { quantity: String(Number(l.quantity) + 1) })}><Plus className="h-3.5 w-3.5" /></button>
                             </div>
                           </td>
-                          <td className={TD}><input type="number" min="0" step="any" className={CELL} aria-label={t("Price")} value={l.unitPrice} onChange={(e) => setLine(l.key, { unitPrice: e.target.value })} /></td>
-                          <td className={TD}><input type="number" min="0" step="any" className={CELL} aria-label={t("Discount")} value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
+                          {/* Below the listed price, or a discount, needs a supervisor (Sales approve); the server checks too */}
+                          <td className={TD}><input type="number" min={canApprove || l.listPrice === "" ? "0" : l.listPrice} step="any" className={CELL} aria-label={t("Price")}
+                            title={!canApprove && l.listPrice !== "" ? t("Only a supervisor can sell below the price") : undefined}
+                            value={l.unitPrice} onChange={(e) => setLine(l.key, { unitPrice: e.target.value })} /></td>
+                          <td className={TD}><input type="number" min="0" step="any" className={CELL} aria-label={t("Discount")} disabled={!canApprove}
+                            title={!canApprove ? t("Only a supervisor can give a discount") : undefined}
+                            value={l.discount} onChange={(e) => setLine(l.key, { discount: e.target.value })} /></td>
                           <td className={`${TD} whitespace-nowrap text-end`}>{money(a.tax)}<div className="text-xs text-slate-500">{a.rate}%</div></td>
                           <td className={`${TD} whitespace-nowrap text-end font-medium`}>{money(a.total)}</td>
                           <td className={TD}><button type="button" className={ROW_ICON_BUTTON_DANGER} title={t("Remove")} aria-label={t("Remove")} onClick={() => setCart((c) => c.filter((x) => x.key !== l.key))}><Trash2 className="h-4 w-4" /></button></td>
