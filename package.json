@@ -4,6 +4,7 @@
   "version": "2.0.1",
   "type": "module",
   "scripts": {
+    "help:check": "node scripts/check-help-coverage.cjs --list",
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

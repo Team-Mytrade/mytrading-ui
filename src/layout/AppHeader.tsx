@@ -17,6 +17,7 @@ import { filterNavItems, navItems } from "../layout/AppSidebar";
 import { AuthContext } from "../context/AuthContext";
 import { canAccessPath } from "../access/access";
 import LanguageToggle from "../i18n/LanguageToggle";
+import HelpButton from "../help/HelpButton";
 import { t, useLanguage } from "../i18n/i18n";
 
 // Search result types
@@ -1044,6 +1045,7 @@ const AppHeader: React.FC = () => {
                   )}
                 </button>
 
+                <HelpButton />
                 <LanguageToggle />
                 <ThemeToggleButton />
                 <NotificationDropdown />

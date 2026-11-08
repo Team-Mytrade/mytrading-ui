@@ -98,6 +98,7 @@ import {
   Warehouse,
   type LucideIcon,
   Sparkles,
+  CircleHelp,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
@@ -163,6 +164,12 @@ export const navItems: NavItem[] = [
     icon: <Sparkles className="w-5 h-5" />,
     name: "Ask MyTrade",
     path: "/ask",
+  },
+  {
+    // User manual, business flows and help for every page (8.1); F1 opens the current page's help
+    icon: <CircleHelp className="w-5 h-5" />,
+    name: "Help",
+    path: "/help",
   },
 
   {
