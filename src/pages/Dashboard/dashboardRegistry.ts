@@ -65,6 +65,8 @@ const DASHBOARD_MODULES: Record<string, string[]> = {
 // Dashboards built from everyone's records: the HRMS one shows company payroll, so HR and managers only
 const DASHBOARD_PERMISSIONS: Record<string, string> = {
   HRMS: "HRM:APPROVE",
+  // Company-wide attendance (present / absent / late today); staff use My Attendance instead
+  Attendance: "ATTENDANCE:APPROVE",
 };
 
 export function getAccessibleDashboards(access: AccessInfo): DashboardEntry[] {

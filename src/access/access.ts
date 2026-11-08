@@ -293,7 +293,46 @@ const SHARED_ROUTES: [string, AppModule][] = [
 // so they open for admins without an employee record of their own
 const ON_BEHALF_ROUTES = ["/att_leaveRequest", "/att_timesheetManagement", "/att_requests"];
 
+// Pages that show everyone's records (pay, team attendance, approval queues) or company set-up. Module access
+// alone (e.g. Staff with HRM:VIEW / ATTENDANCE:VIEW) isn't enough: the services refuse their data the same way.
+// "A|B" means either permission.
+const ROUTE_PERMISSIONS: [string, string][] = [
+  ["/employeeCompensation", "HRM:APPROVE"],
+  ["/salaryStructure", "HRM:APPROVE"],
+  ["/employeeSalary", "HRM:APPROVE"],
+  ["/employeeDocuments", "HRM:APPROVE"],
+  ["/payrollEngine", "HRM:APPROVE"],
+  ["/payroll_dashboard", "HRM:APPROVE"],
+  ["/payrollSummary", "HRM:APPROVE"],
+  ["/departmentSummary", "HRM:APPROVE"],
+  ["/gratuityProvision", "HRM:APPROVE"],
+  ["/gulfPayFiles", "HRM:APPROVE"],
+  ["/exitApprovals", "HRM:APPROVE"],
+  ["/fullAndFinal", "HRM:APPROVE"],
+  ["/attendance_dashboard", "ATTENDANCE:APPROVE"],
+  ["/att_leaveManagerDashboard", "ATTENDANCE:APPROVE"],
+  ["/att_attendanceApproval", "ATTENDANCE:APPROVE"],
+  ["/att_regularizationApproval", "ATTENDANCE:APPROVE"],
+  ["/att_onDutyApproval", "ATTENDANCE:APPROVE"],
+  ["/att_attendanceTracking", "ATTENDANCE:APPROVE"],
+  ["/att_attendanceRecord", "ATTENDANCE:APPROVE"],
+  ["/att_reports", "ATTENDANCE:APPROVE"],
+  ["/att_leaveYear", "ATTENDANCE:APPROVE"],
+  ["/att_monthLock", "ATTENDANCE:APPROVE"],
+  ["/att_shiftSchedule", "ATTENDANCE:ADMIN"],
+  ["/att_shift", "ATTENDANCE:ADMIN"],
+  ["/att_attendancePolicy", "ATTENDANCE:ADMIN"],
+  ["/att_leavePolicy", "ATTENDANCE:ADMIN"],
+  ["/att_leaveType", "ATTENDANCE:ADMIN"],
+];
+
+const routePermissionOk = (access: AccessInfo, pathname: string): boolean => {
+  const rule = ROUTE_PERMISSIONS.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
+  return !rule || rule[1].split("|").some((p) => hasPermission(access, p));
+};
+
 export const canAccessPath = (access: AccessInfo, pathname: string): boolean => {
+  if (!access.superAdmin && !routePermissionOk(access, pathname)) return false;
   const selfService = isSelfServicePath(pathname);
   if (selfService) {
     if (ON_BEHALF_ROUTES.includes(pathname) && hasModule(access, selfService)
