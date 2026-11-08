@@ -84,7 +84,7 @@ const LiveTracking: React.FC = () => {
     const map = L.map(mapEl.current).setView(DEFAULT_VIEW, 5);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">{tr("OpenStreetMap")}</a> contributors',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
     routeRef.current = L.layerGroup().addTo(map);
@@ -166,7 +166,7 @@ const LiveTracking: React.FC = () => {
         .bindPopup(
           `<strong>${escapeHtml(t.vehiclePlate)}</strong><br/>${escapeHtml(t.driverName)}<br/>` +
             `${escapeHtml(style.label)}${t.lastSpeedKmh != null ? ` · ${Math.round(t.lastSpeedKmh)} km/h` : ""}<br/>` +
-            `<span style="color:#64748b">{tr("Updated $")}{escapeHtml(timeAgo(t.lastSeenAt))}</span>`
+            `<span style="color:#64748b">${escapeHtml(tr("Updated"))} ${escapeHtml(timeAgo(t.lastSeenAt))}</span>`
         )
         .on("click", () => setSelectedId(t.id))
         .addTo(layer);

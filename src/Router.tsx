@@ -171,6 +171,7 @@ const NotificationSettingsPage = lazy(() => import("./pages/company/Notification
 const AuditLogPage = lazy(() => import("./pages/company/AuditLogPage"));
 const DataImportPage = lazy(() => import("./pages/company/DataImportPage"));
 const GettingStartedPage = lazy(() => import("./pages/company/GettingStartedPage"));
+const HelpCenterPage = lazy(() => import("./pages/Help/HelpCenterPage"));
 const ApiKeysPage = lazy(() => import("./pages/company/ApiKeysPage"));
 const WebhooksPage = lazy(() => import("./pages/company/WebhooksPage"));
 const Batch = lazy(() => import("./pages/Inventory/batch"));
@@ -273,6 +274,9 @@ export default function AppRouter() {
           <Route path="/audit-log" element={<AuditLogPage />} />
           <Route path="/data-import" element={<DataImportPage />} />
           <Route path="/getting-started" element={<GettingStartedPage />} />
+          <Route path="/help" element={<HelpCenterPage />} />
+          <Route path="/help/flow/:flowId" element={<HelpCenterPage />} />
+          <Route path="/help/:topicId" element={<HelpCenterPage />} />
           <Route path="/api-keys" element={<ApiKeysPage />} />
           <Route path="/webhooks" element={<WebhooksPage />} />
           <Route path="/portal-accounts" element={<PortalAccounts />} />
