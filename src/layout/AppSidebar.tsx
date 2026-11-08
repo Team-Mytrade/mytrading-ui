@@ -345,6 +345,7 @@ export const navItems: NavItem[] = [
       },
       { name: "Exit Management", path: "/exit-management", icon: LogOut, section: "Exits" },
       { name: "Exit Approvals", path: "/exitApprovals", permission: "HRM:APPROVE", icon: UserCheck, section: "Exits" },
+      { name: "Full & Final", path: "/fullAndFinal", permission: "HRM:APPROVE", icon: Banknote, section: "Exits" },
     ],
   },
 
@@ -372,6 +373,9 @@ export const navItems: NavItem[] = [
       { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN", icon: Clock, section: "Set-up" },
       { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN", icon: ScrollText, section: "Set-up" },
       { name: "Leave Policy Master", path: "/att_leavePolicy", permission: "ATTENDANCE:ADMIN", icon: BookOpen, section: "Set-up" },
+      { name: "Leave Types", path: "/att_leaveType", permission: "ATTENDANCE:ADMIN", icon: BookOpen, section: "Set-up" },
+      { name: "Leave Year & Comp Off", path: "/att_leaveYear", permission: "ATTENDANCE:APPROVE", icon: CalendarCheck, section: "Set-up" },
+      { name: "Month Close", path: "/att_monthLock", permission: "ATTENDANCE:APPROVE", icon: CalendarCheck, section: "Set-up" },
     ],
   },
 

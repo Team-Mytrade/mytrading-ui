@@ -1,295 +1,144 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  XMarkIcon,
-  TagIcon,
-  HashtagIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  BanknotesIcon,
-  ArrowPathIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  PlusIcon,
-  BuildingOfficeIcon,
-  ArrowLeftIcon,
-} from "@heroicons/react/24/outline";
+import { AlertCircle, Edit2, Trash2 } from "lucide-react";
+import { CheckCircleIcon, TagIcon, BanknotesIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { AddButton } from "../../components/common/AddButton";
 import PageMeta from "../../components/common/PageMeta";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
+import { AddButton } from "../../components/common/AddButton";
 import { ToasterService } from "../../Services/ToasterService";
-import FilterPopover from "../../components/common/filter";
-import ConfirmDialog from "../../components/common/ConfirmDialog";
-import PaginatedPopup from "../../components/common/unpopup";
-import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { usePermissions } from "../../access/usePermissions";
-
+import { apiError, ATTENDANCE_API } from "./attendanceApi";
 import { t } from "../../i18n/i18n";
-// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface LeaveType {
+type Category = "SICK" | "CASUAL" | "PAID" | "UNPAID" | "OTHER";
+
+/** A company leave type: built-in ones can be renamed or switched off; HR adds its own. */
+interface LeaveTypeModel {
   id?: number;
   code: string;
   name: string;
+  description?: string | null;
   paid: boolean;
-  trackBalance: boolean;
-  unit: "DAY" | "HOUR";
-  carryForwardAllowed: boolean;
-  encashmentAllowed: boolean;
-  eligibilityRule: string;
-  totalRequests?: number;
+  category?: Category | null;
+  halfDayAllowed: boolean;
+  color?: string | null;
+  builtIn?: boolean;
+  active: boolean;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+const API_URL = `${ATTENDANCE_API}/leave-types`;
 
-const API_URL = "/v1/api/attendance/leave-types";
-
-const PAGE_SIZE = 10;
-
-const inputCls = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200";
-const cardCls = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300";
-
-const emptyForm: LeaveType = {
-  code: "",
-  name: "",
-  paid: false,
-  trackBalance: false,
-  unit: "DAY",
-  carryForwardAllowed: false,
-  encashmentAllowed: false,
-  eligibilityRule: "",
+const CATEGORY_LABEL: Record<Category, string> = {
+  CASUAL: "Casual", SICK: "Sick", PAID: "Paid", UNPAID: "Unpaid", OTHER: "Other",
 };
 
-// ─── Boolean Badge helper ─────────────────────────────────────────────────────
+const emptyForm: LeaveTypeModel = { code: "", name: "", description: "", paid: true, category: "PAID", halfDayAllowed: true, color: "#0EA5E9", active: true };
 
-const BoolBadge: React.FC<{ value: boolean; trueLabel?: string; falseLabel?: string }> = ({
-  value, trueLabel = "Yes", falseLabel = "No",
-}) => value
-    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircleIcon className="h-3 w-3" />{trueLabel}</span>
-    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"><XCircleIcon className="h-3 w-3" />{falseLabel}</span>;
+const input = "h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
+/** Attendance → Leave Types: the leave types policies, balances and requests use. */
 const LeaveTypePage: React.FC = () => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const { canCreate, canUpdate, canDelete } = usePermissions("ATTENDANCE");
+  const [types, setTypes] = useState<LeaveTypeModel[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
-  const [form, setForm] = useState<LeaveType>({ ...emptyForm });
-  const [selectedUnit, setSelectedUnit] = useState<string>("");
-  const [selectedPaid, setSelectedPaid] = useState<string>("");
-  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<LeaveTypeModel | null>(null);
+  const [form, setForm] = useState<LeaveTypeModel>(emptyForm);
 
-  // ── Data ────────────────────────────────────────────────────────────────────
-
-  const loadAll = async () => {
+  const load = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<LeaveType[]>(API_URL);
-      setLeaveTypes(res.data);
+      const res = await axios.get<LeaveTypeModel[]>(API_URL);
+      setTypes(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Failed to load leave types", err);
-      ToasterService.error("Failed to load leave types");
+      ToasterService.error(apiError(err, "Could not load the leave types."));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { load(); }, []);
 
-  // ── Form ────────────────────────────────────────────────────────────────────
+  const openNew = () => { setEditing({ ...emptyForm }); setForm({ ...emptyForm }); };
+  const openEdit = (row: LeaveTypeModel) => { setEditing(row); setForm({ ...row, description: row.description || "", color: row.color || "" }); };
 
-  const handleChange = (key: keyof LeaveType, value: any) =>
-    setForm(prev => ({ ...prev, [key]: value }));
-
-  const resetForm = () => {
-    setForm({ ...emptyForm });
-    setEditingLeaveType(null);
-    setShowForm(false);
-  };
-
-  const openCreateForm = () => {
-    setForm({ ...emptyForm });
-    setEditingLeaveType(null);
-    setShowForm(true);
-    setTimeout(() => {
-      document.getElementById('leave-type-form')?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
-
-  const editLeaveType = (lt: LeaveType) => {
-    setForm({ ...lt });
-    setEditingLeaveType(lt);
-    setShowForm(true);
-    setTimeout(() => {
-      document.getElementById('leave-type-form')?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
-
-  const submitForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!form.name) {
-      ToasterService.error("Leave name is required");
-      return;
+  const save = async () => {
+    if (!form.name.trim()) return ToasterService.warning("Give the leave type a name");
+    if (!editing?.id && !/^[A-Za-z][A-Za-z0-9_ ]{1,29}$/.test(form.code.trim())) {
+      return ToasterService.warning("Code: 2 to 30 letters, digits or underscores, starting with a letter");
     }
-
+    setSaving(true);
     try {
-      if (editingLeaveType?.id) {
-        await axios.put(`${API_URL}/${editingLeaveType.id}`, form);
-        ToasterService.success("Leave type updated successfully");
-      } else {
-        await axios.post(API_URL, form);
-        ToasterService.success("Leave type created successfully");
-      }
-      await loadAll();
-      resetForm();
-    } catch (err: any) {
-      console.error("Save failed", err);
-      ToasterService.error(err.response?.data?.message || "Save failed");
+      const payload = { ...form, code: form.code.trim(), name: form.name.trim(), color: form.color || null };
+      if (editing?.id) await axios.put(`${API_URL}/${editing.id}`, payload);
+      else await axios.post(API_URL, payload);
+      ToasterService.success(editing?.id ? "Leave type saved" : "Leave type added");
+      setEditing(null);
+      await load();
+    } catch (err) {
+      ToasterService.error(apiError(err, "The leave type was not saved."));
+    } finally {
+      setSaving(false);
     }
   };
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
-
-  const handleDelete = async (id: number) => {
-    const ok = await confirm({
-      message: "Are you sure you want to delete this leave type? This may affect existing leave balances and requests.",
-      confirmLabel: "Delete",
-      variant: "danger",
-    });
-    if (!ok) return;
-
+  const remove = async (row: LeaveTypeModel) => {
+    if (!row.id) return;
+    const message = row.builtIn ? `Switch off ${row.name}? It stops being offered in new policies.`
+      : `Delete ${row.name}? If a policy uses it, it is switched off instead.`;
+    if (!window.confirm(message)) return;
     try {
-      await axios.delete(`${API_URL}/${id}`);
-      ToasterService.success("Leave type deleted successfully");
-      await loadAll();
-    } catch (err: any) {
-      console.error("Delete failed", err);
-      ToasterService.error(err.response?.data?.message || "Delete failed");
+      await axios.delete(`${API_URL}/${row.id}`);
+      ToasterService.success(row.builtIn ? "Leave type switched off" : "Leave type removed");
+      await load();
+    } catch (err) {
+      ToasterService.error(apiError(err, "The leave type could not be removed."));
     }
   };
 
-  // ── Stats ───────────────────────────────────────────────────────────────────
-
-  // Filter data for stats
-  const filteredData = useMemo(() => {
-    let filtered = [...leaveTypes];
-
-    if (selectedUnit) {
-      filtered = filtered.filter(lt => lt.unit === selectedUnit);
-    }
-
-    if (selectedPaid !== "") {
-      filtered = filtered.filter(lt => lt.paid === (selectedPaid === "true"));
-    }
-
-    return filtered;
-  }, [leaveTypes, selectedUnit, selectedPaid]);
-
-  const totalRecords = filteredData.length;
-  const totalPaid = filteredData.filter(lt => lt.paid).length;
-  const totalCarryForward = filteredData.filter(lt => lt.carryForwardAllowed).length;
-  const totalEncashment = filteredData.filter(lt => lt.encashmentAllowed).length;
-
-  // Get unique units for filter
-  const uniqueUnits = [...new Set(leaveTypes.map(lt => lt.unit).filter(Boolean))];
-
-  // Count active filters
-  const activeFilterCount = [selectedUnit, selectedPaid].filter(Boolean).length;
-
-  // Generate code from name (auto-generate)
-  const generateCode = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase())
-      .join('')
-      .substring(0, 5);
-  };
-
-  // ─── Columns for ReusableTable ───────────────────────────────────────────────
-
-  const columns: ColumnDef<LeaveType>[] = [
+  const columns: ColumnDef<LeaveTypeModel>[] = [
     {
-      key: "code", label: "Code", sortable: true,
-      render: (_: LeaveType, v: unknown) => (
+      key: "name", label: "Leave type", sortable: true,
+      render: (r) => (
         <div className="flex items-center gap-2">
-          <HashtagIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-mono font-semibold text-gray-900">{String(v)}</span>
+          <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: r.color || "#94A3B8" }} />
+          <div className="flex flex-col">
+            <span className="font-semibold text-gray-900 dark:text-white">{r.name}</span>
+            <span className="font-mono text-[10px] text-gray-500">{r.code}{r.builtIn ? ` · ${t("built-in")}` : ""}</span>
+          </div>
         </div>
       ),
     },
+    { key: "category", label: "Category", sortable: true, render: (r) => <span className="text-xs">{r.category ? t(CATEGORY_LABEL[r.category]) : "—"}</span> },
     {
-      key: "name", label: "Name", sortable: true,
-      render: (_: LeaveType, v: unknown) => (
-        <div className="flex items-center gap-2">
-          <TagIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-900">{String(v)}</span>
-        </div>
+      key: "paid", label: "Pay", sortable: true,
+      render: (r) => <span className={`text-xs font-semibold ${r.paid ? "text-emerald-600" : "text-rose-600"}`}>{t(r.paid ? "Paid" : "Unpaid (loss of pay)")}</span>,
+    },
+    { key: "halfDayAllowed", label: "Half day", render: (r) => <span className="text-xs">{t(r.halfDayAllowed ? "Allowed" : "Full days only")}</span> },
+    {
+      key: "active", label: "Status", sortable: true,
+      render: (r) => (
+        <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase ${r.active ? "border-emerald-100 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-500"}`}>
+          {t(r.active ? "Active" : "Switched off")}
+        </span>
       ),
     },
     {
-      key: "unit", label: "Unit", sortable: true,
-      render: (_: LeaveType, v: unknown) => (
-        <div className="flex items-center gap-2">
-          <ClockIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-xs font-medium text-gray-600 uppercase">{String(v)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "paid", label: "Paid", sortable: true,
-      render: (_: LeaveType, v: unknown) => <BoolBadge value={Boolean(v)} />,
-    },
-    {
-      key: "trackBalance", label: "Track Balance", sortable: true,
-      render: (_: LeaveType, v: unknown) => <BoolBadge value={Boolean(v)} />,
-    },
-    {
-      key: "carryForwardAllowed", label: "Carry Forward", sortable: true,
-      render: (_: LeaveType, v: unknown) => (
-        <div className="flex items-center gap-1">
-          <ArrowPathIcon className="h-3.5 w-3.5 text-gray-400" />
-          <BoolBadge value={Boolean(v)} />
-        </div>
-      ),
-    },
-    {
-      key: "encashmentAllowed", label: "Encashment", sortable: true,
-      render: (_: LeaveType, v: unknown) => (
-        <div className="flex items-center gap-1">
-          <BanknotesIcon className="h-3.5 w-3.5 text-gray-400" />
-          <BoolBadge value={Boolean(v)} />
-        </div>
-      ),
-    },
-    {
-      key: "actions", label: "Actions",
-      headerClassName: "!text-right pr-8", className: "text-right",
-      render: (row: LeaveType) => (
-        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          {canUpdate && (<button
-            onClick={() => editLeaveType(row)}
-            title={t("Edit")}
-            className="p-2 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>)}
-          {canDelete && (<button
-            onClick={() => handleDelete(row.id!)}
-            title={t("Delete")}
-            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>)}
+      key: "actions", label: "Actions", headerClassName: "text-right", className: "text-right", excludeFromDetails: true,
+      render: (r) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {canUpdate && (
+            <button type="button" title={t("Edit")} onClick={() => openEdit(r)} className="rounded-lg p-1.5 text-slate-500 hover:bg-cyan-50 hover:text-cyan-700">
+              <Edit2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {canDelete && r.active && (
+            <button type="button" title={t(r.builtIn ? "Switch off" : "Delete")} onClick={() => remove(r)} className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -297,191 +146,88 @@ const LeaveTypePage: React.FC = () => {
 
   return (
     <>
-      <PageMeta title={t("Leave Types")} description="Manage leave types and policies" />
-      <PageBreadcrumb pageTitle="Leave Types" />
-
-      <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-8 space-y-6">
-          <div className="mb-6 flex justify-start sm:justify-end lg:-mt-[134px]">
-            <AddButton label={t("Add Leave Type")} onClick={openCreateForm} />
-          </div>
-
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-          <StatsCard label={t("Total Types")} value={totalRecords} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-6 w-6" />} />
-          <StatsCard label={t("Paid Leaves")} value={totalPaid} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
-          <StatsCard label={t("Carry Forward")} value={totalCarryForward} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<ArrowPathIcon className="h-6 w-6" />} />
-          <StatsCard label={t("Encashment")} value={totalEncashment} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<BanknotesIcon className="h-6 w-6" />} />
+      <PageMeta title={t("Leave Types")} description="The leave types your company offers" />
+      <PageBreadcrumb pageTitle="Leave Types" actions={canCreate ? <AddButton label={t("Add Leave Type")} onClick={openNew} /> : undefined} />
+      <div className="w-full max-w-none px-0 py-8">
+        <div className="mb-[17px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCard label={t("Leave types")} value={types.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<TagIcon className="h-5 w-5" />} />
+          <StatsCard label={t("Active")} value={types.filter((x) => x.active).length} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-5 w-5" />} />
+          <StatsCard label={t("Paid")} value={types.filter((x) => x.paid).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BanknotesIcon className="h-5 w-5" />} />
+          <StatsCard label={t("Switched off")} value={types.filter((x) => !x.active).length} gradient="from-amber-50 to-yellow-50" borderColor="border-amber-100" labelColor="text-amber-600" icon={<XCircleIcon className="h-5 w-5" />} onRefresh={load} />
         </div>
-
-        {/* Reusable Table */}
-        <ReusableTable<LeaveType>
-          data={filteredData}
+        <ReusableTable
+          data={types.map((x) => ({ ...x, id: x.id }))}
           columns={columns}
           loading={loading}
-          searchable={true}
-          searchPlaceholder={t("Search by name, code, or eligibility rule...")}
-          searchFields={["name", "code", "eligibilityRule"]}
-          pageSize={PAGE_SIZE}
+          pageSize={15}
           defaultSortKey="name"
           defaultSortOrder="asc"
-          toolbar={
-            <FilterPopover
-              title={t("Filter Leave Types")}
-              buttonLabel="Filter"
-              onReset={() => {
-                setSelectedUnit("");
-                setSelectedPaid("");
-              }}
-              showFooter={true}
-            >
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Unit")}</label>
-                  <select
-                    value={selectedUnit}
-                    onChange={e => setSelectedUnit(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">{t("All Units")}</option>
-                    {uniqueUnits.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("Paid Status")}</label>
-                  <select
-                    value={selectedPaid}
-                    onChange={e => setSelectedPaid(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                  >
-                    <option value="">{t("All")}</option>
-                    <option value="true">{t("Paid")}</option>
-                    <option value="false">{t("Unpaid")}</option>
-                  </select>
-                </div>
-              </div>
-            </FilterPopover>
-          }
           emptyState={
-            <div className="flex flex-col items-center py-12">
-              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <TagIcon className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-gray-500 text-sm font-medium mb-2">{t("No leave types found")}</p>
-              {canCreate && (<button
-                onClick={openCreateForm}
-                className="text-cyan-600 hover:text-cyan-700 text-sm font-medium flex items-center gap-1"
-              >
-                <PlusIcon className="h-4 w-4" />
-                {t("Add your first leave type")}
-              </button>)}
+            <div className="flex flex-col items-center justify-center py-12">
+              <AlertCircle className="mb-3 h-12 w-12 text-gray-400" />
+              <p className="text-sm text-gray-500">{t("No leave types")}</p>
             </div>
           }
-        />
-
-        {/* Leave Type Form Modal */}
-        <PaginatedPopup
-          isOpen={showForm}
-          title={t(editingLeaveType ? "Edit Leave Type" : "Add Leave Type")}
-          subtitle={t(editingLeaveType ? "Update leave type details" : "Configure a new leave type")}
-          onClose={resetForm}
-          onSubmit={submitForm}
-          submitLabel={t(editingLeaveType ? "Update Leave Type" : "Add Leave Type")}
-          fields={[
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t("Leave Name")} <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={form.name}
-                required
-                onChange={e => {
-                  const name = e.target.value;
-                  handleChange("name", name);
-                  if (!editingLeaveType && !form.code) {
-                    handleChange("code", generateCode(name));
-                  }
-                }}
-                placeholder={t("e.g. Casual Leave")}
-                className={inputCls}
-              />
-            </div>,
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t("Code")} <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={form.code}
-                required
-                onChange={e => handleChange("code", e.target.value.toUpperCase())}
-                placeholder={t("e.g. CL")}
-                className={inputCls}
-              />
-              <p className="mt-1 text-xs text-gray-500">{t("Unique identifier for this leave type")}</p>
-            </div>,
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{t("Unit")}</label>
-              <select
-                value={form.unit}
-                onChange={e => handleChange("unit", e.target.value as "DAY" | "HOUR")}
-                className={inputCls}
-              >
-                <option value="DAY">{t("Day")}</option>
-                <option value="HOUR">{t("Hour")}</option>
-              </select>
-            </div>,
-            <div className="md:col-span-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{t("Policy Settings")}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {([
-                  { key: "paid", label: "Paid Leave" },
-                  { key: "trackBalance", label: "Track Balance" },
-                  { key: "carryForwardAllowed", label: "Carry Forward Allowed" },
-                  { key: "encashmentAllowed", label: "Encashment Allowed" },
-                ] as { key: keyof LeaveType; label: string }[]).map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-3 cursor-pointer w-fit">
-                    <input
-                      type="checkbox"
-                      checked={!!form[key]}
-                      onChange={e => handleChange(key, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>,
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t("Eligibility Rule")} <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <textarea
-                value={form.eligibilityRule}
-                onChange={e => handleChange("eligibilityRule", e.target.value)}
-                rows={3}
-                placeholder={t("Describe eligibility conditions...")}
-                className={inputCls}
-              />
-            </div>
-          ]}
-        />
-
-        <ConfirmDialog
-          isOpen={confirmState.isOpen}
-          title={confirmState.title}
-          message={confirmState.message}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          variant={confirmState.variant}
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
         />
       </div>
+
+      {editing && (
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditing(null)}>
+          <div data-overlay-panel className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl dark:bg-[#191919]" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t(editing.id ? "Edit leave type" : "Add leave type")}</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {t("Code")} *
+                <input className={`${input} mt-1 font-mono uppercase`} value={form.code} disabled={!!editing.id} maxLength={30} placeholder="BIRTHDAY"
+                  onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} />
+              </label>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {t("Name")} *
+                <input className={`${input} mt-1`} value={form.name} maxLength={60} placeholder={t("Birthday leave")}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+              </label>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {t("Category")}
+                <select className={`${input} mt-1`} value={form.category || "OTHER"} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as Category }))}>
+                  {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => <option key={c} value={c}>{t(CATEGORY_LABEL[c])}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {t("Calendar colour")}
+                <input type="color" className="mt-1 h-9 w-full rounded-lg border border-slate-300 bg-white px-1" value={form.color || "#0EA5E9"}
+                  onChange={(e) => setForm((p) => ({ ...p, color: e.target.value }))} />
+              </label>
+              <label className="sm:col-span-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                {t("Description")}
+                <input className={`${input} mt-1`} value={form.description || ""} maxLength={300}
+                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                <input type="checkbox" checked={form.paid} disabled={form.code === "LOSS_OF_PAY"} onChange={(e) => setForm((p) => ({ ...p, paid: e.target.checked }))} />
+                {t("Paid leave (unpaid needs no balance and counts as loss of pay)")}
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                <input type="checkbox" checked={form.halfDayAllowed} onChange={(e) => setForm((p) => ({ ...p, halfDayAllowed: e.target.checked }))} />
+                {t("Can be taken as a half day")}
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                <input type="checkbox" checked={form.active} onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))} />
+                {t("Active")}
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-[#2a2a2a]">
+              <button type="button" onClick={() => setEditing(null)} className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">{t("Cancel")}</button>
+              <button type="button" onClick={save} disabled={saving} className="rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+                {t(saving ? "Saving..." : "Save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
+
 export default LeaveTypePage;

@@ -31,8 +31,42 @@ export interface PolicyDetailItem {
   negativeBalanceAllowed?: boolean;
   documentRequired?: boolean;
   minimumServiceMonths?: number | null;
+  // UPFRONT (all at the year start), MONTHLY or QUARTERLY
+  accrualFrequency?: 'UPFRONT' | 'MONTHLY' | 'QUARTERLY';
+  // An up-front allocation is reduced for someone joining during the year
+  proRataOnJoining?: boolean;
+  // Weekly offs / holidays between leave days count as leave
+  sandwichRule?: boolean;
+  // Compensatory off lapses this many days after the day worked (0 = never)
+  compOffValidityDays?: number | null;
   active?: boolean;
 }
+
+/** A company leave type (Attendance → Leave Types). */
+interface CompanyLeaveType {
+  code: string;
+  name: string;
+  paid?: boolean;
+  active?: boolean;
+}
+
+// Everything the server keeps for a leave type in a policy
+const detailPayload = (d: PolicyDetailItem) => ({
+  id: d.id,
+  leaveType: d.leaveType,
+  allocatedLeaves: Number(d.allocatedLeaves),
+  carryForwardAllowed: Boolean(d.carryForwardAllowed),
+  maxCarryForward: Number(d.maxCarryForward),
+  encashmentAllowed: Boolean(d.encashmentAllowed),
+  negativeBalanceAllowed: Boolean(d.negativeBalanceAllowed ?? d.allowNegativeBalance),
+  documentRequired: Boolean(d.documentRequired),
+  minimumServiceMonths: d.minimumServiceMonths ?? null,
+  accrualFrequency: d.accrualFrequency || 'UPFRONT',
+  proRataOnJoining: Boolean(d.proRataOnJoining),
+  sandwichRule: Boolean(d.sandwichRule),
+  compOffValidityDays: d.compOffValidityDays ?? null,
+  active: d.active !== false,
+});
 
 export interface LeavePolicyModel {
   id?: number;
@@ -186,9 +220,16 @@ const LeavePolicyPage: React.FC = () => {
     }
   };
 
+  // The company's own leave types (falls back to the built-in list if they can't be loaded)
+  const [companyTypes, setCompanyTypes] = useState<CompanyLeaveType[]>([]);
+  const typeName = (code: string) => companyTypes.find((c) => c.code === code)?.name || `${leaveTypeLabel(code)} leave`;
+
   useEffect(() => {
     fetchPolicies();
     fetchEmployees();
+    axios.get<CompanyLeaveType[]>('/v1/api/attendance/leave-types')
+      .then((res) => setCompanyTypes(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setCompanyTypes([]));
   }, []);
 
   // ── Validation ────────────────────────────────────────────────────────
@@ -230,18 +271,7 @@ const LeavePolicyPage: React.FC = () => {
           effectiveTo: form.effectiveTo,
           description: form.description,
           active: Boolean(form.active),
-          policyDetails: form.policyDetails.map(d => ({
-            id: d.id,
-            leaveType: d.leaveType,
-            allocatedLeaves: Number(d.allocatedLeaves),
-            carryForwardAllowed: Boolean(d.carryForwardAllowed),
-            maxCarryForward: Number(d.maxCarryForward),
-            encashmentAllowed: Boolean(d.encashmentAllowed),
-            negativeBalanceAllowed: Boolean(d.allowNegativeBalance || d.negativeBalanceAllowed),
-            documentRequired: false,
-            minimumServiceMonths: null,
-            active: d.active !== false
-          }))
+          policyDetails: form.policyDetails.map(detailPayload)
         };
 
         await putApi(editingPolicy.id, putPayload);
@@ -259,17 +289,7 @@ const LeavePolicyPage: React.FC = () => {
           effectiveTo: form.effectiveTo,
           description: form.description,
           active: Boolean(form.active),
-          policyDetails: form.policyDetails.map(d => ({
-            leaveType: d.leaveType,
-            allocatedLeaves: Number(d.allocatedLeaves),
-            carryForwardAllowed: Boolean(d.carryForwardAllowed),
-            maxCarryForward: Number(d.maxCarryForward),
-            negativeBalanceAllowed: Boolean(d.allowNegativeBalance),
-            encashmentAllowed: Boolean(d.encashmentAllowed),
-            documentRequired: Boolean(d.documentRequired),
-            minimumServiceMonths: d.minimumServiceMonths ?? null,
-            active: true
-          }))
+          policyDetails: form.policyDetails.map((d) => ({ ...detailPayload(d), id: undefined, active: true }))
         };
 
         await postApi(postPayload);
@@ -304,7 +324,8 @@ const LeavePolicyPage: React.FC = () => {
     setFormErrors({});
   };
 
-  const availableLeaveTypes = Object.keys(LEAVE_TYPE_LABELS).filter((t) => !form.policyDetails.some((d) => d.leaveType === t));
+  const availableLeaveTypes = (companyTypes.length ? companyTypes.filter((c) => c.active !== false).map((c) => c.code) : Object.keys(LEAVE_TYPE_LABELS))
+    .filter((t) => !form.policyDetails.some((d) => d.leaveType === t));
   const addLeaveType = (leaveType: string) =>
     setForm((p) => ({ ...p, policyDetails: [...p.policyDetails, { leaveType, allocatedLeaves: 0, carryForwardAllowed: false, maxCarryForward: 0, allowNegativeBalance: false }] }));
   const removeLeaveType = (leaveType: string) =>
@@ -630,7 +651,7 @@ const LeavePolicyPage: React.FC = () => {
                         aria-label={t("Add a leave type")}
                       >
                         <option value="">{t("+ Add leave type")}</option>
-                        {availableLeaveTypes.map((t) => <option key={t} value={t}>{leaveTypeLabel(t)}</option>)}
+                        {availableLeaveTypes.map((code) => <option key={code} value={code}>{typeName(code)}</option>)}
                       </select>
                     )}
                   </div>
@@ -651,9 +672,12 @@ const LeavePolicyPage: React.FC = () => {
                         {form.policyDetails.map((detail, idx) => {
                           const update = (patch: Partial<typeof detail>) =>
                             setForm(p => ({ ...p, policyDetails: p.policyDetails.map((d, i) => (i === idx ? { ...d, ...patch } : d)) }));
+                          const small = "h-7 rounded-md border border-slate-300 bg-white px-1.5 text-[11px] dark:border-gray-700 dark:bg-[#191919] dark:text-white";
+                          const check = "inline-flex cursor-pointer items-center gap-1 text-[11px] text-slate-600 dark:text-gray-300";
                           return (
-                            <tr key={detail.leaveType}>
-                              <td className="px-3 py-2 font-semibold text-slate-800 dark:text-gray-100">{leaveTypeLabel(detail.leaveType)} leave</td>
+                            <React.Fragment key={detail.leaveType}>
+                            <tr>
+                              <td className="px-3 py-2 font-semibold text-slate-800 dark:text-gray-100">{typeName(detail.leaveType)}</td>
                               <td className="px-3 py-2">
                                 <input type="number" min={0} step={0.5} value={detail.allocatedLeaves}
                                   onChange={(e) => update({ allocatedLeaves: Number(e.target.value) })}
@@ -673,12 +697,65 @@ const LeavePolicyPage: React.FC = () => {
                                   className="h-8 w-24 rounded-lg border border-slate-300 bg-white px-2 text-xs disabled:bg-slate-50 disabled:text-slate-400 dark:border-gray-700 dark:bg-[#191919] dark:text-white" />
                               </td>
                               <td className="px-3 py-2 text-center">
-                                <button type="button" onClick={() => removeLeaveType(detail.leaveType)} title={`${t("Remove")} ${leaveTypeLabel(detail.leaveType)} leave`}
+                                <button type="button" onClick={() => removeLeaveType(detail.leaveType)} title={`${t("Remove")} ${typeName(detail.leaveType)}`}
                                   className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </td>
                             </tr>
+                            <tr className="bg-slate-50/60 dark:bg-[#1c1c1c]">
+                              <td colSpan={5} className="px-3 pb-2 pt-1">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                  <label className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-gray-300">
+                                    {t("Given")}
+                                    <select value={detail.accrualFrequency || 'UPFRONT'} className={small}
+                                      onChange={(e) => update({ accrualFrequency: e.target.value as PolicyDetailItem['accrualFrequency'] })}>
+                                      <option value="UPFRONT">{t("At the year start")}</option>
+                                      <option value="MONTHLY">{t("Monthly")}</option>
+                                      <option value="QUARTERLY">{t("Quarterly")}</option>
+                                    </select>
+                                  </label>
+                                  {(detail.accrualFrequency || 'UPFRONT') === 'UPFRONT' && (
+                                    <label className={check}>
+                                      <input type="checkbox" checked={Boolean(detail.proRataOnJoining)} onChange={(e) => update({ proRataOnJoining: e.target.checked })} />
+                                      {t("Pro-rata for joiners")}
+                                    </label>
+                                  )}
+                                  <label className={check}>
+                                    <input type="checkbox" checked={Boolean(detail.encashmentAllowed)} onChange={(e) => update({ encashmentAllowed: e.target.checked })} />
+                                    {t("Encashable")}
+                                  </label>
+                                  <label className={check}>
+                                    <input type="checkbox" checked={Boolean(detail.negativeBalanceAllowed ?? detail.allowNegativeBalance)}
+                                      onChange={(e) => update({ negativeBalanceAllowed: e.target.checked, allowNegativeBalance: e.target.checked })} />
+                                    {t("Negative balance")}
+                                  </label>
+                                  <label className={check}>
+                                    <input type="checkbox" checked={Boolean(detail.sandwichRule)} onChange={(e) => update({ sandwichRule: e.target.checked })} />
+                                    {t("Sandwich rule")}
+                                  </label>
+                                  <label className={check}>
+                                    <input type="checkbox" checked={Boolean(detail.documentRequired)} onChange={(e) => update({ documentRequired: e.target.checked })} />
+                                    {t("Document required")}
+                                  </label>
+                                  <label className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-gray-300">
+                                    {t("After")}
+                                    <input type="number" min={0} max={120} value={detail.minimumServiceMonths ?? ''} placeholder="0" className={`${small} w-14`}
+                                      onChange={(e) => update({ minimumServiceMonths: e.target.value === '' ? null : Number(e.target.value) })} />
+                                    {t("months of service")}
+                                  </label>
+                                  {detail.leaveType === 'COMPENSATORY_OFF' && (
+                                    <label className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-gray-300">
+                                      {t("Lapses after")}
+                                      <input type="number" min={0} max={730} value={detail.compOffValidityDays ?? ''} placeholder="90" className={`${small} w-16`}
+                                        onChange={(e) => update({ compOffValidityDays: e.target.value === '' ? null : Number(e.target.value) })} />
+                                      {t("days (0 = never)")}
+                                    </label>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
