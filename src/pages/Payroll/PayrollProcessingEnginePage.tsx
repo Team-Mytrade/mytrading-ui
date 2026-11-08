@@ -20,6 +20,7 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import { ReusableTable, ColumnDef } from "../../components/common/Table";
+import PayrollRunReviewDialog from "./PayrollRunReviewDialog";
 import { usePermissions } from "../../access/usePermissions";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -108,6 +109,44 @@ const PayrollProcessingEnginePage: React.FC = () => {
     const [paidFrom, setPaidFrom] = useState("");
     const [bankAccounts, setBankAccounts] = useState<BankAccountOption[] | null>(null);
     const [recordingPayment, setRecordingPayment] = useState(false);
+    // Approval (maker-checker): the company's setting and the run open for review
+    const [approvalSettings, setApprovalSettings] = useState<{ approvalRequired: boolean; varianceThresholdPercent: number } | null>(null);
+    const [reviewingRef, setReviewingRef] = useState<string | null>(null);
+
+    const loadApprovalSettings = async () => {
+        try {
+            const { data } = await axios.get(`/v1/api/payroll/run-settings`);
+            setApprovalSettings({ approvalRequired: !!data.approvalRequired, varianceThresholdPercent: Number(data.varianceThresholdPercent ?? 10) });
+        } catch {
+            setApprovalSettings(null);
+        }
+    };
+
+    const saveApprovalSettings = async (change: Partial<{ approvalRequired: boolean; varianceThresholdPercent: number }>) => {
+        try {
+            const { data } = await axios.put(`/v1/api/payroll/run-settings`, change);
+            setApprovalSettings({ approvalRequired: !!data.approvalRequired, varianceThresholdPercent: Number(data.varianceThresholdPercent ?? 10) });
+            ToasterService.success(data.approvalRequired ? "Runs now wait for a second person's approval" : "Runs are released at once");
+        } catch (error) {
+            ToasterService.error(apiError(error, "The approval setting was not saved"));
+        }
+    };
+
+    const reopenRun = async (row: any) => {
+        const reason = window.prompt(`Reopen ${row.batchReference}? It goes back to "awaiting approval" so it can be corrected. Why?`);
+        if (!reason || !reason.trim()) return;
+        try {
+            await axios.put(`/v1/api/payroll/batches/${row.batchReference}/reopen`, null, { params: { reason: reason.trim() } });
+            ToasterService.success(`${row.batchReference} reopened`);
+            fetchBatchInfo();
+        } catch (error) {
+            ToasterService.error(apiError(error, "The run was not reopened"));
+        }
+    };
+
+    useEffect(() => {
+        if (canApprove) loadApprovalSettings();
+    }, [canApprove]);
 
     useEffect(() => {
         setFullMonthConfirmed(false);
@@ -234,8 +273,10 @@ const PayrollProcessingEnginePage: React.FC = () => {
                 month: salaryMonth,
                 withoutAttendance: !review.attendanceUploaded && fullMonthConfirmed,
             });
+            const waitingApproval = data.approvalState === "PENDING_APPROVAL";
             ToasterService.success(`${data.batchReference}: ${data.employeeCount} employee${data.employeeCount === 1 ? "" : "s"} paid, ${rupees(data.totalNetSalary)} in total`,
-                data.payslipProblem ? undefined : `${data.payslipsGenerated} payslip${data.payslipsGenerated === 1 ? "" : "s"} ready`);
+                waitingApproval ? "Waiting for a second person's approval: payslips, bank file and books follow it"
+                    : data.payslipProblem ? undefined : `${data.payslipsGenerated} payslip${data.payslipsGenerated === 1 ? "" : "s"} ready`);
             if (data.payslipProblem) {
                 ToasterService.warning("Payslips were not made", data.payslipProblem, 8000);
             }
@@ -710,7 +751,27 @@ const PayrollProcessingEnginePage: React.FC = () => {
                             <div>
                                 <div className="flex justify-between items-center mb-6">
                                     <h4 className="text-xl font-semibold text-gray-900 dark:text-white">{t("Batch Processing Status")}</h4>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {canApprove && approvalSettings && (
+                                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs dark:border-[#2a2a2a]">
+                                                <label className="flex cursor-pointer items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300"
+                                                    title={t("Each run waits for someone other than who ran it to review and approve it")}>
+                                                    <input type="checkbox" checked={approvalSettings.approvalRequired}
+                                                        onChange={(e) => saveApprovalSettings({ approvalRequired: e.target.checked })} />
+                                                    {t("Require approval")}
+                                                </label>
+                                                {approvalSettings.approvalRequired && (
+                                                    <label className="flex items-center gap-1 text-gray-500">
+                                                        {t("flag ±")}
+                                                        <input type="number" min={0} max={100} className="h-6 w-12 rounded border border-gray-300 px-1 dark:border-gray-700 dark:bg-[#222222]"
+                                                            defaultValue={approvalSettings.varianceThresholdPercent}
+                                                            onBlur={(e) => Number(e.target.value) !== approvalSettings.varianceThresholdPercent
+                                                                && saveApprovalSettings({ varianceThresholdPercent: Number(e.target.value) })} />
+                                                        %
+                                                    </label>
+                                                )}
+                                            </div>
+                                        )}
                                         <button
                                             onClick={fetchBatchInfo}
                                             className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-transparent shadow-sm text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-[#222222] hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors cursor-pointer"
@@ -745,7 +806,21 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             key: "status",
                                             label: "Status",
                                             sortable: true,
-                                            render: (row: any) => (
+                                            render: (row: any) => row.approvalState === "PENDING_APPROVAL" ? (
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="inline-flex w-fit items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-transparent dark:text-amber-300">
+                                                        {t("Awaiting approval")}
+                                                    </span>
+                                                    {row.preparedBy && <span className="text-[10px] text-gray-500">{t("by")} {row.preparedBy}</span>}
+                                                </div>
+                                            ) : row.approvalState === "APPROVED" ? (
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="inline-flex w-fit items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-transparent dark:text-green-300">
+                                                        {t("Approved")}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-500">{row.approvedBy}</span>
+                                                </div>
+                                            ) : (
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold dark:bg-transparent dark:border-transparent ${row.status === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:text-gray-300' : 'bg-yellow-100 text-yellow-800 dark:text-gray-400'}`}>
                                                     {row.status}
                                                 </span>
@@ -791,6 +866,25 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             headerClassName: "text-right",
                                             render: (row: any) => (
                                                 <div className="inline-flex items-center justify-end gap-2">
+                                                    {canApprove && (row.approvalState === "PENDING_APPROVAL" || row.approvalState === "APPROVED") && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setReviewingRef(row.batchReference); }}
+                                                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${row.approvalState === "PENDING_APPROVAL"
+                                                                ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#222222] dark:text-gray-300"}`}
+                                                        >
+                                                            {t(row.approvalState === "PENDING_APPROVAL" ? "Review & approve" : "Review")}
+                                                        </button>
+                                                    )}
+                                                    {canApprove && row.approvalState === "APPROVED" && !row.paidOn && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); reopenRun(row); }}
+                                                            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200 dark:bg-[#222222] dark:text-gray-300 cursor-pointer"
+                                                            title={t("Unlock the run to correct it; it needs approving again")}
+                                                        >
+                                                            {t("Reopen")}
+                                                        </button>
+                                                    )}
+                                                    {row.approvalState !== "PENDING_APPROVAL" && <>
                                                     {canApprove && row.ledgerState !== "POSTED" && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); postToLedger(row); }}
@@ -819,6 +913,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                     >
                                                         <DocumentArrowDownIcon className="h-5 w-5" />
                                                     </button>}
+                                                    </>}
                                                 </div>
                                             )
                                         }
@@ -833,6 +928,10 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         </div>
                                     }
                                 />
+                                {reviewingRef && (
+                                    <PayrollRunReviewDialog reference={reviewingRef} onClose={() => setReviewingRef(null)}
+                                        onDecided={() => { setReviewingRef(null); fetchBatchInfo(); }} />
+                                )}
 
                             </div>
                         )}

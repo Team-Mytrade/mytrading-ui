@@ -245,6 +245,7 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/performance-management", "HRM"],
   ["/exit-management", "HRM"],
   ["/exitApprovals", "HRM"],
+  ["/fullAndFinal", "HRM"],
   ["/statutoryCompliances", "HRM"],
   ["/attendance-management", "HRM"],
   ["/attendanceLogs", "HRM"],

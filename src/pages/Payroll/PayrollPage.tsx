@@ -49,6 +49,7 @@ import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 import { t } from "../../i18n/i18n";
 import { stampCompany } from "../../company/pdfStamp";
 import { brandShade } from "../../company/brand";
+import PayslipEmailDialog from "./PayslipEmailDialog";
 const BASE_URL = "/v1/api/payroll";
 const PAGE_SIZE = 10;
 
@@ -125,6 +126,8 @@ const PayrollPage: React.FC = () => {
     const [viewDetails, setViewDetails] = useState<any>(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+    // Emailing the month's payslips (and how they are protected)
+    const [emailOpen, setEmailOpen] = useState(false);
     const [generateMonth, setGenerateMonth] = useState("");
     const [isZipModalOpen, setIsZipModalOpen] = useState(false);
     const [zipEmployee, setZipEmployee] = useState<{ id: number, name: string } | null>(null);
@@ -641,6 +644,19 @@ const PayrollPage: React.FC = () => {
                             </button>
                         )}
 
+                        {canApprove && (
+                            <button
+                                type="button"
+                                onClick={() => setEmailOpen(true)}
+                                className={TOOL_BUTTON}
+                                disabled={!filterMonth}
+                                title={t("Email the month's payslips to employees")}
+                            >
+                                <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                                {t("Email Payslips")}
+                            </button>
+                        )}
+
                         <button
                             type="button"
                             onClick={handlePrint}
@@ -686,6 +702,14 @@ const PayrollPage: React.FC = () => {
                         }
                     />
                 </div>
+
+                {emailOpen && filterMonth && (
+                    <PayslipEmailDialog
+                        month={filterMonth}
+                        names={Object.fromEntries(salaries.map((s) => [Number(s.employeeId), s.employeeName || `#${s.employeeId}`]))}
+                        onClose={() => setEmailOpen(false)}
+                    />
+                )}
 
                 {/* Generate Payslips Modal */}
                 <PaginatedPopup

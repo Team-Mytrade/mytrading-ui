@@ -6,6 +6,7 @@ import {
     ArrowUturnLeftIcon,
     CalendarDaysIcon,
     ClockIcon,
+    ExclamationTriangleIcon,
     FlagIcon,
 } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
@@ -98,7 +99,21 @@ const addDays = (isoDate: string, days: number) => {
     return toLocalIsoDate(new Date(y, m - 1, d + days));
 };
 
-const emptyForm = () => ({ resignationDate: todayIso(), noticePeriod: 90, lastWorkingDay: '', reason: '', comment: '' });
+// Days from one yyyy-MM-dd date to another (as UTC dates, so no DST drift)
+const daysBetween = (fromIso: string, toIso: string) => {
+    const [fy, fm, fd] = fromIso.split('-').map(Number);
+    const [ty, tm, td] = toIso.split('-').map(Number);
+    return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
+};
+
+const weekday = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long' });
+};
+
+const DEFAULT_NOTICE_DAYS = 90;
+
+const emptyForm = () => ({ resignationDate: todayIso(), proposedLastWorkingDay: '', reason: '', comment: '' });
 
 const ExitManagementPage: React.FC = () => {
     const { canApprove } = usePermissions();
@@ -111,6 +126,8 @@ const ExitManagementPage: React.FC = () => {
     const [withdrawing, setWithdrawing] = useState(false);
     const [withdrawReason, setWithdrawReason] = useState('');
     const [formData, setFormData] = useState(emptyForm);
+    // Fixed by the payroll config (default-notice-period-days); the employee can't change it
+    const [noticePeriodDays, setNoticePeriodDays] = useState(DEFAULT_NOTICE_DAYS);
 
     // The open resignation if there is one, else the latest (closed) one
     const resignation = useMemo(
@@ -119,16 +136,25 @@ const ExitManagementPage: React.FC = () => {
     );
     const isOpen = !!resignation && !!resignation.active && OPEN.includes(resignation.status);
 
-    // The last working day follows the notice period until it is picked
-    const calculatedLWD = useMemo(
-        () => (formData.resignationDate ? addDays(formData.resignationDate, Number(formData.noticePeriod) || 0) : ''),
-        [formData.resignationDate, formData.noticePeriod]
+    // Where the notice period ends, counting the submission day as day 1 (90 days end 89 days after it);
+    // the employee proposes a day on or before it
+    const noticeLWD = useMemo(
+        () => (formData.resignationDate ? addDays(formData.resignationDate, noticePeriodDays - 1) : ''),
+        [formData.resignationDate, noticePeriodDays]
     );
-    const effectiveLWD = formData.lastWorkingDay || calculatedLWD;
+    // Notice days not served when leaving on the proposed day
+    const recoveryDays = formData.proposedLastWorkingDay && noticeLWD
+        ? Math.max(0, daysBetween(formData.proposedLastWorkingDay, noticeLWD)) : null;
 
     useEffect(() => {
         fetchMyRequests();
     }, [onBehalf, acting.id]);
+
+    useEffect(() => {
+        ExitManagementService.getExitConfig()
+            .then(c => { if (c?.defaultNoticePeriodDays > 0) setNoticePeriodDays(c.defaultNoticePeriodDays); })
+            .catch(() => { /* keep the 90-day default; the server checks the dates anyway */ });
+    }, []);
 
     const fetchMyRequests = async () => {
         setLoading(true);
@@ -148,9 +174,9 @@ const ExitManagementPage: React.FC = () => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: name === 'noticePeriod' ? Math.max(0, Number(value) || 0) : value,
-            // A new notice period recalculates the last working day
-            ...(name === 'noticePeriod' || name === 'resignationDate' ? { lastWorkingDay: '' } : {}),
+            [name]: value,
+            // A new resignation date moves the notice period, so the proposed day is picked again
+            ...(name === 'resignationDate' ? { proposedLastWorkingDay: '' } : {}),
         }));
     };
 
@@ -165,8 +191,12 @@ const ExitManagementPage: React.FC = () => {
             ToasterService.error("Please add a comment or handover details.");
             return;
         }
-        if (!effectiveLWD) {
+        if (!formData.proposedLastWorkingDay) {
             ToasterService.error("Please select your proposed last working day.");
+            return;
+        }
+        if (formData.proposedLastWorkingDay < formData.resignationDate || formData.proposedLastWorkingDay > noticeLWD) {
+            ToasterService.error(`The proposed last working day must be between ${showDate(formData.resignationDate)} and ${showDate(noticeLWD)}.`);
             return;
         }
         setLoading(true);
@@ -175,7 +205,7 @@ const ExitManagementPage: React.FC = () => {
             await ExitManagementService.submitExitRequest({
                 employeeId: onBehalf ? acting.id : undefined,
                 resignationDate: formData.resignationDate || todayIso(),
-                lastWorkingDay: effectiveLWD,
+                proposedLastWorkingDay: formData.proposedLastWorkingDay,
                 reason: formData.reason + (formData.comment.trim() ? ` - ${formData.comment.trim()}` : ''),
             });
             setIsResigning(false);
@@ -343,6 +373,24 @@ const ExitManagementPage: React.FC = () => {
                                         <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Reason")}</dt>
                                         <dd className="text-slate-900 dark:text-white">{resignation.reason || '-'}</dd>
                                     </div>
+                                    {resignation.noticeLastWorkingDay && (
+                                        <div>
+                                            <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Notice period ends")}</dt>
+                                            <dd className="text-slate-900 dark:text-white">{showDate(resignation.noticeLastWorkingDay)}{resignation.noticePeriodDays != null ? ` (${resignation.noticePeriodDays} days)` : ''}</dd>
+                                        </div>
+                                    )}
+                                    {resignation.proposedLastWorkingDay && (
+                                        <div>
+                                            <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Proposed LWD")}</dt>
+                                            <dd className="text-slate-900 dark:text-white">{showDate(resignation.proposedLastWorkingDay)}</dd>
+                                        </div>
+                                    )}
+                                    {resignation.noticeRecoveryDays != null && resignation.noticeRecoveryDays > 0 && (
+                                        <div>
+                                            <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Notice recovery days")}</dt>
+                                            <dd className="text-amber-600 dark:text-amber-400">{resignation.noticeRecoveryDays} days</dd>
+                                        </div>
+                                    )}
                                     {resignation.approvedDate && (
                                         <div>
                                             <dt className="text-xs text-slate-500 dark:text-gray-400">{t("Approved On")}</dt>
@@ -398,9 +446,23 @@ const ExitManagementPage: React.FC = () => {
                         label: "Details",
                         fields: [
                             <FloatingInput key="resignationDate" label={t("Resignation Date")} name="resignationDate" type="date" value={formData.resignationDate} onChange={handleChange} required />,
-                            <FloatingInput key="noticePeriod" label={t("Notice Period (days)")} name="noticePeriod" type="number" min={0} value={formData.noticePeriod} onChange={handleChange} required />,
-                            <FloatingInput key="lastWorkingDay" label={t("Last Working Day")} name="lastWorkingDay" type="date" min={formData.resignationDate} value={effectiveLWD} onChange={handleChange} required />,
+                            <FloatingInput key="noticePeriod" label={t("Notice Period (days)")} name="noticePeriod" type="number" value={noticePeriodDays} readOnly disabled />,
+                            <div key="lastWorkingDay">
+                                <FloatingInput label={t("Last Working Date (LWD)")} name="lastWorkingDay" type="date" value={noticeLWD} readOnly disabled />
+                                {noticeLWD && <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">{t("Calendar day")} - {weekday(noticeLWD)}</p>}
+                            </div>,
                             <FloatingSelect key="reason" label={t("Reason")} name="reason" value={formData.reason} onChange={handleChange} options={EXIT_REASONS.map(r => ({ id: r, name: r }))} required />,
+                            <FloatingInput key="proposedLastWorkingDay" label={t("Proposed LWD")} name="proposedLastWorkingDay" type="date" min={formData.resignationDate} max={noticeLWD} value={formData.proposedLastWorkingDay} onChange={handleChange} required />,
+                            <FloatingInput key="noticeRecoveryDays" label={t("Notice recovery days")} name="noticeRecoveryDays" type="number" value={recoveryDays ?? ''} readOnly disabled />,
+                            ...(recoveryDays ? [
+                                <div key="disclaimer" className="md:col-span-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40">
+                                    <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{t("Disclaimer")}</p>
+                                        <p className="text-xs text-slate-600 dark:text-gray-300">{t("Recovery amount applicable if notice period not completed, subject to HR approval")}</p>
+                                    </div>
+                                </div>,
+                            ] : []),
                             <div key="comment" className="md:col-span-2">
                                 <FloatingTextarea label={t("Comment / handover details")} name="comment" rows={3} value={formData.comment} onChange={handleChange} required />
                             </div>,

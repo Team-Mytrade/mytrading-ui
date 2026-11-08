@@ -85,6 +85,7 @@ const EmployeeSelfDashboard = lazy(() => import("./pages/Payroll/EmployeeSelfDas
 const EmployeeViewPage = lazy(() => import("./pages/Payroll/EmployeeViewPage"));
 const ExitManagementPage = lazy(() => import("./pages/Payroll/ExitManagementPage"));
 const ExitApprovalsPage = lazy(() => import("./pages/Payroll/ExitApprovalsPage"));
+const FinalSettlementPage = lazy(() => import("./pages/Payroll/FinalSettlementPage"));
 const ItDeclarationPage = lazy(() => import("./pages/Payroll/ItDeclarationPage"));
 const LeaveManagementPage = lazy(() => import("./pages/Payroll/LeaveManagementPage"));
 const PerformanceManagementPage = lazy(() => import("./pages/Payroll/PerformanceManagementPage"));
@@ -128,6 +129,8 @@ const AttendanceRecordPage = lazy(() => import("./pages/Attendance/AttendanceRec
 const LeaveBalancePage = lazy(() => import("./pages/Attendance/LeaveBalancePage"));
 const LeaveRequestPage = lazy(() => import("./pages/Attendance/LeaveRequestPage"));
 const LeaveTypePage = lazy(() => import("./pages/Attendance/LeaveTypePage"));
+const LeaveYearPage = lazy(() => import("./pages/Attendance/LeaveYearPage"));
+const AttendanceMonthLockPage = lazy(() => import("./pages/Attendance/AttendanceMonthLockPage"));
 const LeavePolicyPage = lazy(() => import("./pages/Attendance/LeavePolicyPage"));
 const LeaveDashboardPage = lazy(() => import("./pages/Attendance/LeaveDashboardPage"));
 const LeaveManagerDashboardPage = lazy(() => import("./pages/Attendance/LeaveManagerDashboardPage"));
@@ -433,6 +436,7 @@ export default function AppRouter() {
           <Route path="/performance-management" element={<PerformanceManagementPage />} />
           <Route path="/exit-management" element={<ExitManagementPage />} />
           <Route path="/exitApprovals" element={<ExitApprovalsPage />} />
+          <Route path="/fullAndFinal" element={<FinalSettlementPage />} />
           <Route path="/statutoryCompliances" element={<StatutoryCompliancesPage />} />
           <Route path="/employees/:employeeId/documents" element={<EmployeeDocumentsPage />} />
           <Route path="/payroll_dashboard" element={<PayrollDashboard />} />
@@ -455,6 +459,8 @@ export default function AppRouter() {
           <Route path="/att_attendanceTracking" element={<AttendanceTrackingPage />} />
           <Route path="/att_overtimeEntry" element={<OverTimeEntryPage />} />
           <Route path="/att_leaveType" element={<LeaveTypePage />} />
+          <Route path="/att_leaveYear" element={<LeaveYearPage />} />
+          <Route path="/att_monthLock" element={<AttendanceMonthLockPage />} />
           <Route path="/att_overtimeRule" element={<OvertimeRulePage />} />
           <Route path="/att_payrollComponent" element={<PayrollComponentPage />} />
           <Route path="/att_payrollRecord" element={<PayrollRecordPage />} />

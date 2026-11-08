@@ -6,7 +6,8 @@ import AppSidebar from "./AppSidebar";
 import { AuthContext } from "../context/AuthContext";
 import SignIn from "../pages/AuthPages/SignIn";
 import { useContext } from "react";
-import { canAccessPath, getSelectedTenant } from "../access/access";
+import { canAccessPath, getSelectedTenant, moduleForPath } from "../access/access";
+import ChooseCompany from "../access/ChooseCompany";
 import NoAccess from "../access/NoAccess";
 import TenantBanner from "../access/TenantBanner";
 import { useRegionalVersion } from "../company/companyApi";
@@ -33,6 +34,9 @@ const LayoutContent: React.FC = () => {
     window.addEventListener("app-tenant-changed", update);
     return () => window.removeEventListener("app-tenant-changed", update);
   }, []);
+  // HR, payroll and attendance records belong to one company: a Super Admin picks it before such a page opens
+  const pageModule = moduleForPath(location.pathname);
+  const needsCompany = access.superAdmin && !tenantId && (pageModule === "HRM" || pageModule === "ATTENDANCE");
   const isSalesModule = [
     "/sales-dashboard", "/sales-targets", "/sales-persons", "/sales-orders",
     "/return-requests", "/refunds", "/quotations", "/quote-view", "/credit-limit",
@@ -75,6 +79,8 @@ const LayoutContent: React.FC = () => {
         <div className={`app-content-tight app-content-scroll min-h-0 flex-1 w-full overflow-x-hidden overflow-y-auto overscroll-contain px-2 py-[3px] md:px-3 md:py-[3px] ${isSalesModule ? "sales-module" : ""}`}>
           {!regional.ready && isLoggedIn ? (
             <PageLoading />
+          ) : needsCompany && (pageModule === "HRM" || pageModule === "ATTENDANCE") ? (
+            <ChooseCompany module={pageModule} />
           ) : canAccessPath(access, location.pathname) ? (
             // Pages are loaded on demand; header and sidebar stay while one loads. A new language, regional
             // setting or company (Super Admin) draws the page again.
