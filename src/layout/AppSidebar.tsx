@@ -325,8 +325,8 @@ export const navItems: NavItem[] = [
       // HRM:VIEW. Payslips, IT Declaration and Exit Management stay: they show the user's own records.
       { name: "Documents", path: "/employeeDocuments", permission: "HRM:APPROVE", icon: FolderOpen, section: "People" },
       // Pay components → structures → salaries → declarations → run → payslips
-      { name: "Compensation", path: "/employeeCompensation", icon: Coins, section: "Payroll" },
-      { name: "Salary Structure", path: "/salaryStructure", icon: Layers, section: "Payroll" },
+      { name: "Compensation", path: "/employeeCompensation", permission: "HRM:APPROVE", icon: Coins, section: "Payroll" },
+      { name: "Salary Structure", path: "/salaryStructure", permission: "HRM:APPROVE", icon: Layers, section: "Payroll" },
       { name: "Salary", path: "/employeeSalary", permission: "HRM:APPROVE", icon: Banknote, section: "Payroll" },
       { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
       { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
@@ -366,9 +366,9 @@ export const navItems: NavItem[] = [
       { name: "Regularization Approvals", path: "/att_regularizationApproval", permission: "ATTENDANCE:APPROVE", icon: ClipboardCheck, section: "Approvals" },
       { name: "On-Duty Approvals", path: "/att_onDutyApproval", permission: "ATTENDANCE:APPROVE", icon: BadgeCheck, section: "Approvals" },
 
-      { name: "Attendance Tracking", path: "/att_attendanceTracking", icon: Activity, section: "Team" },
+      { name: "Attendance Tracking", path: "/att_attendanceTracking", permission: "ATTENDANCE:APPROVE", icon: Activity, section: "Team" },
       { name: "Shift Roster & Schedule", path: "/att_shiftSchedule", permission: "ATTENDANCE:ADMIN", icon: CalendarClock, section: "Team" },
-      { name: "Attendance Reports", path: "/att_reports", icon: BarChart3, section: "Team" },
+      { name: "Attendance Reports", path: "/att_reports", permission: "ATTENDANCE:APPROVE", icon: BarChart3, section: "Team" },
 
       { name: "Shift Master", path: "/att_shift", permission: "ATTENDANCE:ADMIN", icon: Clock, section: "Set-up" },
       { name: "Attendance Policy", path: "/att_attendancePolicy", permission: "ATTENDANCE:ADMIN", icon: ScrollText, section: "Set-up" },

@@ -15,6 +15,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "./attendanceApi";
 import { leadingDays, weekdayLabels, liveMonthNames, formatHijri, hijriDay, hijriEnabled } from "../../company/format";
 import HijriMonthCaption from "../../components/common/HijriMonthCaption";
+import HolidayListView from "./HolidayListView";
 
 import { t } from "../../i18n/i18n";
 // Base relative API endpoints (routing via Vite dev proxy)
@@ -1333,4 +1334,10 @@ const HolidayCalendarPage: React.FC = () => {
   );
 };
 
-export default HolidayCalendarPage;
+// Employees only read the holidays; the master editor is for those who maintain calendars
+const HolidayCalendarRoute: React.FC = () => {
+  const { canCreate, canUpdate, canDelete } = usePermissions("ATTENDANCE");
+  return canCreate || canUpdate || canDelete ? <HolidayCalendarPage /> : <HolidayListView />;
+};
+
+export default HolidayCalendarRoute;
