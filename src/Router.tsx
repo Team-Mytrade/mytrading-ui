@@ -228,6 +228,13 @@ const AccountsReceivable = lazy(() => import("./pages/Invoice/AccountsReceivable
 const TaxReport = lazy(() => import("./pages/reports/TaxReport"));
 const VatReturn = lazy(() => import("./pages/reports/VatReturn"));
 const FinanceReport = lazy(() => import("./pages/reports/FinanceReport"));
+const ReportCenter = lazy(() => import("./pages/reports/center/ReportCenter"));
+const SalesRegister = lazy(() => import("./pages/reports/center/SalesRegister"));
+const SalesAnalysis = lazy(() => import("./pages/reports/center/SalesAnalysis"));
+const OpenOrdersReport = lazy(() => import("./pages/reports/center/OpenOrders"));
+const DispatchedNotInvoiced = lazy(() => import("./pages/reports/center/DispatchedNotInvoiced"));
+const QuotationConversion = lazy(() => import("./pages/reports/center/QuotationConversion"));
+const ReturnsRefunds = lazy(() => import("./pages/reports/center/ReturnsRefunds"));
 const Reports = lazy(() => import("./pages/CRM/Reports"));
 export default function AppRouter() {
   return (
@@ -395,6 +402,13 @@ export default function AppRouter() {
           <Route path="/taxReport" element={<TaxReport />} />
           <Route path="/vatReturn" element={<VatReturn />} />
           <Route path="/financeReport" element={<FinanceReport />} />
+          <Route path="/reports" element={<ReportCenter />} />
+          <Route path="/reports/sales-register" element={<SalesRegister />} />
+          <Route path="/reports/sales-analysis" element={<SalesAnalysis />} />
+          <Route path="/reports/open-orders" element={<OpenOrdersReport />} />
+          <Route path="/reports/dispatched-not-invoiced" element={<DispatchedNotInvoiced />} />
+          <Route path="/reports/quotation-conversion" element={<QuotationConversion />} />
+          <Route path="/reports/returns-refunds" element={<ReturnsRefunds />} />
 
           <Route path="/deliveryOrder" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />

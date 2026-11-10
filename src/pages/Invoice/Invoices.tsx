@@ -203,6 +203,16 @@ const Invoices: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoices]);
 
+  // Opened with ?dispatchId= (from the Dispatched, not invoiced report): start that dispatch's invoice
+  useEffect(() => {
+    const dispatchId = Number(searchParams.get("dispatchId"));
+    if (!dispatchId) return;
+    searchParams.delete("dispatchId");
+    setSearchParams(searchParams, { replace: true });
+    if (canCreate) openGenerate(dispatchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const loadDetailExtras = async (invoice: Invoice) => {
     setCreditNotes([]);
     setDocuments([]);
@@ -289,8 +299,9 @@ const Invoices: React.FC = () => {
 
   /* ---------------- Actions ---------------- */
 
-  const openGenerate = async () => {
-    setGenerateForm({ dispatchId: "", invoiceDate: todayInput(), remarks: "" });
+  // preselect: a dispatch to invoice, when opened from the Dispatched, not invoiced report
+  const openGenerate = async (preselect?: number) => {
+    setGenerateForm({ dispatchId: preselect ? String(preselect) : "", invoiceDate: todayInput(), remarks: "" });
     setPendingDispatches(null);
     setDialog("generate");
     try {
@@ -931,7 +942,7 @@ const Invoices: React.FC = () => {
       <PageMeta title={t("Invoices")} description="Sales invoices generated from dispatches" />
       <PageBreadcrumb
         pageTitle="Invoices"
-        actions={canCreate ? <AddButton onClick={openGenerate} label={t("Generate invoice")} /> : undefined}
+        actions={canCreate ? <AddButton onClick={() => openGenerate()} label={t("Generate invoice")} /> : undefined}
       />
 
       <div className="w-full max-w-none space-y-4 py-4">

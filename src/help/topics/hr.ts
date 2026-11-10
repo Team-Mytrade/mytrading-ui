@@ -232,6 +232,87 @@ export const HR_TOPICS: HelpTopic[] = [
     flows: ["hire-to-pay"],
   },
   {
+    id: "my-salary",
+    route: "/mySalary",
+    module: "HRMS",
+    title: "My Salary",
+    summary: "India payroll: your own salary for the financial year. What your CTC is made of, each month's pay with its payslip, and the income tax deducted so far and forecast for the months left.",
+    who: [{ role: "Every employee", can: "Their own salary, payslips and tax. Their login must be linked to their employee record (Users page)." }],
+    tasks: [
+      {
+        title: "Read your salary",
+        steps: [
+          "Choose the Financial year at the top (April to March).",
+          "The cards show your Yearly CTC, Monthly gross (a full month), Monthly take-home (for the month shown) and Tax for the year.",
+          "CTC breakdown lists your fixed pay, the employer PF (inside the CTC or on top of it) and benefits the employer pays, up to the Total CTC. A variable pay target is on top and paid separately.",
+        ],
+      },
+      {
+        title: "Look at a month",
+        steps: [
+          "Under Income tax by month, click a month: A month's pay shows its gross pay, each deduction (provident fund, ESI, professional tax, other deductions, income tax) and the take-home.",
+          "When the month has a payslip, View payslip or Download payslip with the icons on that card.",
+        ],
+      },
+      {
+        title: "Download several payslips",
+        steps: ["Click Payslips (ZIP) and choose Last 3 months, Last 6 months, This financial year or a Custom range (From month, To month). Click Download ZIP."],
+      },
+    ],
+    fields: [
+      { name: "Take-home", meaning: "Gross pay less your deductions and income tax: what is paid into your bank." },
+      { name: "Forecast", meaning: "A month not paid yet (dashed tile): a full month at today's salary, with the tax left for the year spread evenly over the months left." },
+      { name: "Tax for the year", meaning: "Tax deducted so far plus the forecast. The tiles' chips show how each month's tax and take-home changed from the month before." },
+    ],
+    rules: [
+      "The page opens on the latest paid month; click another month to see it.",
+      "The forecast follows salary revisions, approved IT declarations and the tax regime, as the payroll runs will.",
+      "Only employees on India payroll with a salary structure have this page; a ZIP skips months without a payslip.",
+    ],
+    related: [
+      { route: "/employeePayslips", label: "Payslips" },
+      { route: "/it-declaration", label: "IT Declaration", why: "Approved deductions lower the tax" },
+    ],
+  },
+  {
+    id: "tax-tracker",
+    route: "/taxTracker",
+    module: "HRMS",
+    title: "Tax Tracker",
+    summary: "India payroll: the company's income tax (TDS) for the financial year, deducted so far and forecast for the months left, with each employee's salary and tax.",
+    who: [{ role: "HR & Payroll Manager", can: "Everyone's tax and salary (it needs the HR approve right). Others see only their own, on My Salary." }],
+    tasks: [
+      {
+        title: "Read the year",
+        steps: [
+          "Choose the Financial year at the top.",
+          "The cards show Tax deducted (up to the last month paid), Forecast, rest of year, Projected tax for the year (with the number of employees) and Take-home paid.",
+          "Income tax by month charts April to March, deducted and forecast; Show table gives the figures.",
+        ],
+      },
+      {
+        title: "Look at an employee",
+        steps: [
+          "Under Employees, search by name, code or designation. Each card shows Deducted, Forecast and the Year's tax, the share already deducted and the take-home per month.",
+          "Click a card: the employee's salary, months, payslips and tax open as on their My Salary. All employees goes back.",
+        ],
+      },
+    ],
+    fields: [
+      { name: "Forecast", meaning: "Each month not paid yet: a full month at today's salary, with no one-off amounts, and the tax left for the year spread evenly over the months left." },
+      { name: "Projected tax for the year", meaning: "Tax deducted plus the forecast." },
+    ],
+    rules: [
+      "Covers employees on India payroll with a salary structure, highest yearly tax first.",
+      "The forecast follows salary revisions, approved IT declarations, regime changes and exits, as the payroll runs will.",
+    ],
+    related: [
+      { route: "/mySalary", label: "My Salary" },
+      { route: "/it-declaration", label: "IT Declaration" },
+      { route: "/payrollEngine", label: "Payroll Engine" },
+    ],
+  },
+  {
     id: "gulf-pay-files",
     route: "/gulfPayFiles",
     module: "HRMS",
@@ -292,6 +373,45 @@ export const HR_TOPICS: HelpTopic[] = [
     related: [
       { route: "/payrollSummary", label: "Payroll Summary" },
       { route: "/employeeDepartments", label: "Departments" },
+    ],
+  },
+  {
+    id: "department-salary",
+    route: "/departmentSalary",
+    module: "Payroll Reports",
+    title: "Department Salary",
+    summary: "Salary cost by department from the payroll runs, for a month or the financial year to date: gross, income tax, net paid and cost to company, down to each employee.",
+    who: HR_REPORT_WHO,
+    tasks: [
+      {
+        title: "Choose the period",
+        steps: [
+          "Choose the Month, then Month or Year to date (from April of that financial year up to the month).",
+          "Keep All departments, or choose one department to see only it, with its people open.",
+        ],
+      },
+      {
+        title: "Read it",
+        steps: [
+          "The cards show Employees paid, Gross pay, Net paid (with the income tax) and Cost to company.",
+          "Cost to company by department shows each department's share; click a slice or a name to open that department in the table.",
+          "In the table, click a department to show or hide its employees, each with their yearly CTC.",
+          "Click Export for an Excel workbook: every employee, each department's total and the grand total.",
+        ],
+      },
+    ],
+    fields: [
+      { name: "Cost to company", meaning: "Gross pay plus the employer's PF and ESI." },
+      { name: "Avg yearly CTC", meaning: "The average yearly CTC of the department's employees." },
+    ],
+    rules: [
+      "Each salary counts in the department it was paid under.",
+      "Only months with a payroll run count; a month without one shows nothing.",
+      "With more than seven departments, the smallest are put together as Other in the chart.",
+    ],
+    related: [
+      { route: "/departmentSummary", label: "Department Summary" },
+      { route: "/payrollSummary", label: "Payroll Summary" },
     ],
   },
   {

@@ -43,6 +43,28 @@ export type ListingPdfOptions<T extends object> = {
   includeSerialNumber?: boolean;
   serialNumberLabel?: string
   emptyMessage?: string;
+  /** Opens the print dialog for the same PDF instead of downloading it (report print view, 8.2). */
+  print?: boolean;
+};
+
+// Prints a PDF from a hidden frame, so no pop-up window is needed
+const printPdf = (doc: jsPDF) => {
+  const url = String(doc.output("bloburl"));
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  frame.src = url;
+  frame.onload = () => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => {
+      frame.remove();
+      URL.revokeObjectURL(url);
+    }, 60_000);
+  };
+  document.body.appendChild(frame);
 };
 
 export type ListingPdfExportButtonProps<T extends object> = Omit<
@@ -352,6 +374,7 @@ export async function exportListingPdf<T extends object>({
   includeSerialNumber = true,
    serialNumberLabel = "Sl No", 
   emptyMessage = "No records available",
+  print = false,
 }: ListingPdfOptions<T>) {
   const doc = await createPdf({ orientation, unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -439,7 +462,8 @@ export async function exportListingPdf<T extends object>({
 
     drawFooter(doc, pageWidth, pageHeight, generatedBy);
 
-    doc.save(`${fileSafe(fileName || title)}_${todayIso()}.pdf`);
+    if (print) printPdf(doc);
+    else doc.save(`${fileSafe(fileName || title)}_${todayIso()}.pdf`);
   });
 }
 
