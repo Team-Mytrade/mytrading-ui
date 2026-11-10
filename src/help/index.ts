@@ -8,12 +8,14 @@ import { DELIVERY_TOPICS } from "./topics/delivery";
 import { INVOICE_TOPICS } from "./topics/invoice";
 import { HR_TOPICS } from "./topics/hr";
 import { ATTENDANCE_TOPICS } from "./topics/attendance";
+import { HOME_TOPICS, REPORT_TOPICS, SETTINGS_TOPICS } from "./topics/general";
 import { HELP_FLOWS } from "./flows";
+import { localizeFlow, localizeTopic, type HelpTranslation } from "./translations";
 
 export type { HelpFlow, HelpTopic } from "./types";
 
 /** Every page's help, in menu order. Modules are added one by one (backlog 8.1). */
-export const HELP_TOPICS: HelpTopic[] = [...COMMON_TOPICS, ...CRM_TOPICS, ...SALES_TOPICS, ...PURCHASE_TOPICS, ...INVENTORY_TOPICS, ...DELIVERY_TOPICS, ...INVOICE_TOPICS, ...HR_TOPICS, ...ATTENDANCE_TOPICS];
+export const HELP_TOPICS: HelpTopic[] = [...HOME_TOPICS, ...COMMON_TOPICS, ...CRM_TOPICS, ...SALES_TOPICS, ...PURCHASE_TOPICS, ...INVENTORY_TOPICS, ...DELIVERY_TOPICS, ...INVOICE_TOPICS, ...HR_TOPICS, ...ATTENDANCE_TOPICS, ...REPORT_TOPICS, ...SETTINGS_TOPICS];
 
 export { HELP_FLOWS };
 
@@ -52,14 +54,21 @@ export const findHelpTopic = (pathname: string): HelpTopic | null => {
 export const helpTopicById = (id: string): HelpTopic | null => HELP_TOPICS.find((t) => t.id === id) ?? null;
 export const helpFlowById = (id: string): HelpFlow | null => HELP_FLOWS.find((f) => f.id === id) ?? null;
 
-/** Every word of the query somewhere in the topic (title, summary, tasks, fields, statuses, rules). */
-export const searchHelp = (query: string): { topics: HelpTopic[]; flows: HelpFlow[] } => {
+/**
+ * Every word of the query somewhere in the topic (title, summary, tasks, fields, statuses, rules), in English or in
+ * the translation when one is given, so a query in either language finds it.
+ */
+export const searchHelp = (query: string, translation: HelpTranslation | null = null): { topics: HelpTopic[]; flows: HelpFlow[] } => {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return { topics: HELP_TOPICS, flows: HELP_FLOWS };
-  const topicText = (t: HelpTopic) =>
+  const textOf = (t: HelpTopic) =>
     [t.title, t.module, t.summary, ...t.tasks.flatMap((k) => [k.title, ...k.steps]), ...(t.fields ?? []).flatMap((f) => [f.name, f.meaning]),
-      ...(t.statuses ?? []).flatMap((s) => [s.name, s.meaning]), ...(t.rules ?? [])].join(" ").toLowerCase();
-  const flowText = (f: HelpFlow) => [f.title, f.summary, ...f.steps.flatMap((s) => [s.title, s.detail])].join(" ").toLowerCase();
+      ...(t.statuses ?? []).flatMap((s) => [s.name, s.meaning]), ...(t.rules ?? [])].join(" ");
+  const topicText = (t: HelpTopic) =>
+    `${textOf(t)} ${translation ? textOf(localizeTopic(t, translation).topic) : ""}`.toLowerCase();
+  const flowWords = (f: HelpFlow) => [f.title, f.summary, ...f.steps.flatMap((s) => [s.title, s.detail])].join(" ");
+  const flowText = (f: HelpFlow) =>
+    `${flowWords(f)} ${translation ? flowWords(localizeFlow(f, translation).flow) : ""}`.toLowerCase();
   return {
     topics: HELP_TOPICS.filter((t) => words.every((w) => topicText(t).includes(w))),
     flows: HELP_FLOWS.filter((f) => words.every((w) => flowText(f).includes(w))),

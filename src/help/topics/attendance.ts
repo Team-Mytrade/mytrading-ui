@@ -18,8 +18,10 @@ const ADMIN_WHO = (what: string): HelpRole[] => [
 ];
 
 const TEAM_WHO: HelpRole[] = [
-  { role: "Attendance Manager / Executive", can: "See everyone's attendance; exporting needs the export right." },
+  { role: "Attendance Manager", can: "See everyone's attendance (needs the Attendance approve right); exporting needs the export right." },
 ];
+
+const MONTH_LOCK_RULE = "Not in a month closed on Month Close: its days refuse punches, regularizations, on-duty and leave until it is unlocked.";
 
 // The three approval pages share one desk
 const approvalTasks = (what: string) => [
@@ -86,6 +88,7 @@ export const ATTENDANCE_TOPICS: HelpTopic[] = [
       "Punching needs an attendance policy (yours, or the company default).",
       "On a night shift, the check-out after midnight closes the day before.",
       "You can't check in on a day of approved full-day leave; a half-day leave is fine.",
+      MONTH_LOCK_RULE,
     ],
     related: [{ route: "/att_selfService", label: "My Attendance" }],
   },
@@ -116,6 +119,7 @@ export const ATTENDANCE_TOPICS: HelpTopic[] = [
     rules: [
       "Working days only: weekly offs and holidays are not counted. A half day counts 0.5.",
       "Your leave policy must cover the dates; no leave before your joining date.",
+      MONTH_LOCK_RULE,
     ],
     related: [
       { route: "/att_attendanceApproval", label: "Leave Approvals" },
@@ -145,7 +149,7 @@ export const ATTENDANCE_TOPICS: HelpTopic[] = [
       { name: "Rejected", meaning: "Not accepted." },
       { name: "Cancelled", meaning: "Withdrawn." },
     ],
-    rules: ["Past working days only.", "Your attendance policy must allow regularization."],
+    rules: ["Past working days only.", "Your attendance policy must allow regularization.", MONTH_LOCK_RULE],
     related: [{ route: "/att_regularizationApproval", label: "Regularization Approvals" }],
   },
   {
@@ -177,6 +181,7 @@ export const ATTENDANCE_TOPICS: HelpTopic[] = [
       "Forgot to punch? Use Attendance Regularization instead.",
       "Your attendance policy must allow on duty / work from home.",
       "Not on days of approved or pending full-day leave.",
+      MONTH_LOCK_RULE,
     ],
     related: [{ route: "/att_onDutyApproval", label: "On-Duty Approvals" }],
   },
@@ -410,7 +415,8 @@ export const ATTENDANCE_TOPICS: HelpTopic[] = [
         steps: [
           "Click Create Leave Policy and choose what to Start from: Standard (casual, sick, earned), UAE labour law or Saudi labour law.",
           "Enter the Policy Code, Policy Name, Financial Year, Effective From and Effective To.",
-          "Add each leave type (+ Add leave type): the Days per year, Carry forward and Max carry forward. Save.",
+          "Add each leave type (+ Add leave type; the types come from Leave Types): the Days per year, Carry forward and Max carry forward.",
+          "Per type, choose how it is Given (At the year start, Monthly or Quarterly) and tick what applies: Pro-rata for joiners, Encashable, Negative balance, Sandwich rule (weekly offs and holidays between leave days count as leave), Document required. Comp off lapses after its days (0 = never). Save.",
         ],
       },
       { title: "Give it to employees", steps: ["Click Assign Policy to Employees, Select Employees and assign: they get its leave balances."] },
@@ -418,10 +424,91 @@ export const ATTENDANCE_TOPICS: HelpTopic[] = [
     rules: [
       "With a UAE or Saudi template, payroll pays sick leave in the law's tiers and unused annual leave at the exit.",
       "Policy codes are unique within your company.",
+      "Editing a policy doesn't change balances already given to employees: adjust them on Manager Leave Dashboard if needed.",
+      "Monthly and quarterly leave is credited by the nightly accrual (Leave Year & Comp Off).",
     ],
     related: [
-      { route: "/att_leaveRequest", label: "Leave Requests" },
+      { route: "/att_leaveType", label: "Leave Types" },
+      { route: "/att_leaveYear", label: "Leave Year & Comp Off" },
       { route: "/att_leaveManagerDashboard", label: "Manager Leave Dashboard", why: "Adjust a balance" },
+    ],
+  },
+  {
+    id: "leave-types",
+    route: "/att_leaveType",
+    module: "Attendance",
+    title: "Leave Types",
+    summary: "The kinds of leave your company gives (casual, sick, earned and your own, such as birthday leave), which leave policies are built from.",
+    who: ADMIN_WHO("Add and change leave types"),
+    tasks: [
+      {
+        title: "Add a leave type",
+        steps: [
+          "Click Add Leave Type: the Code, Name (e.g. Birthday leave), Category, Calendar colour and Description.",
+          "Tick Paid leave (unpaid leave needs no balance and counts as loss of pay) and Can be taken as a half day. Save.",
+        ],
+      },
+      { title: "Stop offering one", steps: ["Click Switch off on a built-in type (Delete on one you added): it stops being offered in new policies."] },
+    ],
+    rules: ["Built-in types can be renamed or switched off, not deleted.", "Add the type to a leave policy to give employees days of it."],
+    related: [{ route: "/att_leavePolicy", label: "Leave Policy Master" }],
+  },
+  {
+    id: "leave-year",
+    route: "/att_leaveYear",
+    module: "Attendance",
+    title: "Leave Year & Comp Off",
+    summary: "The leave jobs: grant compensatory off for a weekly off or holiday worked, run the accrual, and close the leave year.",
+    who: APPROVER_WHO,
+    tasks: [
+      {
+        title: "Grant compensatory off",
+        steps: [
+          "Choose the Employee, Full day or Half day, the day they Worked on and the reason (e.g. release support), then Grant.",
+          "There must be attendance that day. It lapses after the policy's days if not taken; the list shows when.",
+        ],
+      },
+      { title: "Credit leave now", steps: ["Click Run accrual now after changing policies. It also runs every night: it credits the leave of months that have started and lapses expired comp offs."] },
+      {
+        title: "Close the leave year",
+        steps: [
+          "Assign next year's leave policy first.",
+          "Click Close year: days left over are carried forward up to each policy's limit, the rest is marked for encashment where allowed, or lapses.",
+          "Employees with pending requests or no next-year policy are left open; close again once they are sorted.",
+        ],
+      },
+    ],
+    statuses: [
+      { name: "Granted", meaning: "The comp off is in the employee's balance." },
+      { name: "Lapsed", meaning: "Not taken in time." },
+    ],
+    related: [
+      { route: "/att_leavePolicy", label: "Leave Policy Master" },
+      { route: "/att_leaveManagerDashboard", label: "Manager Leave Dashboard" },
+    ],
+  },
+  {
+    id: "month-close",
+    route: "/att_monthLock",
+    module: "Attendance",
+    title: "Month Close",
+    summary: "Lock an attendance month once it is reviewed, so the attendance payroll uses can't change any more.",
+    who: APPROVER_WHO,
+    tasks: [
+      {
+        title: "Lock a month",
+        steps: [
+          "Choose the month. The counts show Open days and the leave, regularizations and on-duty / WFH requests still waiting.",
+          "Sort out what is listed, until it says Ready to lock: every day is closed and nothing waits for approval.",
+          "Click Lock and confirm.",
+        ],
+      },
+      { title: "Open it again", steps: ["Under Closed months, click Unlock and say why."] },
+    ],
+    rules: ["While a month is locked, punches, regularizations, on-duty and leave for its days are refused."],
+    related: [
+      { route: "/att_reports", label: "Attendance Reports" },
+      { route: "/payrollEngine", label: "Payroll Engine" },
     ],
   },
 ];
