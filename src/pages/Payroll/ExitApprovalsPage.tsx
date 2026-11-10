@@ -274,9 +274,10 @@ const ExitApprovalsPage: React.FC = () => {
         },
         {
             key: "reason",
+            minWidth: 230,
             label: "Reason",
             render: (row) => (
-                <p className="text-xs text-gray-600 dark:text-gray-300 max-w-[200px] truncate" title={row.reason}>
+                <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 break-words" title={row.reason}>
                     {row.reason}
                 </p>
             )

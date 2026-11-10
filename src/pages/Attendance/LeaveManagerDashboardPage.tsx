@@ -236,7 +236,7 @@ const LeaveManagerDashboardPage: React.FC = () => {
     {
       key: 'remarks', label: 'Remarks',
       render: (row) => (
-        <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px] block" title={row.remarks}>{row.remarks || '—'}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 break-words" title={row.remarks}>{row.remarks || '—'}</span>
       )
     },
     { key: 'adjustedBy', label: 'By', render: (row) => <span className="text-xs text-gray-500 dark:text-gray-400">{row.adjustedBy || '—'}</span> },

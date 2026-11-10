@@ -5,6 +5,7 @@ const DECLARATION_WINDOW_MESSAGE =
     "The declaration window opens every month from the 1st to the 10th";
 const LOCKED_HR_MESSAGE =
     "You can still approve or reject items and verify proofs. Unlock it to let the employee edit it again.";
+import { usePayrollRegion } from "../../company/payrollRegion";
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -396,6 +397,7 @@ const ConfirmationPopup: React.FC<ConfirmationPopupProps> = ({
 // --- Main Page Component ---
 
 const ItDeclarationPage: React.FC = () => {
+    const payrollRegion = usePayrollRegion();
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
 
@@ -956,6 +958,23 @@ const ItDeclarationPage: React.FC = () => {
             )}
         </div>
     );
+
+    // Indian income tax declarations: not for a company on Gulf payroll
+    if (payrollRegion !== 'IN') {
+        return (
+            <>
+                <PageMeta title={t("IT Declaration | Payroll")} description="Manage your tax declarations" />
+                <PageBreadcrumb pageTitle="IT Declaration" />
+                <div className={`${PAGE_BODY} flex items-center justify-center`}>
+                    <div className="max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center dark:border-transparent dark:bg-[#191919]">
+                        <Shield className="mx-auto mb-2 text-slate-400" size={28} />
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{t("IT declarations are for India payroll only")}</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">{t("There is no income tax on Gulf payroll, so there is nothing to declare. Your pay, pension and gratuity are on My Salary.")}</p>
+                    </div>
+                </div>
+            </>
+        );
+    }
 
     // Loading overlay
     if (isFetching) {

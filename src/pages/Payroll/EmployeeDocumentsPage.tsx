@@ -350,7 +350,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             key: "fileName",
             label: "File Name",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-700 dark:text-gray-300 font-mono truncate max-w-[220px] block">{row.fileName}</span>
+            render: (row) => <span className="text-xs text-gray-700 dark:text-gray-300 font-mono break-all line-clamp-2" title={row.fileName}>{row.fileName}</span>
         },
         {
             key: "fileSize",

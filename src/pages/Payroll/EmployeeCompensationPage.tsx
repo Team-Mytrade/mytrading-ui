@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { usePayrollRegion } from "../../company/payrollRegion";
 import axios from "axios";
 import {
     TrashIcon,
@@ -66,6 +67,7 @@ interface CompensationFormData {
 }
 
 const EmployeeCompensationPage: React.FC = () => {
+    const payrollRegion = usePayrollRegion();
   const { canDelete, canExport, canUpdate } = usePermissions();
     const [compensations, setCompensations] = useState<CompensationItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -478,7 +480,7 @@ const EmployeeCompensationPage: React.FC = () => {
                     <StatsCard label={t("Default Configs")} value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
                     <StatsCard label={t("Avg Components / Role")} value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
                 </div>
-                {!showForm && <IndiaPfSettingsCard canUpdate={canUpdate} />}
+                {!showForm && payrollRegion === "IN" && <IndiaPfSettingsCard canUpdate={canUpdate} />}
 
                 {/* Add/Edit Form */}
                 {showForm && (

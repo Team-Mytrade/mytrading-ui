@@ -442,7 +442,7 @@ const AttendanceRecordPage: React.FC = () => {
       render: (_, v) => (
         <div className="flex items-center gap-2">
           <MapPinIcon className="h-4 w-4 text-gray-400 shrink-0" />
-          <span className="text-sm text-gray-500 truncate max-w-[150px]" title={String(v)}>
+          <span className="text-sm text-gray-500 line-clamp-2 break-words" title={String(v)}>
             {String(v) || "—"}
           </span>
         </div>

@@ -27,6 +27,11 @@ export interface ColumnDef<T> {
   sortValueGetter?: (row: T) => string | number | null | undefined;
   className?: string;
   headerClassName?: string;
+  /**
+   * The narrowest this column may get, in px. Below the columns' total the table scrolls sideways instead of
+   * squeezing them (which split headers mid-word and cut values off). Defaults by the kind of column.
+   */
+  minWidth?: number;
   /** Full value shown in the shared styled tooltip for an otherwise truncated cell. */
   tooltipContent?: (row: T, value: unknown) => React.ReactNode;
   /** Set false to omit this column from the toolbar-triggered filter row. */
@@ -622,6 +627,34 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => columns.map((column) => column.key));
   const tableShellRef = useRef<HTMLDivElement | null>(null);
   const tableRootRef = useRef<HTMLDivElement | null>(null);
+  // The sideways-scrolling area: whether more columns sit to the left / right of what is shown
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const [moreColumns, setMoreColumns] = useState({ left: false, right: false });
+  useEffect(() => {
+    const area = scrollAreaRef.current;
+    if (!area) return;
+    const update = () => {
+      const max = area.scrollWidth - area.clientWidth;
+      const at = Math.abs(area.scrollLeft); // right-to-left pages scroll the other way
+      setMoreColumns((prev) => {
+        const next = { left: at > 4, right: max - at > 4 };
+        return prev.left === next.left && prev.right === next.right ? prev : next;
+      });
+    };
+    update();
+    area.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(area);
+    if (area.firstElementChild) observer.observe(area.firstElementChild);
+    return () => {
+      area.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  });
+  const scrollColumns = (direction: 1 | -1) => {
+    const area = scrollAreaRef.current;
+    if (area) area.scrollBy({ left: direction * Math.max(200, area.clientWidth * 0.6), behavior: "smooth" });
+  };
   const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean } | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -799,7 +832,13 @@ export function ReusableTable<T extends { id?: number | string }>({
   const lastShownColumnKey = visibleColumns.filter((column) => !(hidesActions && isActionsColumn(column))).slice(-1)[0]?.key;
   // Below this width the table scrolls sideways instead of squeezing columns until Actions is clipped.
   // 90px a column keeps an 11-column list inside a 1366px screen (headers wrap to two lines).
-  const tableMinWidth = Math.max(360, (visibleColumns.length - (hidesActions ? 1 : 0)) * 90);
+  // Each column keeps room for its header and values; together they set when the table starts to scroll sideways
+  const columnMinWidth = (column: ColumnDef<T>) => column.minWidth
+    ?? (isActionsColumn(column) ? 132
+      : /(name|employee|customer|vendor|supplier|description|remarks|reason|email|contact|address|title|subject|product|item|note)/i.test(column.key) ? 190
+        : 140);
+  const shownColumns = visibleColumns.filter((column) => !(hidesActions && isActionsColumn(column)));
+  const tableMinWidth = Math.max(360, shownColumns.reduce((total, column) => total + columnMinWidth(column), 0));
   const actionsHeaderClass = (column: ColumnDef<T>) =>
     isActionsColumn(column)
       ? `common-data-table__sticky-actions ${/(^|\s)!?w-/.test(column.headerClassName ?? "") ? "" : "w-[132px]"}`
@@ -1062,17 +1101,39 @@ export function ReusableTable<T extends { id?: number | string }>({
               ))}
             </div>
           )}
+          <div className={`common-data-table__scroll-wrap ${isTableFullscreen ? "flex min-h-0 flex-1 flex-col" : "relative"}`}>
+          {/* More columns off to the side: a soft fade and a button, so nothing seems to hide under Actions */}
+          {moreColumns.right && (
+            <button type="button" onClick={() => scrollColumns(1)} aria-label={t("Show more columns")} title={t("More columns")}
+              className="common-data-table__more common-data-table__more--right"
+              style={{ right: !hidesActions && visibleColumns.some(isActionsColumn) ? 132 : 0 }}>
+              <ChevronRightIcon style={{ fontSize: 18 }} />
+            </button>
+          )}
+          {moreColumns.left && (
+            <button type="button" onClick={() => scrollColumns(-1)} aria-label={t("Show earlier columns")} title={t("Earlier columns")}
+              className="common-data-table__more common-data-table__more--left">
+              <ChevronLeftIcon style={{ fontSize: 18 }} />
+            </button>
+          )}
           <div
+            ref={scrollAreaRef}
             className={
               isTableFullscreen
-                ? "min-h-0 flex-1 overflow-auto"
-                : "relative overflow-x-auto overflow-y-visible"
+                ? "common-data-table__scroll min-h-0 flex-1 overflow-auto"
+                : "common-data-table__scroll relative overflow-x-auto overflow-y-visible"
             }
           >
             <table
               className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800"
               style={{ minWidth: tableMinWidth }}
             >
+              {/* Column widths in proportion to their minimums; extra room on wide screens is shared out */}
+              <colgroup>
+                {visibleColumns.map((col) => (
+                  <col key={col.key} style={{ width: hidesActions && isActionsColumn(col) ? 0 : `${(columnMinWidth(col) / tableMinWidth) * 100}%` }} />
+                ))}
+              </colgroup>
               <thead className="bg-[#e8f3dc] dark:bg-gray-800/70">
                 <tr>
                   {visibleColumns.map((col) => (
@@ -1099,7 +1160,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                       <span
                         className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${align === "center" ? "justify-center w-full" : align === "right" ? "justify-end w-full" : ""}`}
                       >
-                        <span className="line-clamp-2 break-words leading-tight" data-table-tooltip={t(col.label)}>
+                        <span className="line-clamp-2 break-normal leading-tight" data-table-tooltip={t(col.label)}>
                           {t(col.label)}
                         </span>
                         {col.sortable &&
@@ -1197,6 +1258,7 @@ export function ReusableTable<T extends { id?: number | string }>({
                     ))}
               </tbody>
             </table>
+          </div>
           </div>
 
           {!isLoading && sorted.length > 0 && (
