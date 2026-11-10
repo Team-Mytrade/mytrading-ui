@@ -165,12 +165,6 @@ export const navItems: NavItem[] = [
     name: "Ask MyTrade",
     path: "/ask",
   },
-  {
-    // User manual, business flows and help for every page (8.1); F1 opens the current page's help
-    icon: <CircleHelp className="w-5 h-5" />,
-    name: "Help",
-    path: "/help",
-  },
 
   {
     icon: <Database className="w-5 h-5" />,
@@ -411,6 +405,13 @@ export const navItems: NavItem[] = [
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
       { name: "Plans", path: "/platform/plans", icon: CreditCard, section: "Platform" },
     ],
+  },
+
+  {
+    // User manual, business flows and help for every page (8.1); last in the menu. F1 opens the current page's help
+    icon: <CircleHelp className="w-5 h-5" />,
+    name: "Help",
+    path: "/help",
   },
 ];
 

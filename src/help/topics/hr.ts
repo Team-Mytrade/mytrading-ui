@@ -5,11 +5,6 @@ import type { HelpRole, HelpTopic } from "../types";
 // reports); HRM:EXPORT downloads bank files, payslip ZIPs, WPS / Mudad files and IT proofs; HRM:VIEW alone reads only the
 // caller's own records. Self-service (own payslips, IT declaration, resignation, documents) is open to every employee.
 // The demo HR & Payroll Manager has every right; the Executive has view, create and update.
-const HR_WHO: HelpRole[] = [
-  { role: "HR & Payroll Manager", can: "Everything, including running payroll, approvals, exits, rollbacks and downloads." },
-  { role: "HR & Payroll Executive", can: "Add and update salary structures and role compensation. Not run payroll, approve, delete or download." },
-];
-
 const HR_ONLY: HelpRole[] = [
   { role: "HR & Payroll Manager", can: "Everything on the page (it needs the HR approve right; downloads need the export right)." },
 ];
@@ -48,7 +43,7 @@ export const HR_TOPICS: HelpTopic[] = [
     module: "HRMS",
     title: "Compensation",
     summary: "How each designation's yearly CTC is split into salary components. The split is used when an employee with that designation is added.",
-    who: HR_WHO,
+    who: HR_ONLY,
     tasks: [
       {
         title: "Set a designation's split",
@@ -73,7 +68,7 @@ export const HR_TOPICS: HelpTopic[] = [
     module: "HRMS",
     title: "Salary Structure",
     summary: "Each employee's pay in yearly amounts: basic, HRA and other allowances, and the CTC they add up to. Payroll pays one twelfth each month.",
-    who: HR_WHO,
+    who: HR_ONLY,
     tasks: [
       {
         title: "Set an employee's pay",
@@ -170,6 +165,15 @@ export const HR_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Approve a run (when approval is required)",
+        steps: [
+          "On Batch History, tick Require approval (and the flag ± change to look at): each run then waits for someone other than who ran it.",
+          "Click Review & approve on a run Awaiting approval. Only what needs a look shows employees whose net pay moved by the flag or more, or who were paid last month but not this month.",
+          "Click Approve run: the payslips, bank file and books follow. Or Send back, with a note: its salaries are rolled back so it can be run again.",
+          "Reopen unlocks an approved run that isn't paid yet, to correct it; it needs approving again.",
+        ],
+      },
+      {
         title: "Books and payment",
         steps: [
           "On Batch History, a run shows Waiting for the books until it is posted: click Post to the ledger.",
@@ -181,6 +185,7 @@ export const HR_TOPICS: HelpTopic[] = [
     rules: [
       "The attendance file needs 'working days' and 'lop days' columns, the earnings / deductions file an 'amount' column: start from the downloaded template.",
       "An employee is paid once a month; those already paid are left out of a new run.",
+      "Employees serving notice are held out of the regular payroll from the month before their last working day; Full & Final pays them.",
       "Sales commission sent to payroll shows on the payslip as Sales commission.",
     ],
     related: [
@@ -204,6 +209,15 @@ export const HR_TOPICS: HelpTopic[] = [
       { title: "Find a month", steps: ["Choose the Payroll month; View Details shows the salary breakdown."] },
       { title: "Download", steps: ["Click Download Payslip on the row.", "Download Range (ZIP): choose From Month and To Month for one ZIP of payslips (needs the export right)."] },
       { title: "Make them again", who: "HR & Payroll Manager", steps: ["Click Generate Payslips and choose the month: the month's payslips are made again."] },
+      {
+        title: "Email them",
+        who: "HR & Payroll Manager",
+        steps: [
+          "Click Email Payslips: they go to each employee's official email (else personal). Only payslips of approved runs are sent.",
+          "Tick Password-protect emailed payslips if wanted (the email says how the password is formed, never the password), and Email each run's payslips automatically to send them as they are made.",
+          "Choose employees and click Email selected; Resend failed retries the ones that didn't go.",
+        ],
+      },
       {
         title: "Undo an employee's month",
         who: "HR & Payroll Manager",
@@ -309,9 +323,9 @@ export const HR_TOPICS: HelpTopic[] = [
       {
         title: "Resign",
         steps: [
-          "Click Start Resignation.",
-          "Enter the Resignation Date, the Notice Period (days), the reason and the Comment / handover details.",
-          "Click Submit Resignation: it goes to HR for approval.",
+          "Click Start Resignation and enter the Resignation Date. The Notice Period (days) comes from your company's rules, and the Last Working Date (LWD) from them.",
+          "To leave earlier, enter the Proposed LWD: the Notice recovery days show what isn't served (recovery may apply, subject to HR approval).",
+          "Add the reason and the Comment / handover details, then Submit Resignation: it goes to HR for approval.",
         ],
       },
       { title: "Follow it", steps: ["Exit Steps shows where it is; Request History lists your earlier resignations."] },
@@ -337,17 +351,25 @@ export const HR_TOPICS: HelpTopic[] = [
       { title: "Notice period", steps: ["Click Start notice on an approved resignation."] },
       { title: "A withdrawal request", steps: ["Click Accept withdrawal or Decline."] },
       {
+        title: "Set the full and final terms",
+        steps: [
+          "In Details / Edit, under Full & final settlement: decide the Unserved notice (Recover from the employee, Pay in lieu to the employee, or Waive), with the Days and a Remark. The suggestion follows how the employment ended.",
+          "Add a Severance if due: months of gross or basic pay, or a fixed amount, paid With the F&F or Monthly after exit (in instalments).",
+          "Add any Other earnings / deductions (e.g. pending bonus, asset not returned, loan recovery): Name, Earning or Deduction, Amount, Taxable. Click Save settlement terms.",
+        ],
+      },
+      {
         title: "Finish the exit",
         steps: [
           "Click Clearance done once assets are handed back.",
-          "Run the last month's payroll, then click Settlement done. For Gulf employees, Statement shows the final settlement: end-of-service gratuity and the final pay.",
+          "Pay the settlement on Full & Final (it marks the settlement done); or click Settlement done once the last month's pay is processed. For Gulf employees, Statement shows the end-of-service gratuity and the final pay.",
           "From the last working day, click Complete exit: the employee is relieved and their login is switched off.",
         ],
       },
     ],
     fields: [
-      { name: "How the employment ended", meaning: "Decides the Saudi end-of-service award (a resignation earns part of it); the UAE gratuity is the same either way." },
-      { name: "Unused annual leave (days)", meaning: "Paid with the final pay: UAE on basic pay, Saudi Arabia on the actual wage, a day being the monthly wage / 30. Use the Attendance balance fills it in." },
+      { name: "How the employment ended", meaning: "Gulf: decides the Saudi end-of-service award (a resignation earns part of it). Elsewhere: decides what is suggested for unserved notice and when the full and final settlement falls due." },
+      { name: "Unused annual leave (days)", meaning: "Gulf: paid with the final pay, a day being the monthly wage / 30. Elsewhere: encashed with the full and final settlement. Use the Attendance balance fills it in." },
     ],
     statuses: [
       { name: "Submitted / Under review", meaning: "Waiting for a decision." },
@@ -360,8 +382,35 @@ export const HR_TOPICS: HelpTopic[] = [
     rules: ["Complete exit needs clearance and settlement done, and the last working day reached."],
     related: [
       { route: "/exit-management", label: "Exit Management" },
-      { route: "/payrollEngine", label: "Payroll Engine" },
+      { route: "/fullAndFinal", label: "Full & Final" },
       { route: "/gratuityProvision", label: "Gratuity Provision" },
+    ],
+  },
+  {
+    id: "full-and-final",
+    route: "/fullAndFinal",
+    module: "Payroll Reports",
+    title: "Full & Final",
+    summary: "Pay leaving employees: the months held back while they serve notice, plus their settlement lines (notice, severance, leave encashment, other earnings and deductions), once due.",
+    who: HR_ONLY,
+    tasks: [
+      {
+        title: "Pay what is due",
+        steps: [
+          "Under Leaving employees, check who is Due now (Not due yet and Action needed show the others). Decide anything missing on Exit Approvals first.",
+          "Tick the employees (Select all due) and click Run F&F: a payroll batch and its bank sheet are made.",
+          "Click Download bank sheet for the transfer. When runs need approval, it waits for approval on Payroll Engine and the bank sheet is released once approved.",
+        ],
+      },
+      { title: "See what was paid", steps: ["Paid settlements lists each run with its employees, net and payslips."] },
+    ],
+    rules: [
+      "Employees serving notice are held out of the regular payroll from the month before their last working day; their held months are paid here.",
+      "Paying here records the exit's settlement as done.",
+    ],
+    related: [
+      { route: "/exitApprovals", label: "Exit Approvals" },
+      { route: "/payrollEngine", label: "Payroll Engine" },
     ],
   },
 ];

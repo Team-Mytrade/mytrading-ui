@@ -8,6 +8,7 @@ import { canAccessPath } from "../../access/access";
 import { t } from "../../i18n/i18n";
 import HelpContent from "../../help/HelpContent";
 import { HELP_MODULES, helpFlowById, helpTopicById, searchHelp } from "../../help";
+import { localizeFlow, localizeTopic, textDirection, useHelpTranslation } from "../../help/translations";
 import type { HelpFlow, HelpTopic } from "../../help/types";
 
 // Help Center (backlog 8.1): the user manual (end-to-end flows), every page's help by module, and search.
@@ -23,8 +24,10 @@ const BackToHelp = () => (
   </Link>
 );
 
-const FlowView = ({ flow }: { flow: HelpFlow }) => (
-  <div className={CARD} dir="ltr" lang="en">
+const FlowView = ({ flow: english }: { flow: HelpFlow }) => {
+  const { flow, translated } = localizeFlow(english, useHelpTranslation());
+  return (
+  <div className={CARD} {...textDirection(translated)}>
     <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{flow.title}</h2>
     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{flow.summary}</p>
     <ol className="mt-5 space-y-4">
@@ -50,12 +53,13 @@ const FlowView = ({ flow }: { flow: HelpFlow }) => (
       ))}
     </ol>
   </div>
-);
+  );
+};
 
 const TopicView = ({ topic }: { topic: HelpTopic }) => (
   <div className={CARD}>
     <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{topic.title}</h2>
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{localizeTopic(topic, useHelpTranslation()).topic.title}</h2>
       <Link to={topic.route} className={`${LINK} text-sm`}>
         {t("Open this page")}
       </Link>
@@ -68,8 +72,11 @@ export default function HelpCenterPage() {
   const { topicId, flowId } = useParams();
   const { access } = useContext(AuthContext);
   const [query, setQuery] = useState("");
+  const translation = useHelpTranslation();
 
-  const found = useMemo(() => searchHelp(query), [query]);
+  const found = useMemo(() => searchHelp(query, translation), [query, translation]);
+  const shownFlow = (f: HelpFlow) => localizeFlow(f, translation);
+  const shownTopic = (x: HelpTopic) => localizeTopic(x, translation);
   const visible = useMemo(() => found.topics.filter((topic) => canAccessPath(access, topic.route)), [found, access]);
 
   const topic = topicId ? helpTopicById(topicId) : null;
@@ -106,16 +113,17 @@ export default function HelpCenterPage() {
               {t("User manual: business flows")}
             </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
-              {found.flows.map((f) => (
-                <li key={f.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                  <Link to={`/help/flow/${f.id}`} className={LINK}>
-                    {f.title}
-                  </Link>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300" dir="ltr" lang="en">
-                    {f.summary}
-                  </p>
-                </li>
-              ))}
+              {found.flows.map((english) => {
+                const { flow: f, translated } = shownFlow(english);
+                return (
+                  <li key={f.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700" {...textDirection(translated)}>
+                    <Link to={`/help/flow/${f.id}`} className={LINK}>
+                      {f.title}
+                    </Link>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{f.summary}</p>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
@@ -135,16 +143,17 @@ export default function HelpCenterPage() {
                   <div key={module}>
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t(module)}</h3>
                     <ul className="space-y-1.5">
-                      {topics.map((x) => (
-                        <li key={x.id} className="text-sm">
-                          <Link to={`/help/${x.id}`} className={LINK}>
-                            {x.title}
-                          </Link>
-                          <p className="text-gray-600 line-clamp-2 dark:text-gray-400" dir="ltr" lang="en">
-                            {x.summary}
-                          </p>
-                        </li>
-                      ))}
+                      {topics.map((english) => {
+                        const { topic: x, translated } = shownTopic(english);
+                        return (
+                          <li key={x.id} className="text-sm" {...textDirection(translated)}>
+                            <Link to={`/help/${x.id}`} className={LINK}>
+                              {x.title}
+                            </Link>
+                            <p className="text-gray-600 line-clamp-2 dark:text-gray-400">{x.summary}</p>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ) : null;

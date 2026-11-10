@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { t } from "../i18n/i18n";
 import { helpFlowById } from "./index";
+import { localizeFlow, localizeTopic, textDirection, useHelpTranslation } from "./translations";
 import type { HelpTerm, HelpTopic } from "./types";
 
 // One page's help: what it is for, who can do what, the tasks step by step, fields and statuses, rules, related pages
@@ -30,8 +31,11 @@ interface HelpContentProps {
   onNavigate?: () => void;
 }
 
-const HelpContent = ({ topic, onNavigate }: HelpContentProps) => (
-  <div className="space-y-6" dir="ltr" lang="en">
+const HelpContent = ({ topic: english, onNavigate }: HelpContentProps) => {
+  const translation = useHelpTranslation();
+  const { topic, translated } = localizeTopic(english, translation);
+  return (
+  <div className="space-y-6" {...textDirection(translated)}>
     <p className={`${BODY} text-base`}>{topic.summary}</p>
 
     <section>
@@ -107,7 +111,7 @@ const HelpContent = ({ topic, onNavigate }: HelpContentProps) => (
             return flow ? (
               <li key={id} className={BODY}>
                 <Link to={`/help/flow/${id}`} onClick={onNavigate} className="font-medium text-brand-500 hover:underline dark:text-brand-400">
-                  {flow.title}
+                  {localizeFlow(flow, translation).flow.title}
                 </Link>
               </li>
             ) : null;
@@ -116,6 +120,7 @@ const HelpContent = ({ topic, onNavigate }: HelpContentProps) => (
       </section>
     )}
   </div>
-);
+  );
+};
 
 export default HelpContent;
