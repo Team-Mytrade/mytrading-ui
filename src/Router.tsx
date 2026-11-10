@@ -74,6 +74,9 @@ const DeliveryStatusPage = lazy(() => import("./pages/Delivery/DeliveryStatusPag
 const BenefitsAllowancesPage = lazy(() => import("./pages/Payroll/BenefitsAllowancesPage"));
 const PayrollRunsPage = lazy(() => import("./pages/Payroll/PayrollRunsPage"));
 const PayrollTaxDeductionsPage = lazy(() => import("./pages/Payroll/PayrollTaxDeductionsPage"));
+const TaxTrackerPage = lazy(() => import("./pages/Payroll/TaxTrackerPage"));
+const TaxTrackerEmployeePage = lazy(() => import("./pages/Payroll/TaxTrackerEmployeePage"));
+const DepartmentSalaryPage = lazy(() => import("./pages/Payroll/DepartmentSalaryPage"));
 const LeaveRequestsPage = lazy(() => import("./pages/Payroll/LeaveRequestsPage"));
 const AttendanceLogsPage = lazy(() => import("./pages/Payroll/AttendanceLogsPage"));
 const SalaryStructurePage = lazy(() => import("./pages/Payroll/SalaryStructurePage"));
@@ -428,6 +431,10 @@ export default function AppRouter() {
           <Route path="/leaveRequests" element={<LeaveRequestsPage />} />
           <Route path="/it-declaration" element={<ItDeclarationPage />} />
           <Route path="/taxDeductions" element={<PayrollTaxDeductionsPage />} />
+          <Route path="/taxTracker" element={<TaxTrackerPage />} />
+          <Route path="/taxTracker/:employeeId" element={<TaxTrackerEmployeePage />} />
+          <Route path="/mySalary" element={<TaxTrackerEmployeePage />} />
+          <Route path="/departmentSalary" element={<DepartmentSalaryPage />} />
           <Route path="/payrollRuns" element={<PayrollRunsPage />} />
           <Route path="/benefits" element={<BenefitsAllowancesPage />} />
           <Route path="/document-management" element={<DocumentManagementPage />} />

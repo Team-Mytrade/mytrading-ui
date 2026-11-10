@@ -36,6 +36,8 @@ import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
+import PayslipZipDialog from "../../components/Payroll/PayslipZipDialog";
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import { ToasterService } from "../../Services/ToasterService";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -44,6 +46,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
+import MonthSwitcher from "../../components/common/MonthSwitcher";
 import { formatMoney, formatDate, companyCurrency } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -112,6 +115,7 @@ interface EmployeeSalary {
 const PayrollPage: React.FC = () => {
   // Generate and Rollback change everyone's payroll: HR and managers (HRM:APPROVE) only. Others see their own slip.
   const { canApprove, canExport } = usePermissions();
+  const me = useCurrentEmployee();
     const [searchParams] = useSearchParams();
     const [salaries, setSalaries] = useState<EmployeeSalary[]>([]);
     const [search, setSearch] = useState(() => {
@@ -131,8 +135,6 @@ const PayrollPage: React.FC = () => {
     const [generateMonth, setGenerateMonth] = useState("");
     const [isZipModalOpen, setIsZipModalOpen] = useState(false);
     const [zipEmployee, setZipEmployee] = useState<{ id: number, name: string } | null>(null);
-    const [fromMonth, setFromMonth] = useState("");
-    const [toMonth, setToMonth] = useState("");
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string>("");
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -307,43 +309,6 @@ const PayrollPage: React.FC = () => {
         }
     };
 
-    const downloadZipRange = async () => {
-        if (!zipEmployee || !fromMonth || !toMonth) {
-            ToasterService.warning("Please select both from and to months");
-            return;
-        }
-        if (fromMonth > toMonth) {
-            ToasterService.warning("From Month cannot be after To Month");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const response = await axios.get(`/v1/api/payroll/payslips/download-zip`, {
-                params: {
-                    employeeId: zipEmployee.id,
-                    fromMonth,
-                    toMonth
-                },
-                responseType: "blob"
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `payslips_${zipEmployee.name.replace(/\s+/g, '_')}_${fromMonth}_to_${toMonth}.zip`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            ToasterService.success(`ZIP downloaded successfully`);
-            setIsZipModalOpen(false);
-            setFromMonth("");
-            setToMonth("");
-        } catch (err) {
-            ToasterService.error(await blobError(err, "Failed to download ZIP file"));
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const rollback = async (id: number, employeeName: string) => {
         const ok = await confirm({
@@ -544,13 +509,13 @@ const PayrollPage: React.FC = () => {
                     >
                         <DocumentArrowDownIcon className="h-3.5 w-3.5" />
                     </button>
-                    {canExport && <button
+                    {<button
                         onClick={() => {
                             setZipEmployee({ id: row.employee?.id as number, name: `${row.employee?.firstName} ${row.employee?.lastName}` });
                             setIsZipModalOpen(true);
                         }}
                         className="text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 dark:bg-transparent dark:hover:bg-[#222222] dark:text-gray-400 dark:hover:text-gray-200 p-1.5 rounded-md transition-colors cursor-pointer"
-                        title={t("Download Range (ZIP)")}
+                        title={t("Download payslips (ZIP): last 3 or 6 months, or a range")}
                     >
                         <FolderArrowDownIcon className="h-3.5 w-3.5" />
                     </button>}
@@ -583,12 +548,11 @@ const PayrollPage: React.FC = () => {
                 pageTitle={breadcrumbTitle}
                 actions={
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        <input
-                            type="month"
+                        <MonthSwitcher
                             value={filterMonth}
-                            onChange={e => { setFilterMonth(e.target.value); }}
-                            className={TOOL_INPUT}
-                            aria-label={t("Payroll month")}
+                            onChange={setFilterMonth}
+                            max={todayIso().slice(0, 7)}
+                            ariaLabel={t("Payroll month")}
                         />
 
                         {/* Export Menu */}
@@ -654,6 +618,22 @@ const PayrollPage: React.FC = () => {
                             >
                                 <DocumentArrowDownIcon className="h-3.5 w-3.5" />
                                 {t("Email Payslips")}
+                            </button>
+                        )}
+
+                        {/* The signed-in employee's own payslips as one ZIP (HR downloads anyone's from the row icon) */}
+                        {me.hasEmployee && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setZipEmployee({ id: me.id, name: me.name });
+                                    setIsZipModalOpen(true);
+                                }}
+                                className={TOOL_BUTTON}
+                                title={t("Download your payslips as one ZIP: last 3 or 6 months, this year or a range")}
+                            >
+                                <FolderArrowDownIcon className="h-3.5 w-3.5" />
+                                {canApprove ? t("My payslips (ZIP)") : t("Payslips (ZIP)")}
                             </button>
                         )}
 
@@ -744,51 +724,13 @@ const PayrollPage: React.FC = () => {
                     ]}
                 />
 
-                {/* Download ZIP Modal */}
+                {/* Download payslips as a ZIP: last 3 / 6 months, this financial year or a custom range */}
                 {zipEmployee && (
-                    <PaginatedPopup
+                    <PayslipZipDialog
                         isOpen={isZipModalOpen}
-                        title={t("Download Payslips (ZIP)")}
-                        subtitle={`Employee: ${zipEmployee.name}`}
                         onClose={() => setIsZipModalOpen(false)}
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            downloadZipRange();
-                        }}
-                        submitLabel={t("Download ZIP")}
-                        cancelLabel={t("Cancel")}
-                        maxWidthClassName="max-w-lg"
-                        fields={[
-                            <div key="from-month">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("From Month")}
-                                </label>
-                                <input
-                                    type="month"
-                                    value={fromMonth}
-                                    onChange={(e) => setFromMonth(e.target.value)}
-                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                    required
-                                />
-                            </div>,
-                            <div key="to-month">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("To Month")}
-                                </label>
-                                <input
-                                    type="month"
-                                    value={toMonth}
-                                    onChange={(e) => setToMonth(e.target.value)}
-                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-cyan-500 focus:border-cyan-500"
-                                    required
-                                />
-                            </div>,
-                            <div key="info-box-zip" className="col-span-2 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
-                                <p className="text-sm text-cyan-800">
-                                    <strong>{t("Info:")}</strong> {t("This will download a single ZIP file containing the payslips for the selected range.")}
-                                </p>
-                            </div>
-                        ]}
+                        employeeId={zipEmployee.id}
+                        employeeName={zipEmployee.name}
                     />
                 )}
 

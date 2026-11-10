@@ -47,6 +47,7 @@ import { formatNumber, formatDate, companyCurrency } from "../../company/format"
 
 import { t } from "../../i18n/i18n";
 import GulfEmployeeFields from "./GulfEmployeeFields";
+import { DEFAULT_PF_SETTINGS, PF_SETTINGS_API, PfSettings, toPfSettings, yearlyEmployerPf } from "./pfSettings";
 import {
   EMPTY_GULF,
   GULF_LABELS,
@@ -212,6 +213,8 @@ const AddEmployeePage: React.FC = () => {
   const [allRoles, setAllRoles] = useState<Role[]>([]);
   const [rolesUnavailable, setRolesUnavailable] = useState(false);
   const [payComponents, setPayComponents] = useState<PayComponent[]>([]);
+  // The company's PF rules: whether employer PF sits inside the CTC, and the PF wage cap
+  const [pfSettings, setPfSettings] = useState<PfSettings>(DEFAULT_PF_SETTINGS);
   const [storedAadhaar, setStoredAadhaar] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -308,6 +311,7 @@ const AddEmployeePage: React.FC = () => {
     fetchManagers();
     fetchRoles();
     fetchPayComponents();
+    axios.get(PF_SETTINGS_API).then((res) => setPfSettings(toPfSettings(res.data))).catch(() => setPfSettings(DEFAULT_PF_SETTINGS));
     if (editId) fetchEmployee(editId);
   }, [editId]);
 
@@ -986,10 +990,18 @@ const AddEmployeePage: React.FC = () => {
   const hraPercent = percentOf(components, "hra");
   const basicAmount = basicPercent != null ? Math.round(totalCTC * basicPercent) / 100 : null;
   const hraAmount = basicAmount != null && hraPercent != null ? Math.round(basicAmount * hraPercent) / 100 : null;
+  // India: when the company counts employer PF inside the CTC, the split leaves room for it (unless the
+  // salary already lists an employer PF line); on top of the CTC, nothing is held back
+  const listsEmployerPf = [...form.salary.earnings, ...form.salary.additionalBenefits]
+    .some((line) => /employer[\s-]*pf/i.test(line.name ?? ""));
+  const employerPfInCtc = isIndia && pfSettings.employerPfInCtc && basicAmount != null && !listsEmployerPf
+    ? yearlyEmployerPf(basicAmount, pfSettings) : 0;
+  const employerPfOnTop = isIndia && !pfSettings.employerPfInCtc && basicAmount != null
+    ? yearlyEmployerPf(basicAmount, pfSettings) : 0;
   // Monthly pay is (basic + HRA + earnings) / 12, so CTC left outside them is never paid
   const unallocated =
     basicAmount != null && hraAmount != null
-      ? Math.round((totalCTC - basicAmount - hraAmount - totalEarnings - totalBenefits) * 100) / 100
+      ? Math.round((totalCTC - basicAmount - hraAmount - totalEarnings - totalBenefits - employerPfInCtc) * 100) / 100
       : null;
   // Only designations with pay components can be chosen: the service splits the salary by them
   const designationOptions = payComponents.map((c) => c.employeeRole).sort((a, b) => a.localeCompare(b));
@@ -2025,6 +2037,12 @@ const AddEmployeePage: React.FC = () => {
                             <div className="flex justify-between"><span className="text-gray-600">HRA ({hraPercent}% of basic)</span><span className="font-medium text-gray-900">{money(hraAmount)}</span></div>
                             <div className="flex justify-between"><span className="text-gray-600">{t("Earnings below")}</span><span className="font-medium text-gray-900">{money(totalEarnings)}</span></div>
                             <div className="flex justify-between"><span className="text-gray-600">{t("Benefits below")}</span><span className="font-medium text-gray-900">{money(totalBenefits)}</span></div>
+                            {employerPfInCtc > 0 && (
+                              <div className="flex justify-between"><span className="text-gray-600">{t("Employer PF (in the CTC, not paid out)")}</span><span className="font-medium text-gray-900">{money(employerPfInCtc)}</span></div>
+                            )}
+                            {employerPfOnTop > 0 && (
+                              <div className="flex justify-between border-t border-gray-200 pt-1"><span className="text-gray-600">{t("Employer PF (on top of the CTC)")}</span><span className="font-medium text-gray-900">+ {money(employerPfOnTop)}</span></div>
+                            )}
                             {unallocated != null && totalCTC > 0 && unallocated !== 0 && (
                               <div className={`flex items-center justify-between gap-2 border-t border-gray-200 pt-1 ${unallocated > 0 ? "text-amber-700" : "text-red-600"}`}>
                                 <span>

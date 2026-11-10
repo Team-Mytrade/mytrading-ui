@@ -28,6 +28,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import { formatDate } from "../../company/format";
+import IndiaPfSettingsCard from "./IndiaPfSettingsCard";
 
 import { t } from "../../i18n/i18n";
 
@@ -477,6 +478,7 @@ const EmployeeCompensationPage: React.FC = () => {
                     <StatsCard label={t("Default Configs")} value={defaultConfigurations} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<InformationCircleIcon className="h-6 w-6" />} />
                     <StatsCard label={t("Avg Components / Role")} value={averageComponentsPerRole} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BriefcaseIcon className="h-6 w-6" />} />
                 </div>
+                {!showForm && <IndiaPfSettingsCard canUpdate={canUpdate} />}
 
                 {/* Add/Edit Form */}
                 {showForm && (

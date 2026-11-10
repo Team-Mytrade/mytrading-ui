@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { FileText, X, Eye, Download } from "lucide-react";
+import { FileText, X, Eye, Download, FolderDown } from "lucide-react";
 import { motion } from "framer-motion";
 import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
+import PayslipZipDialog from "../../components/Payroll/PayslipZipDialog";
 
 import { t } from "../../i18n/i18n";
 interface MyPayslipsTabProps {
     employeeId: number;
+    employeeName?: string;
 }
 
-const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
+const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId, employeeName }) => {
     const [loading, setLoading] = useState(false);
     const [availableMonths, setAvailableMonths] = useState<any[]>([]);
     
     const [previewMonth, setPreviewMonth] = useState<string | null>(null);
     const [previewData, setPreviewData] = useState<any | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [zipOpen, setZipOpen] = useState(false);
 
     useEffect(() => {
         if (employeeId) {
@@ -77,6 +80,12 @@ const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <FileText size={20} className="text-cyan-600" /> {t("My Payslips")}
                 </h2>
+                {availableMonths.length > 0 && (
+                    <button type="button" onClick={() => setZipOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-white px-3 py-1.5 text-sm font-medium text-cyan-700 hover:bg-cyan-50">
+                        <FolderDown size={16} /> {t("Download (ZIP)")}
+                    </button>
+                )}
             </div>
 
             <div className="p-6">
@@ -127,6 +136,8 @@ const MyPayslipsTab: React.FC<MyPayslipsTabProps> = ({ employeeId }) => {
                     </div>
                 )}
             </div>
+
+            <PayslipZipDialog isOpen={zipOpen} onClose={() => setZipOpen(false)} employeeId={employeeId} employeeName={employeeName ?? t("employee")} />
 
             <PayslipPreviewModal
                 isOpen={!!previewMonth}

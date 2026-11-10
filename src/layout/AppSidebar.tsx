@@ -98,6 +98,7 @@ import {
   Warehouse,
   type LucideIcon,
   Sparkles,
+  Calculator,
   CircleHelp,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
@@ -325,6 +326,8 @@ export const navItems: NavItem[] = [
       { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
       { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
       { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
+      { name: "My Salary", path: "/mySalary", icon: Wallet, section: "Payroll" },
+      { name: "Tax Tracker", path: "/taxTracker", permission: "HRM:APPROVE", icon: Calculator, section: "Payroll" },
       { name: "Gulf Pay Files", path: "/gulfPayFiles", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll" },
       {
         name: "Payroll Reports",
@@ -334,6 +337,7 @@ export const navItems: NavItem[] = [
         subItems: [
           { name: "Payroll Summary", path: "/payrollSummary", icon: PieChart },
           { name: "Department Summary", path: "/departmentSummary", icon: Building },
+          { name: "Department Salary", path: "/departmentSalary", icon: Building2 },
           { name: "Gratuity Provision", path: "/gratuityProvision", icon: PiggyBank },
         ],
       },

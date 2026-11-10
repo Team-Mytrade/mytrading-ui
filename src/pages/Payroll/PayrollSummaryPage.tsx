@@ -8,7 +8,9 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import StatsCard from "../../components/common/Statscard";
 import { usePermissions } from "../../access/usePermissions";
-import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
+import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
+import MonthSwitcher from "../../components/common/MonthSwitcher";
+import { todayIso } from "../../utils/localDate";
 import { formatMoney, formatNumber as companyFormatNumber } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -107,13 +109,7 @@ const PayrollSummaryPage: React.FC = () => {
                 pageTitle="Payroll Summary"
                 actions={
                     <div className="flex items-center gap-2">
-                        <input
-                            type="month"
-                            value={salaryMonth}
-                            onChange={(e) => setSalaryMonth(e.target.value)}
-                            className={TOOL_INPUT}
-                            aria-label={t("Payroll month")}
-                        />
+                        <MonthSwitcher value={salaryMonth} onChange={setSalaryMonth} max={todayIso().slice(0, 7)} ariaLabel={t("Payroll month")} />
                         {canExport && (
                             <button type="button" onClick={handleExportDetailedReport} className={TOOL_BUTTON}>
                                 <DocumentArrowDownIcon className="h-3.5 w-3.5" />

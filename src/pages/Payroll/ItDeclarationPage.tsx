@@ -1,4 +1,10 @@
 import { t } from "../../i18n/i18n";
+
+// Shown above the declaration while it is locked (submitted and under HR's review). Change the wording here.
+const DECLARATION_WINDOW_MESSAGE =
+    "The declaration window opens every month from the 1st to the 10th";
+const LOCKED_HR_MESSAGE =
+    "You can still approve or reject items and verify proofs. Unlock it to let the employee edit it again.";
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -570,6 +576,11 @@ const ItDeclarationPage: React.FC = () => {
     // --- API Handlers ---
 
     const saveDeclaration = async (status: DeclarationStatus) => {
+        const over = sectionsOverLimit();
+        if (over.length > 0) {
+            ToasterService.error(over[0]);
+            return;
+        }
         setIsLoading(true);
         try {
             // The whole list of items: saved ones by id, new ones without; HR's decisions are kept server-side
@@ -593,7 +604,7 @@ const ItDeclarationPage: React.FC = () => {
 
             setShowSubmitConfirm(false);
             ToasterService.success(status === 'DRAFT' ? 'Declaration saved as a draft'
-                : isSubmitted ? 'Changes saved' : 'Declaration submitted to HR');
+                : isSubmitted ? 'Changes saved and sent to HR (locked until HR unlocks it)' : 'Declaration submitted to HR and locked');
         } catch (error) {
             ToasterService.error(apiError(error, 'Failed to save the declaration'));
         } finally {
@@ -882,7 +893,27 @@ const ItDeclarationPage: React.FC = () => {
         return { isValid: true, message: '' };
     };
 
+    // Sections whose items add up to more than the section allows (e.g. 80C: ₹1,50,000 a year)
+    const sectionsOverLimit = (): string[] => availableSections
+        .filter(sec => sec.limit > 0 && getSectionTotal(sec.code) > sec.limit)
+        .map(sec => `Section ${sec.code} allows at most ${inr(sec.limit)} a year; your items add up to ${inr(getSectionTotal(sec.code))}. Reduce them to ${inr(sec.limit)} or less.`);
+
+    // What HR can still approve for an item: up to its declared amount and what is left in the section's limit
+    const approvableFor = (item: DeclarationItem) => {
+        const limit = availableSections.find(sec => sec.code === item.sectionCode)?.limit || 0;
+        if (limit <= 0) return item.declaredAmount;
+        const approvedElsewhere = (declaration.items || [])
+            .filter(other => other.id !== item.id && other.sectionCode === item.sectionCode && other.status === 'APPROVED')
+            .reduce((sum, other) => sum + (Number(other.approvedAmount) || 0), 0);
+        return Math.max(0, Math.min(item.declaredAmount, limit - approvedElsewhere));
+    };
+
     const handleSubmit = () => {
+        const over = sectionsOverLimit();
+        if (over.length > 0) {
+            ToasterService.error(over[0]);
+            return;
+        }
         const validation = validateDeclaration();
         if (!validation.isValid) {
             ToasterService.error(validation.message);
@@ -920,7 +951,7 @@ const ItDeclarationPage: React.FC = () => {
             ) : isSubmitted && (
                 <button type="button" onClick={lockDeclaration} disabled={isLoading} className={TOOL_BUTTON}>
                     <Lock size={14} />
-                    {t("Lock for Payroll")}
+                    {t("Lock")}
                 </button>
             )}
         </div>
@@ -1001,7 +1032,7 @@ const ItDeclarationPage: React.FC = () => {
                     <StatsCard label={t("Financial Year")} value={`FY ${declaration.financialYear}`} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CalendarDaysIcon className="h-5 w-5" />} />
                     <StatsCard
                         label={t("Status")}
-                        value={declaration.status === 'LOCKED' ? 'Locked for payroll' : declaration.status === 'SUBMITTED' ? 'Submitted' : 'Draft'}
+                        value={declaration.status === 'LOCKED' ? 'Locked' : declaration.status === 'SUBMITTED' ? 'Submitted' : 'Draft'}
                         gradient={declaration.status === 'DRAFT' ? "from-amber-50 to-yellow-50" : "from-green-50 to-emerald-50"}
                         borderColor={declaration.status === 'DRAFT' ? "border-amber-100" : "border-green-100"}
                         labelColor={declaration.status === 'DRAFT' ? "text-amber-600" : "text-green-600"}
@@ -1009,6 +1040,24 @@ const ItDeclarationPage: React.FC = () => {
                     />
                     <StatsCard label={t("Approved / Declared")} value={`₹${totalApproved.toLocaleString()} / ₹${totalDeclared.toLocaleString()}`} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} onRefresh={loadDeclaration} />
                 </div>
+
+                {/* Locked: the declaration window is closed until HR opens it again */}
+                {isLocked && (
+                    <div role="status"
+                        className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                            <Lock size={16} aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 text-sm">
+                            <p className="font-semibold text-amber-900 dark:text-amber-200">
+                                {isHR ? t("Locked: the employee can't change this declaration") : t("Declaration window is closed")}
+                            </p>
+                            <p className="mt-0.5 text-amber-800 dark:text-amber-300/90">
+                                {isHR ? t(LOCKED_HR_MESSAGE) : t(DECLARATION_WINDOW_MESSAGE)}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* LEFT COLUMN: FORM */}
@@ -1121,7 +1170,8 @@ const ItDeclarationPage: React.FC = () => {
                                                                     title={subTypeLabel(item)}
                                                                     isHR={isHR}
                                                                     canEdit={canEdit}
-                                                                    canDecide={isHR && isSubmitted}
+                                                                    canDecide={isHR && (isSubmitted || isLocked)}
+                                                                    maxApprovable={approvableFor(item)}
                                                                     onDelete={() => confirmDeleteItem(item.id)}
                                                                     onUpload={() => triggerFileUpload(item.id)}
                                                                     onDecide={(decision, amount, remarks) => decideItem(item.id, decision, amount, remarks)}
@@ -1252,13 +1302,8 @@ const ItDeclarationPage: React.FC = () => {
                                             {t(isSubmitted ? 'Save Changes' : 'Submit Declaration')} <ChevronRight size={18} />
                                         </button>
                                     </div>
-                                ) : isLocked ? (
-                                    <div className="bg-purple-50 dark:bg-[#222222] border border-purple-100 dark:!border-transparent rounded-xl p-4 text-center">
-                                        <Lock className="mx-auto text-purple-600 dark:text-purple-400 mb-2" size={24} />
-                                        <p className="text-sm font-medium text-purple-900 dark:text-gray-200">{t("Locked for payroll")}</p>
-                                        <p className="text-xs text-purple-700 dark:text-gray-400 mt-1">{t("Ask HR to unlock it to make changes.")}</p>
-                                    </div>
-                                ) : isHR && !isSubmitted && (
+                                ) : isLocked ? null /* the lock banner sits above the declaration */
+                                : isHR && !isSubmitted && (
                                     <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                                         {t("The employee hasn't submitted this declaration yet.")}
                                     </p>
@@ -1536,6 +1581,7 @@ const ItDeclarationPage: React.FC = () => {
 };
 
 // --- ItemRow Component ---
+const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 
 const proofStyle: Record<ProofStatus, string> = {
     PENDING: 'text-gray-600 dark:text-gray-300',
@@ -1552,7 +1598,8 @@ const ItemRow = ({
     onDelete,
     onUpload,
     onDecide,
-    onVerifyProof
+    onVerifyProof,
+    maxApprovable
 }: {
     item: DeclarationItem,
     title: string,
@@ -1562,17 +1609,21 @@ const ItemRow = ({
     onDelete?: () => void,
     onUpload?: () => void,
     onDecide?: (decision: 'approve' | 'reject', amount: number, remarks?: string) => void,
-    onVerifyProof?: (proofId: number) => void
+    onVerifyProof?: (proofId: number) => void,
+    maxApprovable?: number
 }) => {
+    const cap = maxApprovable ?? item.declaredAmount;
     const [reviewing, setReviewing] = useState(false);
     const [remarks, setRemarks] = useState('');
-    const [amount, setAmount] = useState(String(item.declaredAmount));
+    const [amount, setAmount] = useState(String(Math.min(item.declaredAmount, cap)));
     const saved = item.id > 0;
 
     const decide = (decision: 'approve' | 'reject') => {
         const approved = Number(amount);
-        if (decision === 'approve' && (!(approved >= 0) || approved > item.declaredAmount)) {
-            ToasterService.error(`Approve between ₹0 and ₹${item.declaredAmount.toLocaleString()}`);
+        if (decision === 'approve' && (!(approved >= 0) || approved > cap)) {
+            ToasterService.error(cap < item.declaredAmount
+                ? `The section's limit leaves ${inr(cap)} to approve for this item`
+                : `Approve between ₹0 and ${inr(item.declaredAmount)}`);
             return;
         }
         onDecide?.(decision, approved, remarks);
@@ -1653,7 +1704,7 @@ const ItemRow = ({
                                 <input
                                     type="number"
                                     min={0}
-                                    max={item.declaredAmount}
+                                    max={cap}
                                     className="text-xs p-1 w-32 border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#222222] text-gray-900 dark:text-white rounded text-right"
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}

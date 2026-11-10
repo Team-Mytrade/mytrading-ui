@@ -747,7 +747,7 @@ const EmployeeViewPage: React.FC = () => {
 
         {/* My Payslips Section - Commented out */}
         {/* <div className="mt-8">
-          <MyPayslipsTab employeeId={employee.id} />
+          <MyPayslipsTab employeeId={employee.id} employeeName={`${employee.firstName ?? ""} ${employee.lastName ?? ""}`.trim()} />
         </div> */}
 
         {/* Requests an admin raises for this employee (e.g. they can't sign in); their manager decides them */}

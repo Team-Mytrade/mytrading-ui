@@ -227,6 +227,24 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                             </>
                                         )}
                                     </div>
+                                    {(payslipData.employerContributions ?? []).length > 0 && (
+                                        <div className="px-6 py-4 border-t border-gray-200 text-sm" data-testid="employer-contributions">
+                                            <h5 className="font-semibold text-gray-700 mb-1">Employer Contributions</h5>
+                                            <p className="text-xs text-gray-500 mb-3">Paid by the company, not deducted from your pay</p>
+                                            <div className="space-y-2">
+                                                {payslipData.employerContributions.map((d: any, i: number) => (
+                                                    <div key={i} className="flex justify-between">
+                                                        <span className="text-gray-600">{lineName(d)}</span>
+                                                        <span className="font-medium">{formatMoney(d.amount)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between">
+                                                <span className="font-bold text-gray-800">Total Employer Contributions</span>
+                                                <span className="font-bold text-gray-900">{formatMoney(sumOf(payslipData.employerContributions))}</span>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="px-6 py-3 text-xs text-gray-600">
                                         <span className="font-semibold">**Note:</span> <i>All amounts displayed in this payslip are in <b>{companyCurrency()}</b></i>
                                     </div>
