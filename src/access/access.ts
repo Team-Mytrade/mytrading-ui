@@ -302,6 +302,13 @@ const ON_BEHALF_ROUTES = ["/att_leaveRequest", "/att_timesheetManagement", "/att
 // alone (e.g. Staff with HRM:VIEW / ATTENDANCE:VIEW) isn't enough: the services refuse their data the same way.
 // "A|B" means either permission.
 const ROUTE_PERMISSIONS: [string, string][] = [
+  // Report Center (8.2): the sales reports are read by sales and finance alike; /reports itself is open to everyone
+  ["/reports/sales-register", "SALES:VIEW|INVOICE:VIEW"],
+  ["/reports/sales-analysis", "SALES:VIEW|INVOICE:VIEW"],
+  ["/reports/open-orders", "SALES:VIEW|INVOICE:VIEW"],
+  ["/reports/dispatched-not-invoiced", "SALES:VIEW|INVOICE:VIEW"],
+  ["/reports/quotation-conversion", "SALES:VIEW|INVOICE:VIEW"],
+  ["/reports/returns-refunds", "SALES:VIEW|INVOICE:VIEW"],
   // Everyone's employee records and the department list: HR and approvers (common-service shows Staff only their own)
   ["/employeeRecords", "HRM:APPROVE|HRM:ADMIN|ATTENDANCE:APPROVE"],
   ["/employeeDepartments", "HRM:APPROVE|HRM:ADMIN|ATTENDANCE:APPROVE"],

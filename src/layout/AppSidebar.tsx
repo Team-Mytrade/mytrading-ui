@@ -381,7 +381,9 @@ export const navItems: NavItem[] = [
     icon: <BarChart3 className="w-5 h-5" />,
     name: "Reports",
     subItems: [
-      // Business reports in flow order; CRM, payroll and attendance reports are also inside their modules
+      // The Report Center lists every report; then business reports in flow order (CRM, payroll and attendance
+      // reports are also inside their modules)
+      { name: "Report Center", path: "/reports", icon: LayoutDashboard },
       { name: "Purchase Reports", path: "/purchase-reports", icon: ClipboardList },
       { name: "Inventory Report", path: "/inventory-report", icon: Boxes },
       { name: "Finance Report", path: "/financeReport", icon: Landmark },

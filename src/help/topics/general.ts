@@ -62,7 +62,239 @@ export const HOME_TOPICS: HelpTopic[] = [
   },
 ];
 
+const salesReader: HelpRole[] = [
+  { role: "Anyone with Sales or Invoice access", can: "Read the report. Excel, PDF and Print need the export right in Sales or Invoice." },
+];
+
 export const REPORT_TOPICS: HelpTopic[] = [
+  {
+    id: "report-center",
+    route: "/reports",
+    module: "Reports",
+    title: "Report Center",
+    summary: "Every business report in one place, grouped into Sales, Purchase & payables, Finance books and HR & stock. You see only the reports your rights let you open.",
+    who: [{ role: "Everyone", can: "The reports of the modules they can open." }],
+    tasks: [
+      {
+        title: "Open a report",
+        steps: [
+          "Find the report under its group, or type in Search reports.",
+          "Click it to open it. Reports marked Excel · PDF · Print share the same filters and can be exported or printed with the company header.",
+        ],
+      },
+    ],
+    rules: ["A module's report needs that module's access; the sales reports open with Sales or Invoice access."],
+    related: [
+      { route: "/reports/sales-register", label: "Sales Register" },
+      { route: "/reports/sales-analysis", label: "Sales Analysis" },
+      { route: "/reports/open-orders", label: "Open Orders" },
+      { route: "/reports/dispatched-not-invoiced", label: "Dispatched Not Invoiced" },
+      { route: "/reports/quotation-conversion", label: "Quotation Conversion" },
+      { route: "/reports/returns-refunds", label: "Returns & Refunds" },
+    ],
+  },
+  {
+    id: "sales-register",
+    route: "/reports/sales-register",
+    module: "Reports",
+    title: "Sales Register",
+    summary: "Every issued invoice and credit note in a period, one line each, with net, tax and total in the company currency.",
+    who: salesReader,
+    tasks: [
+      {
+        title: "Read the register",
+        steps: [
+          "Choose the Period (this month, last month, this or last quarter, this or last year) or set From and To.",
+          "Narrow it to one Customer or Sales person if you need to.",
+          "The cards show Invoiced, Credit notes, Net sales and Total with tax; the table lists each document, with credit notes as minus amounts in red.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print. The file has the company header, the period, the filters and a total line."] },
+    ],
+    fields: [
+      { name: "Net", meaning: "Before tax, in the company currency; a document in another currency is converted at its own exchange rate." },
+      { name: "Document currency", meaning: "The document's total in the currency it was issued in." },
+    ],
+    rules: [
+      "Invoices count on their invoice date; credit notes on their own date, even when the invoice is from an earlier period.",
+      "Drafts, cancelled invoices and opening invoices (from Data Import) are left out.",
+    ],
+    related: [
+      { route: "/reports/sales-analysis", label: "Sales Analysis" },
+      { route: "/invoices", label: "Invoices" },
+    ],
+  },
+  {
+    id: "sales-analysis",
+    route: "/reports/sales-analysis",
+    module: "Reports",
+    title: "Sales Analysis",
+    summary: "Net sales for a period grouped by customer, product, category, sales person or month, after credit notes, with each one's share.",
+    who: salesReader,
+    tasks: [
+      {
+        title: "Analyse sales",
+        steps: [
+          "Choose the Period and, if you need to, a Customer or Sales person.",
+          "Pick By customer, By product, By category, By sales person or By month. The chart shows the top 10 (every month for By month).",
+          "Click a row to look closer: a customer, sales person or month opens its documents in the Sales Register; a product shows who bought it; a category shows its products. Remove a product or category filter with its ×.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print; the grouping and the filters are printed in the header."] },
+    ],
+    fields: [
+      { name: "Net sales", meaning: "Invoiced less credit notes, before tax." },
+      { name: "Credit notes", meaning: "Issued in the period, split over the invoice's lines by their value, so each product and category gets its part." },
+      { name: "Share", meaning: "The row's part of the period's net sales." },
+      { name: "Quantity", meaning: "By product only: the quantity invoiced." },
+    ],
+    rules: [
+      "Invoices count on their invoice date, credit notes on theirs; drafts, cancelled and opening invoices are left out.",
+      "A period can be at most three years.",
+      "If the product catalogue can't be read, By category shows everything under No category, with a warning.",
+    ],
+    related: [
+      { route: "/reports/sales-register", label: "Sales Register" },
+      { route: "/salesCommission", label: "Sales Commission" },
+    ],
+  },
+  {
+    id: "open-orders",
+    route: "/reports/open-orders",
+    module: "Reports",
+    title: "Open Orders",
+    summary: "Confirmed sales orders with lines still to deliver: what is waiting, its value before tax, how late it is, and the backlog by product.",
+    who: salesReader,
+    tasks: [
+      {
+        title: "See what is still to deliver",
+        steps: [
+          "The report opens on All dates: every open order now. Choose an Order date period to see only the orders placed then, and a Customer or Sales person if you need to.",
+          "The cards show Open orders (and how many are on credit hold), Still to deliver, Late (orders past their expected delivery date) and the Ordered value of those orders.",
+          "Still to deliver by product adds up each product's pending quantity and value across the orders.",
+          "The table lists each order, the most days late first, with what each line still has to deliver (for example Steel bolts 2 of 4).",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print. The file lists each order with its days late, ordered value and pending value, and a total line."] },
+    ],
+    fields: [
+      { name: "Pending value", meaning: "The quantity still to deliver at the order line's price after discounts, before tax, in the company currency. Under it, the amount in the order's own currency when that is another one." },
+      { name: "Expected delivery", meaning: "The order's expected delivery date (it comes from its quotation); days late count from it." },
+    ],
+    rules: [
+      "Drafts, cancelled orders and orders closed short are left out. An order shows while any line has quantity pending; quantity on a draft dispatch is still pending.",
+      "An order in another currency uses finance's exchange rate on or before its order date; without a rate its value is left out of the totals, with a warning naming the currency.",
+    ],
+    related: [
+      { route: "/sales-orders", label: "Sales Orders" },
+      { route: "/reports/dispatched-not-invoiced", label: "Dispatched Not Invoiced" },
+    ],
+  },
+  {
+    id: "dispatched-not-invoiced",
+    route: "/reports/dispatched-not-invoiced",
+    module: "Reports",
+    title: "Dispatched Not Invoiced",
+    summary: "Confirmed dispatches (goods or services that went out) that no issued invoice bills yet: no invoice made, only a draft, or the invoice was cancelled.",
+    who: salesReader,
+    tasks: [
+      {
+        title: "Find what is still to invoice",
+        steps: [
+          "The report opens on All dates. Choose a Dispatch date period, a Customer or a Sales person to narrow it.",
+          "The cards show what is Waiting to be invoiced (with tax), the value Before tax, how many dispatches waited Over a week, and how many have an Invoice started (a draft or a cancelled invoice).",
+          "The table lists each dispatch, the oldest first, with its Stage: Not invoiced, Draft invoice or Invoice cancelled.",
+        ],
+      },
+      {
+        title: "Invoice a dispatch",
+        who: "Finance Manager",
+        steps: [
+          "Click Invoice it: Invoices opens with Generate invoice and that dispatch chosen. Check the date, click Create draft, then issue the invoice.",
+          "For a draft or a cancelled invoice, Open invoice shows it on Invoices.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Waiting", meaning: "Days since the dispatch date; more than a week shows in red." },
+      { name: "Net", meaning: "The quantities sent at the order's prices after discounts, before tax, in the company currency at the dispatch date's rate. The invoice itself is worked out when it is made." },
+    ],
+    rules: [
+      "Invoice it needs the Invoice create right.",
+      "A dispatch has one invoice. Once that invoice is cancelled the dispatch can't be invoiced again, so it stays here as Invoice cancelled for finance to follow up.",
+      "Without an exchange rate for a dispatch's currency, its value is left out of the totals, with a warning.",
+    ],
+    related: [
+      { route: "/invoices", label: "Invoices" },
+      { route: "/reports/open-orders", label: "Open Orders" },
+    ],
+  },
+  {
+    id: "quotation-conversion",
+    route: "/reports/quotation-conversion",
+    module: "Reports",
+    title: "Quotation Conversion",
+    summary: "The quotations of a period and what each came to: how many and how much became orders, by sales person, customer or month.",
+    who: salesReader,
+    tasks: [
+      {
+        title: "Read the conversion",
+        steps: [
+          "Choose the Period (by quotation date) and, if you need to, a Customer or Sales person.",
+          "Pick By sales person, By customer or By month. The cards show the Conversion rate (and by value), the Value quoted, what Became orders and how many were Lost (refused or run out).",
+          "Each row shows Sent, Value quoted, Became orders, Conversion, By value, Accepted, Open, Refused, Ran out and the average Days to order.",
+          "Click a row to list only its quotations below; remove that with its ×. Click a quotation number to open it.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print; the grouping and the filters are printed in the header."] },
+    ],
+    fields: [
+      { name: "Conversion", meaning: "The quotations that became orders, out of those sent. By value: the same by their value before tax." },
+      { name: "Outcome", meaning: "Became an order, Accepted, no order yet, Waiting for the customer, Refused, Ran out, or Not sent yet (a draft)." },
+      { name: "Days to order", meaning: "From the quotation date to its order's date, on average." },
+    ],
+    rules: [
+      "Drafts are not counted in the rates. A sent quotation past its valid-until date counts as run out, even if nobody marked it expired.",
+      "Values are before tax, in the company currency at each quotation's date.",
+    ],
+    related: [
+      { route: "/quotations", label: "Quotations" },
+      { route: "/reports/sales-analysis", label: "Sales Analysis" },
+    ],
+  },
+  {
+    id: "returns-refunds",
+    route: "/reports/returns-refunds",
+    module: "Reports",
+    title: "Returns & Refunds",
+    summary: "Goods returned in a period, from sales orders and at the counter: why they came back, their value, and what was refunded or is still to refund.",
+    who: salesReader,
+    tasks: [
+      {
+        title: "Read the returns",
+        steps: [
+          "Choose the Period and, if you need to, a Customer or Sales person (counter returns have no sales person, so they leave the list when you pick one).",
+          "The cards show the Returns (with exchanges and rejected ones), the Value returned, what was Refunded and what is Still to refund.",
+          "Returns by reason shows the value per reason. The table lists each return with its order or sale, reason, status, value and refund.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Value", meaning: "What the return refunds, tax included, in the company currency: the amount entered on its lines, else the value of the goods returned." },
+      { name: "Refund", meaning: "Its refund's status, amount and date, and the credit notes finance made; Exchanged for a return settled by sending the items again." },
+      { name: "Still to refund", meaning: "Money-back returns (not exchanges, not rejected) with no processed refund yet." },
+    ],
+    rules: [
+      "Sales order returns count on their request date, counter returns on the day they were made.",
+      "Rejected returns are listed (struck through) but not counted in the totals.",
+    ],
+    related: [
+      { route: "/return-requests", label: "Return Requests" },
+      { route: "/sales-pos", label: "Point of Sale" },
+    ],
+  },
   {
     id: "purchase-reports",
     route: "/purchase-reports",
