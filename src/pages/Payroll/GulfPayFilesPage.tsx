@@ -11,7 +11,8 @@ import { ToasterService } from "../../Services/ToasterService";
 import { apiError, apiFieldErrors } from "../../utils/apiError";
 import { formatMoney, todayIso } from "../../company/format";
 import { t } from "../../i18n/i18n";
-import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, TOOL_BUTTON, TOOL_INPUT } from "./hrmsUi";
+import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, TOOL_BUTTON } from "./hrmsUi";
+import MonthSwitcher from "../../components/common/MonthSwitcher";
 
 const API = "/v1/api/payroll/gulf";
 
@@ -191,7 +192,7 @@ export default function GulfPayFilesPage() {
       <PageMeta title={t("Gulf Pay Files")} description="UAE WPS salary files, Saudi Mudad files and GOSI / GPSSA contributions" />
       <PageBreadcrumb
         pageTitle="Gulf Pay Files"
-        actions={<input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className={TOOL_INPUT} aria-label={t("Payroll month")} />}
+        actions={<MonthSwitcher value={month} onChange={setMonth} max={todayIso().slice(0, 7)} ariaLabel={t("Payroll month")} />}
       />
       {platformWide ? (
         <div className={PAGE_BODY}>

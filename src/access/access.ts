@@ -240,6 +240,9 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/departmentSummary", "HRM"],
   ["/gratuityProvision", "HRM"],
   ["/gulfPayFiles", "HRM"],
+  ["/taxTracker", "HRM"],
+  ["/mySalary", "HRM"],
+  ["/departmentSalary", "HRM"],
   ["/benefits", "HRM"],
   ["/document-management", "HRM"],
   ["/performance-management", "HRM"],
@@ -276,6 +279,8 @@ const SELF_SERVICE_ROUTES: [string, AppModule][] = [
   ["/att_requests", "ATTENDANCE"],
   ["/att_holidayCalendar", "ATTENDANCE"],
   ["/employee-self-dashboard", "HRM"],
+  // My Salary: the employee's own CTC, pay, payslips and tax
+  ["/mySalary", "HRM"],
 ];
 
 export const isSelfServicePath = (pathname: string): AppModule | null =>
@@ -297,6 +302,10 @@ const ON_BEHALF_ROUTES = ["/att_leaveRequest", "/att_timesheetManagement", "/att
 // alone (e.g. Staff with HRM:VIEW / ATTENDANCE:VIEW) isn't enough: the services refuse their data the same way.
 // "A|B" means either permission.
 const ROUTE_PERMISSIONS: [string, string][] = [
+  // Everyone's employee records and the department list: HR and approvers (common-service shows Staff only their own)
+  ["/employeeRecords", "HRM:APPROVE|HRM:ADMIN|ATTENDANCE:APPROVE"],
+  ["/employeeDepartments", "HRM:APPROVE|HRM:ADMIN|ATTENDANCE:APPROVE"],
+  ["/addEmployee", "HRM:CREATE|HRM:ADMIN"],
   ["/employeeCompensation", "HRM:APPROVE"],
   ["/salaryStructure", "HRM:APPROVE"],
   ["/employeeSalary", "HRM:APPROVE"],
@@ -307,6 +316,9 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   ["/departmentSummary", "HRM:APPROVE"],
   ["/gratuityProvision", "HRM:APPROVE"],
   ["/gulfPayFiles", "HRM:APPROVE"],
+  // Finance: everyone's tax, and salary cost by department (not attendance / leave approvers)
+  ["/taxTracker", "HRM:APPROVE"],
+  ["/departmentSalary", "HRM:APPROVE"],
   ["/exitApprovals", "HRM:APPROVE"],
   ["/fullAndFinal", "HRM:APPROVE"],
   ["/attendance_dashboard", "ATTENDANCE:APPROVE"],

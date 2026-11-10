@@ -29,6 +29,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
+import ToolbarSelect from "../../components/common/ToolbarSelect";
 import { formatMoney, formatNumber, formatDate } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -46,6 +47,8 @@ type SalaryStructure = {
     netSalary: number;
     ctc: number;
     effectiveFrom: string;
+    employeeCode?: string;
+    department?: string | null;
 };
 
 type EmployeeOption = { id: number; employeeCode?: string; firstName?: string; lastName?: string; joiningDate?: string };
@@ -70,6 +73,8 @@ const SalaryStructurePage: React.FC = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
     const [form, setForm] = useState(emptyForm);
+    // "" = all departments
+    const [department, setDepartment] = useState("");
 
     useEffect(() => {
         fetchAll();
@@ -225,12 +230,13 @@ const SalaryStructurePage: React.FC = () => {
         doc.text("Salary Structures Report (yearly amounts)", 14, 20);
         doc.setFontSize(10);
         doc.text(`Generated: ${formatDate(new Date())}`, 14, 28);
-        doc.text(`Total Records: ${data.length}`, 14, 34);
+        doc.text(`Total Records: ${rows.length}${department ? ` (${department})` : ""}`, 14, 34);
 
         autoTable(doc, {
-            head: [['Employee', 'Basic', 'HRA', 'Allowances', 'Gross', 'CTC', 'Effective From']],
-            body: data.map(s => [
+            head: [['Employee', 'Department', 'Basic', 'HRA', 'Allowances', 'Gross', 'CTC', 'Effective From']],
+            body: rows.map(s => [
                 label(s),
+                s.department || "-",
                 formatNumber(s.basic),
                 formatNumber(s.hra),
                 formatNumber(s.allowances),
@@ -248,9 +254,11 @@ const SalaryStructurePage: React.FC = () => {
     };
 
     const exportExcel = () => {
-        const worksheet = XLSX.utils.json_to_sheet(data.map(s => ({
+        const worksheet = XLSX.utils.json_to_sheet(rows.map(s => ({
             'Employee': label(s),
             'Employee ID': s.employeeId,
+            'Employee Code': s.employeeCode || "",
+            'Department': s.department || "",
             'Basic (yearly)': s.basic,
             'HRA (yearly)': s.hra,
             'Other Allowances (yearly)': s.allowances,
@@ -269,6 +277,10 @@ const SalaryStructurePage: React.FC = () => {
         name: `${`${e.firstName || ''} ${e.lastName || ''}`.trim() || `Employee ${e.id}`}${e.employeeCode ? ` (${e.employeeCode})` : ''}`,
     })), [employees]);
 
+    const departments = useMemo(() => Array.from(new Set(data.map(s => s.department || t("No department"))))
+        .sort((a, b) => a.localeCompare(b)), [data]);
+    const rows = useMemo(() => (department ? data.filter(s => (s.department || t("No department")) === department) : data), [data, department]);
+
     const columns: ColumnDef<SalaryStructure>[] = [
         {
             key: "employeeName",
@@ -282,10 +294,19 @@ const SalaryStructurePage: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">{label(row)}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{t("ID: #")}{row.employeeId}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{row.employeeCode || `${t("ID: #")}${row.employeeId}`}</p>
                     </div>
                 </div>
             )
+        },
+        {
+            key: "department",
+            label: "Department",
+            sortable: true,
+            sortValueGetter: (row) => row.department || "",
+            render: (row) => row.department
+                ? <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-[#222222] dark:text-gray-300">{row.department}</span>
+                : <span className="text-xs text-slate-400">–</span>
         },
         {
             key: "basic",
@@ -360,10 +381,10 @@ const SalaryStructurePage: React.FC = () => {
         }
     ];
 
-    // Calculate stats from real data
-    const totalCTC = data.reduce((sum, s) => sum + s.ctc, 0);
-    const avgBasic = data.length > 0 ? data.reduce((sum, s) => sum + s.basic, 0) / data.length : 0;
-    const avgGross = data.length > 0 ? data.reduce((sum, s) => sum + s.netSalary, 0) / data.length : 0;
+    // Stats for the department chosen (or everyone)
+    const totalCTC = rows.reduce((sum, s) => sum + s.ctc, 0);
+    const avgBasic = rows.length > 0 ? rows.reduce((sum, s) => sum + s.basic, 0) / rows.length : 0;
+    const avgGross = rows.length > 0 ? rows.reduce((sum, s) => sum + s.netSalary, 0) / rows.length : 0;
 
     return (
         <>
@@ -372,13 +393,17 @@ const SalaryStructurePage: React.FC = () => {
                 pageTitle="Salary Structures"
                 actions={
                     <div className="flex items-center gap-2">
+                        <ToolbarSelect aria-label={t("Department")} value={department} onChange={(e) => setDepartment(e.target.value)}>
+                            <option value="">{t("All departments")}</option>
+                            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                        </ToolbarSelect>
                         {canExport && (
                             <div className="relative">
                                 <button
                                     type="button"
                                     onClick={() => setShowExportMenu(!showExportMenu)}
                                     className={TOOL_BUTTON}
-                                    disabled={data.length === 0}
+                                    disabled={rows.length === 0}
                                 >
                                     <DocumentArrowDownIcon className="h-3.5 w-3.5" />
                                     {t("Export")}
@@ -412,14 +437,14 @@ const SalaryStructurePage: React.FC = () => {
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label={t("Total Structures")} value={data.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
+                    <StatsCard label={t("Total Structures")} value={rows.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<DocumentTextIcon className="h-5 w-5" />} />
                     <StatsCard label={t("Total CTC Value")} value={lakhs(totalCTC)} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<ChartBarIcon className="h-5 w-5" />} />
                     <StatsCard label={t("Avg Basic (yearly)")} value={rupees(avgBasic)} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-5 w-5" />} />
                     <StatsCard label={t("Avg Gross / Month")} value={rupees(avgGross / 12)} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<BanknotesIcon className="h-5 w-5" />} />
                 </div>
 
                 <ReusableTable
-                    data={data}
+                    data={rows}
                     columns={columns}
                     loading={loading}
                     pageSize={PAGE_SIZE}

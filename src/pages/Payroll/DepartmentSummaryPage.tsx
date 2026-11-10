@@ -6,7 +6,9 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import Table from "../../components/common/Table";
 import StatsCard from "../../components/common/Statscard";
-import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW, TOOL_INPUT } from "./hrmsUi";
+import { CARD, CARD_TITLE, PAGE_BODY, STATS_ROW } from "./hrmsUi";
+import MonthSwitcher from "../../components/common/MonthSwitcher";
+import { todayIso } from "../../utils/localDate";
 import { formatMoney, formatNumber as companyFormatNumber } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -70,13 +72,7 @@ const DepartmentSummaryPage: React.FC = () => {
             <PageBreadcrumb
                 pageTitle="Department Summary"
                 actions={
-                    <input
-                        type="month"
-                        value={salaryMonth}
-                        onChange={(e) => setSalaryMonth(e.target.value)}
-                        className={TOOL_INPUT}
-                        aria-label={t("Payroll month")}
-                    />
+                    <MonthSwitcher value={salaryMonth} onChange={setSalaryMonth} max={todayIso().slice(0, 7)} ariaLabel={t("Payroll month")} />
                 }
             />
 

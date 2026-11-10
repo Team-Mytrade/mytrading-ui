@@ -41,6 +41,7 @@ import { todayIso } from "../../utils/localDate";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
+import ToolbarSelect from "../../components/common/ToolbarSelect";
 import { formatDate } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -190,7 +191,7 @@ const EmployeeRecordsPage: React.FC = () => {
         doc.text(`Generated: ${formatDate(new Date())}`, 14, 22);
         autoTable(doc, {
             head: [["Code", "Name", "Email", "Phone", "Department", "Designation", "Status"]],
-            body: employees.map(e => [
+            body: filtered.map(e => [
                 e.employeeCode,
                 `${e.firstName} ${e.lastName}`,
                 e.officialEmail,
@@ -209,7 +210,7 @@ const EmployeeRecordsPage: React.FC = () => {
     };
 
     const exportExcel = () => {
-        const ws = XLSX.utils.json_to_sheet(employees.map(e => ({
+        const ws = XLSX.utils.json_to_sheet(filtered.map(e => ({
             Code: e.employeeCode,
             Name: `${e.firstName} ${e.lastName}`,
             Email: e.officialEmail,
@@ -238,7 +239,14 @@ const EmployeeRecordsPage: React.FC = () => {
         return matchSearch && matchDept;
     });
 
-    const activeEmployees = safeEmployees.filter(e => e.active).length;
+    // The cards follow the department chosen ("" = all)
+    const inDepartment = selectedDept ? safeEmployees.filter(e => e.department?.name === selectedDept) : safeEmployees;
+    const activeEmployees = inDepartment.filter(e => e.active).length;
+    // The company's departments, plus any an employee is in but the list doesn't have
+    const departmentNames = Array.from(new Set([
+        ...(Array.isArray(departments) ? departments : []).map(d => d.name).filter(Boolean),
+        ...safeEmployees.map(e => e.department?.name).filter((n): n is string => Boolean(n)),
+    ])).sort((a, b) => a.localeCompare(b));
 
     const columns: ColumnDef<Employee>[] = [
         {
@@ -365,6 +373,10 @@ const EmployeeRecordsPage: React.FC = () => {
                 pageTitle="Employee Records"
                 actions={
                     <div className="flex items-center gap-2">
+                        <ToolbarSelect aria-label={t("Department")} value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
+                            <option value="">{t("All departments")}</option>
+                            {departmentNames.map(name => <option key={name} value={name}>{name}</option>)}
+                        </ToolbarSelect>
                         {/* Export Menu */}
                         <div ref={exportMenuRef} className="relative inline-flex items-center">
                             {canExport && (<button
@@ -416,12 +428,12 @@ const EmployeeRecordsPage: React.FC = () => {
 
             <div className={PAGE_BODY}>
                 <div className={STATS_ROW}>
-                    <StatsCard label={t("Total Employees")} value={safeEmployees.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
+                    <StatsCard label={t("Total Employees")} value={inDepartment.length} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<UserGroupIcon className="h-6 w-6" />} />
                     <StatsCard label={t("Active Employees")} value={activeEmployees} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<CheckCircleIcon className="h-6 w-6" />} />
                     <StatsCard label={t("Departments")} value={(Array.isArray(departments) ? departments : []).length} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
                     <StatsCard
                         label={t("Onboarded (30d)")}
-                        value={safeEmployees.filter(e => {
+                        value={inDepartment.filter(e => {
                             if (!e.createdAt) return false;
                             const thirtyDaysAgo = new Date();
                             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
