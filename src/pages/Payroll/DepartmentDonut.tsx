@@ -62,7 +62,9 @@ const DepartmentDonut: React.FC<{ slices: DonutSlice[]; totalLabel?: string; onS
   });
 
   return (
-    <div className="grid grid-cols-1 items-center gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
+    // Donut and legend sit together in the middle; the legend is kept to a readable width so its amounts stay
+    // close to the names instead of drifting to the far edge on wide screens
+    <div className="mx-auto grid w-full max-w-3xl grid-cols-1 items-center justify-center gap-6 sm:grid-cols-[auto_minmax(0,26rem)] sm:gap-10">
       <div className="relative mx-auto" style={{ width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img"
           aria-label={arcs.map((a) => `${a.name} ${Math.round(a.share)}%`).join(", ")}>

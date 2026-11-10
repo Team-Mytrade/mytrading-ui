@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Plus, 
   Sparkles, CheckCircle2, AlertCircle, FileText, Gift, Briefcase, UserCheck,
-  Maximize2, Minimize2, X, Loader2
+  Maximize2, Minimize2, X, Loader2,
+  CalendarDays,
 } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
@@ -41,6 +42,23 @@ const STATUS_LOOK: Record<string, { cell: string; accent: string; badge: string;
   // bg-[#fff], not bg-white: the app-wide card tint (index.css) would otherwise colour plain days like Present ones
   TODAY: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: 'bg-[rgb(var(--brand-600,0_151_167))] text-white', label: 'Today' },
   REGULAR: { cell: 'bg-[#fff] border-slate-200 dark:bg-[#222222] dark:border-[#303030]', accent: 'border-l-transparent', badge: '', label: '' },
+};
+
+/** Leave balance pills in the greeting: one soft colour per leave type, grey when nothing is left. */
+const LEAVE_TONE: Record<string, string> = {
+  CASUAL: 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
+  SICK: 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900',
+  EARNED: 'bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-900',
+  BIRTHDAY: 'bg-fuchsia-50 text-fuchsia-800 ring-fuchsia-200 dark:bg-fuchsia-950/40 dark:text-fuchsia-300 dark:ring-fuchsia-900',
+  COMPENSATORY_OFF: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
+  DEFAULT: 'bg-cyan-50 text-cyan-800 ring-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-900',
+  EMPTY: 'bg-slate-50 text-slate-400 ring-slate-200 dark:bg-[#1c1c1c] dark:text-gray-500 dark:ring-[#303030]',
+};
+
+/** A legend entry's colour: a plain dot in the status's colour (the badge's background). */
+const LegendDot: React.FC<{ status: string }> = ({ status }) => {
+  const colour = (STATUS_LOOK[status]?.badge || '').split(' ').find((c) => c.startsWith('bg-')) || 'bg-slate-400';
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${colour}`} aria-hidden="true" />;
 };
 
 export interface CalendarDayItem {
@@ -429,7 +447,8 @@ const EmployeeSelfServicePage: React.FC = () => {
       <div className="max-w-7xl mx-auto pb-8 space-y-5 animate-in fade-in duration-200">
         
         {/* Top Minimal Welcome Card with 1-Click Web Punch & Quick Apply Leave */}
-        <div className="bg-white dark:bg-[#191919] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#303030] shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
+        <div className="bg-white dark:bg-[#191919] rounded-2xl border border-slate-200/80 dark:border-[#303030] shadow-2xs overflow-hidden transition-all">
+        <div className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-[#222222] border border-slate-200/80 dark:border-[#303030] flex items-center justify-center text-slate-700 dark:text-gray-200 font-bold text-sm shrink-0 shadow-2xs">
               {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'RH'}
@@ -463,16 +482,8 @@ const EmployeeSelfServicePage: React.FC = () => {
                   </span>
                 )}
               </div>
-              <p className="text-slate-500 dark:text-gray-400 text-xs mt-1 flex items-center gap-2.5 flex-wrap">
-                <span>{t("{greeting}! Hope you have an awesome day.", { greeting })}</span>
-                <span className="hidden sm:inline text-slate-300 dark:text-gray-600">•</span>
-                <span className="text-slate-600 dark:text-gray-300 text-[11px]">
-                  {balances.length === 0 ? t('No leave policy assigned yet') : (
-                    <>Leave balance: {balances.map((b, i) => (
-                      <React.Fragment key={b.id}>{i > 0 && ', '}<strong className="text-slate-800 dark:text-white">{formatDays(freeDays(b))}</strong> {leaveTypeLabel(b.leaveType)}</React.Fragment>
-                    ))}</>
-                  )}
-                </span>
+              <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+                {greeting}{currentUser.name ? `, ${currentUser.name.split(' ')[0]}` : ''}! {t("Hope you have an awesome day.")}
               </p>
             </div>
           </div>
@@ -512,6 +523,28 @@ const EmployeeSelfServicePage: React.FC = () => {
                 <span>{t("Clock In")}</span>
               </button>
             )}
+          </div>
+        </div>
+
+          {/* Leave balance: its own highlighted strip, one coloured pill per leave type */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-cyan-100 bg-cyan-50/60 px-4 py-2.5 sm:px-5 dark:border-[#303030] dark:bg-cyan-950/20">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-cyan-800 dark:text-cyan-300">
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />{t("Leave balance")}
+            </span>
+            {balances.length === 0 ? (
+              <span className="text-xs text-slate-500 dark:text-gray-400">{t('No leave policy assigned yet')}</span>
+            ) : balances.map((b) => {
+              const days = freeDays(b);
+              // Each type its own colour; a type with nothing left is greyed out
+              const tone = days > 0 ? (LEAVE_TONE[b.leaveType] || LEAVE_TONE.DEFAULT) : LEAVE_TONE.EMPTY;
+              return (
+                <span key={b.id} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs ring-1 ring-inset ${tone}`}
+                  title={`${leaveTypeLabel(b.leaveType)}: ${formatDays(days)} ${t("day(s) left")}`}>
+                  <strong className="font-bold tabular-nums">{formatDays(days)}</strong>
+                  {leaveTypeLabel(b.leaveType)}
+                </span>
+              );
+            })}
           </div>
         </div>
 
@@ -743,8 +776,8 @@ const EmployeeSelfServicePage: React.FC = () => {
               {/* Legend: the same colours and short codes as the days */}
               <div className="pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center text-[10px] text-slate-600 dark:text-gray-400 font-medium flex-wrap gap-x-2.5 gap-y-1">
                 {['PRESENT', 'LATE', 'HALF_DAY', 'LEAVE', 'ABSENT', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'].map((s) => (
-                  <span key={s} className="inline-flex items-center gap-1">
-                    <span className={`rounded px-1 py-px text-[8px] font-bold ${STATUS_LOOK[s].badge}`}>{SHORT_CODE[s]}</span>
+                  <span key={s} className="inline-flex items-center gap-1.5">
+                    <LegendDot status={s} />
                     {t(STATUS_LOOK[s].label)}
                   </span>
                 ))}
@@ -812,7 +845,8 @@ const EmployeeSelfServicePage: React.FC = () => {
               <div className="px-6 py-2 bg-slate-50/50 dark:bg-[#222222] border-b border-slate-100 dark:border-[#303030] flex items-center justify-end flex-wrap gap-3.5 text-[11px] text-slate-500 dark:text-gray-400 font-normal shrink-0">
                 {['PRESENT', 'LATE', 'HALF_DAY', 'LEAVE', 'ABSENT', 'HOLIDAY', 'WEEK_OFF', 'ON_DUTY', 'WFH'].map((s) => (
                   <div key={s} className="flex items-center gap-1.5">
-                    <span className={`rounded px-1 py-px text-[8.5px] font-bold uppercase ${STATUS_LOOK[s].badge}`}>{t(STATUS_LOOK[s].label)}</span>
+                    <LegendDot status={s} />
+                    {t(STATUS_LOOK[s].label)}
                   </div>
                 ))}
               </div>
