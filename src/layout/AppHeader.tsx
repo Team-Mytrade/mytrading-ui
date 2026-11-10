@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePayrollRegion } from "../company/payrollRegion";
 import { Link, useNavigate } from "react-router";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
@@ -747,11 +748,12 @@ const AppHeader: React.FC = () => {
   // Search results: only the modules and pages this user may open (same filter as the sidebar), so a
   // user with Attendance alone no longer sees every module
   const { access } = useContext(AuthContext);
+  const payrollRegion = usePayrollRegion();
   const lang = useLanguage();
   // Recent picks may include pages from another login on this browser
   const visibleRecents = useMemo(() => recents.filter((r) => !r.path || canAccessPath(access, r.path.split("?")[0])), [recents, access]);
   const mainModules = useMemo<SearchResult[]>(() => {
-    return (filterNavItems(navItems, access) as any[]).map((item) => {
+    return (filterNavItems(navItems, access, payrollRegion) as any[]).map((item) => {
       const children: SearchResult[] = [];
 
       // Process subItems (one level or nested) into flyout children
@@ -795,7 +797,7 @@ const AppHeader: React.FC = () => {
     });
     // Labels are in the screen language
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [access, lang]);
+  }, [access, lang, payrollRegion]);
 
   // Actions — only shown while typing
   const actions = useMemo<SearchResult[]>(

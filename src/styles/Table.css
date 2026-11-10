@@ -142,3 +142,33 @@
   .common-data-table > div::-webkit-scrollbar-thumb { border-radius: 999px; background: #cbd5e1; }
   .common-data-table th { white-space: nowrap; }
 }
+
+/* Sideways scrolling: a slim scrollbar at every size, and a cue when columns sit off to the side */
+.common-data-table__scroll { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.common-data-table__scroll::-webkit-scrollbar { height: 8px; }
+.common-data-table__scroll::-webkit-scrollbar-thumb { border-radius: 999px; background: #cbd5e1; }
+.common-data-table__scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.dark .common-data-table__scroll { scrollbar-color: #3a3a3a transparent; }
+.dark .common-data-table__scroll::-webkit-scrollbar-thumb { background: #3a3a3a; }
+
+.common-data-table__more {
+  position: absolute;
+  top: 0;
+  bottom: 8px;
+  z-index: 3;
+  width: 36px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 11px;
+  color: #0e7490;
+  cursor: pointer;
+  border: 0;
+}
+.common-data-table__more--right { background: linear-gradient(to right, rgb(241 248 233 / 0), rgb(241 248 233 / 0.95) 60%); }
+.common-data-table__more--left { left: 0; background: linear-gradient(to left, rgb(241 248 233 / 0), rgb(241 248 233 / 0.95) 60%); }
+.common-data-table__more:hover { color: #155e75; }
+.common-data-table__more:focus-visible { outline: 2px solid #06b6d4; outline-offset: -2px; }
+.dark .common-data-table__more { color: #67e8f9; }
+.dark .common-data-table__more--right { background: linear-gradient(to right, rgb(25 25 25 / 0), rgb(25 25 25 / 0.95) 60%); }
+.dark .common-data-table__more--left { background: linear-gradient(to left, rgb(25 25 25 / 0), rgb(25 25 25 / 0.95) 60%); }

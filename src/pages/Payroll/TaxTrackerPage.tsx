@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { usePayrollRegion } from "../../company/payrollRegion";
+import GulfPayTrackerPage from "./GulfPayTrackerPage";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
@@ -95,7 +97,7 @@ const EmployeeCard: React.FC<{ person: EmployeeTax; onOpen: () => void }> = ({ p
 };
 
 /** Income tax across the company for the financial year: deducted so far and forecast for the months left. */
-const TaxTrackerPage: React.FC = () => {
+const IndiaTaxTrackerPage: React.FC = () => {
   const navigate = useNavigate();
   const { canApprove } = usePermissions();
   const [params, setParams] = useSearchParams();
@@ -253,5 +255,8 @@ const TaxTrackerPage: React.FC = () => {
     </>
   );
 };
+
+/** HR's tracker: income tax for an India company, pay / pension / gratuity for a Gulf one. */
+const TaxTrackerPage: React.FC = () => (usePayrollRegion() === "GCC" ? <GulfPayTrackerPage /> : <IndiaTaxTrackerPage />);
 
 export default TaxTrackerPage;

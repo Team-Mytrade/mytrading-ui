@@ -824,7 +824,27 @@ const LeavePolicyPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{t("Select Employees")}</label>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Select Employees")}</span>
+                    {employees.length > 0 && (
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          aria-label={t("Select all employees")}
+                          checked={employees.every(emp => selectedEmployeeIds.includes(emp.id))}
+                          ref={(el) => {
+                            if (el) {
+                              const chosen = employees.filter(emp => selectedEmployeeIds.includes(emp.id)).length;
+                              el.indeterminate = chosen > 0 && chosen < employees.length;
+                            }
+                          }}
+                          onChange={(e) => setSelectedEmployeeIds(e.target.checked ? employees.map(emp => emp.id) : [])}
+                          className="rounded text-purple-600"
+                        />
+                        {t("Select all")} <span className="font-normal text-gray-400 dark:text-gray-500">({employees.length})</span>
+                      </label>
+                    )}
+                  </div>
                   <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-[#303030] rounded-lg p-2 space-y-1 bg-gray-50 dark:bg-[#222222]">
                     {employees.length === 0 ? (
                       <p className="text-xs text-gray-400 dark:text-gray-500 italic p-2">{t("Loading employee list...")}</p>

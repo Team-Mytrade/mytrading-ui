@@ -663,9 +663,9 @@ const LeaveDashboardPage: React.FC = () => {
       ) 
     },
     { key: 'balanceAfter', label: 'After', sortable: true, render: (row) => <span className="font-extrabold text-gray-900 font-mono text-xs whitespace-nowrap">{row.balanceAfter ?? (10 + row.adjustmentLeaves)}d</span> },
-    { key: 'remarks', label: 'Remarks', render: (row) => <span className="text-xs text-gray-600 truncate max-w-[140px] block" title={row.remarks}>{row.remarks}</span> },
+    { key: 'remarks', label: 'Remarks', render: (row) => <span className="text-xs text-gray-600 line-clamp-2 break-words" title={row.remarks}>{row.remarks}</span> },
     { key: 'adjustedBy', label: 'By', render: (row) => (
-        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-gray-100 text-gray-700 border border-gray-200/80 truncate max-w-[90px] inline-block" title={row.adjustedBy || 'ADMIN'}>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-gray-100 text-gray-700 border border-gray-200/80 truncate max-w-full inline-block" title={row.adjustedBy || 'ADMIN'}>
           {row.adjustedBy ? (row.adjustedBy.includes('-') ? row.adjustedBy.split('-').slice(0, 2).join('-') : row.adjustedBy) : 'ADMIN'}
         </span>
       ) 
@@ -697,7 +697,7 @@ const LeaveDashboardPage: React.FC = () => {
     },
     { key: 'balanceBefore', label: 'Before', render: (row) => <span className="font-mono text-xs text-gray-500 whitespace-nowrap">{row.balanceBefore ?? 10}d</span> },
     { key: 'balanceAfter', label: 'After', render: (row) => <span className="font-mono text-xs font-bold text-gray-900 whitespace-nowrap">{row.balanceAfter ?? 8}d</span> },
-    { key: 'remarks', label: 'Remarks', render: (row) => <span className="text-xs text-gray-600 truncate max-w-[200px] sm:max-w-[300px] block" title={row.remarks || 'Leave movement recorded'}>{row.remarks || 'Leave movement recorded'}</span> }
+    { key: 'remarks', label: 'Remarks', render: (row) => <span className="text-xs text-gray-600 line-clamp-2 break-words" title={row.remarks || 'Leave movement recorded'}>{row.remarks || 'Leave movement recorded'}</span> }
   ];
 
   return (

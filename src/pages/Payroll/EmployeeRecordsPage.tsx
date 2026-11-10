@@ -289,8 +289,9 @@ const EmployeeRecordsPage: React.FC = () => {
         {
             key: "contact",
             label: "Contact",
+            minWidth: 260, // whole work e-mail addresses
             render: (row) => (
-                <div className="space-y-1 max-w-[120px]">
+                <div className="space-y-1 max-w-full">
                     <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.officialEmail || ""}>
                         <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
                         <span className="truncate">{row.officialEmail || "—"}</span>

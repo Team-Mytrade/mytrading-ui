@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { usePayrollRegion } from "../../company/payrollRegion";
+import GulfSalaryPage from "./GulfSalaryPage";
 import axios from "axios";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeftIcon, DocumentArrowDownIcon, EyeIcon, FolderArrowDownIcon, MinusIcon } from "@heroicons/react/24/outline";
@@ -16,7 +18,7 @@ import { RegimePill } from "./TaxTrackerPage";
 import { EmployeeTaxDetail, MonthLine, SalaryStructure, TAX_TRACKER_API, chartColors, initials, isDarkTheme, money, monthLabel, paidShare } from "./taxTracker";
 
 // Payslip downloads ask for a blob, so an error's JSON body arrives as one too
-const blobError = async (err: unknown, fallback: string) => {
+export const blobError = async (err: unknown, fallback: string) => {
   const data = (err as { response?: { data?: unknown } })?.response?.data;
   if (data instanceof Blob) {
     try {
@@ -29,7 +31,7 @@ const blobError = async (err: unknown, fallback: string) => {
   return apiError(err, fallback);
 };
 
-const ICON_BUTTON =
+export const ICON_BUTTON =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:border-gray-700 dark:bg-[#191919] dark:text-gray-300 dark:hover:bg-cyan-950/40";
 
 // A small wave that rises (tax went up) or falls (tax went down), ending in an arrow head
@@ -63,7 +65,7 @@ const ChangeChip: React.FC<{ tax: number; previous: MonthLine | null }> = ({ tax
 };
 
 /** How the month's take-home compares with the month before: green wave up (more pay), red wave down (less). */
-const TakeHomeChip: React.FC<{ takeHome: number; previous: MonthLine | null; size?: "sm" | "md" }> = ({ takeHome, previous, size = "sm" }) => {
+export const TakeHomeChip: React.FC<{ takeHome: number; previous: { month: string; takeHome: number } | null; size?: "sm" | "md" }> = ({ takeHome, previous, size = "sm" }) => {
   if (!previous) return null;
   const before = Number(previous.takeHome) || 0;
   const diff = Math.round((Number(takeHome) || 0) - before);
@@ -101,7 +103,7 @@ const TaxTile: React.FC<{ line: MonthLine; previous: MonthLine | null; selected:
   );
 };
 
-const Row: React.FC<{ label: React.ReactNode; value: string; strong?: boolean; muted?: boolean; topLine?: boolean }> = ({ label, value, strong, muted, topLine }) => (
+export const Row: React.FC<{ label: React.ReactNode; value: string; strong?: boolean; muted?: boolean; topLine?: boolean }> = ({ label, value, strong, muted, topLine }) => (
   <div className={`flex items-center justify-between gap-3 py-1 text-sm ${topLine ? "mt-1 border-t border-slate-100 pt-2 dark:border-gray-800" : ""} ${strong ? "font-semibold text-slate-900 dark:text-white" : muted ? "text-slate-500 dark:text-gray-400" : "text-slate-700 dark:text-gray-200"}`}>
     <span className="min-w-0">{label}</span>
     <span className="shrink-0 tabular-nums">{value}</span>
@@ -190,7 +192,7 @@ const MonthPayCard: React.FC<{ line: MonthLine; previous: MonthLine | null; onPr
   );
 };
 
-const Metric: React.FC<{ label: string; value: string; note?: string }> = ({ label, value, note }) => (
+export const Metric: React.FC<{ label: string; value: string; note?: string }> = ({ label, value, note }) => (
   <div className={`${CARD} p-3`}>
     <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-gray-400">{label}</div>
     <div className="mt-0.5 text-xl font-semibold text-slate-900 dark:text-white tabular-nums">{value}</div>
@@ -203,7 +205,7 @@ const Metric: React.FC<{ label: string; value: string; note?: string }> = ({ lab
  * the income tax month by month (paid and forecast). "My Salary" for the employee (/mySalary); HR opens anyone's
  * from the Tax Tracker (/taxTracker/:id).
  */
-const TaxTrackerEmployeePage: React.FC = () => {
+const IndiaSalaryPage: React.FC = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
   const navigate = useNavigate();
   const { canApprove } = usePermissions();
@@ -389,5 +391,8 @@ const TaxTrackerEmployeePage: React.FC = () => {
     </>
   );
 };
+
+/** My Salary (and HR's view of an employee): the India page (tax) or the Gulf one (pension, gratuity), by company. */
+const TaxTrackerEmployeePage: React.FC = () => (usePayrollRegion() === "GCC" ? <GulfSalaryPage /> : <IndiaSalaryPage />);
 
 export default TaxTrackerEmployeePage;
