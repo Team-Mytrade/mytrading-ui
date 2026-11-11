@@ -99,13 +99,13 @@ export default function ReportsDashboard() {
   const cards: ReportCard[] = ([
     { name: "Sales Dashboard", description: "Orders, revenue and top products", route: "/sales-dashboard", icon: ShoppingCart, module: "SALES", tone: "emerald",
       figure: sales ? t("{amount} · {count} orders", { amount: money(sales.totalSales), count: formatNumber(num(sales.totalOrders)) }) : undefined },
-    { name: "Purchase Reports", description: "Spend by month, vendor and turnaround", route: "/purchase-reports", icon: ClipboardList, module: "PURCHASE", tone: "indigo",
+    { name: "Purchase Reports", description: "Purchases, open orders, goods not billed and vendors", route: "/reports/purchase", icon: ClipboardList, module: "PURCHASE", tone: "indigo",
       figure: data.orders ? t("{amount} · {count} orders", { amount: money(purchaseTotal), count: formatNumber(orders.length) }) : undefined },
-    { name: "Inventory Report", description: "Stock, valuation, movements and expiry", route: "/inventory-report", icon: Boxes, module: "INVENTORY", tone: "amber",
+    { name: "Inventory Reports", description: "Stock, valuation, aging, ABC and expiry", route: "/reports/inventory", icon: Boxes, module: "INVENTORY", tone: "amber",
       figure: data.stock ? t("{amount} · {count} low", { amount: money(stockValue), count: formatNumber(lowStock) }) : undefined },
-    { name: "Finance Report", description: "Billed, collected and overdue", route: "/financeReport", icon: Landmark, module: "INVOICE", tone: "cyan",
+    { name: "Finance Reports", description: "Books, ledgers, receivables and statements", route: "/reports/finance", icon: Landmark, module: "INVOICE", tone: "cyan",
       figure: finance ? t("{amount} outstanding", { amount: money(finance.outstandingAmount) }) : undefined },
-    { name: "Tax Report", description: "GST charged on sales invoices by month", route: "/taxReport", icon: Percent, module: "INVOICE", tone: "teal",
+    { name: "VAT Return", description: "Output and input VAT for any period, box by box", route: "/vatReturn", icon: Percent, module: "INVOICE", tone: "teal",
       figure: tax ? t("{amount} tax", { amount: money(tax.totalTaxAmount) }) : undefined },
     { name: "CRM Reports", description: "Leads, deals and activity", route: "/crm-reports", icon: Users, module: "CRM", tone: "purple" },
   ] as ReportCard[]).filter((c) => hasModule(access, c.module));

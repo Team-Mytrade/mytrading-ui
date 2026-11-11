@@ -97,8 +97,8 @@ export default function InvoiceDashboard() {
     { name: "Purchase Invoices", count: countOrNull("purchaseInvoices"), icon: FileText, route: "/purchaseInvoices", tone: "blue" as const },
     { name: "Vendor Payments", count: countOrNull("vendorPayments"), icon: Banknote, route: "/vendorPayments", tone: "orange" as const },
     { name: "Accounts Payable", count: data.payables ? openPayables.length : null, icon: Wallet, route: "/accountsPayable", tone: "purple" as const },
-    { name: "Finance Report", icon: BarChart3, route: "/financeReport", tone: "indigo" as const },
-    { name: "Tax Report", icon: Percent, route: "/taxReport", tone: "teal" as const },
+    { name: "Finance Reports", icon: BarChart3, route: "/reports/finance", tone: "indigo" as const },
+    { name: "VAT Return", icon: Percent, route: "/vatReturn", tone: "teal" as const },
   ];
 
   return (

@@ -78,20 +78,25 @@ export const REPORT_TOPICS: HelpTopic[] = [
   {
     id: "report-center",
     route: "/reports",
+    aliases: ["/reports/sales", "/reports/purchase", "/reports/inventory", "/reports/finance", "/reports/hr"],
     module: "Reports",
     title: "Report Center",
-    summary: "Every business report in one place, grouped into Sales, Purchase & payables, Finance books and HR & stock. You see only the reports your rights let you open.",
+    summary: "The business reports, by module: Sales, Purchase, Inventory, Finance and HR & Payroll. All reports lists every one; each module's entry lists just its own. You see only the reports your rights let you open.",
     who: [{ role: "Everyone", can: "The reports of the modules they can open." }],
     tasks: [
       {
         title: "Open a report",
         steps: [
-          "Find the report under its group, or type in Search reports.",
-          "Click it to open it. Reports marked Excel · PDF · Print share the same filters and can be exported or printed with the company header.",
+          "In the menu, open Reports and pick a module (Sales, Purchase, Inventory, Finance or HR & Payroll) to see its reports, or All reports to see every one.",
+          "Type in Search reports to find one by name. On All reports, Only these opens a module's own page.",
+          "Click a report to open it. Reports marked Excel · PDF · Print share the same filters and can be exported or printed with the company header.",
         ],
       },
     ],
-    rules: ["A module's report needs that module's access; the sales reports open with Sales or Invoice access."],
+    rules: [
+      "A module's report needs that module's access; the sales reports open with Sales or Invoice access.",
+      "A module shows in the menu only when you can open at least one of its reports.",
+    ],
     related: [
       { route: "/reports/sales-register", label: "Sales Register" },
       { route: "/reports/sales-analysis", label: "Sales Analysis" },
@@ -819,20 +824,6 @@ export const REPORT_TOPICS: HelpTopic[] = [
     ],
   },
   {
-    id: "purchase-reports",
-    route: "/purchase-reports",
-    module: "Reports",
-    title: "Purchase Reports",
-    summary: "Spend on approved purchase orders: by vendor, month by month for the last 12 months, and how long fully received orders took to arrive.",
-    who: moduleReader("Purchase"),
-    tasks: [{ title: "Read it", steps: ["The cards show Total Spend, Best Month, Avg Turnaround and Vendors; below are the trend, spend by vendor and the turnaround of each order."] }],
-    rules: ["Drafts and cancelled orders are left out."],
-    related: [
-      { route: "/purchase-service/orders", label: "Purchase Orders" },
-      { route: "/common/vendors", label: "Vendors" },
-    ],
-  },
-  {
     id: "inventory-report",
     route: "/inventory-report",
     module: "Reports",
@@ -851,33 +842,6 @@ export const REPORT_TOPICS: HelpTopic[] = [
     related: [
       { route: "/inventory", label: "Stock on Hand" },
       { route: "/purchase-service/reorder", label: "Reorder Suggestions" },
-    ],
-  },
-  {
-    id: "finance-report",
-    route: "/financeReport",
-    module: "Reports",
-    title: "Finance Report",
-    summary: "Issued sales invoices at a glance: invoiced, collected, outstanding and overdue, by month and by status, with the overdue list.",
-    who: moduleReader("Invoice"),
-    tasks: [{ title: "Read it", steps: ["The cards show Invoiced, Collected, Outstanding and Overdue; the overdue list shows each invoice's balance."] }],
-    rules: ["Drafts and cancelled invoices are left out."],
-    related: [
-      { route: "/accountsReceivable", label: "Accounts Receivable" },
-      { route: "/financialStatements", label: "Financial Statements" },
-    ],
-  },
-  {
-    id: "tax-report",
-    route: "/taxReport",
-    module: "Reports",
-    title: "Tax Report",
-    summary: "Tax charged on issued sales invoices: taxable value, tax, invoice total and the effective rate, month by month.",
-    who: moduleReader("Invoice"),
-    tasks: [{ title: "Read it", steps: ["Read the totals and Tax charged by month. Tax paid on purchases is on Tax Records."] }],
-    related: [
-      { route: "/vatReturn", label: "VAT Return" },
-      { route: "/taxRecords", label: "Tax Records" },
     ],
   },
   {

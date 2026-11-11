@@ -65,7 +65,6 @@ const ApprovalLimits = lazy(() => import("./pages/purchase-service/ApprovalLimit
 const CostCentres = lazy(() => import("./pages/Invoice/CostCentres"));
 const Budgets = lazy(() => import("./pages/Invoice/Budgets"));
 const FixedAssets = lazy(() => import("./pages/Invoice/FixedAssets"));
-const PurchaseReports = lazy(() => import("./pages/Purchase/PurchaseReports"));
 const DeliveryOrderPage = lazy(() => import("./pages/Delivery/DeliveryOrderPage"));
 const TransporterPage = lazy(() => import("./pages/Delivery/TransporterPage"));
 const VehiclePage = lazy(() => import("./pages/Delivery/VehiclePage"));
@@ -225,9 +224,7 @@ const ZatcaSettings = lazy(() => import("./pages/Invoice/ZatcaSettings"));
 const UaeEInvoicing = lazy(() => import("./pages/Invoice/UaeEInvoicing"));
 const ExpenseRevenue = lazy(() => import("./pages/Invoice/ExpenseRevenue"));
 const AccountsReceivable = lazy(() => import("./pages/Invoice/AccountsReceivable"));
-const TaxReport = lazy(() => import("./pages/reports/TaxReport"));
 const VatReturn = lazy(() => import("./pages/reports/VatReturn"));
-const FinanceReport = lazy(() => import("./pages/reports/FinanceReport"));
 const ReportCenter = lazy(() => import("./pages/reports/center/ReportCenter"));
 const SalesRegister = lazy(() => import("./pages/reports/center/SalesRegister"));
 const SalesAnalysis = lazy(() => import("./pages/reports/center/SalesAnalysis"));
@@ -370,7 +367,7 @@ export default function AppRouter() {
           <Route path="/deliveries" element={<Deliveries />} />
           <Route path="/goods-receipt-notes" element={<Navigate to="/purchase-service/goods-receipt-notes" replace />} />
           <Route path="/purchase-inventory" element={<Navigate to="/inventory" replace />} />
-          <Route path="/purchase-reports" element={<PurchaseReports />} />
+          <Route path="/purchase-reports" element={<Navigate to="/reports/purchase-analysis" replace />} />
           <Route path="/purchase_dashboard" element={<ProcurementDashboard />} />
 
           <Route path="/purchaseRequisition" element={<Navigate to="/purchase-service/requisitions" replace />} />
@@ -416,10 +413,15 @@ export default function AppRouter() {
           <Route path="/uae-einvoicing" element={<UaeEInvoicing />} />
           <Route path="/expenseRevenue" element={<ExpenseRevenue />} />
           <Route path="/accountsReceivable" element={<AccountsReceivable />} />
-          <Route path="/taxReport" element={<TaxReport />} />
+          <Route path="/taxReport" element={<Navigate to="/vatReturn" replace />} />
           <Route path="/vatReturn" element={<VatReturn />} />
-          <Route path="/financeReport" element={<FinanceReport />} />
+          <Route path="/financeReport" element={<Navigate to="/accountsReceivable" replace />} />
           <Route path="/reports" element={<ReportCenter />} />
+          <Route path="/reports/sales" element={<ReportCenter module="sales" />} />
+          <Route path="/reports/purchase" element={<ReportCenter module="purchase" />} />
+          <Route path="/reports/inventory" element={<ReportCenter module="inventory" />} />
+          <Route path="/reports/finance" element={<ReportCenter module="finance" />} />
+          <Route path="/reports/hr" element={<ReportCenter module="hr" />} />
           <Route path="/reports/sales-register" element={<SalesRegister />} />
           <Route path="/reports/sales-analysis" element={<SalesAnalysis />} />
           <Route path="/reports/open-orders" element={<OpenOrdersReport />} />
