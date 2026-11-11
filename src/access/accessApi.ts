@@ -41,6 +41,15 @@ export interface RoleAccess {
   grantable: boolean;
   // Users who have the role (when the server sends it)
   userCount?: number;
+  // Pages the role narrows below its module rights (none: every page follows the module)
+  pageLimits?: PageLimit[];
+}
+
+/** A role's limit on one menu page: the actions it allows there (VIEW … EXPORT); empty = the page is hidden. */
+export interface PageLimit {
+  pageKey: string;
+  module: string;
+  actions: string[];
 }
 
 export interface ManagedUser {
@@ -159,10 +168,10 @@ export const userAdminApi = {
   roles: () => axios.get<RoleAccess[]>(`${ACCESS}/roles`).then((r) => r.data),
   modules: () => axios.get<AppModule[]>(`${ACCESS}/modules`).then((r) => r.data),
   grantable: () => axios.get<string[]>(`${ACCESS}/grantable`).then((r) => r.data),
-  createRole: (roleName: string, permissions: string[]) =>
-    axios.post<RoleAccess>(`${ACCESS}/roles`, { roleName, permissions }).then((r) => r.data),
-  updateRole: (roleId: number, roleName: string, permissions: string[]) =>
-    axios.put<RoleAccess>(`${ACCESS}/roles/${roleId}`, { roleName, permissions }).then((r) => r.data),
+  createRole: (roleName: string, permissions: string[], pageLimits: PageLimit[] = []) =>
+    axios.post<RoleAccess>(`${ACCESS}/roles`, { roleName, permissions, pageLimits }).then((r) => r.data),
+  updateRole: (roleId: number, roleName: string, permissions: string[], pageLimits: PageLimit[] = []) =>
+    axios.put<RoleAccess>(`${ACCESS}/roles/${roleId}`, { roleName, permissions, pageLimits }).then((r) => r.data),
   deleteRole: (roleId: number) => axios.delete(`${ACCESS}/roles/${roleId}`),
 };
 
