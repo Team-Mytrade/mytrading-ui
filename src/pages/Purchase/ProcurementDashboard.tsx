@@ -159,7 +159,7 @@ const ProcurementDashboard: React.FC = () => {
     { name: "Products", count: countOrNull("products"), icon: Package, route: "/common/products", tone: "purple" as const },
     { name: "Terms and Conditions", count: countOrNull("terms"), icon: ScrollText, route: "/terms-and-conditions", tone: "indigo" as const },
     { name: "Deliveries", count: countOrNull("deliveries"), icon: Calendar, route: "/deliveries", tone: "red" as const },
-    { name: "Purchase Reports", icon: BarChart3, route: "/purchase-reports", tone: "teal" as const },
+    { name: "Purchase Reports", icon: BarChart3, route: "/reports/purchase", tone: "teal" as const },
   ];
 
   const pipeline = [

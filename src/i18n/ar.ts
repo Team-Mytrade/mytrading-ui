@@ -7501,6 +7501,20 @@ export const ar: Record<string, string> = {
   "No deliveries with a due date in this period": "لا توجد تسليمات لها تاريخ استحقاق في هذه الفترة",
   "Goods receipts in the period. On time: received on or before the order's expected delivery date. Rejected: quantity refused at receipt. Price vs average: what the vendor charged against the average paid to any vendor for the same products, for products bought from more than one; minus is cheaper.":
     "إيصالات الاستلام في الفترة. في الموعد: استُلم في تاريخ التسليم المتوقع للأمر أو قبله. المرفوض: الكمية المرفوضة عند الاستلام. السعر مقابل المتوسط: ما تقاضاه المورد مقارنة بمتوسط ما دُفع لأي مورد عن المنتجات نفسها، للمنتجات المشتراة من أكثر من مورد؛ والسالب أرخص.",
+  // ---------------- Report Center: reports by module ----------------
+  "All reports": "كل التقارير",
+  "Only these": "هذه فقط",
+  "Finance Reports": "التقارير المالية",
+  "Purchases, open orders, goods not billed and vendors": "المشتريات والأوامر المفتوحة والبضائع غير المفوترة والموردون",
+  "Stock, valuation, aging, ABC and expiry": "المخزون والتقييم والأعمار وتحليل ABC والانتهاء",
+  "Books, ledgers, receivables and statements": "الدفاتر والحسابات والذمم المدينة والقوائم",
+  "Output and input VAT for any period, box by box": "ضريبة المخرجات والمدخلات لأي فترة، خانةً بخانة",
+  "What you sold, to whom, who sold it and what it earned": "ما بعته ولمن ومن باعه وما حققه",
+  "What you bought, from whom, and what is still to come or to bill": "ما اشتريته ومن مَن، وما بقي استلامه أو فوترته",
+  "What you hold, how old it is and what moves": "ما لديك من مخزون، وعمره، وما يتحرك منه",
+  "Books, ledgers, statements, tax and cash": "الدفاتر والحسابات والقوائم والضريبة والنقدية",
+  "People, pay, leave and attendance": "الموظفون والرواتب والإجازات والحضور",
+
   // ---------------- Report Center: HR & stock (8.2.1.6) ----------------
   Headcount: "عدد الموظفين",
   "Headcount, joiners and leavers by department and month": "عدد الموظفين والمنضمين والمغادرين حسب القسم والشهر",

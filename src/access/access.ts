@@ -1,5 +1,6 @@
 // Client-side view of the RBAC model enforced by the backend (see my-trading/docs/RBAC.md).
 // The server is the authority; this only decides what to show.
+import { reportModuleFor, reportsOfModule } from "../pages/reports/center/reportCatalogue";
 
 export const APP_MODULES = [
   "CRM",
@@ -372,6 +373,9 @@ const routePermissionOk = (access: AccessInfo, pathname: string): boolean => {
 };
 
 export const canAccessPath = (access: AccessInfo, pathname: string): boolean => {
+  // A module's report page (Reports → Sales, …): open when the user may open one of its reports
+  const reportModule = reportModuleFor(pathname);
+  if (reportModule) return reportsOfModule(reportModule.module).some((r) => canAccessPath(access, r.path));
   if (!access.superAdmin && !routePermissionOk(access, pathname)) return false;
   const selfService = isSelfServicePath(pathname);
   if (selfService) {

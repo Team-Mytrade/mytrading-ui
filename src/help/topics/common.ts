@@ -311,7 +311,7 @@ export const COMMON_TOPICS: HelpTopic[] = [
     related: [
       { route: "/common/products", label: "Products" },
       { route: "/vatReturn", label: "VAT Return" },
-      { route: "/taxReport", label: "Tax Report" },
+      { route: "/reports/sales-register", label: "Sales Register" },
     ],
   },
   {

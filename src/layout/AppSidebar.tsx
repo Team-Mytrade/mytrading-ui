@@ -105,6 +105,7 @@ import { PayrollRegion, usePayrollRegion } from "../company/payrollRegion";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 import { AccessInfo, canAccessPath, hasPermission } from "../access/access";
+import { REPORTS, reportModuleFor } from "../pages/reports/center/reportCatalogue";
 import "../styles/AppSidebar.css";
 import { publicAsset } from "../utils/assets";
 import { isRightToLeft, t, useLanguage } from "../i18n/i18n";
@@ -388,14 +389,15 @@ export const navItems: NavItem[] = [
     icon: <BarChart3 className="w-5 h-5" />,
     name: "Reports",
     subItems: [
-      // The Report Center lists every report; then business reports in flow order (CRM, payroll and attendance
-      // reports are also inside their modules)
-      { name: "Report Center", path: "/reports", icon: LayoutDashboard },
-      { name: "Purchase Reports", path: "/purchase-reports", icon: ClipboardList },
-      { name: "Inventory Report", path: "/inventory-report", icon: Boxes },
-      { name: "Finance Report", path: "/financeReport", icon: Landmark },
-      { name: "Tax Report", path: "/taxReport", icon: Percent },
-      { name: "VAT Return", path: "/vatReturn", icon: Receipt },
+      // All reports (with search), then one page per module in flow order; each module page lists that module's
+      // reports, the older module report pages included (CRM, payroll and attendance reports are also in their menus).
+      // A module shows only when the user can open one of its reports (canAccessPath, access.ts).
+      { name: "All reports", path: "/reports", icon: LayoutDashboard },
+      { name: "Sales", path: "/reports/sales", icon: ShoppingCart },
+      { name: "Purchase", path: "/reports/purchase", icon: ClipboardList },
+      { name: "Inventory", path: "/reports/inventory", icon: Boxes },
+      { name: "Finance", path: "/reports/finance", icon: Landmark },
+      { name: "HR & Payroll", path: "/reports/hr", icon: Users },
     ],
   },
 
@@ -511,6 +513,13 @@ const AppSidebar: React.FC = () => {
 
   const isActive = useCallback(
     (path: string) => {
+      // Reports: All reports only on its own page; a module (Reports → Sales, …) on its page and its Report Center reports
+      if (path === "/reports") return location.pathname === path;
+      const reportModule = reportModuleFor(path);
+      if (reportModule) {
+        return location.pathname === path || REPORTS.some((r) => r.module === reportModule.module && r.path.startsWith("/reports/")
+          && (location.pathname === r.path || location.pathname.startsWith(`${r.path}/`)));
+      }
       if (location.pathname === path || location.pathname.startsWith(`${path}/`)) {
         return true;
       }

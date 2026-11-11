@@ -272,7 +272,7 @@ export const AR_COMMON: Record<string, TopicText> = {
       { name: "نشط", meaning: "يُعرض في المنتجات والمستندات." },
       { name: "غير نشط", meaning: "يُحتفظ به للمستندات القديمة فقط." },
     ],
-    related: [{ label: "المنتجات" }, { label: "إقرار ضريبة القيمة المضافة" }, { label: "التقرير الضريبي" }],
+    related: [{ label: "المنتجات" }, { label: "إقرار ضريبة القيمة المضافة" }, { label: "سجل المبيعات" }],
   },
   "tax-details": {
     title: "تفاصيل الضرائب",
