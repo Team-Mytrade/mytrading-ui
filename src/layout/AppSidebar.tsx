@@ -101,7 +101,7 @@ import {
   Calculator,
   CircleHelp,
 } from "lucide-react";
-import { PayrollRegion, usePayrollRegion } from "../company/payrollRegion";
+import { CompanyPlace, pageForPlace, useCompanyPlace } from "../company/payrollRegion";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 import { AccessInfo, canAccessPath, hasPermission } from "../access/access";
@@ -117,8 +117,6 @@ type SubItem = {
   path?: string;
   subItems?: { name: string; path: string; icon?: LucideIcon }[];
   permission?: string;
-  // Only for companies on these payroll rules (company country); none = everyone
-  regions?: PayrollRegion[];
   // The item's name for Gulf companies, when it differs
   gulfName?: string;
   // Shown before the item; consecutive items with the same section are grouped under one heading
@@ -135,9 +133,11 @@ type NavItem = {
 };
 
 /** The menu a user may see; the header search uses the same filter so it never offers a hidden page. */
-export const filterNavItems = (items: NavItem[], access: AccessInfo, region: PayrollRegion = "IN"): NavItem[] => {
-  // "A|B": any one of the permissions
+export const filterNavItems = (items: NavItem[], access: AccessInfo, place: CompanyPlace = { region: "IN", country: "" }): NavItem[] => {
+  const region = place.region;
+  // "A|B": any one of the permissions; pages for other countries (REGIONAL_PAGES) are left out
   const visible = (path?: string, permission?: string) =>
+    pageForPlace(path, place) &&
     (!path || canAccessPath(access, path)) && (!permission || permission.split("|").some((p) => hasPermission(access, p)));
 
   return items.flatMap((nav) => {
@@ -145,7 +145,6 @@ export const filterNavItems = (items: NavItem[], access: AccessInfo, region: Pay
     if (!nav.subItems) return visible(nav.path) ? [nav] : [];
 
     const subItems = nav.subItems.flatMap((sub) => {
-      if (sub.regions && !sub.regions.includes(region)) return [];
       if (region === "GCC" && sub.gulfName) sub = { ...sub, name: sub.gulfName };
       if (!sub.subItems) return visible(sub.path, sub.permission) ? [sub] : [];
       const nested = sub.subItems.filter((ss) => visible(ss.path, sub.permission));
@@ -331,7 +330,7 @@ export const navItems: NavItem[] = [
       { name: "Compensation", path: "/employeeCompensation", permission: "HRM:APPROVE", icon: Coins, section: "Payroll" },
       { name: "Salary Structure", path: "/salaryStructure", permission: "HRM:APPROVE", icon: Layers, section: "Payroll" },
       { name: "Salary", path: "/employeeSalary", permission: "HRM:APPROVE", icon: Banknote, section: "Payroll" },
-      { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll", regions: ["IN"] },
+      { name: "IT Declaration", path: "/it-declaration", icon: FileCheck, section: "Payroll" },
       { name: "Payroll Engine", path: "/payrollEngine", permission: "HRM:APPROVE", icon: Settings2, section: "Payroll" },
       { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
       { name: "My Salary", path: "/mySalary", icon: Wallet, section: "Payroll" },
@@ -487,8 +486,12 @@ const AppSidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, access, loading: authLoading, profileImage: sharedProfileImage, hasProfileImage } = useContext(AuthContext);
-  const payrollRegion = usePayrollRegion();
-  const visibleNavItems = useMemo(() => filterNavItems(navItems, access, payrollRegion), [access, payrollRegion]);
+  const place = useCompanyPlace();
+  const { region: placeRegion, country: placeCountry } = place;
+  const visibleNavItems = useMemo(
+    () => filterNavItems(navItems, access, { region: placeRegion, country: placeCountry }),
+    [access, placeRegion, placeCountry],
+  );
   // Names are translated as they are drawn; Arabic also puts the sidebar on the right
   useLanguage();
   const rightToLeft = isRightToLeft();

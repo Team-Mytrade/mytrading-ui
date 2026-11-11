@@ -8,8 +8,10 @@ import { canAccessPath } from "../../access/access";
 import { t } from "../../i18n/i18n";
 import HelpContent from "../../help/HelpContent";
 import { HELP_MODULES, helpFlowById, helpTopicById, searchHelp } from "../../help";
-import { localizeFlow, localizeTopic, textDirection, useHelpTranslation } from "../../help/translations";
-import type { HelpFlow, HelpTopic } from "../../help/types";
+import { shownFlow as showFlow, shownTopic as showTopic, textDirection, useHelpTranslation } from "../../help/translations";
+import { HELP_REGIONS, HelpRegionContext, REGION_NAME, useHelpRegion } from "../../help/region";
+import { usePayrollRegion } from "../../company/payrollRegion";
+import type { HelpFlow, HelpRegion, HelpTopic } from "../../help/types";
 
 // Help Center (backlog 8.1): the user manual (end-to-end flows), every page's help by module, and search.
 // Lists only the pages the signed-in person can open.
@@ -25,7 +27,7 @@ const BackToHelp = () => (
 );
 
 const FlowView = ({ flow: english }: { flow: HelpFlow }) => {
-  const { flow, translated } = localizeFlow(english, useHelpTranslation());
+  const { flow, translated } = showFlow(english, useHelpTranslation(), useHelpRegion());
   return (
   <div className={CARD} {...textDirection(translated)}>
     <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{flow.title}</h2>
@@ -59,7 +61,7 @@ const FlowView = ({ flow: english }: { flow: HelpFlow }) => {
 const TopicView = ({ topic }: { topic: HelpTopic }) => (
   <div className={CARD}>
     <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{localizeTopic(topic, useHelpTranslation()).topic.title}</h2>
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{showTopic(topic, useHelpTranslation(), useHelpRegion()).topic.title}</h2>
       <Link to={topic.route} className={`${LINK} text-sm`}>
         {t("Open this page")}
       </Link>
@@ -68,15 +70,53 @@ const TopicView = ({ topic }: { topic: HelpTopic }) => (
   </div>
 );
 
+const REGION_KEY = "help-center-region";
+
+/** Help for India or for the Gulf: the company's region first, marked as such. */
+const RegionSwitch = ({ region, company, onChange }: { region: HelpRegion; company: HelpRegion; onChange: (r: HelpRegion) => void }) => (
+  <div className="flex shrink-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+    <span>{t("Help for")}</span>
+    <div role="radiogroup" aria-label={t("Help for")} className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 dark:border-gray-700 dark:bg-gray-900">
+      {HELP_REGIONS.map((r) => (
+        <button key={r} type="button" role="radio" aria-checked={region === r} onClick={() => onChange(r)}
+          className={`rounded-md px-2.5 py-1 font-medium transition ${region === r ? "bg-brand-500 text-white" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"}`}>
+          {t(REGION_NAME[r])}{r === company ? ` (${t("your company")})` : ""}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
 export default function HelpCenterPage() {
   const { topicId, flowId } = useParams();
   const { access } = useContext(AuthContext);
   const [query, setQuery] = useState("");
   const translation = useHelpTranslation();
+  // Help for the company's country (India or the Gulf); the reader may look at the other region's help
+  const companyRegion = usePayrollRegion();
+  // The choice is kept for the browser tab, so it holds while the reader moves between topics
+  const [chosenRegion, setChosen] = useState<HelpRegion | null>(() => {
+    try {
+      const saved = sessionStorage.getItem(REGION_KEY);
+      return saved === "IN" || saved === "GCC" ? saved : null;
+    } catch {
+      return null;
+    }
+  });
+  const setChosenRegion = (next: HelpRegion | null) => {
+    setChosen(next);
+    try {
+      if (next) sessionStorage.setItem(REGION_KEY, next);
+      else sessionStorage.removeItem(REGION_KEY);
+    } catch {
+      // Storage blocked: the choice lasts until the page changes
+    }
+  };
+  const region = chosenRegion ?? companyRegion;
 
-  const found = useMemo(() => searchHelp(query, translation), [query, translation]);
-  const shownFlow = (f: HelpFlow) => localizeFlow(f, translation);
-  const shownTopic = (x: HelpTopic) => localizeTopic(x, translation);
+  const found = useMemo(() => searchHelp(query, translation, region), [query, translation, region]);
+  const shownFlow = (f: HelpFlow) => showFlow(f, translation, region);
+  const shownTopic = (x: HelpTopic) => showTopic(x, translation, region);
   const visible = useMemo(() => found.topics.filter((topic) => canAccessPath(access, topic.route)), [found, access]);
 
   const topic = topicId ? helpTopicById(topicId) : null;
@@ -94,7 +134,8 @@ export default function HelpCenterPage() {
     body = (
       <div className="space-y-6">
         {/* The icon sits beside the box: the app's global input style (with !important) leaves no room inside it */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-2">
           <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
           <input
             type="search"
@@ -104,6 +145,8 @@ export default function HelpCenterPage() {
             aria-label={t("Search the help")}
             className="w-full rounded-lg border border-gray-300 bg-white text-sm text-gray-800 focus:border-brand-300 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
           />
+          </div>
+          <RegionSwitch region={region} company={companyRegion} onChange={(r) => setChosenRegion(r === companyRegion ? null : r)} />
         </div>
 
         {found.flows.length > 0 && (
@@ -168,10 +211,15 @@ export default function HelpCenterPage() {
   }
 
   return (
-    <>
+    <HelpRegionContext.Provider value={region}>
       <PageMeta title={`${t("Help Center")} | MyTrading`} description={t("User manual and help for every page")} />
       <PageBreadcrumb pageTitle={t("Help Center")} />
+      {(flowId || topicId) && (
+        <div className="mb-3 flex justify-end">
+          <RegionSwitch region={region} company={companyRegion} onChange={(r) => setChosenRegion(r === companyRegion ? null : r)} />
+        </div>
+      )}
       {body}
-    </>
+    </HelpRegionContext.Provider>
   );
 }

@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { usePayrollRegion } from "../../company/payrollRegion";
+import { useCompanyPlace } from "../../company/payrollRegion";
 import { CircleDot, ChevronRight, FolderClosed, ArrowLeft, House } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { filterNavItems, navItems } from "../../layout/AppSidebar";
@@ -45,11 +45,11 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { access } = useContext(AuthContext);
-  const payrollRegion = usePayrollRegion();
+  const place = useCompanyPlace();
 
   // Clicking a module (or group) crumb opens its first page this user may see, as the module rail does
   const firstPage = (moduleName: string, groupName?: string): string | undefined => {
-    const module = filterNavItems(navItems, access, payrollRegion).find((nav) => nav.name === moduleName);
+    const module = filterNavItems(navItems, access, place).find((nav) => nav.name === moduleName);
     const items = groupName ? module?.subItems?.find((sub) => sub.name === groupName)?.subItems : module?.subItems;
     const first = items?.[0];
     if (!first) return undefined;

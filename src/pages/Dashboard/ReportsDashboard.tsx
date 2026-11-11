@@ -7,6 +7,7 @@ import {
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AuthContext } from "../../context/AuthContext";
 import { canAccessPath, hasModule } from "../../access/access";
+import { pageForPlace, useCompanyPlace } from "../../company/payrollRegion";
 import {
   CHART_GRID, CHART_AXIS, CHART_LEGEND, CHART_HOVER, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, type DashboardTile, Panel, formatMoney, formatNumber, getList, monthKeyOf, monthsBack,
   mostCommon, sourcesForModules, sum, useDashboardSources,
@@ -56,6 +57,7 @@ const byMonthKey = (values?: Record<string, number>) => {
 
 export default function ReportsDashboard() {
   const { access } = useContext(AuthContext);
+  const place = useCompanyPlace();
   const sources = useMemo(() => sourcesForModules(SOURCES, SOURCE_MODULES, (m) => hasModule(access, m)), [access]);
   const { loading, data, failed } = useDashboardSources(sources, LABELS);
 
@@ -101,7 +103,7 @@ export default function ReportsDashboard() {
     { name: "HR & Payroll Reports", route: "/reports/hr", icon: Briefcase, tone: "orange" },
     { name: "VAT Return", route: "/vatReturn", icon: Percent, tone: "teal" },
     { name: "CRM Reports", route: "/crm-reports", icon: Users, tone: "purple" },
-  ] as DashboardTile[]).filter((c) => canAccessPath(access, c.route));
+  ] as DashboardTile[]).filter((c) => canAccessPath(access, c.route) && pageForPlace(c.route, place));
 
   return (
     <DashboardLayout
