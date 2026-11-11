@@ -34,6 +34,25 @@
 /* The Command Center header already names the dashboard: no second breadcrumb inside it */
 .cc-panel .page-breadcrumb { display:none; }
 .cc-loader { display:flex; height:100%; min-height:160px; align-items:center; justify-content:center; color:var(--cc-muted); font-size:12px; }
+
+/* ---------- Notices: set-up progress and "Needs your attention" side by side, one slim row ---------- */
+.cc-notices { flex:none; display:grid; gap:10px; margin-bottom:10px; }
+.cc-notices:empty { display:none; }
+.cc-notices > section { margin-bottom:0 !important; padding-top:8px !important; padding-bottom:8px !important; }
+@media (min-width:1024px) { .cc-notices { grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); align-items:start; } }
+
+/*
+ * The standard dashboard (DashboardLayout in dashboardKit): on a laptop or desktop screen it fills the panel exactly,
+ * so the page never scrolls. Links and figures keep their height, the panels share the rest; a chart takes its card's
+ * height and a table scrolls inside its card. Small screens stack everything and scroll as usual.
+ */
+@media (min-width:1024px) and (min-height:620px) {
+  .cc-panel .dash-layout { height:100%; min-height:0; }
+  .cc-panel .dash-layout > .dash-body { flex:1 1 0; min-height:0; grid-auto-rows:minmax(0,1fr); }
+  .cc-panel .dash-body > section { min-height:0; display:flex; flex-direction:column; }
+  .cc-panel .dash-body > section > .dash-panel-body { flex:1 1 0; min-height:0; overflow:auto; }
+  .cc-panel .dash-layout .dash-chart, .cc-panel .dash-layout .dash-empty { height:100% !important; min-height:0; }
+}
 .cc-empty { display:flex; height:100%; min-height:160px; align-items:center; justify-content:center; color:var(--cc-muted); font-size:13px; }
 
 /* ---------- Compact module snapshot (fallback) ---------- */
@@ -66,6 +85,28 @@
 .dark .cc-select__menu button.is-selected { background:#22304f; }
 .dark .cc-snap__badge { color:#a5b8f5; background:#22304f; }
 .dark .cc-panel,.dark .cc-select__menu { box-shadow:none; }
+
+/*
+ * Dashboards in dark mode (any page using DashboardLayout): neutral greys that match the app's #1f1f1f page and
+ * #272727 cards instead of Tailwind's blue-greys, and charts drawn for a dark background. Recharts paints with SVG
+ * attributes, which CSS overrides.
+ */
+.dark .dash-layout .dash-panel-body :is(table, thead, tbody, tfoot, tr, td, th, ul, li) { border-color:#363636; }
+.dark .dash-layout .dash-panel-body tbody tr:hover { background-color:#303030; }
+.dark .dash-layout .dash-panel-body tfoot { background-color:#2f2f2f; }
+.dark .dash-layout .dash-panel-body .dark\:bg-gray-800\/60 { background-color:#303030; }
+.dark .dash-layout .dash-panel-body .dark\:hover\:bg-gray-800:hover { background-color:#383838; }
+.dark .dash-layout .dash-panel-body .dark\:border-gray-800 { border-color:#3a3a3a; }
+.dark .dash-layout .dash-panel-body .text-gray-500 { color:#a3a3a3; }
+.dark .dash-layout .dash-panel-body .bg-gray-100 { background-color:#3a3a3a; }
+.dark .dash-chart .recharts-cartesian-grid line { stroke:#3a3a3a; }
+.dark .dash-chart .recharts-cartesian-axis-tick-value,
+.dark .dash-chart .recharts-label-list text { fill:#a3a3a3; }
+.dark .dash-chart .recharts-tooltip-cursor { fill:rgba(255,255,255,.06); stroke:#4a4a4a; }
+.dark .dash-chart .recharts-pie-sector path { stroke:#272727; }
+.dark .dash-chart .recharts-legend-item-text { color:#d4d4d4 !important; }
+.dark .dash-chart .recharts-default-tooltip { background:#1c1c1c !important; border-color:#3f3f3f !important; color:#e5e5e5; box-shadow:0 10px 24px rgba(0,0,0,.5) !important; }
+.dark .dash-chart .recharts-tooltip-label { color:#fafafa; }
 
 @media (max-width:760px) {
   .cc-bar { align-items:stretch; flex-direction:column; gap:10px; }

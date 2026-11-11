@@ -1,15 +1,14 @@
 import { useContext, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  ArrowRight, BarChart3, Boxes, ClipboardList, HandCoins, IndianRupee, Landmark, Percent, ShoppingBag, ShoppingCart,
-  TrendingUp, Users, type LucideIcon,
+  BarChart3, Boxes, Briefcase, ClipboardList, HandCoins, IndianRupee, Landmark, Percent, ShoppingBag, ShoppingCart,
+  TrendingUp, Users,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AuthContext } from "../../context/AuthContext";
-import { hasModule } from "../../access/access";
+import { canAccessPath, hasModule } from "../../access/access";
 import {
-  CHART_TOOLTIP, EmptyState, KpiCard, toneCard, toneIcon, toneLink, type Tone, LoadNotice, Panel, formatMoney, formatNumber, getList, monthKeyOf, monthsBack,
+  CHART_GRID, CHART_AXIS, CHART_LEGEND, CHART_HOVER, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, type DashboardTile, Panel, formatMoney, formatNumber, getList, monthKeyOf, monthsBack,
   mostCommon, sourcesForModules, sum, useDashboardSources,
 } from "./dashboardKit";
 import { companyCurrency } from "../../company/format";
@@ -55,10 +54,7 @@ const byMonthKey = (values?: Record<string, number>) => {
   return out;
 };
 
-interface ReportCard { name: string; description: string; route: string; icon: LucideIcon; module: string; figure?: string; tone: Tone }
-
 export default function ReportsDashboard() {
-  const navigate = useNavigate();
   const { access } = useContext(AuthContext);
   const sources = useMemo(() => sourcesForModules(SOURCES, SOURCE_MODULES, (m) => hasModule(access, m)), [access]);
   const { loading, data, failed } = useDashboardSources(sources, LABELS);
@@ -96,91 +92,68 @@ export default function ReportsDashboard() {
   }, [tax]);
 
   const money = (v?: number) => formatMoney(num(v), currency, true);
-  const cards: ReportCard[] = ([
-    { name: "Sales Dashboard", description: "Orders, revenue and top products", route: "/sales-dashboard", icon: ShoppingCart, module: "SALES", tone: "emerald",
-      figure: sales ? t("{amount} · {count} orders", { amount: money(sales.totalSales), count: formatNumber(num(sales.totalOrders)) }) : undefined },
-    { name: "Purchase Reports", description: "Purchases, open orders, goods not billed and vendors", route: "/reports/purchase", icon: ClipboardList, module: "PURCHASE", tone: "indigo",
-      figure: data.orders ? t("{amount} · {count} orders", { amount: money(purchaseTotal), count: formatNumber(orders.length) }) : undefined },
-    { name: "Inventory Reports", description: "Stock, valuation, aging, ABC and expiry", route: "/reports/inventory", icon: Boxes, module: "INVENTORY", tone: "amber",
-      figure: data.stock ? t("{amount} · {count} low", { amount: money(stockValue), count: formatNumber(lowStock) }) : undefined },
-    { name: "Finance Reports", description: "Books, ledgers, receivables and statements", route: "/reports/finance", icon: Landmark, module: "INVOICE", tone: "cyan",
-      figure: finance ? t("{amount} outstanding", { amount: money(finance.outstandingAmount) }) : undefined },
-    { name: "VAT Return", description: "Output and input VAT for any period, box by box", route: "/vatReturn", icon: Percent, module: "INVOICE", tone: "teal",
-      figure: tax ? t("{amount} tax", { amount: money(tax.totalTaxAmount) }) : undefined },
-    { name: "CRM Reports", description: "Leads, deals and activity", route: "/crm-reports", icon: Users, module: "CRM", tone: "purple" },
-  ] as ReportCard[]).filter((c) => hasModule(access, c.module));
+  // The way into every report: the Reports menu's module pages, the VAT return and the CRM reports
+  const links: DashboardTile[] = ([
+    { name: "Sales Reports", route: "/reports/sales", icon: ShoppingCart, tone: "emerald" },
+    { name: "Purchase Reports", route: "/reports/purchase", icon: ClipboardList, tone: "indigo" },
+    { name: "Inventory Reports", route: "/reports/inventory", icon: Boxes, tone: "amber" },
+    { name: "Finance Reports", route: "/reports/finance", icon: Landmark, tone: "cyan" },
+    { name: "HR & Payroll Reports", route: "/reports/hr", icon: Briefcase, tone: "orange" },
+    { name: "VAT Return", route: "/vatReturn", icon: Percent, tone: "teal" },
+    { name: "CRM Reports", route: "/crm-reports", icon: Users, tone: "purple" },
+  ] as DashboardTile[]).filter((c) => canAccessPath(access, c.route));
 
   return (
-    <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-      <LoadNotice failed={failed} />
-
-      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((c) => (
-          // Same card as the approval queues: tinted card, icon chip, headline figure, "Open report" link
-          <button key={c.name} type="button" onClick={() => navigate(c.route)}
-            className={`group flex flex-col justify-between space-y-2 p-3.5 text-left ${toneCard(c.tone)}`}>
-            <span className="flex items-center gap-2">
-              <span className={`rounded-lg p-1.5 ${toneIcon(c.tone)}`}><c.icon className="h-4 w-4" /></span>
-              <span className="text-xs font-bold text-gray-900 dark:text-white">{t(c.name)}</span>
-            </span>
-            <span className="block text-[11px] text-gray-600 dark:text-gray-400">
-              {t(c.description)}
-              {(loading || c.figure) && <span className="block truncate font-semibold text-gray-800 dark:text-gray-200">{loading ? "…" : c.figure}</span>}
-            </span>
-            <span className={`flex items-center gap-1 pt-1 text-xs font-bold transition-all group-hover:translate-x-0.5 ${toneLink(c.tone)}`}>
-              {t("Open report")} <ArrowRight className="h-3.5 w-3.5" />
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label={t("Sales")} value={sales ? money(sales.totalSales) : "—"}
-          hint={sales ? t("{orders} orders · {customers} customers", { orders: formatNumber(num(sales.totalOrders)), customers: formatNumber(num(sales.totalCustomers)) }) : undefined} icon={ShoppingCart} tone="emerald" loading={loading} />
-        <KpiCard label={t("Purchases")} value={data.orders ? money(purchaseTotal) : "—"}
-          hint={data.orders ? t("{count} purchase orders", { count: formatNumber(orders.length) }) : undefined} icon={ShoppingBag} tone="indigo" loading={loading} />
-        <KpiCard label={t("Stock Value")} value={data.stock && data.products ? money(stockValue) : "—"}
-          hint={data.stock ? t("{count} record(s) at or below reorder level", { count: formatNumber(lowStock) }) : undefined} icon={IndianRupee} tone="amber" loading={loading} />
-        <KpiCard label={t("Receivables")} value={finance ? money(finance.outstandingAmount) : "—"}
-          hint={finance ? t("{count} overdue invoice(s)", { count: formatNumber(finance.overdueInvoices?.length ?? 0) }) : undefined} icon={HandCoins} tone="red" loading={loading} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <DashboardLayout
+      failed={failed}
+      links={links.length > 0 ? <ModuleTiles tiles={links} loading={loading} /> : undefined}
+      kpis={
+        <>
+          <KpiCard label={t("Sales")} value={sales ? money(sales.totalSales) : "—"}
+            hint={sales ? t("{orders} orders · {customers} customers", { orders: formatNumber(num(sales.totalOrders)), customers: formatNumber(num(sales.totalCustomers)) }) : undefined} icon={ShoppingCart} tone="emerald" loading={loading} />
+          <KpiCard label={t("Purchases")} value={data.orders ? money(purchaseTotal) : "—"}
+            hint={data.orders ? t("{count} purchase orders", { count: formatNumber(orders.length) }) : undefined} icon={ShoppingBag} tone="indigo" loading={loading} />
+          <KpiCard label={t("Stock Value")} value={data.stock && data.products ? money(stockValue) : "—"}
+            hint={data.stock ? t("{count} record(s) at or below reorder level", { count: formatNumber(lowStock) }) : undefined} icon={IndianRupee} tone="amber" loading={loading} />
+          <KpiCard label={t("Receivables")} value={finance ? money(finance.outstandingAmount) : "—"}
+            hint={finance ? t("{count} overdue invoice(s)", { count: formatNumber(finance.overdueInvoices?.length ?? 0) }) : undefined} icon={HandCoins} tone="red" loading={loading} />
+        </>
+      }
+    >
         <Panel title={t("Sales, Billing and Purchases")} subtitle={t("Per month (last 6 months)")} icon={TrendingUp} iconClass="text-emerald-500">
           {!hasTrend ? (
             <EmptyState loading={loading}>{t("No sales, invoices or purchases in the last 6 months.")}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <BarChart data={trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
-                <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => formatMoney(Number(value), currency)} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {sales && <Bar dataKey="sales" name="Sales orders" fill="#10b981" radius={[4, 4, 0, 0]} />}
-                {finance && <Bar dataKey="billed" name="Invoiced" fill="#06b6d4" radius={[4, 4, 0, 0]} />}
-                {data.orders !== undefined && <Bar dataKey="purchases" name="Purchases" fill="#6366f1" radius={[4, 4, 0, 0]} />}
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="month" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
+                <Tooltip {...CHART_HOVER} formatter={(value) => formatMoney(Number(value), currency)} />
+                <Legend {...CHART_LEGEND} />
+                {sales && <Bar dataKey="sales" name="Sales orders" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />}
+                {finance && <Bar dataKey="billed" name="Invoiced" fill="#06b6d4" radius={[6, 6, 0, 0]} maxBarSize={36} />}
+                {data.orders !== undefined && <Bar dataKey="purchases" name="Purchases" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={36} />}
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
 
-        <Panel title={t("Tax Collected")} subtitle={t("GST on sales invoices per month")} icon={BarChart3} iconClass="text-teal-500">
+        <Panel title={t("Tax Collected")} subtitle={t("Tax on sales invoices per month")} icon={BarChart3} iconClass="text-teal-500">
           {!tax || taxTrend.every((t) => !t.tax) ? (
             <EmptyState loading={loading}>{t(tax ? "No tax charged in the last 6 months." : "Tax figures are not available.")}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <LineChart data={taxTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
-                <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => [formatMoney(Number(value), currency), "Tax"]} />
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="month" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
+                <Tooltip {...CHART_HOVER} formatter={(value) => [formatMoney(Number(value), currency), "Tax"]} />
                 <Line type="monotone" dataKey="tax" stroke="#14b8a6" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }

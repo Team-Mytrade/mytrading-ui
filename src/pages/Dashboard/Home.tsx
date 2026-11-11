@@ -113,8 +113,11 @@ export default function Home() {
           </div>
         </header>
 
-        <GettingStartedBanner />
-        <AttentionPanel />
+        {/* One slim row: set-up progress and what needs attention side by side (stacked on small screens) */}
+        <div className="cc-notices">
+          <GettingStartedBanner />
+          <AttentionPanel />
+        </div>
 
         <div className="cc-panel">
           {ActiveComponent ? (

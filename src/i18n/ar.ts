@@ -7680,4 +7680,17 @@ export const ar: Record<string, string> = {
   "Till shift": "وردية الصندوق",
   "Bills could not be read from finance, so this report can't tell which receipts are billed. Try again in a moment.":
     "تعذّرت قراءة الفواتير من المالية، لذا لا يستطيع هذا التقرير معرفة الإيصالات المفوترة. حاول مرة أخرى بعد قليل.",
+  // Command Center dashboards (standard layout)
+  "Quick links": "روابط سريعة",
+  "Sales Reports": "تقارير المبيعات",
+  "HR & Payroll Reports": "تقارير الموارد البشرية والرواتب",
+  "Tax on sales invoices per month": "الضريبة على فواتير المبيعات شهريًا",
+  "{count} open deal(s)": "{count} صفقة مفتوحة",
+  "{count} deal(s) won": "{count} صفقة رابحة",
+  "{count} lead(s) in total": "{count} عميل محتمل إجمالًا",
+  "Not completed or cancelled": "غير مكتملة أو ملغاة",
+  "Deals in each stage": "الصفقات في كل مرحلة",
+  "Leads created each month": "العملاء المحتملون الجدد كل شهر",
+  "Earliest first": "الأقرب أولًا",
+  Opportunities: "الفرص",
 };
