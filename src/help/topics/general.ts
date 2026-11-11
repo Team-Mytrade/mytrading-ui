@@ -62,6 +62,14 @@ export const HOME_TOPICS: HelpTopic[] = [
   },
 ];
 
+const financeReader: HelpRole[] = [
+  { role: "Anyone with Invoice access", can: "Read the report. Excel, PDF and Print need the Invoice export right." },
+];
+
+const purchaseReader: HelpRole[] = [
+  { role: "Anyone with Purchase or Invoice access", can: "Read the report. Excel, PDF and Print need the export right in Purchase or Invoice." },
+];
+
 const salesReader: HelpRole[] = [
   { role: "Anyone with Sales or Invoice access", can: "Read the report. Excel, PDF and Print need the export right in Sales or Invoice." },
 ];
@@ -91,6 +99,23 @@ export const REPORT_TOPICS: HelpTopic[] = [
       { route: "/reports/dispatched-not-invoiced", label: "Dispatched Not Invoiced" },
       { route: "/reports/quotation-conversion", label: "Quotation Conversion" },
       { route: "/reports/returns-refunds", label: "Returns & Refunds" },
+      { route: "/reports/gross-margin", label: "Gross Margin" },
+      { route: "/reports/purchase-register", label: "Purchase Register" },
+      { route: "/reports/purchase-analysis", label: "Purchase Analysis" },
+      { route: "/reports/open-purchase-orders", label: "Open Purchase Orders" },
+      { route: "/reports/received-not-billed", label: "Goods Received Not Billed" },
+      { route: "/reports/vendor-performance", label: "Vendor Performance" },
+      { route: "/reports/day-book", label: "Day Book" },
+      { route: "/reports/cash-bank-book", label: "Cash & Bank Book" },
+      { route: "/reports/receipts-payments", label: "Receipts & Payments" },
+      { route: "/reports/customer-ledger", label: "Customer Ledger" },
+      { route: "/reports/vendor-ledger", label: "Vendor Ledger" },
+      { route: "/reports/expenses", label: "Expenses by Account" },
+      { route: "/reports/headcount", label: "Headcount" },
+      { route: "/reports/payroll-register", label: "Payroll Register" },
+      { route: "/reports/leave-balances", label: "Leave Balances" },
+      { route: "/reports/stock-aging", label: "Stock Aging" },
+      { route: "/reports/abc-analysis", label: "ABC Analysis" },
     ],
   },
   {
@@ -293,6 +318,504 @@ export const REPORT_TOPICS: HelpTopic[] = [
     related: [
       { route: "/return-requests", label: "Return Requests" },
       { route: "/sales-pos", label: "Point of Sale" },
+    ],
+  },
+  {
+    id: "gross-margin",
+    route: "/reports/gross-margin",
+    module: "Reports",
+    title: "Gross Margin",
+    summary: "Net sales less what the goods cost when they left stock, for a period, by product, customer, category, sales person or month, with the margin in money and as a percentage.",
+    who: [{ role: "Anyone with Invoice access", can: "Read the report (it shows what goods cost, so Sales access alone doesn't open it). Excel, PDF and Print need the Invoice export right." }],
+    tasks: [
+      {
+        title: "Read the margin",
+        steps: [
+          "Choose the Period and, if you need to, a Customer or Sales person.",
+          "Pick By product, By customer, By category, By sales person or By month. The cards show Net sales, Cost of goods, Gross margin (with Gross margin %) and the sales Without a cost.",
+          "Click a row to look closer: a product shows who bought it, a category its products, a customer what they bought, a sales person their customers. Remove a filter with its ×.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print; the grouping and the filters are printed in the header."] },
+    ],
+    fields: [
+      { name: "Net sales", meaning: "Invoiced less credit notes, before tax, in the company currency, counted as in Sales Analysis." },
+      { name: "Cost of goods", meaning: "What each invoice line's goods cost when its dispatch took them out of stock (the average cost then), less the cost given back by returns." },
+      { name: "Gross margin", meaning: "Net sales less Cost of goods, worked out only on sales whose cost is known. Gross margin %: the margin out of those sales." },
+      { name: "Without a cost", meaning: "Sales whose goods have no known cost: stock held from before costing, or goods sold without a stock issue. They are kept out of the margin so it isn't overstated." },
+      { name: "Share of margin", meaning: "The row's part of the period's gross margin." },
+    ],
+    rules: [
+      "Services cost nothing from stock, so their margin is their whole value.",
+      "A credit note for returned goods gives back the cost in the same share as the value it credits; a price, discount or correction credit note lowers sales only.",
+      "Landed costs added after goods were sold are in the ledger's cost of goods sold but not here.",
+      "If stock costs can't be read, goods show as Without a cost, with a warning. A period can be at most three years.",
+    ],
+    related: [
+      { route: "/reports/sales-analysis", label: "Sales Analysis" },
+      { route: "/inventory-report", label: "Inventory Report" },
+    ],
+  },
+  {
+    id: "purchase-register",
+    route: "/reports/purchase-register",
+    module: "Reports",
+    title: "Purchase Register",
+    summary: "Every vendor bill and debit note in a period, one line each, with net, tax and total in the company currency.",
+    who: purchaseReader,
+    tasks: [
+      {
+        title: "Read the register",
+        steps: [
+          "Choose the Period or set From and To, and a Vendor if you need to.",
+          "The cards show Billed, Debit notes, Net purchases and Total with tax; the table lists each document, with debit notes as minus amounts in red.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print. The file has the company header, the period, the vendor and a total line."] },
+    ],
+    fields: [
+      { name: "Net", meaning: "Before tax, in the company currency at the bill's exchange rate (a debit note at its bill's)." },
+      { name: "Order / receipt", meaning: "The purchase order and goods receipt a bill was made from, when it was." },
+    ],
+    rules: [
+      "Bills count on their bill date; cancelled and opening bills (from Data Import) are left out.",
+      "A debit note counts on its own date when it was applied to a bill. A note for goods sent back before the bill was made is already left out of that bill, so it isn't counted again.",
+    ],
+    related: [
+      { route: "/reports/purchase-analysis", label: "Purchase Analysis" },
+      { route: "/purchaseInvoices", label: "Purchase Invoices" },
+    ],
+  },
+  {
+    id: "purchase-analysis",
+    route: "/reports/purchase-analysis",
+    module: "Reports",
+    title: "Purchase Analysis",
+    summary: "What was bought in a period, by vendor, product or month: goods accepted on goods receipts, less goods sent back for a debit note.",
+    who: purchaseReader,
+    tasks: [
+      {
+        title: "Analyse purchases",
+        steps: [
+          "Choose the Period and, if you need to, a Vendor.",
+          "Pick By vendor, By product or By month. The chart shows the top 10 (every month for By month).",
+          "Click a row to look closer: a vendor shows what was bought from them, a product who it came from, a month opens its bills in the Purchase Register. Remove a product filter with its ×.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print; the grouping and the filters are printed in the header."] },
+    ],
+    fields: [
+      { name: "Received", meaning: "Accepted quantity at the purchase order line's price after its discount, before tax, on the receipt date, in the company currency." },
+      { name: "Sent back", meaning: "Goods returned to the vendor for a debit note, on the return date. Goods sent back for a replacement don't lower purchases." },
+      { name: "Quantity", meaning: "By product only: accepted less sent back." },
+    ],
+    rules: [
+      "Only accepted goods receipts count; drafts and cancelled receipts are left out.",
+      "This is what came in, so it can differ from the Purchase Register while receipts wait for their bills.",
+      "An order in another currency uses finance's exchange rate on or before the receipt date; without one its value is left out of the totals, with a warning.",
+    ],
+    related: [
+      { route: "/reports/purchase-register", label: "Purchase Register" },
+      { route: "/reports/vendor-performance", label: "Vendor Performance" },
+    ],
+  },
+  {
+    id: "open-purchase-orders",
+    route: "/reports/open-purchase-orders",
+    module: "Reports",
+    title: "Open Purchase Orders",
+    summary: "Approved, sent and partly received purchase orders with goods still to receive: their value before tax, how late they are, and what is waiting by product.",
+    who: purchaseReader,
+    tasks: [
+      {
+        title: "See what is still to come",
+        steps: [
+          "The report opens on All dates: every open order now. Choose an Order date period or a Vendor to narrow it.",
+          "The cards show Open orders (and units to receive), Still to receive, how many are Late and the Ordered value of those orders.",
+          "The table lists each order, the most days late first, with what each line still has to receive (for example Hex nuts 10 of 20).",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Still to receive", meaning: "Ordered less accepted on goods receipts, at the order line's price after discount, before tax, in the company currency." },
+      { name: "Expected delivery", meaning: "The order's expected delivery date; days late count from it." },
+    ],
+    rules: [
+      "Drafts, cancelled orders and orders closed short are left out.",
+      "Rejected goods stay on the order as still to receive.",
+    ],
+    related: [
+      { route: "/purchase-service/orders", label: "Purchase Orders" },
+      { route: "/reports/received-not-billed", label: "Goods Received Not Billed" },
+    ],
+  },
+  {
+    id: "received-not-billed",
+    route: "/reports/received-not-billed",
+    module: "Reports",
+    title: "Goods Received Not Billed",
+    summary: "Accepted goods receipts that no vendor bill covers yet, oldest first: what the vendors will still bill you for.",
+    who: purchaseReader,
+    tasks: [
+      {
+        title: "Find receipts waiting for a bill",
+        steps: [
+          "The report opens on All dates. Choose a Receipt date period or a Vendor to narrow it.",
+          "The cards show what is Waiting for a bill (with tax), the value Before tax and how many receipts have waited Over a month.",
+          "Make the bill from the receipt on Purchase Invoices when the vendor's invoice arrives.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Net", meaning: "What was accepted, less goods sent back for a debit note, at the purchase order's prices, before tax, in the company currency at the receipt date." },
+      { name: "Waiting", meaning: "Days since the receipt date; more than a month shows in red." },
+    ],
+    rules: [
+      "A receipt is billed once; a cancelled bill doesn't count, so its receipt shows here again.",
+      "A receipt whose goods all went back for a debit note has nothing to bill and isn't listed.",
+      "If finance can't be reached the report says so instead of listing every receipt.",
+    ],
+    related: [
+      { route: "/purchaseInvoices", label: "Purchase Invoices" },
+      { route: "/reports/open-purchase-orders", label: "Open Purchase Orders" },
+    ],
+  },
+  {
+    id: "vendor-performance",
+    route: "/reports/vendor-performance",
+    module: "Reports",
+    title: "Vendor Performance",
+    summary: "How each vendor did in a period: deliveries on time, goods rejected and sent back, how much was bought, and their prices against other vendors for the same products.",
+    who: purchaseReader,
+    tasks: [
+      {
+        title: "Compare vendors",
+        steps: [
+          "Choose the Period (it opens on this quarter) and, if you need to, a Vendor.",
+          "The cards show On time and Rejected for all vendors, what was Bought and how many vendors delivered.",
+          "The table shows each vendor's purchases, receipts, On time (with the average days late), Rejected, Sent back and Price vs average.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "On time", meaning: "Goods receipts on or before their order's expected delivery date, out of the receipts whose order has one." },
+      { name: "Rejected", meaning: "Quantity refused at receipt, out of the quantity received." },
+      { name: "Price vs average", meaning: "What the vendor charged against the average price paid to any vendor for the same products in the period, for products bought from more than one vendor. Minus is cheaper." },
+    ],
+    rules: [
+      "Counts accepted goods receipts by receipt date; prices are after discount, before tax, in the company currency.",
+      "A vendor whose products nobody else sold you has no price comparison (—).",
+    ],
+    related: [
+      { route: "/reports/purchase-analysis", label: "Purchase Analysis" },
+      { route: "/common/vendors", label: "Vendors" },
+    ],
+  },
+  {
+    id: "day-book",
+    route: "/reports/day-book",
+    module: "Reports",
+    title: "Day Book",
+    summary: "Every journal entry in the ledger for a period, oldest first, with each one's debit and credit lines: automatic postings from documents and entries made by hand.",
+    who: financeReader,
+    tasks: [
+      {
+        title: "Read the day book",
+        steps: [
+          "Choose the Period (at most a year) and, if you need to, a Source such as Customer receipt or Vendor bill.",
+          "Each row is one entry: its number and source, then its lines, debits first (Dr) and credits indented (Cr), with the cost centre when there is one.",
+          "The cards show the number of Entries, the Debits and the Credits, which should be equal.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print. The file has one row per line, so every debit and credit is there."] },
+    ],
+    rules: ["Amounts are in the company currency, as posted.", "The day book covers at most a year; use a shorter period for a busy company."],
+    related: [
+      { route: "/journalEntries", label: "Journal Entries" },
+      { route: "/generalLedger", label: "General Ledger" },
+    ],
+  },
+  {
+    id: "cash-bank-book",
+    route: "/reports/cash-bank-book",
+    module: "Reports",
+    title: "Cash & Bank Book",
+    summary: "One cash box's or bank account's money in and out for a period, with the opening balance, the balance after each line and the closing balance: the cash book or the bank book.",
+    who: financeReader,
+    tasks: [
+      {
+        title: "Read a book",
+        steps: [
+          "Choose the Cash box or bank (it opens on the default account) and the Period.",
+          "The cards show the Opening balance, Received, Paid and the Closing balance.",
+          "Each line shows its Particulars (the other accounts of the entry, such as Receivables or Rent), the entry and its source, what was Received or Paid, and the Balance after it.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print. The file starts with the opening balance and ends with the totals and the closing balance."] },
+    ],
+    fields: [
+      { name: "Balance", meaning: "The account's balance in the books after the line: its opening balance plus everything posted to it." },
+      { name: "Own currency", meaning: "For an account in another currency, each amount and balance also shows in that currency, under the company-currency one." },
+    ],
+    rules: ["The balances are the same as Bank & Cash shows as Balance in books."],
+    related: [
+      { route: "/bankAccounts", label: "Bank & Cash" },
+      { route: "/reports/receipts-payments", label: "Receipts & Payments" },
+    ],
+  },
+  {
+    id: "receipts-payments",
+    route: "/reports/receipts-payments",
+    module: "Reports",
+    title: "Receipts & Payments",
+    summary: "All the money that came in and went out of every cash box and bank account in a period, and what it was for: customer receipts, vendor payments, expenses, payroll and so on.",
+    who: financeReader,
+    tasks: [
+      {
+        title: "See where the money went",
+        steps: [
+          "Choose the Period and, if you need to, one Cash box or bank.",
+          "The cards show Received, Paid, the Net and the Transfers between your own accounts.",
+          "By what it was for adds up each kind of movement; the table lists every line with its account and particulars.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "For", meaning: "Where the entry came from: Customer receipt, Vendor payment, Expense or income, Payroll, Journal entry and so on." },
+      { name: "Transfer", meaning: "Money moved between two of your own cash boxes or bank accounts. It is listed but not counted as received or paid." },
+    ],
+    rules: ["Amounts are in the company currency, as posted to the ledger."],
+    related: [
+      { route: "/reports/cash-bank-book", label: "Cash & Bank Book" },
+      { route: "/paymentReceipts", label: "Payment Receipts" },
+    ],
+  },
+  {
+    id: "customer-ledger",
+    route: "/reports/customer-ledger",
+    module: "Reports",
+    title: "Customer Ledger",
+    summary: "One customer's account for a period: the opening balance, every invoice, payment, credit note and reversal, and the balance after each, in the documents' own currency.",
+    who: financeReader,
+    tasks: [
+      {
+        title: "Read a customer's ledger",
+        steps: [
+          "Choose the Customer and the Period (it opens on this year).",
+          "The cards show the Opening balance, the Debits (invoiced), the Credits (received and credited) and the Closing balance the customer owes.",
+          "Grey lines are shown for reference and don't change the balance.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print to send the customer their statement."] },
+    ],
+    rules: ["It is the same statement as on Accounts Receivable, with a running balance and export."],
+    related: [
+      { route: "/accountsReceivable", label: "Accounts Receivable" },
+      { route: "/reports/vendor-ledger", label: "Vendor Ledger" },
+    ],
+  },
+  {
+    id: "vendor-ledger",
+    route: "/reports/vendor-ledger",
+    module: "Reports",
+    title: "Vendor Ledger",
+    summary: "One vendor's account for a period: the opening balance, every bill, debit note, payment and advance, and what you owe after each, in the documents' own currency.",
+    who: financeReader,
+    tasks: [
+      {
+        title: "Read a vendor's ledger",
+        steps: [
+          "Choose the Vendor and the Period (it opens on this year).",
+          "The cards show the Opening balance, the Debits (paid and debited), the Credits (billed) and the Closing balance you owe.",
+          "Grey lines are shown for reference only: an advance used on a bill, a debit note already left out of its bill, a cancelled cheque.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print, for example to agree balances with the vendor."] },
+    ],
+    rules: [
+      "Bills count on their bill date, opening bills (from Data Import) included; cancelled, void and rejected bills don't.",
+      "Payments awaiting approval or rejected don't count. An advance lowers what you owe when it is paid; using it on a bill only moves it.",
+      "If the vendor's documents are in more than one currency, the report says so.",
+    ],
+    related: [
+      { route: "/accountsPayable", label: "Accounts Payable" },
+      { route: "/vendorPayments", label: "Vendor Payments" },
+    ],
+  },
+  {
+    id: "expenses-by-account",
+    route: "/reports/expenses",
+    module: "Reports",
+    title: "Expenses by Account",
+    summary: "What every expense account took in a period, by account, cost centre or month, with each one's breakdown and share.",
+    who: financeReader,
+    tasks: [
+      {
+        title: "Analyse expenses",
+        steps: [
+          "Choose the Period and, if you need to, a Cost centre (or No cost centre).",
+          "Pick By account, By cost centre or By month. Each row shows its breakdown: an account by cost centre, a cost centre or month by account.",
+          "Click a row to look closer: an account shows its months, a cost centre its accounts.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Amount", meaning: "Debits less credits on expense accounts, in the company currency; refunds and corrections lower it." },
+      { name: "Without a cost centre", meaning: "Expense lines not charged to a cost centre." },
+    ],
+    rules: ["Year-end closing entries are left out.", "Cost of goods sold is an expense account, so it is included."],
+    related: [
+      { route: "/costCentres", label: "Cost Centres" },
+      { route: "/financialStatements", label: "Financial Statements" },
+    ],
+  },
+  {
+    id: "headcount",
+    route: "/reports/headcount",
+    module: "Reports",
+    title: "Headcount",
+    summary: "How many people the company had at the start and end of a period, who joined and who left, by department and month, and the turnover.",
+    who: [{ role: "HR and managers (HRM approve right)", can: "Read the report. Excel, PDF and Print need the HRM export right." }],
+    tasks: [
+      {
+        title: "Read the headcount",
+        steps: [
+          "Choose the Period (it opens on this year) and, if you need to, a Department.",
+          "The cards show the Opening and Closing headcount, the Joiners, the Leavers and the Turnover, with the closing headcount by employment type.",
+          "The chart shows the headcount at each month's end; the table shows each department; Joiners and Leavers list the people, with each leaver's months of service.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print for the department table."] },
+    ],
+    fields: [
+      { name: "Turnover", meaning: "Leavers out of the average of the opening and closing headcount, in %." },
+      { name: "Leaving date", meaning: "The last working day, or the exit date when there is none." },
+    ],
+    rules: [
+      "Someone counts from their joining date to their leaving date; opening + joiners − leavers = closing.",
+      "An employee made inactive without an exit date can't be placed, so they are left out, with a note saying how many.",
+    ],
+    related: [
+      { route: "/employeeRecords", label: "Employees" },
+      { route: "/reports/payroll-register", label: "Payroll Register" },
+    ],
+  },
+  {
+    id: "payroll-register",
+    route: "/reports/payroll-register",
+    module: "Reports",
+    title: "Payroll Register",
+    summary: "What each employee was paid in the months of a period, from the payroll runs: gross, deductions, net pay and the employer's contributions, by employee, department or month.",
+    who: [{ role: "HR and managers (HRM approve right)", can: "Read the report. Excel, PDF and Print need the HRM export right." }],
+    tasks: [
+      {
+        title: "Read the register",
+        steps: [
+          "Choose the Period (its months count) and, if you need to, a Department.",
+          "Pick By employee, By department or By month. For employees and departments the table shows each month's net pay.",
+          "The cards show Gross, Deductions (with loss of pay), Net pay and Employer contributions.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print; the file has every month's net pay."] },
+    ],
+    fields: [
+      { name: "Employer contributions", meaning: "What the company pays on top of gross pay: employer PF and ESI, and the employer's share of Gulf pension and social insurance." },
+    ],
+    rules: [
+      "Only salaries of processed payroll runs count. A run still waiting for approval is left out, with a warning.",
+      "If the employee list can't be read, employees show by their number.",
+    ],
+    related: [
+      { route: "/payrollSummary", label: "Payroll Summary" },
+      { route: "/reports/headcount", label: "Headcount" },
+    ],
+  },
+  {
+    id: "leave-balances",
+    route: "/reports/leave-balances",
+    module: "Reports",
+    title: "Leave Balances",
+    summary: "Every employee's leave of one leave year, by leave type: what they are entitled to, what they have taken and what is left.",
+    who: [{ role: "Leave approvers (Attendance approve right)", can: "Read the report. Excel, PDF and Print need the Attendance export right." }],
+    tasks: [
+      {
+        title: "Read the balances",
+        steps: [
+          "Choose the Leave year (it opens on the latest) and, if you need to, a Leave type.",
+          "The cards show each leave type's days left and days taken of those entitled.",
+          "Each cell shows the days left, with the days taken of those entitled under it; point at it for the days waiting for approval.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print. The file has entitled, taken, waiting and left for every leave type."] },
+    ],
+    fields: [
+      { name: "Entitled", meaning: "Allocated, plus carried forward, plus adjustments." },
+      { name: "Left", meaning: "The balance as kept: leave waiting for approval is already taken off." },
+    ],
+    rules: ["Year closed marks an employee whose leave year has been closed."],
+    related: [
+      { route: "/att_attendanceApproval", label: "Leave Approvals" },
+      { route: "/att_leaveType", label: "Leave Types" },
+    ],
+  },
+  {
+    id: "stock-aging",
+    route: "/reports/stock-aging",
+    module: "Reports",
+    title: "Stock Aging",
+    summary: "The stock on hand today by how long it has been in: 0–30, 31–60, 61–90, 91–180 and 181–365 days, over a year, or of unknown age, with its value and when each product last sold.",
+    who: [{ role: "Anyone with Inventory access", can: "Read the report. Excel, PDF and Print need the Inventory export right." }],
+    tasks: [
+      {
+        title: "Find old stock",
+        steps: [
+          "The cards show the Stock value, what is Over 90 days, Over a year and of Unknown age.",
+          "The table shows each product's value on hand, the quantity in each age band and when it last sold.",
+          "Sort by an age band or by Last sold to find slow and old stock.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    rules: [
+      "Stock goes out oldest first, so what is on hand is matched to the newest receipts; stock no receipt explains (from before the movement history) is of unknown age.",
+      "Only your own warehouses count, not vendors' consignment stock. Transfers between warehouses don't make stock younger. Values are at the average cost.",
+    ],
+    related: [
+      { route: "/inventory-report", label: "Inventory Report" },
+      { route: "/reports/abc-analysis", label: "ABC Analysis" },
+    ],
+  },
+  {
+    id: "abc-analysis",
+    route: "/reports/abc-analysis",
+    module: "Reports",
+    title: "ABC Analysis",
+    summary: "Products ranked by what their sales cost in a period: class A is the first 80% of that value, B the next 15%, C the rest; products held in stock that didn't sell are listed apart.",
+    who: [{ role: "Anyone with Inventory access", can: "Read the report. Excel, PDF and Print need the Inventory export right." }],
+    tasks: [
+      {
+        title: "Rank products",
+        steps: [
+          "Choose the Period (it opens on this year).",
+          "The cards show each class's cost of sales and share, and the stock held of products with No sales.",
+          "The table lists each product with its class, quantity sold, cost of sales, share, cumulative share and the stock held.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Cost of sales", meaning: "Sales issues at cost less customer returns in the period, as in the Inventory Report." },
+      { name: "Cumulative", meaning: "The share of the period's cost of sales of this product and every one above it." },
+    ],
+    rules: ["A product's class is decided by the share before it: under 80% A, under 95% B, the rest C."],
+    related: [
+      { route: "/reports/stock-aging", label: "Stock Aging" },
+      { route: "/reports/gross-margin", label: "Gross Margin" },
     ],
   },
   {

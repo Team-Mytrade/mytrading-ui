@@ -235,6 +235,23 @@ const OpenOrdersReport = lazy(() => import("./pages/reports/center/OpenOrders"))
 const DispatchedNotInvoiced = lazy(() => import("./pages/reports/center/DispatchedNotInvoiced"));
 const QuotationConversion = lazy(() => import("./pages/reports/center/QuotationConversion"));
 const ReturnsRefunds = lazy(() => import("./pages/reports/center/ReturnsRefunds"));
+const GrossMargin = lazy(() => import("./pages/reports/center/GrossMargin"));
+const PurchaseRegisterReport = lazy(() => import("./pages/reports/center/PurchaseRegister"));
+const PurchaseAnalysisReport = lazy(() => import("./pages/reports/center/PurchaseAnalysis"));
+const OpenPurchaseOrdersReport = lazy(() => import("./pages/reports/center/OpenPurchaseOrders"));
+const ReceivedNotBilledReport = lazy(() => import("./pages/reports/center/ReceivedNotBilled"));
+const VendorPerformanceReport = lazy(() => import("./pages/reports/center/VendorPerformance"));
+const DayBookReport = lazy(() => import("./pages/reports/center/DayBook"));
+const CashBankBookReport = lazy(() => import("./pages/reports/center/CashBankBook"));
+const ReceiptsPaymentsReport = lazy(() => import("./pages/reports/center/ReceiptsPayments"));
+const ExpenseAnalysisReport = lazy(() => import("./pages/reports/center/ExpenseAnalysis"));
+const CustomerLedgerReport = lazy(() => import("./pages/reports/center/PartyLedger").then((m) => ({ default: m.CustomerLedger })));
+const VendorLedgerReport = lazy(() => import("./pages/reports/center/PartyLedger").then((m) => ({ default: m.VendorLedger })));
+const HeadcountReport = lazy(() => import("./pages/reports/center/Headcount"));
+const PayrollRegisterReport = lazy(() => import("./pages/reports/center/PayrollRegister"));
+const LeaveBalancesReport = lazy(() => import("./pages/reports/center/LeaveBalances"));
+const StockAgingReport = lazy(() => import("./pages/reports/center/StockAging"));
+const AbcAnalysisReport = lazy(() => import("./pages/reports/center/AbcAnalysis"));
 const Reports = lazy(() => import("./pages/CRM/Reports"));
 export default function AppRouter() {
   return (
@@ -409,6 +426,23 @@ export default function AppRouter() {
           <Route path="/reports/dispatched-not-invoiced" element={<DispatchedNotInvoiced />} />
           <Route path="/reports/quotation-conversion" element={<QuotationConversion />} />
           <Route path="/reports/returns-refunds" element={<ReturnsRefunds />} />
+          <Route path="/reports/gross-margin" element={<GrossMargin />} />
+          <Route path="/reports/purchase-register" element={<PurchaseRegisterReport />} />
+          <Route path="/reports/purchase-analysis" element={<PurchaseAnalysisReport />} />
+          <Route path="/reports/open-purchase-orders" element={<OpenPurchaseOrdersReport />} />
+          <Route path="/reports/received-not-billed" element={<ReceivedNotBilledReport />} />
+          <Route path="/reports/vendor-performance" element={<VendorPerformanceReport />} />
+          <Route path="/reports/day-book" element={<DayBookReport />} />
+          <Route path="/reports/cash-bank-book" element={<CashBankBookReport />} />
+          <Route path="/reports/receipts-payments" element={<ReceiptsPaymentsReport />} />
+          <Route path="/reports/expenses" element={<ExpenseAnalysisReport />} />
+          <Route path="/reports/customer-ledger" element={<CustomerLedgerReport />} />
+          <Route path="/reports/vendor-ledger" element={<VendorLedgerReport />} />
+          <Route path="/reports/headcount" element={<HeadcountReport />} />
+          <Route path="/reports/payroll-register" element={<PayrollRegisterReport />} />
+          <Route path="/reports/leave-balances" element={<LeaveBalancesReport />} />
+          <Route path="/reports/stock-aging" element={<StockAgingReport />} />
+          <Route path="/reports/abc-analysis" element={<AbcAnalysisReport />} />
 
           <Route path="/deliveryOrder" element={<DeliveryOrderPage />} />
           <Route path="/transporter" element={<TransporterPage />} />
