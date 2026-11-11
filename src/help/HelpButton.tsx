@@ -6,8 +6,7 @@ import RecordDetailDrawer from "../components/common/RecordDetailDrawer";
 import { t } from "../i18n/i18n";
 import HelpContent from "./HelpContent";
 import { findHelpTopic } from "./index";
-import { shownTopic, useHelpTranslation } from "./translations";
-import { REGION_NAME, topicVaries, useHelpRegion } from "./region";
+import { localizeTopic, useHelpTranslation } from "./translations";
 
 // The header's Help button (backlog 8.1): the current page's help in a side panel, without leaving the page.
 // F1 opens and closes it too.
@@ -20,7 +19,6 @@ const HelpButton = () => {
   const [open, setOpen] = useState(false);
   const topic = findHelpTopic(pathname);
   const translation = useHelpTranslation();
-  const region = useHelpRegion();
   const close = useCallback(() => setOpen(false), []);
 
   // Another page, another help: close the panel when the page changes
@@ -49,8 +47,8 @@ const HelpButton = () => {
       <RecordDetailDrawer
         isOpen={open}
         onClose={close}
-        title={topic ? shownTopic(topic, translation, region).topic.title : t("Help")}
-        subtitle={topic ? `${t("Help")} · ${t(topic.module)}${topicVaries(topic) ? ` · ${t(REGION_NAME[region])}` : ""}` : undefined}
+        title={topic ? localizeTopic(topic, translation).topic.title : t("Help")}
+        subtitle={topic ? `${t("Help")} · ${t(topic.module)}` : undefined}
       >
         {topic ? (
           <HelpContent topic={topic} onNavigate={close} />

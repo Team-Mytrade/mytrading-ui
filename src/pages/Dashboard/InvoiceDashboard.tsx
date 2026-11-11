@@ -11,7 +11,6 @@ import {
   useDashboardSources,
 } from "./dashboardKit";
 import { companyCurrency } from "../../company/format";
-import { pageForPlace, useCompanyPlace } from "../../company/payrollRegion";
 
 import { t } from "../../i18n/i18n";
 // Live billing, collections and payables from the invoice service.
@@ -58,7 +57,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function InvoiceDashboard() {
   const navigate = useNavigate();
-  const place = useCompanyPlace();
   const { loading, data, failed } = useDashboardSources(SOURCES, LABELS);
 
   const finance = data.finance as FinanceReport | undefined;
@@ -101,7 +99,7 @@ export default function InvoiceDashboard() {
     { name: "Accounts Payable", count: data.payables ? openPayables.length : null, icon: Wallet, route: "/accountsPayable", tone: "purple" as const },
     { name: "Finance Reports", icon: BarChart3, route: "/reports/finance", tone: "indigo" as const },
     { name: "VAT Return", icon: Percent, route: "/vatReturn", tone: "teal" as const },
-  ].filter((tile) => pageForPlace(tile.route, place));
+  ];
 
   return (
     <DashboardLayout

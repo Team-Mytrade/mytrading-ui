@@ -43,8 +43,6 @@ export interface AccessInfo {
   employeeId: number | null;
   // A customer's portal account: only the portal is shown (the gateway refuses everything else anyway)
   portalCustomerId: number | null;
-  // Page actions the user's roles switch off, as "page|ACTION" (e.g. "/quotations|CREATE"); see pageDenied
-  pageDenies: string[];
 }
 
 export const NO_ACCESS: AccessInfo = {
@@ -55,7 +53,6 @@ export const NO_ACCESS: AccessInfo = {
   permissions: [],
   tenantModules: [],
   employeeId: null,
-  pageDenies: [],
 };
 
 /** Reads the access claims from the JWT issued by auth-service. */
@@ -73,7 +70,6 @@ export const decodeAccess = (token: string | null | undefined): AccessInfo => {
       tenantModules: Array.isArray(claims.tenantModules) ? claims.tenantModules : [],
       employeeId: typeof claims.employeeId === "number" ? claims.employeeId : null,
       portalCustomerId: typeof claims.portalCustomerId === "number" ? claims.portalCustomerId : null,
-      pageDenies: Array.isArray(claims.pageDenies) ? claims.pageDenies : [],
     };
   } catch {
     return NO_ACCESS;
@@ -85,21 +81,6 @@ export const hasModule = (access: AccessInfo, module: AppModule | string): boole
 
 export const hasPermission = (access: AccessInfo, permission: string): boolean =>
   access.superAdmin || access.permissions.includes(permission);
-
-/**
- * Whether the user's roles switch this action off on the page at this path (Roles & Permissions → Page access).
- * A page is its menu route; pages under it (detail, edit, create) count as the same page, the longest match wins.
- * Nothing is denied to a Super Admin. The services refuse the same actions.
- */
-export const pageDenied = (access: AccessInfo, pathname: string, action: string): boolean => {
-  if (access.superAdmin || !access.pageDenies?.length) return false;
-  let page = "";
-  for (const entry of access.pageDenies) {
-    const key = entry.slice(0, entry.lastIndexOf("|"));
-    if ((pathname === key || pathname.startsWith(`${key}/`)) && key.length > page.length) page = key;
-  }
-  return page !== "" && access.pageDenies.includes(`${page}|${action}`);
-};
 
 /* ================= Super Admin tenant selection ================= */
 
@@ -396,8 +377,6 @@ export const canAccessPath = (access: AccessInfo, pathname: string): boolean => 
   const reportModule = reportModuleFor(pathname);
   if (reportModule) return reportsOfModule(reportModule.module).some((r) => canAccessPath(access, r.path));
   if (!access.superAdmin && !routePermissionOk(access, pathname)) return false;
-  // A page the user's roles hide (View switched off)
-  if (pageDenied(access, pathname, "VIEW")) return false;
   const selfService = isSelfServicePath(pathname);
   if (selfService) {
     if (ON_BEHALF_ROUTES.includes(pathname) && hasModule(access, selfService)

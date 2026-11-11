@@ -11,10 +11,8 @@ import { ATTENDANCE_TOPICS } from "./topics/attendance";
 import { HOME_TOPICS, REPORT_TOPICS, SETTINGS_TOPICS } from "./topics/general";
 import { HELP_FLOWS } from "./flows";
 import { localizeFlow, localizeTopic, type HelpTranslation } from "./translations";
-import { regionalFlow, regionalTopic, topicForRegion } from "./regionText";
-import type { HelpRegion } from "./types";
 
-export type { HelpFlow, HelpRegion, HelpTopic } from "./types";
+export type { HelpFlow, HelpTopic } from "./types";
 
 /** Every page's help, in menu order. Modules are added one by one (backlog 8.1). */
 export const HELP_TOPICS: HelpTopic[] = [...HOME_TOPICS, ...COMMON_TOPICS, ...CRM_TOPICS, ...SALES_TOPICS, ...PURCHASE_TOPICS, ...INVENTORY_TOPICS, ...DELIVERY_TOPICS, ...INVOICE_TOPICS, ...HR_TOPICS, ...ATTENDANCE_TOPICS, ...REPORT_TOPICS, ...SETTINGS_TOPICS];
@@ -60,25 +58,19 @@ export const helpFlowById = (id: string): HelpFlow | null => HELP_FLOWS.find((f)
  * Every word of the query somewhere in the topic (title, summary, tasks, fields, statuses, rules), in English or in
  * the translation when one is given, so a query in either language finds it.
  */
-export const searchHelp = (
-  query: string,
-  translation: HelpTranslation | null = null,
-  region: HelpRegion = "IN",
-): { topics: HelpTopic[]; flows: HelpFlow[] } => {
-  // Pages meant only for the other region aren't listed (their help still opens from the page itself)
-  const topics = HELP_TOPICS.filter((t) => topicForRegion(t, region));
+export const searchHelp = (query: string, translation: HelpTranslation | null = null): { topics: HelpTopic[]; flows: HelpFlow[] } => {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return { topics, flows: HELP_FLOWS };
+  if (!words.length) return { topics: HELP_TOPICS, flows: HELP_FLOWS };
   const textOf = (t: HelpTopic) =>
     [t.title, t.module, t.summary, ...t.tasks.flatMap((k) => [k.title, ...k.steps]), ...(t.fields ?? []).flatMap((f) => [f.name, f.meaning]),
       ...(t.statuses ?? []).flatMap((s) => [s.name, s.meaning]), ...(t.rules ?? [])].join(" ");
   const topicText = (t: HelpTopic) =>
-    `${textOf(regionalTopic(t, region))} ${translation ? textOf(regionalTopic(localizeTopic(t, translation).topic, region)) : ""}`.toLowerCase();
+    `${textOf(t)} ${translation ? textOf(localizeTopic(t, translation).topic) : ""}`.toLowerCase();
   const flowWords = (f: HelpFlow) => [f.title, f.summary, ...f.steps.flatMap((s) => [s.title, s.detail])].join(" ");
   const flowText = (f: HelpFlow) =>
-    `${flowWords(regionalFlow(f, region))} ${translation ? flowWords(regionalFlow(localizeFlow(f, translation).flow, region)) : ""}`.toLowerCase();
+    `${flowWords(f)} ${translation ? flowWords(localizeFlow(f, translation).flow) : ""}`.toLowerCase();
   return {
-    topics: topics.filter((t) => words.every((w) => topicText(t).includes(w))),
+    topics: HELP_TOPICS.filter((t) => words.every((w) => topicText(t).includes(w))),
     flows: HELP_FLOWS.filter((f) => words.every((w) => flowText(f).includes(w))),
   };
 };

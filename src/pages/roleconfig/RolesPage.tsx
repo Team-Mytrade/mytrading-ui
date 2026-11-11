@@ -8,8 +8,7 @@ import StatsCard from "../../components/common/Statscard";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
 import { AppModule, MODULE_LABELS, PERMISSION_ACTIONS } from "../../access/access";
-import { PageLimit, RoleAccess, errorText, userAdminApi } from "../../access/accessApi";
-import PageAccessEditor from "./PageAccessEditor";
+import { RoleAccess, errorText, userAdminApi } from "../../access/accessApi";
 import {
   CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
@@ -27,12 +26,7 @@ interface Draft {
   id: number | null;
   roleName: string;
   permissions: Set<string>;
-  // Pages narrowed below the module rights
-  pages: Map<string, PageLimit>;
 }
-
-const limitsOf = (r: RoleAccess | null): Map<string, PageLimit> =>
-  new Map((r?.pageLimits ?? []).map((l) => [l.pageKey, l]));
 
 /**
  * The company's roles as a module × action grid. System roles come from the platform and are read-only;
@@ -47,7 +41,6 @@ export default function RolesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"modules" | "pages">("modules");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,7 +68,6 @@ export default function RolesPage() {
   const { access } = useContext(AuthContext);
   const canEditSelected = Boolean(selected && (!selected.systemRole || access.superAdmin));
   const shown: Set<string> = draft ? draft.permissions : new Set(selected?.permissions ?? []);
-  const shownPages: Map<string, PageLimit> = draft ? draft.pages : limitsOf(selected);
 
   const stats = useMemo(() => ({
     total: roles.length,
@@ -84,11 +76,11 @@ export default function RolesPage() {
     unused: roles.filter((r) => (r.userCount ?? 0) === 0).length,
   }), [roles]);
 
-  const startNew = () => setDraft({ id: null, roleName: "", permissions: new Set(), pages: new Map() });
+  const startNew = () => setDraft({ id: null, roleName: "", permissions: new Set() });
 
   const startEdit = (r: RoleAccess) => {
     setSelectedId(r.id);
-    setDraft({ id: r.id, roleName: r.roleName, permissions: new Set(r.permissions), pages: limitsOf(r) });
+    setDraft({ id: r.id, roleName: r.roleName, permissions: new Set(r.permissions) });
   };
 
   const toggle = (module: AppModule, action: string) => {
@@ -113,10 +105,9 @@ export default function RolesPage() {
     setSaving(true);
     try {
       const codes = [...draft.permissions];
-      const pages = [...draft.pages.values()];
       const saved = draft.id === null
-        ? await userAdminApi.createRole(draft.roleName.trim(), codes, pages)
-        : await userAdminApi.updateRole(draft.id, draft.roleName.trim(), codes, pages);
+        ? await userAdminApi.createRole(draft.roleName.trim(), codes)
+        : await userAdminApi.updateRole(draft.id, draft.roleName.trim(), codes);
       ToasterService.success(draft.id === null ? "Role created." : "Role saved. Users get the change from their next sign-in or token refresh.");
       setDraft(null);
       await load();
@@ -221,21 +212,6 @@ export default function RolesPage() {
                   </div>
                 </div>
 
-                {/* Module rights first; page access narrows them page by page */}
-                <div role="tablist" className="mb-3 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs dark:border-gray-700 dark:bg-[#222222]">
-                  {(["modules", "pages"] as const).map((key) => (
-                    <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
-                      className={`rounded-md px-3 py-1.5 font-medium transition ${tab === key ? "bg-white text-cyan-700 shadow-sm dark:bg-[#2f2f2f] dark:text-cyan-300" : "text-slate-600 hover:text-slate-900 dark:text-gray-300"}`}>
-                      {key === "modules" ? t("Module rights") : `${t("Page access")}${shownPages.size ? ` (${shownPages.size})` : ""}`}
-                    </button>
-                  ))}
-                </div>
-
-                {tab === "pages" ? (
-                  <PageAccessEditor permissions={shown} limits={shownPages}
-                    onChange={draft ? (pages) => setDraft({ ...draft, pages }) : null} />
-                ) : (
-                <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -277,8 +253,6 @@ export default function RolesPage() {
                   <p className="mt-3 text-[11px] text-slate-500 dark:text-gray-400">
                     {t("Greyed boxes are permissions you don't hold or don't administer. Admin includes every action of its module.")}
                   </p>
-                )}
-                </>
                 )}
               </>
             )}
