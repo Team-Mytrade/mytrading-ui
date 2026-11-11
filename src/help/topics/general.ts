@@ -728,9 +728,6 @@ export const REPORT_TOPICS: HelpTopic[] = [
       },
       { title: "Export or print", steps: ["Click Excel, PDF or Print; the file has every month's net pay."] },
     ],
-    fields: [
-      { name: "Employer contributions", meaning: "What the company pays on top of gross pay: employer PF and ESI, and the employer's share of Gulf pension and social insurance." },
-    ],
     rules: [
       "Only salaries of processed payroll runs count. A run still waiting for approval is left out, with a warning.",
       "If the employee list can't be read, employees show by their number.",
@@ -739,6 +736,14 @@ export const REPORT_TOPICS: HelpTopic[] = [
       { route: "/payrollSummary", label: "Payroll Summary" },
       { route: "/reports/headcount", label: "Headcount" },
     ],
+    byRegion: {
+      IN: {
+        fields: [{ name: "Employer contributions", meaning: "What the company pays on top of gross pay: the employer's PF and ESI." }],
+      },
+      GCC: {
+        fields: [{ name: "Employer contributions", meaning: "What the company pays on top of gross pay: the employer's share of pension and social insurance (UAE GPSSA or ADPF, Saudi Arabia GOSI)." }],
+      },
+    },
   },
   {
     id: "leave-balances",
@@ -848,6 +853,7 @@ export const REPORT_TOPICS: HelpTopic[] = [
     id: "vat-return",
     route: "/vatReturn",
     module: "Reports",
+    regions: ["GCC"],
     title: "VAT Return",
     summary: "The figures for your VAT return, box by box: output VAT on supplies and input VAT you can recover, with the documents behind each box.",
     who: moduleReader("Invoice"),
@@ -934,7 +940,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     route: "/rolesPermissions",
     module: "Settings",
     title: "Roles & Permissions",
-    summary: "What each role may do, module by module: view, create, update, delete, approve, export and admin.",
+    summary: "What each role may do, module by module (view, create, update, delete, approve, export and admin), and narrowed page by page under Page access.",
     who: [
       { role: "Tenant Administrator", can: "Add, change and delete custom roles." },
       { role: "Everyone with Users access", can: "See the roles." },
@@ -943,11 +949,22 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       { title: "See a role", steps: ["Select a role to see its permissions."] },
       { title: "Make a role", steps: ["Click New role and name it (e.g. Sales Executive).", "Tick the permissions per Module and save."] },
       { title: "Change or remove one", steps: ["Click Edit role, or Delete the role (custom roles only). Not assigned counts the roles nobody has."] },
+      {
+        title: "Limit pages",
+        steps: [
+          "Edit the role and open Page access: the menu as the sidebar shows it, menu by menu, with View, Create, Edit, Delete, Approve and Export for each page.",
+          "Untick what the role may not do on a page (untick View to hide the page). A changed page is highlighted; its reset button makes it follow the module rights again.",
+          "Use Search pages or Only pages limited for this role to find pages, then Save role.",
+        ],
+      },
     ],
     rules: [
       "Greyed boxes are permissions you don't hold or don't administer: nobody can give more than they have.",
       "Admin includes every action of its module.",
       "System roles (with a lock) come from the platform: only the Super Admin can change them.",
+      "A page can only allow what its module rights allow; pages nobody changed follow the module rights, so existing roles work as before.",
+      "With several roles, an action is allowed on a page when any role holding that module right leaves it on there.",
+      "The services refuse a switched-off create, edit, delete, approve or export on that page; lists that other pages also use stay readable. Users get changes from their next sign-in or token refresh.",
     ],
     related: [{ route: "/role_config", label: "Users" }],
   },
@@ -1009,12 +1026,40 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       "Invoices, the ledger, stock and payroll records are never deleted automatically (tax law needs them kept).",
       "The export leaves out passwords, keys and other secrets, and pictures and attached files.",
       "Plan, users and storage limits are shown here; to change the plan, contact your provider.",
+      "The Country decides which country's rules the payroll pages, the menu and this help follow: India, or the Gulf (UAE, Saudi Arabia, Qatar, Oman, Bahrain, Kuwait).",
     ],
     related: [
       { route: "/getting-started", label: "Getting started" },
       { route: "/notification-settings", label: "Notification Settings" },
     ],
     flows: ["company-setup"],
+    byRegion: {
+      IN: {
+        tasks: [
+          {
+            title: "GST registration",
+            steps: ["Choose Tax registration GST registered (India) and enter the GSTIN; the PAN is filled from the GSTIN if left empty.", "Pick the State from the list and enter the 6-digit PIN code."],
+          },
+        ],
+        rules: ["With Country India, payroll follows India's rules (income tax, IT declarations, PF, ESI, professional tax), the financial year usually starts in April, and the menu and help show the India pages."],
+      },
+      GCC: {
+        tasks: [
+          {
+            title: "VAT registration and licence",
+            steps: [
+              "Choose Tax registration VAT registered and enter the VAT registration number (TRN): 15 digits in the UAE and Saudi Arabia. It prints on tax invoices.",
+              "Enter the Trade licence number and who it was Issued by: UAE e-invoices identify the seller by them.",
+              "Enter the registered address the country's way: UAE emirate and P.O. Box; Saudi national address (building number, street, district, additional number, postal code), which ZATCA e-invoices carry.",
+            ],
+          },
+        ],
+        rules: [
+          "With a Gulf country, payroll follows Gulf rules (no income tax; pension and social insurance for nationals, end-of-service gratuity, WPS and Mudad files), and the menu and help show the Gulf pages.",
+          "Show Hijri dates is for companies that also want the Umm al-Qura date on documents (common in Saudi Arabia).",
+        ],
+      },
+    },
   },
   {
     id: "notification-settings",

@@ -27,6 +27,27 @@ export interface HelpLink {
   why?: string;
 }
 
+/**
+ * Which country rules the help is written for, from the company's country (Company Settings), as the menu and the
+ * payroll pages decide it: India, or the Gulf (UAE, Saudi Arabia, Qatar, Oman, Bahrain, Kuwait).
+ */
+export type HelpRegion = "IN" | "GCC";
+
+/**
+ * What a page's help says only for one region. Title, summary and who replace the topic's own; tasks, fields,
+ * statuses, rules and related pages are added after the topic's own (which hold what is true everywhere).
+ */
+export interface HelpRegionPart {
+  title?: string;
+  summary?: string;
+  who?: HelpRole[];
+  tasks?: HelpTask[];
+  fields?: HelpTerm[];
+  statuses?: HelpTerm[];
+  rules?: string[];
+  related?: HelpLink[];
+}
+
 export interface HelpTopic {
   /** Stable id, used in Help Center links (/help/<id>). */
   id: string;
@@ -48,6 +69,10 @@ export interface HelpTopic {
   related?: HelpLink[];
   /** Ids of the end-to-end flows this page is part of. */
   flows?: string[];
+  /** The page is only for companies in these regions: the Help Center lists it only for them. */
+  regions?: HelpRegion[];
+  /** What differs by region (see HelpRegionPart). */
+  byRegion?: Partial<Record<HelpRegion, HelpRegionPart>>;
 }
 
 export interface HelpFlowStep {
@@ -55,6 +80,8 @@ export interface HelpFlowStep {
   route?: string;
   who?: string;
   detail: string;
+  /** A step only companies in these regions take. */
+  regions?: HelpRegion[];
 }
 
 /** An end-to-end business flow across pages (the user manual). */

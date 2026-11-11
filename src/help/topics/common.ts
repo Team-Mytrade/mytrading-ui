@@ -43,7 +43,7 @@ export const COMMON_TOPICS: HelpTopic[] = [
     fields: [
       { name: "Customer name / Trade name", meaning: "The legal name (on invoices) and the name the customer trades under, if different." },
       { name: "Customer type", meaning: "Wholesale, Retail, Distributor, Corporate, Government, Non-profit or Other. Used in reports and price lists." },
-      { name: "GSTIN / VAT TRN", meaning: "The customer's tax registration. A registered buyer gets a full tax invoice; without it a Saudi invoice is a simplified one." },
+      { name: "GSTIN / VAT TRN", meaning: "The customer's tax registration (GSTIN in India, VAT TRN in the Gulf), printed on tax invoices." },
       { name: "Payment terms", meaning: "How many days the customer has to pay. Sets the due date on invoices." },
       { name: "Currency", meaning: "The currency quotations, orders and invoices for this customer are made in." },
       { name: "Credit limit", meaning: "How much the customer may owe. Empty = no limit. An order that would take them over it goes on credit hold until a manager releases it." },
@@ -66,6 +66,21 @@ export const COMMON_TOPICS: HelpTopic[] = [
       { route: "/accountsReceivable", label: "Accounts Receivable", why: "What the customer owes." },
     ],
     flows: ["lead-to-order", "order-to-cash"],
+    byRegion: {
+      IN: {
+        rules: [
+          "Enter the GSTIN of a GST-registered customer (15 characters): it is printed on their tax invoices.",
+          "An Indian address has a state and a 6-digit PIN code.",
+        ],
+      },
+      GCC: {
+        rules: [
+          "Enter the VAT TRN of a VAT-registered customer (15 digits in the UAE and Saudi Arabia). In Saudi Arabia an invoice to a buyer without one is a simplified invoice; UAE e-invoices go to VAT-registered buyers.",
+          "UAE address: building / villa and street, area, city, the emirate and the P.O. Box (there are no postcodes).",
+          "Saudi address: the national address (4-digit building number, street, district, additional number, city, region and 5-digit postal code). ZATCA e-invoices need it for VAT-registered buyers.",
+        ],
+      },
+    },
   },
   {
     id: "vendors",
@@ -85,7 +100,7 @@ export const COMMON_TOPICS: HelpTopic[] = [
           "Enter the vendor code (e.g. VEN-001) and vendor name; add the legal (registered) name if different.",
           "Enter the contact person, email and phone.",
           "Enter the address, the currency the vendor bills in and the payment terms.",
-          "Add the GSTIN / VAT TRN (in India the PAN is filled in from the GSTIN) and the bank details for payments.",
+          "Add the GSTIN / VAT TRN and the bank details for payments.",
           "Save.",
         ],
       },
@@ -96,7 +111,7 @@ export const COMMON_TOPICS: HelpTopic[] = [
       { name: "Currency", meaning: "The currency the vendor quotes and bills in. Bills in another currency are converted at the day's exchange rate." },
       { name: "Payment terms", meaning: "Days you have to pay the vendor; sets the due date on bills." },
       { name: "GSTIN / VAT TRN", meaning: "The vendor's tax registration, needed to reclaim input tax." },
-      { name: "Bank name, account number, IFSC", meaning: "Where vendor payments go." },
+      { name: "Bank name, account number", meaning: "Where vendor payments go." },
     ],
     statuses: [
       { name: "Active", meaning: "Can be used on new requisitions, orders and bills." },
@@ -108,6 +123,21 @@ export const COMMON_TOPICS: HelpTopic[] = [
       { route: "/vendorPayments", label: "Vendor Payments", why: "Pay the vendor." },
     ],
     flows: ["procure-to-pay"],
+    byRegion: {
+      IN: {
+        fields: [
+          { name: "PAN (India; filled from GSTIN)", meaning: "Filled in by itself from a full GSTIN (its characters 3 to 12)." },
+          { name: "Bank IFSC Code", meaning: "The vendor's bank branch (e.g. HDFC0001234)." },
+        ],
+        rules: ["With Country India the State is picked from the list and the PIN Code, GSTIN, PAN, IFSC, phone and bank account are checked."],
+      },
+      GCC: {
+        rules: [
+          "Enter the vendor's VAT TRN: input VAT on their bills is reclaimed against it.",
+          "Outside India the state is typed (State / Emirate / Region) and the postal code is the Postal Code / P.O. Box; PAN and IFSC stay empty.",
+        ],
+      },
+    },
   },
   {
     id: "product-categories",
@@ -233,6 +263,42 @@ export const COMMON_TOPICS: HelpTopic[] = [
       { route: "/role_config", label: "Users", why: "The employee's login and roles." },
     ],
     flows: ["hire-to-pay"],
+    byRegion: {
+      IN: {
+        tasks: [
+          {
+            title: "India payroll details",
+            steps: [
+              "On the Bank & Salary step, keep the Payroll country India and enter the Bank Name, Account Number (required) and IFSC Code.",
+              "Under Statutory Details choose the Tax Regime (New or Old), tick ESI Applicable and Metro City where they apply, and enter the PAN Number, Aadhaar Number, PF Number and UAN.",
+            ],
+          },
+        ],
+        fields: [
+          { name: "Tax Regime", meaning: "Old Regime: old slabs with approved IT declarations and the employee's PF under 80C. New Regime: new slabs; IT declarations don't apply. A submitted IT declaration's regime wins for its financial year." },
+          { name: "ESI Applicable", meaning: "ESI is deducted (0.75%, employer 3.25%) while the monthly gross is ₹21,000 or less." },
+          { name: "Metro City", meaning: "Used for the HRA exemption." },
+        ],
+        rules: ["Professional tax is deducted by the state of the current address; states without it deduct none."],
+      },
+      GCC: {
+        tasks: [
+          {
+            title: "Gulf payroll details",
+            steps: [
+              "On the Bank & Salary step, choose the Payroll country (UAE, Saudi Arabia, Qatar, Oman, Bahrain or Kuwait): Gulf payroll details appear.",
+              "Choose the Nationality and enter the IBAN the salary is paid to (the account number can then stay empty).",
+              "UAE: the Emirates ID, the MOHRE person ID (on the labour card) and the Bank routing code (WPS), both needed for the WPS file. Saudi Arabia: the Saudi national ID or Iqama number and the GOSI number.",
+              "For a national: in the UAE the Pension fund (GPSSA or Abu Dhabi Pension Fund), and the date First registered with the pension fund.",
+            ],
+          },
+        ],
+        rules: [
+          "The nationality decides the pension: nationals and GCC nationals pay into a pension or social insurance fund; others don't, and earn end-of-service gratuity.",
+          "Members registered with the pension fund before the new pension law keep the old rates; left empty, the joining date is used.",
+        ],
+      },
+    },
   },
   {
     id: "departments",
@@ -313,6 +379,17 @@ export const COMMON_TOPICS: HelpTopic[] = [
       { route: "/vatReturn", label: "VAT Return" },
       { route: "/reports/sales-register", label: "Sales Register" },
     ],
+    byRegion: {
+      IN: {
+        rules: ["Codes are your own, e.g. GST5, GST12, GST18 and GST28 for the GST rates, and a 0% code for exempt goods."],
+      },
+      GCC: {
+        rules: [
+          "Codes are your own, e.g. VAT5 for the UAE and Oman (5%), VAT10 for Bahrain (10%) and VAT15 for Saudi Arabia (15%), plus a zero-rated code for exports and an exempt one.",
+          "The VAT category decides the box on the VAT return and the code on e-invoices.",
+        ],
+      },
+    },
   },
   {
     id: "tax-details",

@@ -7693,4 +7693,67 @@ export const ar: Record<string, string> = {
   "Leads created each month": "العملاء المحتملون الجدد كل شهر",
   "Earliest first": "الأقرب أولًا",
   Opportunities: "الفرص",
+  // Help by country (India / Gulf)
+  "Help for": "المساعدة لـ",
+  "your company": "شركتك",
+  "Gulf (GCC)": "الخليج (دول مجلس التعاون)",
+  "This page is for companies in the Gulf (UAE, Saudi Arabia, Qatar, Oman, Bahrain, Kuwait). Your company is set up in another country (Company Settings).":
+    "هذه الصفحة للشركات في الخليج (الإمارات والسعودية وقطر وعُمان والبحرين والكويت). وشركتك مُعدّة في دولة أخرى (إعدادات الشركة).",
+  "This page is for companies in India. Your company is set up in another country (Company Settings).":
+    "هذه الصفحة للشركات في الهند. وشركتك مُعدّة في دولة أخرى (إعدادات الشركة).",
+  // Gulf payroll: My Salary and Pay Tracker
+  "Employer pension": "حصة صاحب العمل في المعاش",
+  "Annual package": "الحزمة السنوية",
+  "Total pay": "إجمالي الأجر",
+  "Employer pension / social insurance": "حصة صاحب العمل في المعاش / التأمينات الاجتماعية",
+  "End-of-service gratuity (yearly provision)": "مكافأة نهاية الخدمة (المخصص السنوي)",
+  Pension: "المعاش",
+  "GCC national": "مواطن خليجي",
+  "No pension or social insurance deduction: it applies to nationals (and GCC nationals) on Gulf payroll.":
+    "لا يُخصم معاش أو تأمينات اجتماعية: يسري ذلك على المواطنين (ومواطني دول الخليج) على رواتب الخليج.",
+  "Pension / social insurance (you)": "المعاش / التأمينات الاجتماعية (حصتك)",
+  "Gratuity to date": "المكافأة حتى اليوم",
+  "end of service, if leaving today": "نهاية الخدمة، لو غادرت اليوم",
+  "Take-home by month": "الصافي حسب الشهر",
+  "Pension paid": "المعاش المدفوع",
+  "Not employed during this year.": "لم يكن موظفًا خلال هذه السنة.",
+  "No income tax on Gulf payroll. Forecast months assume a full month at today's salary.":
+    "لا ضريبة دخل على رواتب الخليج. وتفترض الأشهر المتوقعة شهرًا كاملًا براتب اليوم.",
+  "Pay Tracker": "متتبع الرواتب",
+  "The pay tracker could not be loaded.": "تعذّر تحميل متتبع الرواتب.",
+  "Net pay paid": "صافي الرواتب المدفوع",
+  "At today's salaries": "برواتب اليوم",
+  "Employer pension paid": "حصة صاحب العمل المدفوعة في المعاش",
+  "built up this year (end of service)": "المتراكم هذه السنة (نهاية الخدمة)",
+  "Net pay by month": "صافي الرواتب حسب الشهر",
+  "January to December · no income tax on Gulf payroll": "من يناير إلى ديسمبر · لا ضريبة دخل على رواتب الخليج",
+  "Net pay paid and forecast by month": "صافي الرواتب المدفوع والمتوقع حسب الشهر",
+  "No employees on Gulf payroll for this year.": "لا موظفين على رواتب الخليج لهذه السنة.",
+  // Roles & Permissions: page access
+  "Module rights": "صلاحيات الوحدات",
+  "Page access": "صلاحيات الصفحات",
+  "Search pages": "ابحث في الصفحات",
+  "Only pages limited for this role": "الصفحات المقيّدة لهذا الدور فقط",
+  pages: "صفحات",
+  limited: "مقيّدة",
+  "The role's module rights don't include this": "صلاحيات الوحدة لهذا الدور لا تشمل ذلك",
+  "Follow the module rights again": "اتبع صلاحيات الوحدة من جديد",
+  "A page follows the role's module rights until you change it here (highlighted). Unticking View hides the page; greyed boxes are outside the module rights.":
+    "تتبع الصفحة صلاحيات وحدة الدور حتى تغيّرها هنا (تُميَّز بلون). إلغاء «عرض» يخفي الصفحة؛ والمربعات الرمادية خارج صلاحيات الوحدة.",
+  "Give the role module rights first: pages follow them.": "امنح الدور صلاحيات الوحدات أولًا: الصفحات تتبعها.",
+  "No pages match.": "لا توجد صفحات مطابقة.",
+  // India: PF settings (Compensation)
+  "PF settings saved. They apply to payroll runs from now on.": "حُفظت إعدادات صندوق الادخار. تسري على دورات الرواتب من الآن.",
+  "Provident Fund (India)": "صندوق الادخار (الهند)",
+  "Employee and employer each pay 12% of the basic. The employer's share goes to EPFO and is shown on the payslip as an employer contribution.":
+    "يدفع كل من الموظف وصاحب العمل 12% من الأساسي. وتذهب حصة صاحب العمل إلى EPFO وتظهر في قسيمة الراتب كمساهمة من صاحب العمل.",
+  "Part of the CTC": "ضمن التكلفة الإجمالية",
+  "(the salary split leaves room for it)": "(يترك تقسيم الراتب مجالًا لها)",
+  "On top of the CTC": "فوق التكلفة الإجمالية",
+  "(shown after the fixed salary)": "(تظهر بعد الأجر الثابت)",
+  "Cap the PF wage at the statutory limit": "حدّ أجر صندوق الادخار بالحد النظامي",
+  "(otherwise PF is 12% of the full basic)": "(وإلا فصندوق الادخار 12% من الأساسي كاملًا)",
+  "Monthly PF wage limit": "الحد الشهري لأجر صندوق الادخار",
+  "The limit is also the EPS (pension) ceiling: EPS is 8.33% of the basic up to it.":
+    "الحد هو أيضًا سقف EPS (المعاش): EPS نسبته 8.33% من الأساسي حتى هذا الحد.",
 };

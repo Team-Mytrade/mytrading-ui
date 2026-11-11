@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { language, useLanguage, type Language } from "../i18n/i18n";
-import type { HelpFlow, HelpTopic } from "./types";
+import type { HelpFlow, HelpRegion, HelpRegionPart, HelpTopic } from "./types";
+import { regionalFlow, regionalTopic } from "./regionText";
 
 // Help in other languages (backlog 8.1.8). Each language has files that mirror the English topics and flows by id,
 // field by field and item by item (the same order). They are loaded only when the screen is in that language, so the
@@ -16,6 +17,8 @@ export interface TopicText {
   statuses?: { name?: string; meaning?: string }[];
   rules?: string[];
   related?: { label?: string; why?: string }[];
+  /** The region parts (HelpTopic.byRegion), mirrored the same way. */
+  byRegion?: Partial<Record<HelpRegion, TopicText>>;
 }
 
 export interface FlowText {
@@ -75,29 +78,41 @@ const pick = (english: string, translated?: string) => (translated && translated
 const over = <E, T>(english: E[] | undefined, translated: T[] | undefined, merge: (e: E, t: T) => E): E[] | undefined =>
   english && translated ? english.map((item, i) => (translated[i] ? merge(item, translated[i]) : item)) : english;
 
-/** The topic in the translation's language, and whether it was translated. */
+// A topic's texts, or one of its region parts, over the English
+const localizePart = <P extends HelpRegionPart>(english: P, text: TopicText): P => ({
+  ...english,
+  title: english.title === undefined ? undefined : pick(english.title, text.title),
+  summary: english.summary === undefined ? undefined : pick(english.summary, text.summary),
+  who: over(english.who, text.who, (e, t) => ({ role: pick(e.role, t.role), can: pick(e.can, t.can) })),
+  tasks: over(english.tasks, text.tasks, (e, t) => ({
+    ...e,
+    title: pick(e.title, t.title),
+    steps: e.steps.map((s, i) => pick(s, t.steps?.[i])),
+    who: e.who ? pick(e.who, t.who) : e.who,
+  })),
+  fields: over(english.fields, text.fields, (e, t) => ({ name: pick(e.name, t.name), meaning: pick(e.meaning, t.meaning) })),
+  statuses: over(english.statuses, text.statuses, (e, t) => ({ name: pick(e.name, t.name), meaning: pick(e.meaning, t.meaning) })),
+  rules: english.rules?.map((r, i) => pick(r, text.rules?.[i])),
+  related: over(english.related, text.related, (e, t) => ({ ...e, label: pick(e.label, t.label), why: e.why ? pick(e.why, t.why) : e.why })),
+}) as P;
+
+/** The topic in the translation's language, and whether it was translated (all regions' parts included). */
 export const localizeTopic = (topic: HelpTopic, translation: HelpTranslation | null): { topic: HelpTopic; translated: boolean } => {
   const text = translation?.topics[topic.id];
   if (!text) return { topic, translated: false };
-  return {
-    translated: true,
-    topic: {
-      ...topic,
-      title: pick(topic.title, text.title),
-      summary: pick(topic.summary, text.summary),
-      who: over(topic.who, text.who, (e, t) => ({ role: pick(e.role, t.role), can: pick(e.can, t.can) }))!,
-      tasks: over(topic.tasks, text.tasks, (e, t) => ({
-        ...e,
-        title: pick(e.title, t.title),
-        steps: e.steps.map((s, i) => pick(s, t.steps?.[i])),
-        who: e.who ? pick(e.who, t.who) : e.who,
-      }))!,
-      fields: over(topic.fields, text.fields, (e, t) => ({ name: pick(e.name, t.name), meaning: pick(e.meaning, t.meaning) })),
-      statuses: over(topic.statuses, text.statuses, (e, t) => ({ name: pick(e.name, t.name), meaning: pick(e.meaning, t.meaning) })),
-      rules: topic.rules?.map((r, i) => pick(r, text.rules?.[i])),
-      related: over(topic.related, text.related, (e, t) => ({ ...e, label: pick(e.label, t.label), why: e.why ? pick(e.why, t.why) : e.why })),
-    },
-  };
+  const byRegion = topic.byRegion
+    ? Object.fromEntries(Object.entries(topic.byRegion).map(([region, part]) => {
+        const regionText = text.byRegion?.[region as HelpRegion];
+        return [region, part && regionText ? localizePart(part, regionText) : part];
+      }))
+    : undefined;
+  return { translated: true, topic: { ...localizePart(topic, text), byRegion } };
+};
+
+/** The topic as shown: in the screen's language and for the region. */
+export const shownTopic = (topic: HelpTopic, translation: HelpTranslation | null, region: HelpRegion) => {
+  const { topic: localized, translated } = localizeTopic(topic, translation);
+  return { topic: regionalTopic(localized, region), translated };
 };
 
 /** The flow in the translation's language, and whether it was translated. */
@@ -116,6 +131,12 @@ export const localizeFlow = (flow: HelpFlow, translation: HelpTranslation | null
       }),
     },
   };
+};
+
+/** The flow as shown: in the screen's language, without other regions' steps. */
+export const shownFlow = (flow: HelpFlow, translation: HelpTranslation | null, region: HelpRegion) => {
+  const { flow: localized, translated } = localizeFlow(flow, translation);
+  return { flow: regionalFlow(localized, region), translated };
 };
 
 /** dir / lang for help text: the screen's language when translated, else English left to right. */
