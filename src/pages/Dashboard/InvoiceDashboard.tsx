@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_AXIS, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatDate, formatMoney, formatNumber, getList, monthsBack, mostCommon, parseDate, sum, titleCase,
   useDashboardSources,
 } from "./dashboardKit";
@@ -102,11 +102,12 @@ export default function InvoiceDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-      <LoadNotice failed={failed} />
-      <ModuleTiles tiles={tiles} loading={loading} />
-
-      <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <DashboardLayout
+      failed={failed}
+      links={<ModuleTiles tiles={tiles} loading={loading} />}
+      panelClass="lg:grid-cols-3"
+      kpis={
+        <>
         <KpiCard label={t("Total Billed")} value={finance ? formatMoney(num(finance.totalInvoiced), currency, true) : "—"}
           hint={data.invoices ? `${formatNumber(invoices.length)} invoices` : undefined} icon={Receipt} tone="cyan" loading={loading} />
         <KpiCard label={t("Collected")} value={finance ? formatMoney(num(finance.totalPaid), currency, true) : "—"}
@@ -116,23 +117,23 @@ export default function InvoiceDashboard() {
           hint={finance ? `${formatNumber(finance.overdueInvoices?.length ?? 0)} invoice(s) overdue` : undefined} icon={AlertTriangle} tone="red" loading={loading} />
         <KpiCard label={t("Payable Outstanding")} value={data.payables ? formatMoney(payableTotal, currency, true) : "—"}
           hint={data.payables ? `${formatNumber(overduePayables.length)} past due date` : undefined} icon={Wallet} tone="purple" loading={loading} />
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        </>
+      }
+    >
         <Panel title={t("Billed vs Collected")} subtitle={t("Per month (last 6 months)")} icon={TrendingUp} iconClass="text-cyan-500">
           {!finance && !data.receipts ? (
             <EmptyState loading={loading}>{t("Billing figures are not available.")}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <BarChart data={billing}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
-                <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value, name) => [formatMoney(Number(value), currency), name === "billed" ? "Billed" : "Collected"]} />
-                <Bar dataKey="billed" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="collected" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="month" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
+                <Tooltip {...CHART_HOVER} formatter={(value, name) => [formatMoney(Number(value), currency), name === "billed" ? "Billed" : "Collected"]} />
+                <Bar dataKey="billed" fill="#06b6d4" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="collected" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
 
@@ -140,42 +141,40 @@ export default function InvoiceDashboard() {
           {agingRows.every((b) => !b.outstandingAmount) ? (
             <EmptyState loading={loading}>{t(statusMix.length ? "Nothing is outstanding." : "No invoices yet.")}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <BarChart data={agingRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid {...CHART_GRID} />
                 <XAxis dataKey="label" stroke="#9ca3af" fontSize={10} interval={0} />
-                <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
-                <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value, _n, item) => [`${formatMoney(Number(value), currency)} (${item?.payload?.invoiceCount ?? 0} invoices)`, "Outstanding"]} />
-                <Bar dataKey="outstandingAmount" radius={[4, 4, 0, 0]}>
+                <YAxis {...CHART_AXIS} tickFormatter={(v) => formatMoney(Number(v), currency, true)} width={70} />
+                <Tooltip {...CHART_HOVER} formatter={(value, _n, item) => [`${formatMoney(Number(value), currency)} (${item?.payload?.invoiceCount ?? 0} invoices)`, "Outstanding"]} />
+                <Bar dataKey="outstandingAmount" radius={[6, 6, 0, 0]} maxBarSize={36}>
                   {agingRows.map((b, i) => <Cell key={b.bucket} fill={i === 0 ? "#10b981" : CHART_COLORS[(i + 1) % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
-      </div>
 
-      {statusMix.length > 0 && (
-        <div className="mb-8">
-          <Panel title={t("Invoices by Status")} subtitle={t("Count of sales invoices in each state")}>
-            <div className="flex flex-wrap gap-3">
+        <Panel title={t("Invoices by Status")} subtitle={t("Count of sales invoices in each state")}>
+          {statusMix.length === 0 ? (
+            <EmptyState loading={loading}>{t("No invoices yet.")}</EmptyState>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
               {statusMix.map((s) => (
                 <button key={s.code} type="button" onClick={() => navigate("/invoices")}
-                  className="flex min-w-[8rem] flex-1 items-center gap-3 rounded-lg bg-gray-50 p-3 text-left transition hover:bg-gray-100 dark:bg-gray-800/60 dark:hover:bg-gray-800">
-                  <span className="h-8 w-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.code] ?? "#94a3b8" }} />
-                  <span>
+                  className="flex items-center gap-3 rounded-lg bg-gray-50 p-2.5 text-left transition hover:bg-gray-100 dark:bg-gray-800/60 dark:hover:bg-gray-800">
+                  <span className="h-8 w-1.5 flex-none rounded-full" style={{ backgroundColor: STATUS_COLORS[s.code] ?? "#94a3b8" }} />
+                  <span className="min-w-0">
                     <span className="block text-lg font-bold text-gray-900 dark:text-white">{formatNumber(s.count)}</span>
-                    <span className="text-xs text-gray-500">{s.status}</span>
+                    <span className="block truncate text-xs text-gray-500">{s.status}</span>
                   </span>
                 </button>
               ))}
             </div>
-          </Panel>
-        </div>
-      )}
+          )}
+        </Panel>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title={t("Overdue Invoices")} subtitle={t("Largest balances first")} bodyClass="overflow-x-auto">
+        <Panel title={t("Overdue Invoices")} subtitle={t("Largest balances first")} bodyClass="p-0" className="lg:col-span-2">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
@@ -201,7 +200,7 @@ export default function InvoiceDashboard() {
           </table>
         </Panel>
 
-        <Panel title={t("Payables Due")} subtitle={t("Unpaid vendor bills, earliest due first")} bodyClass="overflow-x-auto">
+        <Panel title={t("Payables Due")} subtitle={t("Unpaid vendor bills, earliest due first")} bodyClass="p-0">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
@@ -229,7 +228,6 @@ export default function InvoiceDashboard() {
             </tbody>
           </table>
         </Panel>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }

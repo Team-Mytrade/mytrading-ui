@@ -17,7 +17,7 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import {
-  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_GRID_V, CHART_AXIS, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatDate, formatMoney, formatNumber, getList, monthKeyOf, monthsBack, mostCommon, sum,
   useDashboardSources,
 } from "../Dashboard/dashboardKit";
@@ -174,23 +174,24 @@ const ProcurementDashboard: React.FC = () => {
       <PageMeta title={t("Procurement Dashboard")} description="Procurement and purchasing overview" />
       <PageBreadcrumb pageTitle="Procurement Dashboard" />
 
-      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-        <LoadNotice failed={failed} />
-        <ModuleTiles tiles={tiles} loading={loading} />
-
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <DashboardLayout
+        failed={failed}
+        links={<ModuleTiles tiles={tiles} loading={loading} />}
+        panelClass="lg:grid-cols-3"
+        kpis={
+          <>
           <KpiCard label={t("Open Requisitions")} value={formatNumber(openRequisitions.length)} hint={`${formatNumber(requisitions.length)} in total`} icon={FileText} tone="blue" loading={loading} />
           <KpiCard label={t("Open Purchase Orders")} value={formatNumber(openOrders.length)} hint={`${formatNumber(orders.length)} in total`} icon={ShoppingCart} tone="emerald" loading={loading} />
           <KpiCard label={t("Active Suppliers")} value={vendors ? formatNumber(vendors.filter((v) => v.active !== false).length) : "—"} hint={vendors ? `${formatNumber(vendors.length)} vendors` : undefined} icon={Truck} tone="orange" loading={loading} />
           <KpiCard label={t("Receipts in Draft")} value={formatNumber(draftReceipts.length)} hint={`${formatNumber(receipts.length)} receipts`} icon={Receipt} tone="purple" loading={loading} />
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          </>
+        }
+      >
           <Panel title={t("Purchase Trend")} subtitle={t("Purchase orders per month (last 6 months)")} icon={TrendingUp} iconClass="text-emerald-500">
             {liveOrders.length === 0 ? (
               <EmptyState loading={loading}>{t("No purchase orders yet.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend}>
                   <defs>
                     <linearGradient id="purchaseGradient" x1="0" y1="0" x2="0" y2="1">
@@ -198,13 +199,13 @@ const ProcurementDashboard: React.FC = () => {
                       <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                  <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => [value, "Orders"]} />
+                  <CartesianGrid {...CHART_GRID} />
+                  <XAxis dataKey="month" {...CHART_AXIS} />
+                  <YAxis {...CHART_AXIS} allowDecimals={false} />
+                  <Tooltip {...CHART_HOVER} formatter={(value) => [value, "Orders"]} />
                   <Area type="monotone" dataKey="orders" stroke="#06b6d4" strokeWidth={2} fill="url(#purchaseGradient)" />
                 </AreaChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
 
@@ -212,23 +213,34 @@ const ProcurementDashboard: React.FC = () => {
             {suppliers.length === 0 ? (
               <EmptyState loading={loading}>{t("No purchase orders yet.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <BarChart data={suppliers} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={100} />
-                  <Tooltip contentStyle={CHART_TOOLTIP}
+                  <CartesianGrid {...CHART_GRID_V} />
+                  <XAxis type="number" {...CHART_AXIS} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" {...CHART_AXIS} width={100} />
+                  <Tooltip {...CHART_HOVER}
                     formatter={(value, _name, item) => [`${value} order(s), ${formatMoney(Number(item?.payload?.value) || 0, currency)}`, "Orders"]} />
-                  <Bar dataKey="orders" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="orders" radius={[0, 6, 6, 0]} maxBarSize={28}>
                     {suppliers.map((s, index) => <Cell key={s.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
-        </div>
 
-        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title={t("Procurement Pipeline")} subtitle={t("Where open work currently sits")}>
+            <div className="grid grid-cols-2 gap-2">
+              {pipeline.map((stage) => (
+                <button key={stage.title} type="button" onClick={() => navigate(stage.route)}
+                  className="rounded-lg bg-gray-50 p-2.5 text-left transition hover:bg-gray-100 dark:bg-gray-800/60 dark:hover:bg-gray-800">
+                  <h4 className={`mb-1 truncate text-xs font-semibold ${stage.tone}`}>{stage.title}</h4>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">{loading ? "…" : formatNumber(stage.value)}</p>
+                  <p className="truncate text-[11px] text-gray-500">{stage.note}</p>
+                </button>
+              ))}
+            </div>
+          </Panel>
+
           <Panel title={t("Top Products Ordered")} subtitle={t("By order value")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
@@ -257,7 +269,7 @@ const ProcurementDashboard: React.FC = () => {
             </table>
           </Panel>
 
-          <Panel title={t("Pending Approvals")} subtitle={t("Requisitions and orders awaiting approval, receipts in draft")} bodyClass="overflow-x-auto">
+          <Panel title={t("Pending Approvals")} subtitle={t("Requisitions and orders awaiting approval, receipts in draft")} bodyClass="overflow-x-auto" className="lg:col-span-2">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
                 <tr>
@@ -284,21 +296,7 @@ const ProcurementDashboard: React.FC = () => {
               </tbody>
             </table>
           </Panel>
-        </div>
-
-        <Panel title={t("Procurement Pipeline")} subtitle={t("Where open work currently sits")}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {pipeline.map((stage) => (
-              <button key={stage.title} type="button" onClick={() => navigate(stage.route)}
-                className="rounded-lg bg-gray-50 p-4 text-left transition hover:bg-gray-100 dark:bg-gray-800/60 dark:hover:bg-gray-800">
-                <h4 className={`mb-2 text-sm font-semibold ${stage.tone}`}>{stage.title}</h4>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{loading ? "…" : formatNumber(stage.value)}</p>
-                <p className="mt-1 text-xs text-gray-500">{stage.note}</p>
-              </button>
-            ))}
-          </div>
-        </Panel>
-      </div>
+      </DashboardLayout>
     </>
   );
 };

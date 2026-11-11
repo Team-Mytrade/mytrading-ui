@@ -25,7 +25,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { AuthContext } from "../../context/AuthContext";
 import { canAccessPath, hasPermission } from "../../access/access";
 import {
-  CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_GRID_V, CHART_AXIS, CHART_LEGEND, CHART_HOVER, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   formatDate, formatNumber, getList, isoDate, titleCase, useDashboardSources, type DashboardTile,
 } from "../Dashboard/dashboardKit";
 
@@ -159,34 +159,35 @@ const AttendanceDashboard: React.FC = () => {
       <PageMeta title={t("Attendance Dashboard")} description="Attendance and leave overview" />
       <PageBreadcrumb pageTitle="Attendance Dashboard" />
 
-      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-        <LoadNotice failed={failed} />
-        <ModuleTiles tiles={tiles} loading={loading} />
-
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <DashboardLayout
+        failed={failed}
+        links={<ModuleTiles tiles={tiles} loading={loading} />}
+        panelClass="lg:grid-cols-3"
+        kpis={
+          <>
           <KpiCard label={t("Total Employees")} value={today ? formatNumber(Number(today.totalEmployees) || 0) : "—"} icon={Users} tone="blue" loading={loading} />
           <KpiCard label={t("Present Today")} value={today ? formatNumber(Number(today.present) || 0) : "—"} hint={today ? `${(Number(today.attendancePercentage) || 0).toFixed(1)}% attendance` : undefined} icon={CheckCircle} tone="emerald" loading={loading} />
           <KpiCard label={t("Absent Today")} value={today ? formatNumber(Number(today.absent) || 0) : "—"} hint={today ? `${formatNumber(Number(today.lateCheckIn) || 0)} late check-ins` : undefined} icon={AlertTriangle} tone="orange" loading={loading} />
           <KpiCard label={t("On Leave Today")} value={today ? formatNumber(Number(today.leave ?? summary?.onLeaveToday) || 0) : summary ? formatNumber(Number(summary.onLeaveToday) || 0) : "—"} hint={summary ? `${formatNumber(Number(summary.pending) || 0)} leave requests pending` : undefined} icon={Calendar} tone="purple" loading={loading} />
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          </>
+        }
+      >
           <Panel title={t("Attendance Trend")} subtitle={t("Last 7 days, all employees")} icon={TrendingUp} iconClass="text-emerald-500">
             {!hasTrendData ? (
               <EmptyState loading={loading}>{t("No attendance recorded in the last 7 days.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                  <Tooltip contentStyle={CHART_TOOLTIP} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="present" name="Present" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="absent" name="Absent" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="late" name="Late" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid {...CHART_GRID} />
+                  <XAxis dataKey="day" {...CHART_AXIS} />
+                  <YAxis {...CHART_AXIS} allowDecimals={false} />
+                  <Tooltip {...CHART_HOVER} />
+                  <Legend {...CHART_LEGEND} />
+                  <Bar dataKey="present" name="Present" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                  <Bar dataKey="absent" name="Absent" fill="#ef4444" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                  <Bar dataKey="late" name="Late" fill="#f59e0b" radius={[6, 6, 0, 0]} maxBarSize={36} />
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
 
@@ -194,24 +195,39 @@ const AttendanceDashboard: React.FC = () => {
             {leaveChart.every((l) => l.count === 0) ? (
               <EmptyState loading={loading}>{t(summary ? "No leave requests yet." : "Leave summary unavailable.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <BarChart data={leaveChart} layout="vertical" margin={{ left: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={80} />
-                  <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => [value, "Requests"]} />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  <CartesianGrid {...CHART_GRID_V} />
+                  <XAxis type="number" {...CHART_AXIS} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" {...CHART_AXIS} width={80} />
+                  <Tooltip {...CHART_HOVER} formatter={(value) => [value, "Requests"]} />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
                     {leaveChart.map((l) => <Cell key={l.name} fill={l.color} />)}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
-        </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Panel title={t("Pending Leave Requests")} subtitle={t("Waiting for a decision, earliest first")} bodyClass="overflow-x-auto">
+          <Panel title={t("Pending Approvals")} subtitle={t("Requests waiting for a manager")} icon={Clock} iconClass="text-amber-500">
+            <div className="space-y-2">
+              {approvals.map((a) => {
+                const Icon = a.icon;
+                return (
+                  <button key={a.type} type="button" onClick={() => navigate(a.route)}
+                    className="flex w-full items-center justify-between rounded-lg border border-gray-100 p-2.5 text-left transition hover:shadow-sm dark:border-gray-800">
+                    <span className="flex items-center gap-3">
+                      <span className={`rounded-lg p-2 ${a.tone}`}><Icon className="h-4 w-4" /></span>
+                      <span className="text-sm text-gray-700 dark:text-gray-200">{a.type}</span>
+                    </span>
+                    <span className="text-lg font-bold text-gray-900 dark:text-white">{loading ? "…" : formatNumber(a.count)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+
+            <Panel title={t("Pending Leave Requests")} subtitle={t("Waiting for a decision, earliest first")} bodyClass="overflow-x-auto" className="lg:col-span-3">
               <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
                 <thead className="bg-gray-50 dark:bg-gray-800/60">
                   <tr>
@@ -238,27 +254,8 @@ const AttendanceDashboard: React.FC = () => {
                 </tbody>
               </table>
             </Panel>
-          </div>
 
-          <Panel title={t("Pending Approvals")} subtitle={t("Requests waiting for a manager")} icon={Clock} iconClass="text-amber-500">
-            <div className="space-y-3">
-              {approvals.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <button key={a.type} type="button" onClick={() => navigate(a.route)}
-                    className="flex w-full items-center justify-between rounded-lg border border-gray-100 p-3 text-left transition hover:shadow-sm dark:border-gray-800">
-                    <span className="flex items-center gap-3">
-                      <span className={`rounded-lg p-2 ${a.tone}`}><Icon className="h-4 w-4" /></span>
-                      <span className="text-sm text-gray-700 dark:text-gray-200">{a.type}</span>
-                    </span>
-                    <span className="text-lg font-bold text-gray-900 dark:text-white">{loading ? "…" : formatNumber(a.count)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </Panel>
-        </div>
-      </div>
+      </DashboardLayout>
     </>
   );
 };

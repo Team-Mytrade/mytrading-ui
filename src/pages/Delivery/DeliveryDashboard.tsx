@@ -18,7 +18,7 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import {
-  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_GRID_V, CHART_AXIS, CHART_LEGEND, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatDate, formatNumber, getList, isoDate, parseDate, titleCase, useDashboardSources, weekStart, weeksBack,
 } from "../Dashboard/dashboardKit";
 
@@ -152,23 +152,23 @@ const DeliveryDashboard: React.FC = () => {
       <PageMeta title={t("Delivery Dashboard")} description="Delivery and distribution overview" />
       <PageBreadcrumb pageTitle="Delivery Dashboard" />
 
-      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-        <LoadNotice failed={failed} />
-        <ModuleTiles tiles={tiles} loading={loading} />
-
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <DashboardLayout
+        failed={failed}
+        links={<ModuleTiles tiles={tiles} loading={loading} />}
+        kpis={
+          <>
           <KpiCard label={t("Total Deliveries")} value={formatNumber(orders.length)} hint={t("{count} this month", { count: formatNumber(thisMonth.length) })} icon={Truck} tone="blue" loading={loading} />
           <KpiCard label={t("Vehicles Active")} value={vehicles ? formatNumber(vehicles.filter((v) => v.active !== false).length) : "—"} hint={vehicles ? t("{count} vehicles", { count: formatNumber(vehicles.length) }) : undefined} icon={Car} tone="emerald" loading={loading} />
           <KpiCard label={t("Active Routes")} value={routes ? formatNumber(routes.filter((r) => r.active !== false).length) : "—"} hint={routes ? t("{count} routes", { count: formatNumber(routes.length) }) : undefined} icon={MapPin} tone="orange" loading={loading} />
           <KpiCard label={t("Pending Deliveries")} value={formatNumber(pending.length)} hint={t("Not yet delivered, cancelled or failed")} icon={ClipboardList} tone="purple" loading={loading} />
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          </>
+        }
+      >
           <Panel title={t("Delivery Trend")} subtitle={t("Deliveries per week (last 8 weeks)")} icon={TrendingUp} iconClass="text-emerald-500">
             {orders.length === 0 ? (
               <EmptyState loading={loading}>{t("No delivery orders yet.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend}>
                   <defs>
                     <linearGradient id="deliveryGradient" x1="0" y1="0" x2="0" y2="1">
@@ -176,15 +176,15 @@ const DeliveryDashboard: React.FC = () => {
                       <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="week" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                  <Tooltip contentStyle={CHART_TOOLTIP} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <CartesianGrid {...CHART_GRID} />
+                  <XAxis dataKey="week" {...CHART_AXIS} />
+                  <YAxis {...CHART_AXIS} allowDecimals={false} />
+                  <Tooltip {...CHART_HOVER} />
+                  <Legend {...CHART_LEGEND} />
                   <Area type="monotone" dataKey="deliveries" name={t("Deliveries")} stroke="#06b6d4" strokeWidth={2} fill="url(#deliveryGradient)" />
                   <Area type="monotone" dataKey="delivered" name={t("Delivered")} stroke="#10b981" strokeWidth={2} fill="none" />
                 </AreaChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
 
@@ -192,22 +192,20 @@ const DeliveryDashboard: React.FC = () => {
             {vehicleTrips.length === 0 ? (
               <EmptyState loading={loading}>{t("No vehicle schedules yet.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <BarChart data={vehicleTrips} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={90} />
-                  <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => [value, "Trips"]} />
-                  <Bar dataKey="trips" radius={[0, 4, 4, 0]}>
+                  <CartesianGrid {...CHART_GRID_V} />
+                  <XAxis type="number" {...CHART_AXIS} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" {...CHART_AXIS} width={90} />
+                  <Tooltip {...CHART_HOVER} formatter={(value) => [value, "Trips"]} />
+                  <Bar dataKey="trips" radius={[0, 6, 6, 0]} maxBarSize={28}>
                     {vehicleTrips.map((v, index) => <Cell key={v.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
-        </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Panel title={t("Top Routes")} subtitle={t("By scheduled trips")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
@@ -256,8 +254,7 @@ const DeliveryDashboard: React.FC = () => {
               );
             })}
           </Panel>
-        </div>
-      </div>
+      </DashboardLayout>
     </>
   );
 };

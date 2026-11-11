@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_GRID_V, CHART_AXIS, CHART_LEGEND, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatDate, formatMoney, formatNumber, getList, monthKeyOf, monthsBack, parseDate, titleCase,
   useDashboardSources,
 } from "./dashboardKit";
@@ -127,11 +127,12 @@ export default function InventoryDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-      <LoadNotice failed={failed} />
-      <ModuleTiles tiles={tiles} loading={loading} />
-
-      <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <DashboardLayout
+      failed={failed}
+      links={<ModuleTiles tiles={tiles} loading={loading} />}
+      panelClass={expiring.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"}
+      kpis={
+        <>
         <KpiCard label={t("Stock Value")} value={data.stock && data.products ? formatMoney(totals.value, null, true) : "—"}
           hint={totals.unpriced ? t("{count} record(s) have no standard cost", { count: totals.unpriced }) : t("On hand × standard cost")} icon={IndianRupee} tone="emerald" loading={loading} />
         <KpiCard label={t("Units on Hand")} value={data.stock ? formatNumber(totals.onHand) : "—"}
@@ -139,24 +140,24 @@ export default function InventoryDashboard() {
         <KpiCard label={t("Low Stock")} value={data.stock ? formatNumber(lowStock.length) : "—"} hint={t("At or below reorder level")} icon={AlertTriangle} tone="amber" loading={loading} />
         <KpiCard label={t("Out of Stock")} value={data.stock ? formatNumber(outOfStock.length) : "—"}
           hint={data.batches ? `${expiring.length} batch(es) expire within 30 days` : undefined} icon={PackageX} tone="red" loading={loading} />
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        </>
+      }
+    >
         <Panel title={t("Stock In and Out")} subtitle={t("Quantity received and issued per month (last 6 months)")} icon={ArrowLeftRight} iconClass="text-cyan-500">
           {movements.length === 0 ? (
             <EmptyState loading={loading}>{t("No stock movements yet.")}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <BarChart data={movementTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                <Tooltip contentStyle={CHART_TOOLTIP} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="in" name="Received" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="out" name="Issued" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="month" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} allowDecimals={false} />
+                <Tooltip {...CHART_HOVER} />
+                <Legend {...CHART_LEGEND} />
+                <Bar dataKey="in" name="Received" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="out" name="Issued" fill="#f59e0b" radius={[6, 6, 0, 0]} maxBarSize={36} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
 
@@ -164,22 +165,20 @@ export default function InventoryDashboard() {
           {byWarehouse.length === 0 ? (
             <EmptyState loading={loading}>{t("No stock recorded yet.")}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <BarChart data={byWarehouse} layout="vertical" margin={{ left: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={110} />
-                <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value, _n, item) => [`${formatNumber(Number(value))} on hand, ${formatNumber(Number(item?.payload?.available) || 0)} available`, "Units"]} />
-                <Bar dataKey="onHand" radius={[0, 4, 4, 0]}>
+                <CartesianGrid {...CHART_GRID_V} />
+                <XAxis type="number" {...CHART_AXIS} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" {...CHART_AXIS} width={110} />
+                <Tooltip {...CHART_HOVER} formatter={(value, _n, item) => [`${formatNumber(Number(value))} on hand, ${formatNumber(Number(item?.payload?.available) || 0)} available`, "Units"]} />
+                <Bar dataKey="onHand" radius={[0, 6, 6, 0]} maxBarSize={28}>
                   {byWarehouse.map((w, i) => <Cell key={w.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
-      </div>
 
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title={t("Reorder Needed")} subtitle={t("Low stock, largest shortfall first")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
@@ -208,7 +207,8 @@ export default function InventoryDashboard() {
           </table>
         </Panel>
 
-        <Panel title={t("Recent Stock Movements")} subtitle={t("Latest receipts, issues and transfers")} bodyClass="overflow-x-auto">
+        <Panel title={t("Recent Stock Movements")} subtitle={t("Latest receipts, issues and transfers")} bodyClass="overflow-x-auto"
+          className={expiring.length > 0 ? "lg:col-span-2" : ""}>
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
               <tr>
@@ -235,7 +235,6 @@ export default function InventoryDashboard() {
             </tbody>
           </table>
         </Panel>
-      </div>
 
       {expiring.length > 0 && (
         <Panel title={t("Batches Expiring")} subtitle={t("Expired or expiring within 30 days")} icon={AlertTriangle} iconClass="text-red-500" bodyClass="overflow-x-auto">
@@ -264,6 +263,6 @@ export default function InventoryDashboard() {
           </table>
         </Panel>
       )}
-    </div>
+    </DashboardLayout>
   );
 }

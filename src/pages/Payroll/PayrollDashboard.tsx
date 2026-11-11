@@ -24,7 +24,7 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import {
-  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_GRID_V, CHART_AXIS, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatDate, formatMoney, formatNumber, getList, isoDate, listOf, parseDate, titleCase, useDashboardSources,
 } from "../Dashboard/dashboardKit";
 
@@ -188,23 +188,23 @@ const PayrollHrmsDashboard: React.FC = () => {
       <PageMeta title={t("HRMS Dashboard")} description="Payroll and employee overview" />
       <PageBreadcrumb pageTitle="HRMS Dashboard" />
 
-      <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-        <LoadNotice failed={failed} />
-        <ModuleTiles tiles={tiles} loading={loading} />
-
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <DashboardLayout
+        failed={failed}
+        links={<ModuleTiles tiles={tiles} loading={loading} />}
+        kpis={
+          <>
           <KpiCard label={t("Active Employees")} value={data.employees ? formatNumber(active.length) : "—"} hint={data.employees ? `${formatNumber(employees.length)} on record` : undefined} icon={Users} tone="blue" loading={loading} />
           <KpiCard label={t("Monthly Payroll")} value={latest ? formatMoney(latestTotal, null, true) : "—"} hint={latest ? `Last run: ${monthLabel(latestMonth, true)}` : t("No completed payroll run yet")} icon={TrendingUp} tone="emerald" loading={loading} />
           <KpiCard label={t("Avg Salary")} value={latest && latestCount ? formatMoney(latestTotal / latestCount) : "—"} hint={latest ? `${formatNumber(latestCount)} employees paid` : undefined} icon={DollarSign} tone="orange" loading={loading} />
           <KpiCard label={t("Departments")} value={departments === null ? "—" : formatNumber(departments)} icon={Building2} tone="purple" loading={loading} />
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          </>
+        }
+      >
           <Panel title={t("Payroll Trend")} subtitle={t("Completed payroll runs (last 6)")} icon={TrendingUp} iconClass="text-emerald-500">
             {trend.length === 0 ? (
               <EmptyState loading={loading}>{t("No completed payroll runs yet.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend}>
                   <defs>
                     <linearGradient id="payrollGradient" x1="0" y1="0" x2="0" y2="1">
@@ -212,14 +212,14 @@ const PayrollHrmsDashboard: React.FC = () => {
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => formatMoney(Number(v), null, true)} width={70} />
-                  <Tooltip contentStyle={CHART_TOOLTIP}
+                  <CartesianGrid {...CHART_GRID} />
+                  <XAxis dataKey="month" {...CHART_AXIS} />
+                  <YAxis {...CHART_AXIS} tickFormatter={(v) => formatMoney(Number(v), null, true)} width={70} />
+                  <Tooltip {...CHART_HOVER}
                     formatter={(value, _name, item) => [`${formatMoney(Number(value))} · ${item?.payload?.employees ?? 0} employees`, "Payroll"]} />
                   <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} fill="url(#payrollGradient)" />
                 </AreaChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
 
@@ -227,26 +227,24 @@ const PayrollHrmsDashboard: React.FC = () => {
             {departmentChart.length === 0 ? (
               <EmptyState loading={loading}>{t("No employees yet.")}</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
+              <ChartBox><ResponsiveContainer width="100%" height="100%">
                 <BarChart data={departmentChart} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" stroke="#9ca3af" fontSize={12} allowDecimals={false}
+                  <CartesianGrid {...CHART_GRID_V} />
+                  <XAxis type="number" {...CHART_AXIS} allowDecimals={false}
                     tickFormatter={(v) => (departmentChartIsMoney ? formatMoney(Number(v), null, true) : String(v))} />
-                  <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={12} width={100} />
-                  <Tooltip contentStyle={CHART_TOOLTIP}
+                  <YAxis type="category" dataKey="name" {...CHART_AXIS} width={100} />
+                  <Tooltip {...CHART_HOVER}
                     formatter={(value, _name, item) => departmentChartIsMoney
                       ? [`${formatMoney(Number(value))} · ${item?.payload?.count ?? 0} employees`, "Net payroll"]
                       : [value, "Employees"]} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={28}>
                     {departmentChart.map((d, index) => <Cell key={d.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer></ChartBox>
             )}
           </Panel>
-        </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Panel title={t("Recent Payroll Runs")} subtitle={t("Latest batches from the payroll engine")} bodyClass="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800/60">
@@ -302,8 +300,7 @@ const PayrollHrmsDashboard: React.FC = () => {
               <UserCheck className="h-3.5 w-3.5" /> {t("Salary and department counts cover active employees only.")}
             </p>
           </Panel>
-        </div>
-      </div>
+      </DashboardLayout>
     </>
   );
 };

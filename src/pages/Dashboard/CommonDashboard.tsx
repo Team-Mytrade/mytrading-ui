@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
 import {
-  CHART_COLORS, CHART_TOOLTIP, EmptyState, KpiCard, LoadNotice, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
+  CHART_GRID, CHART_AXIS, CHART_LEGEND, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
   countOf, formatMoney, formatNumber, getList, mostCommon, sourcesForModules, titleCase, useDashboardSources,
 } from "./dashboardKit";
 import { companyCurrency } from "../../company/format";
@@ -117,11 +117,11 @@ export default function CommonDashboard() {
   ].filter((tile) => hasModule(access, tile.module));
 
   return (
-    <div className="mx-auto max-w-7xl px-1 pb-6 pt-1">
-      <LoadNotice failed={failed} />
-      <ModuleTiles tiles={tiles} loading={loading} />
-
-      <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <DashboardLayout
+      failed={failed}
+      links={<ModuleTiles tiles={tiles} loading={loading} />}
+      kpis={
+        <>
         <KpiCard label={t("Active Customers")} value={data.customers ? formatNumber(active.length) : "—"}
           hint={data.customers ? `${formatNumber(customers.length)} in total` : undefined} icon={UserCheck} tone="blue" loading={loading} />
         <KpiCard label={t("On Hold or Blocked")} value={data.customers ? formatNumber(onHold.length) : "—"} hint={t("Can't take new orders")} icon={AlertTriangle} tone="red" loading={loading} />
@@ -130,22 +130,22 @@ export default function CommonDashboard() {
           icon={CreditCard} tone="amber" loading={loading} />
         <KpiCard label={t("Incomplete Records")} value={data.customers ? formatNumber(incomplete.length) : "—"} hint={t("Missing GSTIN, email, phone or address")}
           icon={ClipboardX} tone="purple" loading={loading} />
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        </>
+      }
+    >
         <Panel title={t("Customers by Status")} subtitle={t("Where each customer stands")} icon={Users} iconClass="text-blue-500">
           {byStatus.length === 0 ? (
             <EmptyState loading={loading}>{noCustomers}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={byStatus} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
+                <Pie data={byStatus} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="80%" paddingAngle={2}>
                   {byStatus.map((s, i) => <Cell key={s.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={CHART_TOOLTIP} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Tooltip {...CHART_HOVER} />
+                <Legend {...CHART_LEGEND} />
               </PieChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
 
@@ -153,22 +153,21 @@ export default function CommonDashboard() {
           {byType.length === 0 ? (
             <EmptyState loading={loading}>{noCustomers}</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartBox><ResponsiveContainer width="100%" height="100%">
               <BarChart data={byType}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="type" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} />
-                <Tooltip contentStyle={CHART_TOOLTIP} formatter={(value) => [value, "Customers"]} />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="type" {...CHART_AXIS} />
+                <YAxis {...CHART_AXIS} allowDecimals={false} />
+                <Tooltip {...CHART_HOVER} formatter={(value) => [value, "Customers"]} />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={36}>
                   {byType.map((t, i) => <Cell key={t.type} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer></ChartBox>
           )}
         </Panel>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+
         <Panel title={t("Highest Balances")} subtitle={t("Customers with the most outstanding")} bodyClass="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800/60">
@@ -224,7 +223,6 @@ export default function CommonDashboard() {
             </tbody>
           </table>
         </Panel>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }

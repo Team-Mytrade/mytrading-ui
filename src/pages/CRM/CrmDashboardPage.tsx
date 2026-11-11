@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { BarChart3, CalendarCheck, Handshake, Percent, Target, TrendingUp, Trophy, UserPlus, Users } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import { DASH_CARD, DASH_TITLE, TONE_CYCLE, formatMoney, toneCard, toneLink } from "../Dashboard/dashboardKit";
+import {
+  DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, formatMoney, type DashboardTile,
+} from "../Dashboard/dashboardKit";
 import { formatDateTime } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -102,96 +104,92 @@ export default function CrmDashboardPage() {
     .sort((a, b) => String(a.scheduledTime ?? "").localeCompare(String(b.scheduledTime ?? "")))
     .slice(0, 6);
 
-  const kpis = [
-    { label: "Customers", value: customers, to: "/customer-management" },
-    { label: "Leads", value: leads, to: "/leads" },
-    { label: "Open deals", value: openDeals.length, to: "/opportunities" },
-    { label: "Pipeline value", value: money(pipelineValue), to: "/opportunities" },
-    { label: "Won value", value: money(wonValue), to: "/opportunities" },
-    { label: "Lead conversion", value: `${(report.leadConversionRate ?? 0).toFixed(1)}%`, to: "/crm-reports" },
-    { label: "Pending activities", value: pendingActivities.length, to: "/activities" },
+  const tiles: DashboardTile[] = [
+    { name: "Customers", count: failed.includes("customers") ? null : customers, route: "/customer-management", icon: Users, tone: "blue" },
+    { name: "Leads", count: failed.includes("leads") ? null : leads, route: "/leads", icon: UserPlus, tone: "emerald" },
+    { name: "Opportunities", count: failed.includes("deals") ? null : deals.length, route: "/opportunities", icon: Handshake, tone: "amber" },
+    { name: "Activities", count: failed.includes("activities") ? null : activities.length, route: "/activities", icon: CalendarCheck, tone: "purple" },
+    { name: "CRM Reports", route: "/crm-reports", icon: BarChart3, tone: "teal" },
   ];
 
   return (
-    <div className="h-full overflow-y-auto px-1 pb-6 pt-1">
+    <>
       <PageMeta title={t("CRM Dashboard")} description="Live overview of customers, leads, deals and activities" />
       <PageBreadcrumb pageTitle="CRM Dashboard" />
 
-      {failed.length > 0 && (
-        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          {t("Some figures could not be loaded ({list}). They are shown as 0.", { list: failed.join(", ") })}
-        </div>
-      )}
+      <DashboardLayout
+        failed={failed}
+        links={<ModuleTiles tiles={tiles} loading={loading} />}
+        panelClass="lg:grid-cols-3"
+        kpis={
+          <>
+            <KpiCard label={t("Pipeline Value")} value={money(pipelineValue)} hint={t("{count} open deal(s)", { count: openDeals.length })}
+              icon={Target} tone="cyan" loading={loading} />
+            <KpiCard label={t("Won Value")} value={money(wonValue)} hint={t("{count} deal(s) won", { count: deals.filter((d) => d.stage === "WON").length })}
+              icon={Trophy} tone="emerald" loading={loading} />
+            <KpiCard label={t("Lead Conversion")} value={`${(report.leadConversionRate ?? 0).toFixed(1)}%`} hint={t("{count} lead(s) in total", { count: leads })}
+              icon={Percent} tone="indigo" loading={loading} />
+            <KpiCard label={t("Pending Activities")} value={pendingActivities.length} hint={t("Not completed or cancelled")}
+              icon={CalendarCheck} tone="orange" loading={loading} />
+          </>
+        }
+      >
+        <Panel title={t("Deal pipeline by stage")} subtitle={t("Deals in each stage")} icon={Handshake} iconClass="text-amber-500">
+          {stages.length === 0 ? (
+            <EmptyState loading={loading}>{t("No deals yet.")}</EmptyState>
+          ) : (
+            <ul className="space-y-3">
+              {stages.map((s) => (
+                <li key={s.stage}>
+                  <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
+                    <span>{s.stage.charAt(0) + s.stage.slice(1).toLowerCase()}</span>
+                    <span className="font-semibold">{s.count}</span>
+                  </div>
+                  <div className="mt-1 h-2 rounded bg-gray-100 dark:bg-gray-800">
+                    <div className="h-2 rounded bg-[rgb(var(--brand-600,0_151_167))]" style={{ width: `${s.pct}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        {kpis.map((kpi, i) => {
-          // Tinted like the approval queue cards; each figure takes the next tone
-          const tone = TONE_CYCLE[i % TONE_CYCLE.length];
-          return (
-            <Link key={kpi.label} to={kpi.to}
-              className={`group flex flex-col justify-between space-y-1 p-3 ${toneCard(tone)}`}>
-              <p className="text-xs font-bold text-gray-900 dark:text-white">{t(kpi.label)}</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{loading ? "…" : kpi.value}</p>
-              <span className={`flex items-center gap-1 text-[11px] font-bold transition-all group-hover:translate-x-0.5 ${toneLink(tone)}`}>
-                {t("Open")} <ArrowRight className="h-3 w-3" />
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <section className={`p-5 ${DASH_CARD}`}>
-          <h2 className={`mb-3 ${DASH_TITLE}`}>{t("Deal pipeline by stage")}</h2>
-          {stages.length === 0 && <p className="text-sm text-gray-500">{t(loading ? "Loading…" : "No deals yet.")}</p>}
-          <ul className="space-y-2">
-            {stages.map((s) => (
-              <li key={s.stage}>
-                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
-                  <span>{s.stage.charAt(0) + s.stage.slice(1).toLowerCase()}</span>
-                  <span>{s.count}</span>
+        <Panel title={t("New leads per month")} subtitle={t("Leads created each month")} icon={TrendingUp} iconClass="text-emerald-500">
+          {monthly.length === 0 ? (
+            <EmptyState loading={loading}>{t("No leads yet.")}</EmptyState>
+          ) : (
+            <div className="dash-chart flex h-[240px] items-end gap-2">
+              {monthly.map((m) => (
+                <div key={m.month} className="flex h-full flex-1 flex-col items-center justify-end" title={`${m.month}: ${m.count}`}>
+                  <span className="mb-1 text-[10px] text-gray-500">{m.count}</span>
+                  <div className="w-full rounded-t bg-[rgb(var(--brand-300,77_208_225))]" style={{ height: `${Math.max(m.pct, 2)}%` }} />
+                  <span className="mt-1 truncate text-[10px] text-gray-500">{m.month.slice(0, 3)}</span>
                 </div>
-                <div className="mt-1 h-2 rounded bg-gray-100 dark:bg-gray-800">
-                  <div className="h-2 rounded bg-[rgb(var(--brand-600,0_151_167))]" style={{ width: `${s.pct}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+              ))}
+            </div>
+          )}
+        </Panel>
 
-        <section className={`p-5 ${DASH_CARD}`}>
-          <h2 className={`mb-3 ${DASH_TITLE}`}>{t("New leads per month")}</h2>
-          {monthly.length === 0 && <p className="text-sm text-gray-500">{t(loading ? "Loading…" : "No leads yet.")}</p>}
-          <div className="flex h-40 items-end gap-2">
-            {monthly.map((m) => (
-              <div key={m.month} className="flex flex-1 flex-col items-center justify-end" title={`${m.month}: ${m.count}`}>
-                <span className="mb-1 text-[10px] text-gray-500">{m.count}</span>
-                <div className="w-full rounded-t bg-[rgb(var(--brand-300,77_208_225))]" style={{ height: `${Math.max(m.pct, 2)}%` }} />
-                <span className="mt-1 truncate text-[10px] text-gray-500">{m.month.slice(0, 3)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className={`p-5 ${DASH_CARD}`}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className={DASH_TITLE}>{t("Upcoming activities")}</h2>
-            <Link to="/activities" className="text-xs text-cyan-600 hover:underline">{t("All")}</Link>
-          </div>
-          {upcoming.length === 0 && <p className="text-sm text-gray-500">{t(loading ? "Loading…" : "Nothing pending.")}</p>}
-          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-            {upcoming.map((a) => (
-              <li key={a.id} className="py-2">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{a.title || "Untitled"}</p>
-                <p className="text-xs text-gray-500">
-                  {a.scheduledTime ? formatDateTime(a.scheduledTime) : "No date"}
-                  {a.assignedTo ? ` · ${a.assignedTo}` : ""}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-    </div>
+        <Panel title={t("Upcoming activities")} subtitle={t("Earliest first")} icon={CalendarCheck} iconClass="text-purple-500" bodyClass="px-4 py-1">
+          {upcoming.length === 0 ? (
+            <EmptyState loading={loading}>{t("Nothing pending.")}</EmptyState>
+          ) : (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+              {upcoming.map((a) => (
+                <li key={a.id}>
+                  <Link to="/activities" className="block py-2 hover:text-cyan-700">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{a.title || "Untitled"}</p>
+                    <p className="truncate text-xs text-gray-500">
+                      {a.scheduledTime ? formatDateTime(a.scheduledTime) : "No date"}
+                      {a.assignedTo ? ` · ${a.assignedTo}` : ""}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </DashboardLayout>
+    </>
   );
 }
