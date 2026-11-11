@@ -309,6 +309,27 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   ["/reports/dispatched-not-invoiced", "SALES:VIEW|INVOICE:VIEW"],
   ["/reports/quotation-conversion", "SALES:VIEW|INVOICE:VIEW"],
   ["/reports/returns-refunds", "SALES:VIEW|INVOICE:VIEW"],
+  // Shows what goods cost: finance only
+  ["/reports/gross-margin", "INVOICE:VIEW"],
+  // Purchase reports (8.2.1.4): purchasing and finance
+  ["/reports/purchase-register", "PURCHASE:VIEW|INVOICE:VIEW"],
+  ["/reports/purchase-analysis", "PURCHASE:VIEW|INVOICE:VIEW"],
+  ["/reports/open-purchase-orders", "PURCHASE:VIEW|INVOICE:VIEW"],
+  ["/reports/received-not-billed", "PURCHASE:VIEW|INVOICE:VIEW"],
+  ["/reports/vendor-performance", "PURCHASE:VIEW|INVOICE:VIEW"],
+  // Finance books (8.2.1.5): finance only
+  ["/reports/day-book", "INVOICE:VIEW"],
+  ["/reports/cash-bank-book", "INVOICE:VIEW"],
+  ["/reports/receipts-payments", "INVOICE:VIEW"],
+  ["/reports/expenses", "INVOICE:VIEW"],
+  ["/reports/customer-ledger", "INVOICE:VIEW"],
+  ["/reports/vendor-ledger", "INVOICE:VIEW"],
+  // HR & stock (8.2.1.6): everyone's HR and pay records are for HR / approvers; stock for inventory
+  ["/reports/headcount", "HRM:APPROVE"],
+  ["/reports/payroll-register", "HRM:APPROVE"],
+  ["/reports/leave-balances", "ATTENDANCE:APPROVE"],
+  ["/reports/stock-aging", "INVENTORY:VIEW"],
+  ["/reports/abc-analysis", "INVENTORY:VIEW"],
   // Everyone's employee records and the department list: HR and approvers (common-service shows Staff only their own)
   ["/employeeRecords", "HRM:APPROVE|HRM:ADMIN|ATTENDANCE:APPROVE"],
   ["/employeeDepartments", "HRM:APPROVE|HRM:ADMIN|ATTENDANCE:APPROVE"],

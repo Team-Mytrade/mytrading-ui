@@ -218,6 +218,24 @@ export const useSalesFilterOptions = () => {
   return { customers, salesPersons };
 };
 
+/** Vendors for the purchase report filters (the common vendor list); hidden when the user can't read it. */
+export const useVendorOptions = () => {
+  const [vendors, setVendors] = useState<Option[]>([]);
+  useEffect(() => {
+    axios
+      .get("/v1/api/common/vendors", { skipSessionExpiredHandling: true } as object)
+      .then((r) =>
+        setVendors(
+          asArray<{ id: number; name?: string; vendorName?: string; vendorCode?: string }>(r.data)
+            .map((v) => ({ value: String(v.id), label: v.name || v.vendorName || v.vendorCode || `#${v.id}` }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+        )
+      )
+      .catch(() => setVendors([]));
+  }, []);
+  return vendors;
+};
+
 /* ================= Totals and chart ================= */
 
 export const TotalCard: React.FC<{ label: string; value: string; hint?: string; tone?: "cyan" | "green" | "red" | "slate" }> = ({
