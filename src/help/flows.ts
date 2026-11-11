@@ -99,8 +99,7 @@ export const HELP_FLOWS: HelpFlow[] = [
       { title: "Approve", route: "/payrollEngine", who: "HR & Payroll Manager", detail: "When approval is required, someone other than who ran it reviews and approves the run." },
       { title: "Books and bank", route: "/payrollEngine", who: "HR & Payroll Manager", detail: "Post the run to the ledger, download the bank report, and record the salary payment once paid." },
       { title: "Payslips", route: "/employeePayslips", who: "HR & Payroll Manager", detail: "Email the payslips; employees also see their own on Payslips." },
-      { title: "Tax and statutory dues", route: "/taxTracker", who: "HR & Payroll Manager", detail: "Check the month's income tax (TDS) on Tax Tracker, then pay the TDS, PF and ESI deducted by the run on their government portals.", regions: ["IN"] },
-      { title: "Statutory files", route: "/gulfPayFiles", who: "HR & Payroll Manager", detail: "UAE: the WPS file; Saudi Arabia: the Mudad file; pension and social insurance contributions.", regions: ["GCC"] },
+      { title: "Statutory files", route: "/gulfPayFiles", who: "HR & Payroll Manager", detail: "UAE: the WPS file; Saudi Arabia: the Mudad file; pension and social insurance contributions." },
       { title: "Leavers", route: "/fullAndFinal", who: "HR & Payroll Manager", detail: "Pay the full and final settlements that are due." },
     ],
   },
@@ -124,8 +123,6 @@ export const HELP_FLOWS: HelpFlow[] = [
     steps: [
       { title: "Add the employee", route: "/employeeRecords", who: "HR & Payroll Executive", detail: "Add the employee with department, line manager and role; their login is created." },
       { title: "Set the pay", route: "/salaryStructure", who: "HR & Payroll Executive", detail: "Add the salary structure: yearly basic, HRA and other allowances." },
-      { title: "Tax declaration", route: "/it-declaration", who: "Employee", detail: "The employee picks the tax regime and declares deductions with proofs; HR approves them and locks the declaration for payroll.", regions: ["IN"] },
-      { title: "Gulf details", route: "/employeeRecords", who: "HR & Payroll Executive", detail: "On the employee, enter the nationality, the IBAN and the WPS (UAE) or GOSI (Saudi Arabia) details; nationals also get their pension fund.", regions: ["GCC"] },
       { title: "Set up attendance", route: "/att_shiftSchedule", who: "Attendance Manager", detail: "Assign their shift, attendance policy and leave policy, so their punches and leave count." },
       { title: "Run payroll", route: "/payrollEngine", who: "HR & Payroll Manager", detail: "Upload the month's attendance and one-off amounts, run the payroll, post it to the ledger and record the salary payment." },
       { title: "Payslips", route: "/employeePayslips", who: "HR & Payroll Manager", detail: "The run makes the payslips; each employee sees their own on Payslips." },

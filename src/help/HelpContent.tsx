@@ -1,8 +1,7 @@
 import { Link } from "react-router";
 import { t } from "../i18n/i18n";
 import { helpFlowById } from "./index";
-import { shownFlow, shownTopic, textDirection, useHelpTranslation } from "./translations";
-import { topicForRegion, useHelpRegion } from "./region";
+import { localizeFlow, localizeTopic, textDirection, useHelpTranslation } from "./translations";
 import type { HelpTerm, HelpTopic } from "./types";
 
 // One page's help: what it is for, who can do what, the tasks step by step, fields and statuses, rules, related pages
@@ -34,19 +33,9 @@ interface HelpContentProps {
 
 const HelpContent = ({ topic: english, onNavigate }: HelpContentProps) => {
   const translation = useHelpTranslation();
-  const region = useHelpRegion();
-  const { topic, translated } = shownTopic(english, translation, region);
-  // A page meant for the other region (the menu still offers some to everyone): say so first
-  const otherRegion = !topicForRegion(english, region) ? english.regions?.[0] : undefined;
+  const { topic, translated } = localizeTopic(english, translation);
   return (
   <div className="space-y-6" {...textDirection(translated)}>
-    {otherRegion && (
-      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-        {t(otherRegion === "GCC"
-          ? "This page is for companies in the Gulf (UAE, Saudi Arabia, Qatar, Oman, Bahrain, Kuwait). Your company is set up in another country (Company Settings)."
-          : "This page is for companies in India. Your company is set up in another country (Company Settings).")}
-      </p>
-    )}
     <p className={`${BODY} text-base`}>{topic.summary}</p>
 
     <section>
@@ -122,7 +111,7 @@ const HelpContent = ({ topic: english, onNavigate }: HelpContentProps) => {
             return flow ? (
               <li key={id} className={BODY}>
                 <Link to={`/help/flow/${id}`} onClick={onNavigate} className="font-medium text-brand-500 hover:underline dark:text-brand-400">
-                  {shownFlow(flow, translation, region).flow.title}
+                  {localizeFlow(flow, translation).flow.title}
                 </Link>
               </li>
             ) : null;

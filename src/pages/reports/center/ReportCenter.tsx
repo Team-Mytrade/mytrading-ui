@@ -5,7 +5,6 @@ import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
 import { AuthContext } from "../../../context/AuthContext";
 import { canAccessPath } from "../../../access/access";
-import { pageForPlace, useCompanyPlace } from "../../../company/payrollRegion";
 import { REPORTS, REPORT_MODULES, ReportEntry, ReportModule } from "./reportCatalogue";
 import { t } from "../../../i18n/i18n";
 
@@ -25,19 +24,18 @@ const ReportCard: React.FC<{ report: ReportEntry }> = ({ report }) => (
  */
 const ReportCenter: React.FC<{ module?: ReportModule }> = ({ module }) => {
   const { access } = useContext(AuthContext);
-  const { region, country } = useCompanyPlace();
   const [search, setSearch] = useState("");
   const current = REPORT_MODULES.find((m) => m.module === module);
 
   const groups = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const open = REPORTS.filter((r) => canAccessPath(access, r.path) && pageForPlace(r.path, { region, country })).filter(
+    const open = REPORTS.filter((r) => canAccessPath(access, r.path)).filter(
       (r) => !query || [r.title, r.description, t(r.title), t(r.description)].some((text) => text.toLowerCase().includes(query))
     );
     return REPORT_MODULES.filter((m) => !module || m.module === module)
       .map((m) => ({ ...m, reports: open.filter((r) => r.module === m.module) }))
       .filter((m) => m.reports.length > 0);
-  }, [access, search, module, region, country]);
+  }, [access, search, module]);
 
   const title = current ? `${t(current.title)} — ${t("Reports")}` : t("All reports");
 

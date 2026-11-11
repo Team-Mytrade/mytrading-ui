@@ -61,24 +61,6 @@ export const HR_TOPICS: HelpTopic[] = [
       { route: "/salaryStructure", label: "Salary Structure" },
       { route: "/employeeRecords", label: "Employees" },
     ],
-    byRegion: {
-      IN: {
-        tasks: [
-          {
-            title: "Set how PF is paid",
-            steps: [
-              "Under Provident Fund (India), choose Employer PF: Part of the CTC (the salary split leaves room for it) or On top of the CTC (shown after the fixed salary).",
-              "Tick Cap the PF wage at the statutory limit and enter the Monthly PF wage limit, or leave it unticked for PF on the full basic. Each change is saved at once.",
-            ],
-          },
-        ],
-        rules: [
-          "Employee and employer each pay 12% of the basic; the employer's share goes to EPFO and shows on the payslip as an employer contribution.",
-          "The PF wage limit is also the EPS (pension) ceiling: EPS is 8.33% of the basic up to it.",
-          "PF settings apply to payroll runs from when they are saved.",
-        ],
-      },
-    },
   },
   {
     id: "salary-structure",
@@ -100,17 +82,6 @@ export const HR_TOPICS: HelpTopic[] = [
       { route: "/payrollEngine", label: "Payroll Engine" },
     ],
     flows: ["hire-to-pay"],
-    byRegion: {
-      IN: {
-        rules: ["The basic decides PF (12% of the basic) and, under the old tax regime, the HRA exemption; HRA is a share of the basic."],
-      },
-      GCC: {
-        rules: [
-          "Enter the housing allowance as HRA (yearly), and transport and other allowances as Other Allowances (yearly).",
-          "Keep the basic as on the labour contract: the UAE end-of-service gratuity is worked out on the basic pay, and nationals' pension contributions on their pensionable pay.",
-        ],
-      },
-    },
   },
   {
     id: "employee-salary",
@@ -130,7 +101,6 @@ export const HR_TOPICS: HelpTopic[] = [
     id: "it-declaration",
     route: "/it-declaration",
     module: "HRMS",
-    regions: ["IN"],
     title: "IT Declaration",
     summary: "India: each employee chooses their income-tax regime and declares their deductions with proofs; HR approves them, and only approved amounts reduce the tax payroll deducts.",
     who: [
@@ -220,32 +190,10 @@ export const HR_TOPICS: HelpTopic[] = [
     ],
     related: [
       { route: "/employeePayslips", label: "Payslips" },
+      { route: "/gulfPayFiles", label: "Gulf Pay Files" },
       { route: "/journalEntries", label: "Journal Entries" },
     ],
     flows: ["hire-to-pay"],
-    byRegion: {
-      IN: {
-        rules: [
-          "The run deducts income tax (TDS) by each employee's tax regime and approved IT declarations, PF (as set on Compensation), ESI where it applies and professional tax by the state of the employee's current address.",
-          "The financial year runs April to March: the tax still due for the year is spread over the months left.",
-        ],
-        related: [
-          { route: "/it-declaration", label: "IT Declaration", why: "Approved deductions lower the tax" },
-          { route: "/taxTracker", label: "Tax Tracker" },
-        ],
-      },
-      GCC: {
-        rules: [
-          "There is no income tax. The run deducts the pension / social insurance share of nationals and GCC nationals (UAE: GPSSA or ADPF; Saudi Arabia: GOSI) and adds the employer's share.",
-          "With a UAE or Saudi leave policy, sick leave is paid in the law's tiers.",
-          "After the run, make the WPS salary file (UAE) or the Mudad file (Saudi Arabia) on Gulf Pay Files.",
-        ],
-        related: [
-          { route: "/gulfPayFiles", label: "Gulf Pay Files", why: "WPS and Mudad files" },
-          { route: "/gratuityProvision", label: "Gratuity Provision" },
-        ],
-      },
-    },
   },
   {
     id: "payslips",
@@ -282,170 +230,92 @@ export const HR_TOPICS: HelpTopic[] = [
     ],
     related: [{ route: "/payrollEngine", label: "Payroll Engine" }],
     flows: ["hire-to-pay"],
-    byRegion: {
-      IN: {
-        rules: ["The payslip lists PF, ESI, professional tax and income tax (TDS); the employer's PF shows as an employer contribution."],
-      },
-      GCC: {
-        rules: ["The payslip lists the pension / social insurance share where it applies (nationals and GCC nationals); there is no income tax."],
-      },
-    },
   },
   {
     id: "my-salary",
     route: "/mySalary",
     module: "HRMS",
     title: "My Salary",
-    summary: "Your own salary: what your pay is made of, each month's pay with its payslip, and what is still to come this year.",
-    who: [{ role: "Every employee", can: "Their own salary and payslips. Their login must be linked to their employee record (Users page)." }],
-    tasks: [],
-
-    rules: ["The page opens on the latest paid month; click another month to see it.", "A ZIP skips months without a payslip."],
-    related: [{ route: "/employeePayslips", label: "Payslips" }],
-    byRegion: {
-      IN: {
-        summary: "India payroll: your own salary for the financial year. What your CTC is made of, each month's pay with its payslip, and the income tax deducted so far and forecast for the months left.",
-        tasks: [
-          {
-            title: "Read your salary",
-            steps: [
-              "Choose the Financial year at the top (April to March).",
-              "The cards show your Yearly CTC, Monthly gross (a full month), Monthly take-home (for the month shown) and Tax for the year.",
-              "CTC breakdown lists your fixed pay, the employer PF (inside the CTC or on top of it) and benefits the employer pays, up to the Total CTC. A variable pay target is on top and paid separately.",
-            ],
-          },
-          {
-            title: "Look at a month",
-            steps: [
-              "Under Income tax by month, click a month: A month's pay shows its gross pay, each deduction (provident fund, ESI, professional tax, other deductions, income tax) and the take-home.",
-              "When the month has a payslip, View payslip or Download payslip with the icons on that card.",
-            ],
-          },
-          {
-            title: "Download several payslips",
-            steps: ["Click Payslips (ZIP), choose the months (or a Custom range: From month, To month) and click Download ZIP."],
-          },        ],
-
-        fields: [
-          { name: "Take-home", meaning: "Gross pay less your deductions and income tax: what is paid into your bank." },
-          { name: "Forecast", meaning: "A month not paid yet (dashed tile): a full month at today's salary, with the tax left for the year spread evenly over the months left." },
-          { name: "Tax for the year", meaning: "Tax deducted so far plus the forecast. The tiles' chips show how each month's tax and take-home changed from the month before." },
+    summary: "India payroll: your own salary for the financial year. What your CTC is made of, each month's pay with its payslip, and the income tax deducted so far and forecast for the months left.",
+    who: [{ role: "Every employee", can: "Their own salary, payslips and tax. Their login must be linked to their employee record (Users page)." }],
+    tasks: [
+      {
+        title: "Read your salary",
+        steps: [
+          "Choose the Financial year at the top (April to March).",
+          "The cards show your Yearly CTC, Monthly gross (a full month), Monthly take-home (for the month shown) and Tax for the year.",
+          "CTC breakdown lists your fixed pay, the employer PF (inside the CTC or on top of it) and benefits the employer pays, up to the Total CTC. A variable pay target is on top and paid separately.",
         ],
-        rules: [
-          "The forecast follows salary revisions, approved IT declarations and the tax regime, as the payroll runs will.",
-          "Only employees on India payroll with a salary structure have this page.",
-        ],
-        related: [{ route: "/it-declaration", label: "IT Declaration", why: "Approved deductions lower the tax" }],
       },
-      GCC: {
-        summary: "Gulf payroll: your own pay for the calendar year. The annual package, each month's pay with its payslip, your pension or social insurance share and the end-of-service gratuity built up. There is no income tax.",
-        tasks: [
-          {
-            title: "Read your pay",
-            steps: [
-              "Choose the Year at the top (January to December).",
-              "The cards show your Annual package (with the cost to company), Monthly gross (a full month), Monthly take-home (for the month shown) and Gratuity to date.",
-              "Annual package lists your fixed pay up to the Total pay, then what the employer adds: Employer pension / social insurance (with its scheme) and End-of-service gratuity (yearly provision), up to the Cost to company.",
-            ],
-          },
-          {
-            title: "Look at a month",
-            steps: [
-              "Under Take-home by month, click a month: A month's pay shows the Gross pay, your Pension / social insurance (you), Other deductions and the Take-home, then what your employer adds (not deducted from your pay).",
-              "When the month has a payslip, view or download it with the icons on that card.",
-            ],
-          },
-          {
-            title: "Download several payslips",
-            steps: ["Click Payslips (ZIP), choose the months (or a Custom range: From month, To month) and click Download ZIP."],
-          },        ],
-
-        fields: [
-          { name: "Pension / social insurance", meaning: "Deducted only from nationals and GCC nationals: UAE GPSSA or Abu Dhabi Pension Fund, Saudi Arabia GOSI. Others have none." },
-          { name: "Gratuity to date", meaning: "The end-of-service gratuity you would get if you left today." },
-          { name: "Forecast", meaning: "A month not paid yet (dashed tile): a full month at today's salary." },
+      {
+        title: "Look at a month",
+        steps: [
+          "Under Income tax by month, click a month: A month's pay shows its gross pay, each deduction (provident fund, ESI, professional tax, other deductions, income tax) and the take-home.",
+          "When the month has a payslip, View payslip or Download payslip with the icons on that card.",
         ],
-        rules: ["There is no income tax on Gulf payroll."],
       },
-    },
+      {
+        title: "Download several payslips",
+        steps: ["Click Payslips (ZIP) and choose Last 3 months, Last 6 months, This financial year or a Custom range (From month, To month). Click Download ZIP."],
+      },
+    ],
+    fields: [
+      { name: "Take-home", meaning: "Gross pay less your deductions and income tax: what is paid into your bank." },
+      { name: "Forecast", meaning: "A month not paid yet (dashed tile): a full month at today's salary, with the tax left for the year spread evenly over the months left." },
+      { name: "Tax for the year", meaning: "Tax deducted so far plus the forecast. The tiles' chips show how each month's tax and take-home changed from the month before." },
+    ],
+    rules: [
+      "The page opens on the latest paid month; click another month to see it.",
+      "The forecast follows salary revisions, approved IT declarations and the tax regime, as the payroll runs will.",
+      "Only employees on India payroll with a salary structure have this page; a ZIP skips months without a payslip.",
+    ],
+    related: [
+      { route: "/employeePayslips", label: "Payslips" },
+      { route: "/it-declaration", label: "IT Declaration", why: "Approved deductions lower the tax" },
+    ],
   },
   {
     id: "tax-tracker",
     route: "/taxTracker",
     module: "HRMS",
     title: "Tax Tracker",
-    summary: "Everyone's pay over the year, paid so far and forecast for the months left, with each employee's salary.",
-    who: [{ role: "HR & Payroll Manager", can: "Everyone's pay (it needs the HR approve right). Others see only their own, on My Salary." }],
-    tasks: [],
-
+    summary: "India payroll: the company's income tax (TDS) for the financial year, deducted so far and forecast for the months left, with each employee's salary and tax.",
+    who: [{ role: "HR & Payroll Manager", can: "Everyone's tax and salary (it needs the HR approve right). Others see only their own, on My Salary." }],
+    tasks: [
+      {
+        title: "Read the year",
+        steps: [
+          "Choose the Financial year at the top.",
+          "The cards show Tax deducted (up to the last month paid), Forecast, rest of year, Projected tax for the year (with the number of employees) and Take-home paid.",
+          "Income tax by month charts April to March, deducted and forecast; Show table gives the figures.",
+        ],
+      },
+      {
+        title: "Look at an employee",
+        steps: [
+          "Under Employees, search by name, code or designation. Each card shows Deducted, Forecast and the Year's tax, the share already deducted and the take-home per month.",
+          "Click a card: the employee's salary, months, payslips and tax open as on their My Salary. All employees goes back.",
+        ],
+      },
+    ],
+    fields: [
+      { name: "Forecast", meaning: "Each month not paid yet: a full month at today's salary, with no one-off amounts, and the tax left for the year spread evenly over the months left." },
+      { name: "Projected tax for the year", meaning: "Tax deducted plus the forecast." },
+    ],
+    rules: [
+      "Covers employees on India payroll with a salary structure, highest yearly tax first.",
+      "The forecast follows salary revisions, approved IT declarations, regime changes and exits, as the payroll runs will.",
+    ],
     related: [
       { route: "/mySalary", label: "My Salary" },
+      { route: "/it-declaration", label: "IT Declaration" },
       { route: "/payrollEngine", label: "Payroll Engine" },
     ],
-    byRegion: {
-      IN: {
-        summary: "India payroll: the company's income tax (TDS) for the financial year, deducted so far and forecast for the months left, with each employee's salary and tax.",
-        tasks: [
-          {
-            title: "Read the year",
-            steps: [
-              "Choose the Financial year at the top.",
-              "The cards show Tax deducted (up to the last month paid), Forecast, rest of year, Projected tax for the year (with the number of employees) and Take-home paid.",
-              "Income tax by month charts April to March, deducted and forecast; Show table gives the figures.",
-            ],
-          },
-          {
-            title: "Look at an employee",
-            steps: [
-              "Under Employees, search by name, code or designation.",
-              "Click a card: the employee's salary, months and payslips open as on their My Salary. All employees goes back.",
-            ],
-          },        ],
-
-        fields: [
-          { name: "Employee card", meaning: "Deducted, Forecast and the Year's tax, the share already deducted and the take-home per month." },
-          { name: "Forecast", meaning: "Each month not paid yet: a full month at today's salary, with no one-off amounts, and the tax left for the year spread evenly over the months left." },
-          { name: "Projected tax for the year", meaning: "Tax deducted plus the forecast." },
-        ],
-        rules: [
-          "Covers employees on India payroll with a salary structure, highest yearly tax first.",
-          "The forecast follows salary revisions, approved IT declarations, regime changes and exits, as the payroll runs will.",
-        ],
-        related: [{ route: "/it-declaration", label: "IT Declaration" }],
-      },
-      GCC: {
-        title: "Pay Tracker",
-        summary: "Gulf payroll: the year's net pay, paid so far and forecast for the months left, the employer's pension share and the gratuity provision, with each employee's pay. There is no income tax.",
-        tasks: [
-          {
-            title: "Read the year",
-            steps: [
-              "Choose the Year at the top (January to December).",
-              "The cards show Net pay paid (up to the last month paid), Forecast, rest of year (at today's salaries), Employer pension paid and Gratuity provision (built up this year).",
-              "Net pay by month charts each month's pay, paid and forecast.",
-            ],
-          },
-          {
-            title: "Look at an employee",
-            steps: [
-              "Under Employees, search by name, code or designation.",
-              "Click a card: the employee's salary, months and payslips open as on their My Salary. All employees goes back.",
-            ],
-          },        ],
-
-        fields: [
-          { name: "Employee card", meaning: "Net paid, Forecast and Gratuity, the take-home per month and the pension scheme, if any." },
-          { name: "Gratuity provision", meaning: "End-of-service gratuity built up during the year: what the books should hold for it." },
-        ],
-        related: [{ route: "/gratuityProvision", label: "Gratuity Provision" }],
-      },
-    },
   },
   {
     id: "gulf-pay-files",
     route: "/gulfPayFiles",
     module: "HRMS",
-    regions: ["GCC"],
     title: "Gulf Pay Files",
     summary: "UAE and Saudi payroll files: the WPS salary file (SIF), the Mudad file, and the month's pension and social insurance contributions.",
     who: HR_ONLY,
@@ -531,6 +401,7 @@ export const HR_TOPICS: HelpTopic[] = [
       },
     ],
     fields: [
+      { name: "Cost to company", meaning: "Gross pay plus the employer's PF and ESI." },
       { name: "Avg yearly CTC", meaning: "The average yearly CTC of the department's employees." },
     ],
     rules: [
@@ -542,21 +413,11 @@ export const HR_TOPICS: HelpTopic[] = [
       { route: "/departmentSummary", label: "Department Summary" },
       { route: "/payrollSummary", label: "Payroll Summary" },
     ],
-    byRegion: {
-      IN: {
-        fields: [{ name: "Cost to company", meaning: "Gross pay plus the employer's PF and ESI." }],
-      },
-      GCC: {
-        summary: "Salary cost by department from the payroll runs, for a month or the year to date: gross, net paid and cost to company, down to each employee. There is no income tax on Gulf payroll.",
-        fields: [{ name: "Cost to company", meaning: "Gross pay plus the employer's pension / social insurance share." }],
-      },
-    },
   },
   {
     id: "gratuity-provision",
     route: "/gratuityProvision",
     module: "Payroll Reports",
-    regions: ["GCC"],
     title: "Gratuity Provision",
     summary: "What each Gulf employee would get as end-of-service gratuity if the company ended their employment on a date: the provision to hold in the books.",
     who: HR_REPORT_WHO,
@@ -621,12 +482,15 @@ export const HR_TOPICS: HelpTopic[] = [
         title: "Finish the exit",
         steps: [
           "Click Clearance done once assets are handed back.",
-          "Pay the settlement on Full & Final (it marks the settlement done); or click Settlement done once the last month's pay is processed.",
+          "Pay the settlement on Full & Final (it marks the settlement done); or click Settlement done once the last month's pay is processed. For Gulf employees, Statement shows the end-of-service gratuity and the final pay.",
           "From the last working day, click Complete exit: the employee is relieved and their login is switched off.",
         ],
       },
     ],
-
+    fields: [
+      { name: "How the employment ended", meaning: "Gulf: decides the Saudi end-of-service award (a resignation earns part of it). Elsewhere: decides what is suggested for unserved notice and when the full and final settlement falls due." },
+      { name: "Unused annual leave (days)", meaning: "Gulf: paid with the final pay, a day being the monthly wage / 30. Elsewhere: encashed with the full and final settlement. Use the Attendance balance fills it in." },
+    ],
     statuses: [
       { name: "Submitted / Under review", meaning: "Waiting for a decision." },
       { name: "Approved", meaning: "Accepted; start the notice period." },
@@ -639,23 +503,8 @@ export const HR_TOPICS: HelpTopic[] = [
     related: [
       { route: "/exit-management", label: "Exit Management" },
       { route: "/fullAndFinal", label: "Full & Final" },
+      { route: "/gratuityProvision", label: "Gratuity Provision" },
     ],
-    byRegion: {
-      IN: {
-        fields: [
-          { name: "How the employment ended", meaning: "Decides what is suggested for unserved notice and when the full and final settlement falls due." },
-          { name: "Unused annual leave (days)", meaning: "Encashed with the full and final settlement. Use the Attendance balance fills it in." },
-        ],
-      },
-      GCC: {
-        fields: [
-          { name: "How the employment ended", meaning: "In Saudi Arabia it decides the end-of-service award: a resignation earns only part of it." },
-          { name: "Unused annual leave (days)", meaning: "Paid with the final pay, a day being the monthly wage / 30. Use the Attendance balance fills it in." },
-        ],
-        rules: ["For an employee on Gulf payroll, Statement shows the end-of-service gratuity and the final pay."],
-        related: [{ route: "/gratuityProvision", label: "Gratuity Provision" }],
-      },
-    },
   },
   {
     id: "full-and-final",
