@@ -375,7 +375,12 @@ const LeavePolicyPage: React.FC = () => {
     if (!ok) return;
     try {
       await deleteApi(id);
-      ToasterService.success("Leave policy removed (policies already given to employees are switched off instead).");
+      // Given to employees: kept (inactive) for their balances; otherwise gone
+      const after = await getApi().catch(() => null);
+      const kept = Array.isArray(after?.data) && after!.data.some((p: any) => p.id === id);
+      ToasterService.success(kept
+        ? "Leave policy switched off: it is given to employees, so it stays (inactive) for their balances."
+        : "Leave policy deleted.");
       fetchPolicies();
     } catch (err: any) {
       ToasterService.error(apiError(err, "Could not delete the leave policy."));
@@ -459,7 +464,9 @@ const LeavePolicyPage: React.FC = () => {
       label: 'Status',
       sortable: true,
       render: (row) => {
-        const isActive = row.status === 'Active' || row.active !== false;
+        // The row's status comes from the policy's active flag (fetchPolicies); rows carry no "active" of their own,
+        // so reading one made every policy look active, even one switched off by Delete
+        const isActive = row.status ? row.status === 'Active' : row.active !== false;
         return (
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap border ${
             isActive

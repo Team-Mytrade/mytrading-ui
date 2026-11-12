@@ -209,11 +209,21 @@ const EmployeeCompensationPage: React.FC = () => {
             ToasterService.error("Add a Basic % and an HRA %", "Payroll splits each employee's CTC with these two");
             return;
         }
+        // Basic is a % of the salary and HRA a % of basic: together at most the whole salary (Basic 80 + HRA 100 = 160%)
+        const pct = (code: string) => Number(formData.components.find((c) => c.name.trim().toLowerCase() === code)?.percentage) || 0;
+        const share = pct("basic") * (1 + pct("hra") / 100);
+        if (share > 100.0001) {
+            ToasterService.error(`Basic ${pct("basic")}% plus HRA ${pct("hra")}% of basic is ${Math.round(share * 100) / 100}% of the salary`,
+                "Together they can be at most 100%");
+            return;
+        }
 
         // Build payload
         const componentDetails: ComponentDetail = {};
         formData.components.forEach((c) => {
-            componentDetails[c.name] = c.percentage;
+            // Basic and HRA go as their fixed codes, the same keys the service sends back
+            const code = c.name.trim().toLowerCase();
+            componentDetails[code === "basic" || code === "hra" ? code : c.name] = c.percentage;
         });
 
         const payload: CompensationPayload = {

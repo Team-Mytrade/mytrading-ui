@@ -13,6 +13,7 @@ import { APP_ROUTES, recordLink } from "../../utils/appRoutes";
 import { formatMoney, companyCurrency, getRegional } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
+import { currentCompanyCountry } from "../../company/companyApi";
 /* ------------------------------------------------------------------ */
 /* Endpoints & constants                                               */
 /* ------------------------------------------------------------------ */
@@ -33,7 +34,26 @@ const UOM_OPTIONS = [
 ];
 
 // Keep in sync with the tax codes the backend accepts.
+// Used only until the company has set up its own codes under Common → Tax Types: the usual codes of its country
 const TAX_CODES = ["GST0", "GST5", "GST18", "GST40"];
+const companyIso = (): string => {
+  const name = (currentCompanyCountry() || "India").trim().toLowerCase();
+  const known: Record<string, string> = {
+    india: "IN", "united arab emirates": "AE", uae: "AE", "saudi arabia": "SA", ksa: "SA", oman: "OM",
+    bahrain: "BH", qatar: "QA", kuwait: "KW",
+  };
+  return known[name] ?? name.toUpperCase();
+};
+const defaultTaxCodes = (): { value: string; label: string }[] => {
+  const iso = companyIso();
+  if (iso === "IN") return TAX_CODES.map((item) => ({ value: item, label: item }));
+  if (iso === "SA") return [{ value: "VAT15", label: "VAT15 (15%)" }, { value: "VAT0", label: "VAT0 (zero-rated)" }];
+  if (["AE", "OM", "BH"].includes(iso)) return [{ value: "VAT5", label: "VAT5 (5%)" }, { value: "VAT0", label: "VAT0 (zero-rated)" }];
+  // Qatar and Kuwait have no VAT yet
+  return [{ value: "NOTAX", label: "No tax (0%)" }];
+};
+// HS codes go on VAT e-invoices (UAE, Saudi Arabia) and Indian GST invoices; not asked where there is no VAT
+const asksHsCode = () => !["QA", "KW"].includes(companyIso());
 
 /* ------------------------------------------------------------------ */
 /* Small helpers                                                       */
@@ -644,12 +664,24 @@ const baseProductConfig: PurchaseResourceConfig = {
       label: "Tax Code",
       type: "select",
       required: true,
-      options: TAX_CODES.map((item) => ({ value: item, label: item })),
+      // The company's own codes from Common → Tax Types (VAT5, VAT0, VATEX... in the UAE)
+      optionsEndpoint: "/v1/api/invoice/tax-types",
+      optionValue: "taxName",
+      optionLabel: (row) => `${row.taxName}${row.taxRate != null ? ` (${row.taxRate}%)` : ""}${row.description ? ` · ${row.description}` : ""}`,
+      getOptions: ({ form, options }) => {
+        const own = (options.taxCode || []).filter((o) => (o.raw as { isActive?: boolean } | undefined)?.isActive !== false);
+        const list = own.length ? own : defaultTaxCodes();
+        // A product saved with a code that is no longer set up still shows it
+        const current = String(form.taxCode ?? "");
+        return current && !list.some((o) => String(o.value) === current) ? [...list, { value: current, label: current }] : list;
+      },
     },
     // E-invoices (UAE) classify goods by HS code and services by service accounting code
     {
       name: "hsCode", section: "Pricing & Tax",
-      label: "HS code (goods) / SAC (services)",
+      label: "HS code",
+      // SAC (service accounting code) is Indian: offered with the HS code only for Indian companies
+      adapt: () => (companyIso() === "IN" ? { label: "HS code (goods) / SAC (services)" } : asksHsCode() ? {} : { gridClassName: "hidden" }),
       maxLength: 15,
       placeholder: "e.g. 7318.15",
       validate: (value) => {

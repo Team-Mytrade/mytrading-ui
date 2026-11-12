@@ -43,7 +43,7 @@ import {
   isClosedStage,
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
-import { formatDate, companyCurrency, moneyDecimals } from "../../company/format";
+import { formatDate, companyCurrency, moneyDecimals, currencyChoices } from "../../company/format";
 import { cellInput, NumberCell } from "../Purchase/LineItemsEditor";
 
 import { t } from "../../i18n/i18n";
@@ -70,6 +70,8 @@ interface Opportunity {
   status: string;
   lead?: { id: number; name: string } | null;
   customer?: { id: number; name?: string; customerName?: string; currencyCode?: string } | null;
+  // The deal's currency (AED, SAR, KWD...); none: the company's
+  currencyCode?: string | null;
   // What the customer asked for; a quotation made from the deal copies these lines
   items?: DealLine[];
   quotationId?: number | null;
@@ -96,6 +98,9 @@ interface Product {
 interface Lead {
   id: number;
   name: string;
+  // A converted lead has become a customer: new deals go to the customer instead
+  converted?: boolean;
+  status?: string;
 }
 
 interface Customer {
@@ -241,6 +246,7 @@ export default function Deals() {
       items: (form.items || []).filter((l) => l.productId || l.productName?.trim()),
       expectedCloseDate: form.expectedCloseDate || null,
       status: form.status || "ACTIVE",
+      currencyCode: form.currencyCode || companyCurrency(),
       ...owner,
     };
   };
@@ -251,6 +257,7 @@ export default function Deals() {
     stage: normalizeStage(o.stage),
     expectedCloseDate: o.expectedCloseDate || null,
     status: o.status || "ACTIVE",
+    currencyCode: o.currencyCode || undefined,
     lead: o.lead ? { id: o.lead.id, name: o.lead.name } : undefined,
     customer: o.customer ? { id: o.customer.id } : undefined,
   });
@@ -385,7 +392,10 @@ export default function Deals() {
     );
   });
 
-  // Rupees, like the rest of the app (a deal's customer may use another currency)
+  // The cards count open, active deals only: cancelled, won and lost deals are not in the pipeline
+  const activeDeals = opportunities.filter((o) => o.status === "ACTIVE");
+
+  // In the deal's currency, else the company's (formatted the company's way: 1,320,000 or 13,20,000)
   const formatCurrency = (amount: number, currency?: string) =>
     formatMoney(Number(amount) || 0, currency || companyCurrency());
 
@@ -423,11 +433,13 @@ export default function Deals() {
               {o.dealName}
             </div>
             {(o.lead || o.customer) && (
-              <div className="text-xs text-gray-500 truncate max-w-[150px]">
-                {o.lead?.name ||
-                  o.customer?.customerName ||
-                  o.customer?.name ||
-                  ""}
+              <div className="flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
+                <span className={`shrink-0 rounded px-1.5 py-px text-[10px] font-semibold ${o.customer ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                  {t(o.customer ? "Customer" : "Lead")}
+                </span>
+                <span className="truncate" title={o.customer?.customerName || o.customer?.name || o.lead?.name || ""}>
+                  {o.customer?.customerName || o.customer?.name || o.lead?.name || ""}
+                </span>
               </div>
             )}
             {o.quotationNumber && (
@@ -444,7 +456,7 @@ export default function Deals() {
       render: (o) => (
         <div className="flex items-center text-sm font-medium text-gray-900">
           <BanknotesIcon className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
-          {formatCurrency(o.amount, o.customer?.currencyCode)}
+          {formatCurrency(o.amount, o.currencyCode || o.customer?.currencyCode)}
         </div>
       ),
     },
@@ -683,21 +695,19 @@ export default function Deals() {
             <StatsCard label={t("Total Deals")} value={opportunities.length} />
             <StatsCard
               label={t("Active Deals")}
-              value={opportunities.filter((o) => o.status === "ACTIVE").length}
+              value={activeDeals.length}
             />
             <StatsCard
               label={t("Total Value")}
-              value={formatCurrency(
-                opportunities.reduce((a, o) => a + (o.amount || 0), 0)
-              )}
+              value={formatCurrency(activeDeals.reduce((a, o) => a + (Number(o.amount) || 0), 0))}
             />
             <StatsCard
               label={t("Average Deal Size")}
               value={
-                opportunities.length
+                activeDeals.length
                   ? formatCurrency(
-                      opportunities.reduce((a, o) => a + (o.amount || 0), 0) /
-                        opportunities.length
+                      activeDeals.reduce((a, o) => a + (Number(o.amount) || 0), 0) /
+                        activeDeals.length
                     )
                   : formatCurrency(0)
               }
@@ -780,6 +790,14 @@ export default function Deals() {
           type="number"
           value={form.amount ?? ""}
           onChange={handleChange}
+        />,
+        <FloatingSelect
+          key="currencyCode"
+          label={t("Currency")}
+          name="currencyCode"
+          value={form.currencyCode || companyCurrency()}
+          onChange={(e) => setForm((prev) => ({ ...prev, currencyCode: e.target.value }))}
+          options={currencyChoices(form.currencyCode).map((c) => ({ id: c, name: c }))}
         />,
         <FloatingDatePicker
           key="expectedCloseDate"
@@ -873,7 +891,7 @@ export default function Deals() {
                           onValue={(quantity) => updateLine(index, { quantity })} />
                       </td>
                       <td className="px-1 py-1">
-                        <NumberCell label={`Line ${index + 1} expected price`} decimals={moneyDecimals(form.customer?.currencyCode)}
+                        <NumberCell label={`Line ${index + 1} expected price`} decimals={moneyDecimals(form.currencyCode || form.customer?.currencyCode)}
                           value={line.expectedPrice ?? ""} onValue={(expectedPrice) => updateLine(index, { expectedPrice: expectedPrice || null })} />
                       </td>
                       <td className="px-1 py-1">
@@ -953,7 +971,9 @@ export default function Deals() {
                     : undefined,
                 }))
               }
-              options={leads.map((l) => ({ id: l.id, name: l.name }))}
+              options={leads
+                .filter((l) => !(l.converted || l.status === "CONVERTED") || l.id === form.lead?.id)
+                .map((l) => ({ id: l.id, name: l.name }))}
               required={!form.id}
             />
           ) : (

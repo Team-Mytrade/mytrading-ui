@@ -23,6 +23,7 @@ import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { apiError } from "../../utils/apiError";
 import { t } from "../../i18n/i18n";
 import { useActingEmployee } from "../../access/useActingEmployee";
+import { useCurrentEmployee } from "../../access/useCurrentEmployee";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, STATS_ROW, TOOL_BUTTON } from './hrmsUi';
 
 const EXIT_REASONS = [
@@ -119,6 +120,8 @@ const ExitManagementPage: React.FC = () => {
     const { canApprove } = usePermissions();
     // Admins may raise an exit for another employee (e.g. one who absconded); it goes to their manager
     const { employee: acting, onBehalf, picker } = useActingEmployee("HRM");
+    // The signed-in login's own employee record (none for e.g. the company admin)
+    const self = useCurrentEmployee();
     const [loading, setLoading] = useState(false);
     const [notLinked, setNotLinked] = useState<string | null>(null);
     const [requests, setRequests] = useState<ExitRequest[]>([]);
@@ -148,7 +151,7 @@ const ExitManagementPage: React.FC = () => {
 
     useEffect(() => {
         fetchMyRequests();
-    }, [onBehalf, acting.id]);
+    }, [onBehalf, acting.id, self.hasEmployee]);
 
     useEffect(() => {
         ExitManagementService.getExitConfig()
@@ -157,6 +160,14 @@ const ExitManagementPage: React.FC = () => {
     }, []);
 
     const fetchMyRequests = async () => {
+        // A login with no employee record behind it (e.g. the company admin) has no resignation: say so without
+        // asking the server, which would answer 403
+        if (!onBehalf && !self.hasEmployee) {
+            setRequests([]);
+            setNotLinked("No employee record is linked to your account, so there is no resignation to show. Exits of employees are handled under Exit Approvals.");
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             setRequests(onBehalf ? await ExitManagementService.getExitRequestByEmployeeId(acting.id) : await ExitManagementService.getMyExitRequests());

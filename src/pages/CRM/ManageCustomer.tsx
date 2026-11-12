@@ -31,6 +31,9 @@ export interface Customer {
   customerCode?: string;
   email?: string;
   phone?: string;
+  // Inactive customers are marked and can't be added to a segment
+  active?: boolean;
+  status?: string;
 }
 
 interface ManageCustomersDrawerProps {
@@ -39,6 +42,8 @@ interface ManageCustomersDrawerProps {
   segmentName?: string;
   segmentDescription?: string;
   segmentCode?: string;
+  // The segment's own active flag (shown as a badge)
+  segmentActive?: boolean;
   assignedCustomers: SegmentCustomer[];
   allCustomers: Customer[];
   onClose: () => void;
@@ -75,6 +80,7 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
   segmentName,
   segmentDescription,
   segmentCode,
+  segmentActive,
   assignedCustomers,
   allCustomers,
   onClose,
@@ -148,6 +154,8 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
   }, [allCustomers, assigned]);
 
   const sourceList: any[] = showAddPanel ? available : assigned;
+  const isInactive = (c: any) => c.active === false || String(c.status ?? "").toUpperCase() === "INACTIVE";
+  // Adding: an inactive customer is shown (marked) but can't be picked
   // Selecting only matters when the user may add (or remove) the selection
   const canSelect = showAddPanel ? canCreate : canDelete;
 
@@ -171,18 +179,20 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
     );
   };
 
+  // "Select all" covers the rows shown after a search, never hidden ones (nor, when adding, inactive customers)
+  const selectable = filtered.filter((c: any) => !(showAddPanel && isInactive(c)));
   const allSelected =
-    filtered.length > 0 &&
-    filtered.every((c: any) => selectedIds.includes(c.customerId ?? c.id));
+    selectable.length > 0 &&
+    selectable.every((c: any) => selectedIds.includes(c.customerId ?? c.id));
 
   const toggleAll = () => {
     if (allSelected) {
-      const visible = new Set(filtered.map((c: any) => c.customerId ?? c.id));
+      const visible = new Set(selectable.map((c: any) => c.customerId ?? c.id));
       setSelectedIds((prev) => prev.filter((id) => !visible.has(id)));
     } else {
       const merged = new Set([
         ...selectedIds,
-        ...filtered.map((c: any) => c.customerId ?? c.id),
+        ...selectable.map((c: any) => c.customerId ?? c.id),
       ]);
       setSelectedIds(Array.from(merged));
     }
@@ -300,55 +310,35 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
 
         {/* ============ BODY ============ */}
         <div className="flex-1 min-h-0 overflow-y-auto">
-          {/* ---------- Summary metrics ---------- */}
+          {/* ---------- The segment: name and description get the room, then count, code and status ---------- */}
           <section className="px-5 pt-5 pb-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-              <div className="px-4 py-4 border-r border-gray-100 dark:border-gray-800">
-                <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  {t("Segment Name")}
-                </div>
-                <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1.5 truncate">
-                  {segmentName || "--"}
-                </div>
+            <div className="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t("Segment name")}</div>
+                <div className="mt-1 break-words text-base font-semibold text-gray-900 dark:text-gray-100">{segmentName || "--"}</div>
               </div>
-              <div className="px-4 py-4 border-r border-gray-100 dark:border-gray-800">
-                <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  {t("Description")}
-                </div>
-                <div className="text-sm text-gray-800 dark:text-gray-200 mt-1.5">
-                  {segmentDescription || "--"}
-                </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t("Description")}</div>
+                <div className="mt-1 break-words text-sm text-gray-800 dark:text-gray-200">{segmentDescription || "--"}</div>
               </div>
-              <div className="px-4 py-4 border-r border-gray-100 dark:border-gray-800">
-                <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  {t("Customers")}
-                </div>
-                <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1.5">
-                  {assigned.length}
-                </div>
-              </div>
-              <div className="px-4 py-4">
-                <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  {t("Code")}
-                </div>
-                <div className="text-base font-mono text-gray-900 dark:text-gray-100 mt-1.5 truncate">
-                  {segmentCode || "--"}
-                </div>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-gray-100 pt-3 text-sm dark:border-gray-800 sm:col-span-2">
+                <span className="text-gray-500 dark:text-gray-400">{t("Customers")}: <b className="text-gray-900 dark:text-gray-100">{assigned.length}</b></span>
+                <span className="text-gray-500 dark:text-gray-400">{t("Code")}: <b className="font-mono text-gray-900 dark:text-gray-100">{segmentCode || "--"}</b></span>
+                {segmentActive !== undefined && (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${segmentActive ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"}`}>
+                    {t(segmentActive ? "Active" : "Inactive")}
+                  </span>
+                )}
               </div>
             </div>
           </section>
 
-          {/* ---------- Record information heading ---------- */}
+          {/* ---------- The customers ---------- */}
           <section className="px-5 pb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-                  {t("Record Information")}
-                </p>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-0.5">
-                  {t(showAddPanel ? "Add Customers" : "Details")}
-                </h3>
-              </div>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                {t(showAddPanel ? "Add customers to this segment" : "Customers in this segment")}
+              </h3>
               {canCreate && (
                 <button
                   type="button"
@@ -357,180 +347,137 @@ const ManageCustomersDrawer: React.FC<ManageCustomersDrawerProps> = ({
                     setSelectedIds([]);
                     setSearch("");
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/60 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cyan-200 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-50 dark:border-cyan-800/60 dark:text-cyan-400 dark:hover:bg-cyan-950/30"
                 >
-                  {showAddPanel ? "← Back to Segment" : "+ Add Customers"}
+                  {showAddPanel ? t("← Back to segment") : t("+ Add customers")}
                 </button>
               )}
             </div>
 
-            {/* ---------- Search + Select All ---------- */}
-            <div className="flex items-center gap-2 mb-4">
-              <div className="relative flex-1">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
-                <input
-                  type="text"
-                  placeholder={t("Search by name, email, phone, code...")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                />
-              </div>
-              {filtered.length > 0 && canSelect && (
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap">
+            {/* ---------- Search and select all: only when there is something to search ---------- */}
+            {sourceList.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[200px] flex-1">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500"
+                    type="text"
+                    placeholder={t("Search by name, email, phone, code...")}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
                   />
-                  {t("Select all")}
-                </label>
-              )}
-            </div>
+                </div>
+                <span className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                  {search.trim()
+                    ? `${filtered.length} ${t("of")} ${sourceList.length}`
+                    : `${sourceList.length} ${t(showAddPanel ? "available" : "in segment")}`}
+                </span>
+                {selectable.length > 0 && canSelect && (
+                  <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 dark:border-gray-600"
+                    />
+                    {t(search.trim() ? "Select all shown" : "Select all")}
+                  </label>
+                )}
+              </div>
+            )}
 
-            {/* ---------- Count pill ---------- */}
-            <div className="mb-4">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border border-cyan-100 dark:border-cyan-800/50 capitalize">
-                {filtered.length} {showAddPanel ? "Available Customers" : "Segment Customers"}
-              </span>
-            </div>
-
-            {/* ---------- Customer cards ---------- */}
+            {/* ---------- Compact rows: checkbox, name, code, email, status ---------- */}
             {filtered.length === 0 ? (
-              <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
-                {showAddPanel
-                  ? available.length === 0
-                    ? "All customers are already in this segment"
-                    : "No customers match your search"
-                  : "No customers in this segment yet"}
+              <div className="rounded-xl border border-dashed border-gray-200 py-10 text-center dark:border-gray-800">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {showAddPanel
+                    ? available.length === 0
+                      ? t("All customers are already in this segment")
+                      : t("No customers match your search")
+                    : sourceList.length === 0
+                      ? t("No customers in this segment yet")
+                      : t("No customers match your search")}
+                </p>
+                {!showAddPanel && sourceList.length === 0 && canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddPanel(true); setSelectedIds([]); setSearch(""); }}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
+                  >
+                    <UserPlusIcon className="h-4 w-4" />
+                    {t("Add customers")}
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="space-y-4">
-                {filtered.map((c: any, idx: number) => {
-                  const id = c.customerId ?? c.id;
-                  const selected = selectedIds.includes(id);
-                  const name = c.customerName || "Unnamed Customer";
-                  const code = c.customerCode || "--";
-                  const email = c.email || "--";
-                  const phone = c.phone || "--";
-                  const assignedAt = c.assignedAt ? formatDate(c.assignedAt) : null;
-
-                  return (
-                    <div
-                      key={id}
-                      className={`rounded-xl border bg-white dark:bg-gray-900 p-4 shadow-sm space-y-3 transition-all ${
-                        selected
-                          ? "border-cyan-400 bg-cyan-50/40 dark:bg-cyan-950/20"
-                          : "border-gray-200 dark:border-gray-800"
-                      }`}
-                    >
-                      {/* Card heading */}
-                      <div className="flex items-center justify-between pb-2.5 border-b border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center gap-2.5 min-w-0">
+              <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:bg-gray-800/60 dark:text-gray-400">
+                    <tr>
+                      {canSelect && <th className="w-9 px-3 py-2" aria-label={t("Select")} />}
+                      <th className="px-3 py-2">{t("Customer")}</th>
+                      <th className="px-3 py-2">{t("Email")}</th>
+                      <th className="px-3 py-2">{t("Status")}</th>
+                      <th className="w-10 px-3 py-2" aria-label={t("View")} />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {filtered.map((c: any) => {
+                      const id = c.customerId ?? c.id;
+                      const selected = selectedIds.includes(id);
+                      const inactive = isInactive(c);
+                      const locked = showAddPanel && inactive;
+                      const name = c.customerName || "Unnamed Customer";
+                      return (
+                        <tr key={id} className={`align-top ${selected ? "bg-cyan-50/60 dark:bg-cyan-950/20" : ""} ${inactive ? "text-gray-400" : ""}`}>
                           {canSelect && (
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => toggle(id)}
-                              className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500"
-                            />
+                            <td className="px-3 py-2.5">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                disabled={locked}
+                                onChange={() => toggle(id)}
+                                aria-label={`${t("Select")} ${name}`}
+                                title={locked ? t("Inactive customers can't be added to a segment") : undefined}
+                                className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600"
+                              />
+                            </td>
                           )}
-                          <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 truncate">
-                            {showAddPanel ? "Available Customer" : "Segment Customer"} #{idx + 1}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-gray-400 dark:text-gray-500">
-                            #{idx + 1}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onViewCustomer(id)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded transition-colors"
-                            title={t("View customer profile")}
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Field rows */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2.5">
-                        {/* Customer Name */}
-                        <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            {t("Customer Name")}
-                          </span>
-                          <button
-                            onClick={() => onViewCustomer(id)}
-                            className="text-sm font-semibold text-cyan-700 dark:text-cyan-300 hover:underline truncate"
-                          >
-                            {name}
-                          </button>
-                        </div>
-
-                        {/* Customer Code */}
-                        <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            {t("Customer Code")}
-                          </span>
-                          <span className="text-sm font-mono text-gray-800 dark:text-gray-100 truncate">
-                            {code}
-                          </span>
-                        </div>
-
-                        {/* Active */}
-                        <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            {t("Active")}
-                          </span>
-                          <span
-                            className={`text-sm font-semibold ${
-                              c.active
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
-                          >
-                            {t(c.active ? "Yes" : "No")}
-                          </span>
-                        </div>
-
-                        {/* Email */}
-                        <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            {t("Email")}
-                          </span>
-                          <span className="text-sm text-cyan-700 dark:text-cyan-300 truncate">
-                            {email}
-                          </span>
-                        </div>
-
-                        {/* Phone */}
-                        <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
-                          <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                            {t("Phone")}
-                          </span>
-                          <span className="text-sm text-cyan-700 dark:text-cyan-300">
-                            {phone}
-                          </span>
-                        </div>
-
-                        {/* Assigned At */}
-                        {assignedAt && (
-                          <div className="flex items-center justify-between py-2 px-3.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-3">
-                            <span className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider whitespace-nowrap">
-                              {t("Assigned At")}
+                          <td className="min-w-0 px-3 py-2.5">
+                            <button type="button" onClick={() => onViewCustomer(id)}
+                              className="break-words text-left font-semibold text-cyan-700 hover:underline dark:text-cyan-300" title={name}>
+                              {name}
+                            </button>
+                            <div className="break-all font-mono text-xs text-gray-500 dark:text-gray-400">{c.customerCode || "--"}</div>
+                            {c.assignedAt && !showAddPanel && (
+                              <div className="text-[11px] text-gray-400">{t("Added")} {formatDate(c.assignedAt)}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="break-all text-gray-700 dark:text-gray-300">{c.email || "--"}</div>
+                            {c.phone && <div className="text-xs text-gray-500 dark:text-gray-400">{c.phone}</div>}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${inactive ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" : "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300"}`}>
+                              {t(inactive ? "Inactive" : "Active")}
                             </span>
-                            <span className="text-sm text-cyan-700 dark:text-cyan-300">
-                              {assignedAt}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <button
+                              type="button"
+                              onClick={() => onViewCustomer(id)}
+                              className="rounded p-1.5 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/30 dark:hover:text-blue-400"
+                              title={t("View customer profile")}
+                              aria-label={`${t("View customer profile")}: ${name}`}
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>

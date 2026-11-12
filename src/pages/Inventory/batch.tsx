@@ -269,7 +269,11 @@ const BatchManagement: React.FC = () => {
   const [searchParams] = useSearchParams();
   const filterBatchId = searchParams.get("batchId");
   const filterBatchName = searchParams.get("batchName") || "";
-  const isBatchScoped = Boolean(filterBatchId);
+  // Opened from Stock Levels ("By batch"): one product's batches, in one warehouse when given
+  const filterProductId = searchParams.get("productId");
+  const filterProductName = searchParams.get("productName") || "";
+  const filterWarehouseId = searchParams.get("warehouseId");
+  const isBatchScoped = Boolean(filterBatchId || filterProductId);
 
   const token = localStorage.getItem("accessToken");
   const headers = token
@@ -539,9 +543,13 @@ const BatchManagement: React.FC = () => {
   const scopedBatches = useMemo(
     () =>
       isBatchScoped
-        ? batches.filter((b) => String(b.id) === String(filterBatchId))
+        ? batches.filter((b) =>
+            filterBatchId
+              ? String(b.id) === String(filterBatchId)
+              : String(b.productId) === String(filterProductId) &&
+                (!filterWarehouseId || String(b.warehouse?.id ?? b.warehouse) === String(filterWarehouseId)))
         : batches,
-    [batches, isBatchScoped, filterBatchId]
+    [batches, isBatchScoped, filterBatchId, filterProductId, filterWarehouseId]
   );
 
   const stats = useMemo(() => {
@@ -916,8 +924,8 @@ const BatchManagement: React.FC = () => {
             <div className="flex items-center gap-2">
               <FunnelIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <span>
-                {t("Showing batch:")}{" "}
-                <strong>{filterBatchName || `#${filterBatchId}`}</strong>
+                {filterBatchId ? t("Showing batch:") : t("Showing the batches of:")}{" "}
+                <strong>{filterBatchId ? (filterBatchName || `#${filterBatchId}`) : (filterProductName || `#${filterProductId}`)}</strong>
               </span>
             </div>
             <button
@@ -1006,7 +1014,9 @@ const BatchManagement: React.FC = () => {
               <CubeIcon className="mb-3 h-12 w-12 text-gray-400 dark:text-slate-500" />
               <p className="mb-2 text-sm text-gray-500 dark:text-slate-400">
                 {isBatchScoped
-                  ? `No batch matches "${filterBatchName || `#${filterBatchId}`}"`
+                  ? filterBatchId
+                    ? `No batch matches "${filterBatchName || `#${filterBatchId}`}"`
+                    : `No batches of "${filterProductName || `#${filterProductId}`}" here`
                   : "No batches found"}
               </p>
               {isBatchScoped ? (

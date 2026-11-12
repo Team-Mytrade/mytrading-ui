@@ -28,7 +28,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import PaginatedPopup from "../../components/common/unpopup";
-import { LEAD_STATUS_LABELS, LEAD_STATUS_OPTIONS, apiError } from "./crmShared";
+import { LEAD_STATUS_LABELS, LEAD_STATUS_OPTIONS, apiError, emailProblem, phoneProblem, phoneExample, fieldErrorOf } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 import { t } from "../../i18n/i18n";
 const API_URL = "/v1/api/crm/leads";
@@ -233,7 +233,15 @@ const Leads: React.FC = () => {
 
   /* ---------------- Form ---------------- */
 
+  // Shown under each field when Save finds a problem (and cleared as the field is edited)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const editField = (field: "name" | "email" | "phone", value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
+  };
+
   const resetForm = () => {
+    setFormErrors({});
     setFormData({
       name: "",
       email: "",
@@ -252,14 +260,14 @@ const Leads: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      ToasterService.error("Lead name is required");
-      return;
-    }
-    if (!formData.email.trim()) {
-      ToasterService.error("Email is required");
-      return;
-    }
+    const problems: Record<string, string> = {};
+    if (!formData.name.trim()) problems.name = "Enter the lead name";
+    if (!formData.email.trim()) problems.email = "Enter the email";
+    else if (emailProblem(formData.email)) problems.email = emailProblem(formData.email) as string;
+    if (!formData.phone.trim()) problems.phone = "Enter the phone number";
+    else if (phoneProblem(formData.phone)) problems.phone = phoneProblem(formData.phone) as string;
+    setFormErrors(problems);
+    if (Object.keys(problems).length > 0) return;
     try {
       setIsSaving(true);
       const payload = {
@@ -284,7 +292,11 @@ const Leads: React.FC = () => {
       resetForm();
     } catch (err: any) {
       console.error("Error saving lead:", err);
-      ToasterService.error(apiError(err, "Failed to save lead"));
+      const message = apiError(err, "Failed to save lead");
+      // A field the service refused is shown under that field
+      const onField = fieldErrorOf(message);
+      if (Object.keys(onField).length > 0) setFormErrors((prev) => ({ ...prev, ...onField }));
+      else ToasterService.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -770,7 +782,9 @@ const confirmConvert = async () => {
       label={t("Lead Name")}
       name="name"
       value={formData.name}
-      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+      onChange={(e) => editField("name", e.target.value)}
+      example={t("e.g. Al Noor Trading")}
+      error={formErrors.name}
       required
     />,
     <FloatingInput
@@ -779,15 +793,20 @@ const confirmConvert = async () => {
       name="email"
       type="email"
       value={formData.email}
-      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+      onChange={(e) => editField("email", e.target.value)}
+      example="name@company.com"
+      error={formErrors.email}
       required
     />,
     <FloatingInput
       key="phone"
       label={t("Phone")}
       name="phone"
+      type="tel"
       value={formData.phone}
-      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+      onChange={(e) => editField("phone", e.target.value)}
+      example={phoneExample()}
+      error={formErrors.phone}
       required
     />,
     <FloatingSelect

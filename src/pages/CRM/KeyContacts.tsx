@@ -23,7 +23,7 @@ import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import FilterPopover from "../../components/common/filter";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
-import { CONTACT_ROLE_OPTIONS, apiError } from "./crmShared";
+import { CONTACT_ROLE_OPTIONS, apiError, emailProblem, phoneProblem, phoneExample, fieldErrorOf } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
@@ -93,6 +93,8 @@ interface Contact {
   designation?: string;
   role?: string;
   customer?: Customer | null;
+  // The company's main contact (one per company)
+  primaryContact?: boolean;
 }
 
 const API_URL = "/v1/api/crm/contacts";
@@ -130,7 +132,25 @@ const KeyContacts: React.FC = () => {
     designation: "",
     role: "",
     customerId: "",
+    primaryContact: false,
   });
+  // Problems found on save, shown under each field (cleared when the form opens again)
+  const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
+  const contactProblems = (c: { fullName: string; email: string; phone: string }) => {
+    const problems: Record<string, string> = {};
+    if (!c.fullName.trim()) problems.fullName = "Enter the full name";
+    if (!c.email.trim()) problems.email = "Enter the email";
+    else if (emailProblem(c.email)) problems.email = emailProblem(c.email) as string;
+    if (!c.phone.trim()) problems.phone = "Enter the phone number";
+    else if (phoneProblem(c.phone)) problems.phone = phoneProblem(c.phone) as string;
+    return problems;
+  };
+  const showSaveError = (error: unknown, fallback: string) => {
+    const message = apiError(error, fallback);
+    const onField = fieldErrorOf(message);
+    if (Object.keys(onField).length > 0) setContactErrors((prev) => ({ ...prev, ...onField }));
+    else ToasterService.error(message);
+  };
 
   // Edit Contact Modal
   const [showEditModal, setShowEditModal] = useState(false);
@@ -163,7 +183,7 @@ const KeyContacts: React.FC = () => {
     if (savedAddDraft) {
       try {
         const parsedDraft: ContactDraft = JSON.parse(savedAddDraft);
-        setNewContact({ ...parsedDraft.data, designation: parsedDraft.data.designation ?? "" });
+        setNewContact({ primaryContact: false, ...parsedDraft.data, designation: parsedDraft.data.designation ?? "" });
         if (parsedDraft.modalOpen) {
           setShowAddModal(true);
         }
@@ -360,6 +380,10 @@ const KeyContacts: React.FC = () => {
   // Add Contact Submit
 const handleAddContact = async (e: FormEvent) => {
   e.preventDefault();
+  const problems = contactProblems(newContact);
+  if (!newContact.customerId) problems.customerId = "Choose the company this contact works for";
+  setContactErrors(problems);
+  if (Object.keys(problems).length > 0) return;
    if (!newContact.fullName.trim()) {
     ToasterService.error("Full name is required");
     return;
@@ -377,6 +401,8 @@ const handleAddContact = async (e: FormEvent) => {
       phone: newContact.phone,
       designation: newContact.designation || null,
       role: newContact.role || null,
+      // The company's first contact is primary anyway; a later one only when ticked
+      primaryContact: newContact.primaryContact,
     };
 
     const res = await axios.post(`${API_URL}/customer/${newContact.customerId}`, payload, {
@@ -393,13 +419,14 @@ const handleAddContact = async (e: FormEvent) => {
         designation: "",
         role: "",
         customerId: "",
+        primaryContact: false,
       });
       localStorage.removeItem(ADD_DRAFT_STORAGE_KEY);
       fetchCustomers();
     }
   } catch (error) {
     console.error("Error adding contact:", error);
-    ToasterService.error(apiError(error, "Failed to add contact."));
+    showSaveError(error, "Failed to add contact.");
   }
    finally {
     setIsSaving(false);
@@ -411,6 +438,9 @@ const handleAddContact = async (e: FormEvent) => {
 const handleEditContact = async (e: FormEvent) => {
   e.preventDefault();
   if (!editContact) return;
+  const problems = contactProblems(editContact);
+  setContactErrors(problems);
+  if (Object.keys(problems).length > 0) return;
 
   const original = contacts.find((c) => c.id === editContact.id);
   const originalCustomerId = original?.customer?.id ?? null;
@@ -452,6 +482,7 @@ const handleEditContact = async (e: FormEvent) => {
       phone: editContact.phone,
       designation: editContact.designation || null,
       role: editContact.role || null,
+      primaryContact: !!editContact.primaryContact,
     };
 
     try {
@@ -615,8 +646,9 @@ const handleEditContact = async (e: FormEvent) => {
     {
       key: "actions",
       label: "Actions",
-      headerClassName: "w-[10%] !text-right pr-3",
-      className: "w-[10%] text-right",
+      minWidth: 120,
+      headerClassName: "!text-right pr-3 whitespace-nowrap",
+      className: "text-right",
       render: (contact) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
           {canUpdate && (
@@ -673,9 +705,9 @@ const handleEditContact = async (e: FormEvent) => {
 
   return (
     <>
-      <PageMeta title={t("Contact Persons")} description="Manage your contact persons" />
+      <PageMeta title={t("Key Contacts")} description="The people you deal with at each customer" />
       <PageBreadcrumb
-        pageTitle="Contact Persons"
+        pageTitle="Key Contacts"
         actions={
           <AddButton
             onClick={() => {
@@ -683,7 +715,7 @@ const handleEditContact = async (e: FormEvent) => {
               if (scopedCustomerId) setNewContact((c) => ({ ...c, customerId: String(scopedCustomerId) }));
               setShowAddModal(true);
             }}
-            label={t("Add Contact Person")}
+            label={t("Add Key Contact")}
           />
         }
       />
@@ -779,7 +811,7 @@ const handleEditContact = async (e: FormEvent) => {
      {/* Add / Edit Contact (PaginatedPopup) */}
 <PaginatedPopup
   isOpen={showAddModal || (showEditModal && !!editContact)}
-  title={t(showEditModal ? "Edit Contact" : "Add Contact Person")}
+  title={t(showEditModal ? "Edit Key Contact" : "Add Key Contact")}
   subtitle={t(
     showEditModal
       ? "Update contact information"
@@ -805,9 +837,12 @@ const handleEditContact = async (e: FormEvent) => {
             label={t("Full Name")}
             name="fullName"
             value={editContact.fullName}
-            onChange={(e) =>
-              setEditContact({ ...editContact, fullName: e.target.value })
-            }
+            onChange={(e) => {
+              setEditContact({ ...editContact, fullName: e.target.value });
+              setContactErrors((prev) => (prev.fullName ? { ...prev, fullName: "" } : prev));
+            }}
+            error={contactErrors.fullName}
+            example={t("e.g. Priya Menon")}
             required
           />,
           <FloatingInput
@@ -815,9 +850,13 @@ const handleEditContact = async (e: FormEvent) => {
             label={t("Email")}
             name="email"
             value={editContact.email}
-            onChange={(e) =>
-              setEditContact({ ...editContact, email: e.target.value })
-            }
+            onChange={(e) => {
+              setEditContact({ ...editContact, email: e.target.value });
+              setContactErrors((prev) => (prev.email ? { ...prev, email: "" } : prev));
+            }}
+            error={contactErrors.email}
+            example="name@company.com"
+            type="email"
             required
           />,
           <FloatingInput
@@ -825,9 +864,13 @@ const handleEditContact = async (e: FormEvent) => {
             label={t("Phone")}
             name="phone"
             value={editContact.phone}
-            onChange={(e) =>
-              setEditContact({ ...editContact, phone: e.target.value })
-            }
+            onChange={(e) => {
+              setEditContact({ ...editContact, phone: e.target.value });
+              setContactErrors((prev) => (prev.phone ? { ...prev, phone: "" } : prev));
+            }}
+            error={contactErrors.phone}
+            example={phoneExample()}
+            type="tel"
             required
           />,
           <FloatingInput
@@ -849,6 +892,15 @@ const handleEditContact = async (e: FormEvent) => {
             }
             options={CONTACT_ROLE_OPTIONS}
           />,
+          <label key="primaryContact" className="md:col-span-2 flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-gray-300 text-cyan-600"
+              checked={!!editContact.primaryContact}
+              onChange={(e) => setEditContact({ ...editContact, primaryContact: e.target.checked })} />
+            <span>
+              {t("Primary contact")}
+              <span className="block text-[11px] text-gray-500">{t("The company's main contact. Only one per company: ticking this moves it from the current one. A company's first contact is primary anyway.")}</span>
+            </span>
+          </label>,
           <div key="customer" className="md:col-span-2">
             <FloatingSelect
               label={t("Company")}
@@ -875,9 +927,12 @@ const handleEditContact = async (e: FormEvent) => {
             label={t("Full Name")}
             name="fullName"
             value={newContact.fullName}
-            onChange={(e) =>
-              setNewContact({ ...newContact, fullName: e.target.value })
-            }
+            onChange={(e) => {
+              setNewContact({ ...newContact, fullName: e.target.value });
+              setContactErrors((prev) => (prev.fullName ? { ...prev, fullName: "" } : prev));
+            }}
+            error={contactErrors.fullName}
+            example={t("e.g. Priya Menon")}
             required
           />,
           <FloatingInput
@@ -885,9 +940,13 @@ const handleEditContact = async (e: FormEvent) => {
             label={t("Email")}
             name="email"
             value={newContact.email}
-            onChange={(e) =>
-              setNewContact({ ...newContact, email: e.target.value })
-            }
+            onChange={(e) => {
+              setNewContact({ ...newContact, email: e.target.value });
+              setContactErrors((prev) => (prev.email ? { ...prev, email: "" } : prev));
+            }}
+            error={contactErrors.email}
+            example="name@company.com"
+            type="email"
             required
           />,
           <FloatingInput
@@ -895,9 +954,13 @@ const handleEditContact = async (e: FormEvent) => {
             label={t("Phone")}
             name="phone"
             value={newContact.phone}
-            onChange={(e) =>
-              setNewContact({ ...newContact, phone: e.target.value })
-            }
+            onChange={(e) => {
+              setNewContact({ ...newContact, phone: e.target.value });
+              setContactErrors((prev) => (prev.phone ? { ...prev, phone: "" } : prev));
+            }}
+            error={contactErrors.phone}
+            example={phoneExample()}
+            type="tel"
             required
           />,
           <FloatingInput
@@ -919,7 +982,17 @@ const handleEditContact = async (e: FormEvent) => {
             }
             options={CONTACT_ROLE_OPTIONS}
           />,
+          <label key="primaryContact" className="md:col-span-2 flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-gray-300 text-cyan-600"
+              checked={!!newContact.primaryContact}
+              onChange={(e) => setNewContact({ ...newContact, primaryContact: e.target.checked })} />
+            <span>
+              {t("Primary contact")}
+              <span className="block text-[11px] text-gray-500">{t("The company's main contact. Only one per company: ticking this moves it from the current one. A company's first contact is primary anyway.")}</span>
+            </span>
+          </label>,
           <div key="customerId" className="md:col-span-2">
+            {contactErrors.customerId && <p className="mb-1 text-xs text-red-600">{contactErrors.customerId}</p>}
             <FloatingSelect
               label={t("Company")}
               required

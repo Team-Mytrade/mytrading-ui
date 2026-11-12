@@ -40,6 +40,7 @@ import {
   contactsOfCustomers,
   toDateTimeInput,
   toLocalDateTime,
+  crmDateTime,
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate as companyFormatDate } from "../../company/format";
@@ -71,6 +72,9 @@ interface Customer {
 interface Lead {
   id: number;
   name: string;
+  // Converted: the lead became a customer, so interactions go to the customer instead
+  converted?: boolean;
+  status?: string;
 }
 
 const API_BASE = "/v1/api/crm";
@@ -202,10 +206,24 @@ const Interactions: React.FC = () => {
     const { name, value } = e.target;
     setForm((current) => {
       const next = { ...current, [name]: value };
+      // A lead is not a customer yet: an interaction is with one or the other
+      if (name === "leadId" && value) {
+        next.customerId = "";
+        next.contactId = "";
+      }
+      if (name === "customerId" && value) next.leadId = "";
       // A contact from another company no longer fits
       if (name === "customerId" && current.contactId) {
         const contact = contacts.find((c) => c.id === Number(current.contactId));
-        if (value && contact?.customerId !== Number(value)) next.contactId = "";
+        if (!value || contact?.customerId !== Number(value)) next.contactId = "";
+      }
+      // Talking to a contact is talking to their company
+      if (name === "contactId" && value) {
+        const contact = contacts.find((c) => c.id === Number(value));
+        if (contact?.customerId) {
+          next.customerId = String(contact.customerId);
+          next.leadId = "";
+        }
       }
       return next;
     });
@@ -260,10 +278,10 @@ const Interactions: React.FC = () => {
           `${API_BASE}${COMMUNICATIONS_API}/${editingId}`,
           payload
         );
-        ToasterService.success("Communication updated successfully!");
+        ToasterService.success("Interaction updated");
       } else {
         await axios.post(`${API_BASE}${COMMUNICATIONS_API}`, payload);
-        ToasterService.success("Communication added successfully!");
+        ToasterService.success("Interaction added");
       }
       await fetchAllData();
       resetForm();
@@ -293,7 +311,7 @@ const Interactions: React.FC = () => {
     try {
       await axios.delete(`${API_BASE}${COMMUNICATIONS_API}/${id}`);
       await fetchAllData();
-      ToasterService.success("Communication deleted successfully!");
+      ToasterService.success("Interaction deleted");
     } catch (err: any) {
       console.error("Error deleting:", err);
       ToasterService.error(apiError(err, "Failed to delete communication"));
@@ -341,10 +359,7 @@ const Interactions: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const d = new Date(dateString);
-    return companyFormatDate(d);
-  };
+  const formatDate = (dateString: string) => crmDateTime(dateString);
 
   const getContactName = (entry: CommunicationEntry) =>
     safeText(entry.contact?.fullName) ||
@@ -511,11 +526,11 @@ const Interactions: React.FC = () => {
   return (
     <>
       <PageMeta
-        title={t("Communication History")}
+        title={t("Interactions")}
         description="Manage your communication history"
       />
       <PageBreadcrumb
-        pageTitle="Communication History"
+        pageTitle="Interactions"
         actions={
           <AddButton
             onClick={() => {
@@ -532,7 +547,7 @@ const Interactions: React.FC = () => {
               });
               setShowFormModal(true);
             }}
-            label={t("New Communication")}
+            label={t("New Interaction")}
           />
         }
       />
@@ -549,7 +564,7 @@ const Interactions: React.FC = () => {
         <div className="py-4 px-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
             <StatsCard
-              label={t("Total Communications")}
+              label={t("Total Interactions")}
               value={filteredEntries.length}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
@@ -585,8 +600,8 @@ const Interactions: React.FC = () => {
             defaultSortKey="communicationTime"
             defaultSortOrder="desc"
              enableRowDetails={true}
-            rowDetailsTitle={(row) => row.subject || `Communication #${row.id}`}
-             rowDetailsSubtitle={t("Communication details")}
+            rowDetailsTitle={(row) => row.subject || `Interaction #${row.id}`}
+             rowDetailsSubtitle={t("Interaction details")}
              hiddenDetailKeys={["id", "tenantId",]}
 
             emptyState={
@@ -611,7 +626,7 @@ const Interactions: React.FC = () => {
 
         <PaginatedPopup
   isOpen={showFormModal}
-  title={t(editingId ? "Edit Communication" : "Add New Communication")}
+  title={t(editingId ? "Edit Interaction" : "Add New Interaction")}
   subtitle={t(
     editingId
       ? "Update communication details"
@@ -619,7 +634,7 @@ const Interactions: React.FC = () => {
   )}
   onClose={resetForm}
   onSubmit={handleSubmit}
-  submitLabel={t(editingId ? "Update Communication" : "Add Communication")}
+  submitLabel={t(editingId ? "Update Interaction" : "Add Interaction")}
   submitting={isSaving}
   maxWidthClassName="max-w-3xl"
   tabs={[
@@ -632,7 +647,9 @@ const Interactions: React.FC = () => {
           name="leadId"
           value={form.leadId}
           onChange={handleChange}
-          options={leads.map((l) => ({ id: l.id, name: l.name }))}
+          options={leads
+            .filter((l) => !(l.converted || l.status === "CONVERTED") || String(l.id) === String(form.leadId))
+            .map((l) => ({ id: l.id, name: l.name }))}
         />,
         <FloatingSelect
           key="customerId"
@@ -645,7 +662,7 @@ const Interactions: React.FC = () => {
             name: getCustomerLabel(c),
           }))}
         />,
-        <div key="contact" className="md:col-span-2">
+        <div key="contact" className="md:col-span-2 space-y-2">
           <FloatingSelect
             label={t("Contact (optional)")}
             name="contactId"
@@ -656,6 +673,9 @@ const Interactions: React.FC = () => {
               name: c.fullName,
             }))}
           />
+          <p className="rounded-lg bg-blue-50 p-2.5 text-xs text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+            {t("An interaction is with a lead or with a customer: picking one clears the other, and picking a contact fills in its customer. Clearing a field removes that link when you save. Leads already converted to customers are not listed: choose their customer.")}
+          </p>
         </div>,
       ],
     },
@@ -714,7 +734,7 @@ const Interactions: React.FC = () => {
             <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
               <div data-overlay-header className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {t("Communication Notes")}
+                  {t("Interaction Notes")}
                 </h3>
                 <button
                   onClick={() => setShowNotesModal(false)}
@@ -779,7 +799,7 @@ const Interactions: React.FC = () => {
         setIsPopupOpen={setShowDeletePopup}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText={t("Delete Communication")}
+        innerText={t("Delete Interaction")}
         subText={
           deleteId
             ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String((

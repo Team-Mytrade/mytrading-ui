@@ -73,6 +73,8 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   rowDetailsTitle?: string | ((row: T) => string);
   /** Optional supporting text shown beneath the drawer heading. */
   rowDetailsSubtitle?: string;
+  /** Labels for raw fields in the drawer (e.g. gstNumber → "TRN" for a UAE vendor), fixed or per row. */
+  detailLabels?: Record<string, string> | ((row: T) => Record<string, string>);
   /**
    * Raw field keys on the row object (not necessarily defined as columns)
    * to omit from the row-details drawer entirely — e.g. an internal
@@ -453,6 +455,7 @@ function getDetailEntries<T>(
   row: T,
   columns: ColumnDef<T>[],
   hiddenDetailKeys: string[] = [],
+  labels: Record<string, string> = {},
 ) {
   const record = row as Record<string, unknown>;
   const orderedKeys = [
@@ -495,7 +498,7 @@ function getDetailEntries<T>(
 
       return {
         key,
-        label: column?.label || formatDetailLabel(key),
+        label: labels[key] || column?.label || formatDetailLabel(key),
         value: val,
       };
     })
@@ -600,6 +603,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   enableRowDetails = true,
   rowDetailsTitle = "Row Details",
   rowDetailsSubtitle = "Read-only record details",
+  detailLabels,
   hiddenDetailKeys = [],
   rowDetailsActions,
   suspendRowDetails = false,
@@ -988,7 +992,8 @@ export function ReusableTable<T extends { id?: number | string }>({
       : rowDetailsTitle
     : "Row Details";
   const selectedDetailEntries = selectedRow
-    ? getDetailEntries(selectedRow, columns, hiddenDetailKeys)
+    ? getDetailEntries(selectedRow, columns, hiddenDetailKeys,
+        typeof detailLabels === "function" ? detailLabels(selectedRow) : detailLabels || {})
     : [];
   const summaryEntries = selectedDetailEntries
     .filter((entry) => isDashboardHighlight(entry.value))

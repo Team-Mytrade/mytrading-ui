@@ -92,6 +92,12 @@ const TaxTypes: React.FC = () => {
       ToasterService.error("Tax name is required");
       return;
     }
+    // A negative rate would turn tax into a discount (the service refuses it too)
+    const rate = form.taxRate === undefined || String(form.taxRate) === "" ? null : Number(form.taxRate);
+    if (rate === null || Number.isNaN(rate) || rate < 0 || rate > 100) {
+      ToasterService.error("Enter a tax rate from 0 to 100%");
+      return;
+    }
     setSubmitting(true);
     try {
       const res =
@@ -337,6 +343,8 @@ const TaxTypes: React.FC = () => {
           defaultSortKey="taxName"
           defaultSortOrder="asc"
           loading={isLoading}
+          rowDetailsTitle={(row: any) => `${row.taxName || t("Tax type")}${row.taxRate != null ? ` (${row.taxRate}%)` : ""}`}
+          rowDetailsSubtitle={t("Tax type details")}
           emptyState={
             <div className="flex flex-col items-center justify-center py-12">
               <TagIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -382,6 +390,8 @@ const TaxTypes: React.FC = () => {
                   label={t("Tax Rate (%)")}
                   name="taxRate"
                   type="number"
+                  min={0}
+                  max={100}
                   value={form.taxRate ?? ""}
                   onChange={handleChange}
                 />,
