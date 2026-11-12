@@ -131,11 +131,9 @@ const SalaryStructurePage: React.FC = () => {
             ToasterService.error("Enter the yearly basic salary");
             return;
         }
-        if (form.ctc < gross) {
-            ToasterService.error("The yearly CTC can't be less than the components");
-            return;
-        }
-        const payload = { ...form, totalDeductions: 0 };
+        // The CTC is worked out by the service (basic + HRA + allowances + employer PF in the CTC + variable pay
+        // in the CTC), so it can never disagree with the components
+        const payload = { ...form, ctc: null, totalDeductions: 0 };
         setSaving(true);
         try {
             if (editingId !== null) {
@@ -282,10 +280,14 @@ const SalaryStructurePage: React.FC = () => {
         setShowExportMenu(false);
     };
 
-    const employeeOptions = useMemo(() => employees.map(e => ({
+    // Adding: only employees without a salary structure (each has one; it is edited, never replaced)
+    const withStructure = useMemo(() => new Set(data.map(s => String(s.employeeId))), [data]);
+    const employeeOptions = useMemo(() => employees
+        .filter(e => editingId !== null || !withStructure.has(String(e.id)))
+        .map(e => ({
         id: String(e.id),
         name: `${`${e.firstName || ''} ${e.lastName || ''}`.trim() || `Employee ${e.id}`}${e.employeeCode ? ` (${e.employeeCode})` : ''}`,
-    })), [employees]);
+    })), [employees, editingId, withStructure]);
 
     const departments = useMemo(() => Array.from(new Set(data.map(s => s.department || t("No department"))))
         .sort((a, b) => a.localeCompare(b)), [data]);
@@ -510,7 +512,10 @@ const SalaryStructurePage: React.FC = () => {
                             <FloatingInput key="basic" label={t("Basic (yearly)")} name="basic" type="number" min={0} value={form.basic === 0 ? "" : form.basic} onChange={handleChange} required />,
                             <FloatingInput key="hra" label={t("HRA (yearly)")} name="hra" type="number" min={0} value={form.hra === 0 ? "" : form.hra} onChange={handleChange} />,
                             <FloatingInput key="allowances" label={t("Other Allowances (yearly)")} name="allowances" type="number" min={0} value={form.allowances === 0 ? "" : form.allowances} onChange={handleChange} />,
-                            <FloatingInput key="ctc" label={t("Annual CTC")} name="ctc" type="number" min={0} value={form.ctc === 0 ? "" : form.ctc} onChange={handleChange} required />,
+                            <div key="ctc">
+                                <FloatingInput label={t("Annual CTC (worked out on save)")} name="ctc" type="number" value={gross === 0 ? "" : gross} readOnly disabled />
+                                <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{t("Basic + HRA + allowances, plus the employer PF when the company counts it inside the CTC.")}</p>
+                            </div>,
                             <div key="preview" className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-gray-700 dark:bg-[#222222]">
                                 <div className="flex justify-between text-slate-600 dark:text-gray-400">
                                     <span>{t("Gross per year")}</span>

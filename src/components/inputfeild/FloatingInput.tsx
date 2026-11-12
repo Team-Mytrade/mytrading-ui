@@ -12,6 +12,8 @@ interface BaseFloatingProps {
 
 interface FloatingInputProps extends BaseFloatingProps, Omit<InputHTMLAttributes<HTMLInputElement>, 'placeholder'> {
   type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'time' | 'datetime-local' | 'url' | 'tel';
+  // A sample value shown in the empty box (e.g. name@company.com); the label stays above the box
+  example?: string;
 }
 
 interface FloatingSelectProps extends BaseFloatingProps, Omit<SelectHTMLAttributes<HTMLSelectElement>, 'placeholder'> {
@@ -58,6 +60,9 @@ const floatingStyles = `
 
   .floating-input::placeholder {
     color: transparent !important;
+  }
+  .floating-input.has-example::placeholder {
+    color: #94a3b8 !important;
   }
   
   .floating-input.error {
@@ -111,6 +116,9 @@ const floatingStyles = `
 
   .dark .floating-input::placeholder {
     color: transparent !important;
+  }
+  .dark .floating-input.has-example::placeholder {
+    color: #6b7280 !important;
   }
 
   /* Native date/time controls otherwise retain Chrome's dark calendar glyph. */
@@ -536,6 +544,7 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
   error,
   name,
   className = '',
+  example,
   ...props
 }) => {
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -562,14 +571,15 @@ export const FloatingInput: React.FC<FloatingInputProps> = ({
         value={value}
         onChange={handleInputChange}
         style={fieldBox(error)}
-        className={`floating-input ${type === 'date' ? 'floating-datepicker' : ''} ${error ? 'error' : ''} ${className}`}
+        className={`floating-input ${type === 'date' ? 'floating-datepicker' : ''} ${error ? 'error' : ''} ${example ? 'has-example' : ''} ${className}`}
         required={required}
-        placeholder=" "
+        placeholder={example || " "}
         name={name}
         id={props.id ?? name}
+        aria-invalid={error ? true : undefined}
         {...props}
       />
-      {error && <span className="error-text">{error}</span>}
+      {error && <span className="error-text" role="alert">{error}</span>}
     </div>
   );
 };

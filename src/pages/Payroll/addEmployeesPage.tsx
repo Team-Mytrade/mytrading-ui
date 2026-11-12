@@ -856,7 +856,8 @@ const AddEmployeePage: React.FC = () => {
         officialEmail: form.officialEmail,
         maritalStatus: form.maritalStatus,
         fatherName: form.fatherName,
-        phone: form.phone,
+        // The phone box gives digits only: saved with its "+" country code, like customers' numbers
+        phone: form.phone && /^\d/.test(form.phone.trim()) ? `+${form.phone.trim()}` : form.phone,
         gender: form.gender,
         dateOfBirth: toApiDate(form.dateOfBirth),
         employmentType: form.employmentType,
@@ -870,7 +871,7 @@ const AddEmployeePage: React.FC = () => {
           ? (form.gulf.iban.replace(/\s+/g, "").toUpperCase() || form.bankAccountNumber || "")
           : form.bankAccountNumber,
         bankName: form.bankName,
-        ifscCode: form.ifscCode,
+        ifscCode: form.countryCode === "IN" ? form.ifscCode : null,
         branch: form.branch,
         countryCode: form.countryCode,
         userType: form.userType,
@@ -911,17 +912,18 @@ const AddEmployeePage: React.FC = () => {
       };
 
       const salaryData = {
-        currency: form.salary.currency,
+        currency: PAYROLL_COUNTRIES.find((c) => c.code === form.countryCode)?.currency || form.salary.currency,
         ctc: form.salary.ctc,
         role: form.designation,
         country: salaryCountry(form.countryCode),
-        countrySpecificData: {
+        // PF, UAN, ESI, metro HRA and the income-tax regime are Indian payroll settings: none for the Gulf
+        countrySpecificData: form.countryCode === "IN" ? {
           pf_number: form.pfNumber,
           uan: form.uan,
           esi_applicable: form.esiApplicable,
           isMetrocity: form.metroCity,
           taxRegime: form.taxRegime === "New Regime" ? "NEW" : "OLD"
-        },
+        } : {},
         earnings: earningsObject,
         additionalBenefits: additionalBenefitsObject,
         variablePay: variablePayObject,
@@ -1068,7 +1070,11 @@ const AddEmployeePage: React.FC = () => {
     handleChange(`gulf.${field}`, value);
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
-  const currencySymbol = getSymbolFromCurrency(form.salary.currency) || form.salary.currency;
+  // The payroll country decides the currency (India INR, UAE AED, Saudi SAR...); an older record's currency only
+  // counts for a country without a fixed one
+  const payCurrency = PAYROLL_COUNTRIES.find((c) => c.code === form.countryCode)?.currency || form.salary.currency;
+  // ₹ for rupees; Gulf currencies show their code (AED, SAR...), as on payslips
+  const currencySymbol = payCurrency === "INR" ? (getSymbolFromCurrency(payCurrency) || "₹") : payCurrency;
 
   // Calculate total earnings for display
   const totalEarnings = form.salary.earnings.reduce((sum, e) => sum + e.amount, 0);
@@ -1128,7 +1134,9 @@ const AddEmployeePage: React.FC = () => {
   };
   // What the components have to add up to: the fixed salary when the CTC includes variable pay
   const splitBase = variableInCtc ? "fixed salary" : "CTC";
-  const money = (value: number) => `${currencySymbol} ${formatNumber(value, 2)}`;
+  // Amounts the way the currency's country writes them: 1,19,999 in India, 119,999 in the Gulf
+  const money = (value: number) =>
+    `${currencySymbol} ${new Intl.NumberFormat(payCurrency === "INR" ? "en-IN" : "en-US", { maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
 
 
   return (
@@ -1542,7 +1550,7 @@ const AddEmployeePage: React.FC = () => {
                             value={form.location}
                             onChange={(e) => handleChange("location", e.target.value)}
                             className={`w-full pl-8 pr-2.5 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.location ? "border-red-500" : "border-gray-300"}`}
-                            placeholder={t("Bangalore")}
+                            placeholder={t(isGcc(form.countryCode) ? "Dubai" : "Bangalore")}
                           />
                         </div>
                         <ErrorMessage message={errors.location} />
@@ -1889,7 +1897,7 @@ const AddEmployeePage: React.FC = () => {
                           <option key={c.code} value={c.code}>{t(c.label)}</option>
                         ))}
                       </select>
-                      <p className="mt-1 text-xs text-gray-500">{t("The country whose payroll rules pay this employee, in")} {form.salary.currency}</p>
+                      <p className="mt-1 text-xs text-gray-500">{t("The country whose payroll rules pay this employee, in")} {payCurrency}</p>
                     </div>
                   </div>
 
@@ -1910,7 +1918,7 @@ const AddEmployeePage: React.FC = () => {
                           value={form.bankName}
                           onChange={(e) => handleChange("bankName", e.target.value)}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors.bankName ? "border-red-500" : "border-gray-300"}`}
-                          placeholder={t("HDFC Bank")}
+                          placeholder={t(isGcc(form.countryCode) ? "Emirates NBD" : "HDFC Bank")}
                         />
                         <ErrorMessage message={errors.bankName} />
                       </div>
@@ -2128,7 +2136,10 @@ const AddEmployeePage: React.FC = () => {
                             min={0}
                             value={form.salary.ctc === 0 ? "" : form.salary.ctc}
                             onChange={(e) => handleChange("salary.ctc", Number(e.target.value))}
-                            className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["salary.ctc"] ? "border-red-500" : "border-gray-300"}`}
+                            // A mouse wheel over a number box changes it by 1 (120000 became 119999): leave it alone
+                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                            step="any"
+                            className={`w-full ${currencySymbol.length > 1 ? "pl-12" : "pl-8"} pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition ${errors["salary.ctc"] ? "border-red-500" : "border-gray-300"}`}
                             placeholder={t("e.g. 1200000")}
                           />
                         </div>
@@ -2152,7 +2163,7 @@ const AddEmployeePage: React.FC = () => {
                               </div>
                             )}
                             <div className="flex justify-between"><span className="text-gray-600">Basic ({basicPercent}% of {splitBase})</span><span className="font-medium text-gray-900">{money(basicAmount)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">HRA ({hraPercent}% of basic)</span><span className="font-medium text-gray-900">{money(hraAmount)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">{isGcc(form.countryCode) ? "Housing" : "HRA"} ({hraPercent}% of basic)</span><span className="font-medium text-gray-900">{money(hraAmount)}</span></div>
                             {/* Each earning and benefit by its own name (Special Allowance, Group insurance...) */}
                             {form.salary.earnings.filter((e) => e.name?.trim() && Number(e.amount) > 0).map((e, i) => (
                               <div key={`earning-${i}`} className="flex justify-between"><span className="text-gray-600">{e.name}</span><span className="font-medium text-gray-900">{money(Number(e.amount))}</span></div>
@@ -2227,7 +2238,7 @@ const AddEmployeePage: React.FC = () => {
                                   value={earning.amount === 0 ? "" : earning.amount}
                                   onChange={(e) => handleEarningChange(idx, "amount", e.target.value)}
                                   placeholder={t("Yearly amount")}
-                                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                                  className={`w-full ${currencySymbol.length > 1 ? "pl-12" : "pl-8"} pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition`}
                                 />
                               </div>
                             </div>
@@ -2276,7 +2287,7 @@ const AddEmployeePage: React.FC = () => {
                                   value={benefit.amount === 0 ? "" : benefit.amount}
                                   onChange={(e) => handleAdditionalBenefitsChange(idx, "amount", e.target.value)}
                                   placeholder={t("Yearly amount")}
-                                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                                  className={`w-full ${currencySymbol.length > 1 ? "pl-12" : "pl-8"} pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition`}
                                 />
                               </div>
                             </div>
@@ -2360,7 +2371,7 @@ const AddEmployeePage: React.FC = () => {
                                   onChange={(e) => handleVariablePayChange(idx, "targetAmount", e.target.value)}
                                   placeholder={t("Yearly amount")}
                                   aria-label={t("Yearly amount")}
-                                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                                  className={`w-full ${currencySymbol.length > 1 ? "pl-12" : "pl-8"} pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition`}
                                 />
                               </div>
                             )}

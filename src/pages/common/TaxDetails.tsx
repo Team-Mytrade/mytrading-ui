@@ -17,7 +17,7 @@ import StatsCard from "../../components/common/Statscard";
 import { AddButton } from "../../components/common/AddButton";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import FilterPopover from "../../components/common/filter";
-import { FloatingInput } from "../../components/inputfeild/FloatingInput";
+import { FloatingInput, FloatingSelect1 } from "../../components/inputfeild/FloatingInput";
 import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { formatNumber } from "../../company/format";
@@ -29,9 +29,27 @@ interface TaxDetail {
   taxDescription?: string;
   taxRate?: number;
   taxAmount?: number;
+  // INPUT (on purchases) / OUTPUT (on sales) / OTHER; older answers spelt it "taxCatagory"
+  taxCategory?: string;
   taxCatagory?: string;
   taxTypeName?: string;
+  taxType?: { id: number; taxName?: string; taxRate?: number } | null;
 }
+
+interface TaxTypeOption {
+  id: number;
+  taxName: string;
+  taxRate?: number;
+  isActive?: boolean;
+}
+
+const TAX_TYPES_API = "/v1/api/invoice/tax-types";
+const CATEGORY_OPTIONS = [
+  { id: "INPUT", name: "Input (on purchases)" },
+  { id: "OUTPUT", name: "Output (on sales)" },
+  { id: "OTHER", name: "Other" },
+];
+const categoryOf = (d: { taxCategory?: string; taxCatagory?: string }) => d.taxCategory || d.taxCatagory || "";
 
 const API_URL = "/v1/api/invoice/tax-details";
 const PAGE_SIZE = 10;
@@ -51,6 +69,14 @@ const TaxDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
+  // Common → Tax Types: the codes and rates a tax detail belongs to
+  const [taxTypes, setTaxTypes] = useState<TaxTypeOption[]>([]);
+  useEffect(() => {
+    axios.get<TaxTypeOption[]>(TAX_TYPES_API, { headers })
+      .then((res) => setTaxTypes(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setTaxTypes([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetchTaxDetails();
@@ -82,10 +108,23 @@ const TaxDetails: React.FC = () => {
     }
     setSubmitting(true);
     try {
+      const payload = {
+        taxCode: form.taxCode?.trim(),
+        taxDescription: form.taxDescription || null,
+        taxRate: form.taxRate === undefined || String(form.taxRate) === "" ? null : Number(form.taxRate),
+        taxAmount: form.taxAmount === undefined || String(form.taxAmount) === "" ? null : Number(form.taxAmount),
+        taxCategory: categoryOf(form) || null,
+        taxType: form.taxType?.id ? { id: form.taxType.id } : null,
+      };
+      if (payload.taxRate !== null && (payload.taxRate < 0 || payload.taxRate > 100)) {
+        ToasterService.error("The tax rate must be from 0 to 100%");
+        setSubmitting(false);
+        return;
+      }
       const res =
         editingId !== null
-          ? await axios.put(`${API_URL}/${editingId}`, form, { headers })
-          : await axios.post(API_URL, form, { headers });
+          ? await axios.put(`${API_URL}/${editingId}`, payload, { headers })
+          : await axios.post(API_URL, payload, { headers });
       if (res.status === 200 || res.status === 201) {
         ToasterService.success(editingId !== null ? "Tax detail updated successfully!" : "Tax detail added successfully!");
         setShowFormModal(false);
@@ -142,13 +181,13 @@ const TaxDetails: React.FC = () => {
       const matchesSearch =
         (taxDetail.taxCode || "").toLowerCase().includes(term) ||
         (taxDetail.taxDescription || "").toLowerCase().includes(term) ||
-        (taxDetail.taxCatagory || "").toLowerCase().includes(term);
+        categoryOf(taxDetail).toLowerCase().includes(term);
 
       let matchesFilter = true;
       if (activeFilter === "INPUT") {
-        matchesFilter = taxDetail.taxCatagory === "INPUT";
+        matchesFilter = categoryOf(taxDetail) === "INPUT";
       } else if (activeFilter === "OUTPUT") {
-        matchesFilter = taxDetail.taxCatagory === "OUTPUT";
+        matchesFilter = categoryOf(taxDetail) === "OUTPUT";
       }
 
       return matchesSearch && matchesFilter;
@@ -158,9 +197,10 @@ const TaxDetails: React.FC = () => {
   const stats = useMemo(
     () => ({
       total: taxDetails.length,
-      input: taxDetails.filter((t) => t.taxCatagory === "INPUT").length,
-      output: taxDetails.filter((t) => t.taxCatagory === "OUTPUT").length,
-      totalTax: taxDetails.reduce((acc, t) => acc + Number(t.taxAmount || 0), 0),
+      input: taxDetails.filter((t) => categoryOf(t) === "INPUT").length,
+      output: taxDetails.filter((t) => categoryOf(t) === "OUTPUT").length,
+      // Net tax: output tax collected less input tax paid (rows without a category aren't counted)
+      netTax: taxDetails.reduce((acc, t) => acc + (categoryOf(t) === "OUTPUT" ? 1 : categoryOf(t) === "INPUT" ? -1 : 0) * Number(t.taxAmount || 0), 0),
     }),
     [taxDetails]
   );
@@ -220,14 +260,14 @@ const TaxDetails: React.FC = () => {
       ),
     },
     {
-      key: "taxCatagory",
+      key: "taxCategory",
       label: "Category",
       sortable: true,
       headerClassName: "w-[15%] text-left",
       className: "w-[15%]",
       render: (taxDetail) => (
         <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200/40">
-          {taxDetail.taxCatagory || "N/A"}
+          {CATEGORY_OPTIONS.find((o) => o.id === categoryOf(taxDetail))?.name.split(" (")[0] || t("Not set")}
         </span>
       ),
     },
@@ -292,8 +332,8 @@ const TaxDetails: React.FC = () => {
             labelColor="text-orange-600"
           />
           <StatsCard
-            label={t("Total Tax Amount")}
-            value={formatNumber(stats.totalTax)}
+            label={t("Net Tax (output − input)")}
+            value={formatNumber(stats.netTax)}
             gradient="from-purple-50 to-pink-50"
             borderColor="border-purple-100"
             labelColor="text-purple-600"
@@ -339,6 +379,32 @@ const TaxDetails: React.FC = () => {
             {
               label: "Basic Info",
               fields: [
+                <FloatingSelect1
+                  key="taxType"
+                  label={t("Tax Type (Common → Tax Types)")}
+                  name="taxType"
+                  value={form.taxType?.id ?? ""}
+                  onChange={(e) => {
+                    const type = taxTypes.find((tt) => tt.id === Number(e.target.value));
+                    setForm((prev) => ({
+                      ...prev,
+                      taxType: type ? { id: type.id, taxName: type.taxName, taxRate: type.taxRate } : null,
+                      // The type's code and rate fill the line in (they can still be changed)
+                      taxCode: type ? type.taxName : prev.taxCode,
+                      taxRate: type && type.taxRate != null ? type.taxRate : prev.taxRate,
+                    }));
+                  }}
+                  options={taxTypes.filter((tt) => tt.isActive !== false || tt.id === form.taxType?.id)
+                    .map((tt) => ({ id: tt.id, name: `${tt.taxName}${tt.taxRate != null ? ` (${tt.taxRate}%)` : ""}` }))}
+                />,
+                <FloatingSelect1
+                  key="taxCategory"
+                  label={t("Category")}
+                  name="taxCategory"
+                  value={categoryOf(form)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, taxCategory: e.target.value, taxCatagory: undefined }))}
+                  options={CATEGORY_OPTIONS}
+                />,
                 <FloatingInput
                   key="taxCode"
                   label={t("Tax Code")}
@@ -359,6 +425,8 @@ const TaxDetails: React.FC = () => {
                   label={t("Tax Rate (%)")}
                   name="taxRate"
                   type="number"
+                  min={0}
+                  max={100}
                   value={form.taxRate ?? ""}
                   onChange={handleChange}
                 />,
@@ -367,6 +435,7 @@ const TaxDetails: React.FC = () => {
                   label={t("Tax Amount")}
                   name="taxAmount"
                   type="number"
+                  min={0}
                   value={form.taxAmount ?? ""}
                   onChange={handleChange}
                 />,

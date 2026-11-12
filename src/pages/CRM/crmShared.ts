@@ -1,6 +1,73 @@
 // Shared by the CRM pages. Values follow the CRM service enums; labels are what users see.
 
+import { companyCurrency } from "../../company/format";
+
 export const CRM_API = "/v1/api/crm";
+
+/* ================= Form checks (the same rules the CRM service applies) ================= */
+
+const EMAIL_FORMAT = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** What is wrong with an email, or null. */
+export const emailProblem = (value: string) =>
+  value.trim() && !EMAIL_FORMAT.test(value.trim()) ? "Enter a valid email, like name@company.com" : null;
+
+/** What is wrong with a phone number, or null: 7–20 digits; spaces, dashes, brackets and a leading + are fine. */
+export const phoneProblem = (value: string) => {
+  const v = value.trim();
+  if (!v) return null;
+  const digits = v.replace(/\D/g, "").length;
+  if (!/^\+?[\d\s()-]+$/.test(v) || digits < 7 || digits > 20) {
+    return "Use 7–20 digits; spaces, dashes, brackets and a leading + are fine";
+  }
+  return null;
+};
+
+// A phone number in the company's country, as an example in empty phone boxes
+const PHONE_EXAMPLES: Record<string, string> = {
+  INR: "+91 98450 20001",
+  AED: "+971 50 123 4567",
+  SAR: "+966 50 123 4567",
+  QAR: "+974 3312 3456",
+  KWD: "+965 5012 3456",
+  BHD: "+973 3612 3456",
+  OMR: "+968 9123 4567",
+};
+export const phoneExample = () => PHONE_EXAMPLES[(companyCurrency() || "").toUpperCase()] ?? "+971 50 123 4567";
+
+/* ================= Dates (unambiguous, in the viewer's time zone) ================= */
+
+// "2026-11-03" (a date only) is read as that calendar day, not midnight UTC
+const parseWhen = (text: string) => {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  return dateOnly ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])) : new Date(text);
+};
+
+/** "03 Nov 2026": a month name, so 03/11 can't be read as 11 March. */
+export const crmDate = (text?: string | null) => {
+  if (!text) return "";
+  const when = parseWhen(text);
+  return Number.isNaN(when.getTime()) ? text : when.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+};
+
+/** "03 Nov 2026, 10:30": the service sends the time with its offset; shown in the viewer's own time zone. */
+export const crmDateTime = (text?: string | null) => {
+  if (!text) return "";
+  const when = parseWhen(text);
+  return Number.isNaN(when.getTime())
+    ? text
+    : when.toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+
+/** A pending task whose time has passed. */
+export const isOverdue = (scheduled?: string | null, status?: string) =>
+  !!scheduled && (status ?? "PENDING") === "PENDING" && parseWhen(scheduled).getTime() < Date.now();
+
+/** A service error like "phone: Phone must be…" as { phone: "Phone must be…" }, for showing under the field. */
+export const fieldErrorOf = (message: string): Record<string, string> => {
+  const match = /^([a-zA-Z.]+):\s*(.+)$/.exec(message || "");
+  return match ? { [match[1].split(".").pop() as string]: match[2] } : {};
+};
 
 export type Option = { id: string; name: string };
 

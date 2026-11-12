@@ -646,6 +646,7 @@ const Segments: React.FC = () => {
         segmentName={drawerSegment?.name}
         segmentDescription={drawerSegment?.description}
         segmentCode={drawerSegment?.code}
+        segmentActive={drawerSegment?.active}
         assignedCustomers={drawerAssignedCustomers}
         allCustomers={customers}
         onClose={closeCustomerDrawer}

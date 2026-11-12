@@ -33,6 +33,8 @@ interface Product {
   id: number;
   productName: string;
   sku?: string;
+  // Batch-tracked: its stock is held in batches (Inventory → Batches)
+  batchTracking?: boolean;
 }
 
 interface Warehouse {
@@ -470,6 +472,23 @@ const StockLevelsManager: React.FC = () => {
                 <div className="text-xs text-slate-500 dark:text-slate-400">
                   {t("SKU:")} {getProductSku(stock, products)}
                 </div>
+              )}
+              {/* Batch-tracked: this stock, batch by batch */}
+              {products.find((p) => String(p.id) === String(productId))?.batchTracking && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const params = new URLSearchParams({ productId: String(productId ?? ""), productName: getProductName(stock, products) });
+                    const warehouseId = (stock as any).warehouse?.id ?? (stock as any).warehouseId;
+                    if (warehouseId != null) params.set("warehouseId", String(warehouseId));
+                    navigate(`/batch?${params.toString()}`);
+                  }}
+                  className="text-xs font-medium text-cyan-600 hover:underline dark:text-cyan-400"
+                  title={t("See this stock batch by batch")}
+                >
+                  {t("By batch →")}
+                </button>
               )}
             </div>
           </div>

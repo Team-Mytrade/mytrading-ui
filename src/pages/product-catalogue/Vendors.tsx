@@ -13,8 +13,52 @@ const text = (value: unknown): string | null => {
 };
 
 import { currentCompanyCountry } from "../../company/companyApi";
+import { findCountry } from "../../company/regional";
+import { UAE_EMIRATES, SAUDI_REGIONS } from "../../company/regionalAddress";
 
 const isIndianAddress = (form: Record<string, unknown>) => ["", "india"].includes(String(form.country ?? "").trim().toLowerCase());
+
+/** The vendor's country as an ISO code ("IN" when blank or India; "AE" for UAE...). */
+const vendorIso = (form: Record<string, unknown>): string => {
+  const name = String(form.country ?? "").trim();
+  if (!name || name.toLowerCase() === "india") return "IN";
+  const alias: Record<string, string> = { uae: "AE", "u.a.e": "AE", ksa: "SA" };
+  return alias[name.toLowerCase()] ?? findCountry(name)?.isoCode ?? name.toUpperCase();
+};
+
+/** What a vendor's tax registration is called in its country. */
+const taxIdLabel = (iso: string) =>
+  iso === "IN" ? "GSTIN" : iso === "SA" ? "VAT Number" : ["AE", "BH", "OM"].includes(iso) ? "TRN (VAT)" : "Tax Registration Number";
+
+/** Labels that differ by the vendor's country (form and details drawer). */
+const vendorLabels = (row: Record<string, unknown>): Record<string, string> => {
+  const iso = vendorIso(row);
+  return iso === "IN"
+    ? { gstNumber: "GSTIN", panNumber: "PAN", bankAccountNumber: "Bank Account Number", bankIfscCode: "IFSC Code", state: "State", postalCode: "PIN Code" }
+    : {
+        gstNumber: taxIdLabel(iso),
+        bankAccountNumber: "IBAN",
+        bankIfscCode: "SWIFT / BIC Code",
+        state: iso === "AE" ? "Emirate" : iso === "SA" ? "Region" : "State / Region",
+        postalCode: iso === "AE" ? "P.O. Box" : "Postal Code",
+      };
+};
+
+/** Checks for vendors outside India: TRN / VAT number format, IBAN and SWIFT. */
+const foreignVendorErrors = (form: Record<string, unknown>): Record<string, string> => {
+  const iso = vendorIso(form);
+  if (iso === "IN") return {};
+  const errors: Record<string, string> = {};
+  const tax = String(form.gstNumber ?? "").replace(/\s+/g, "").toUpperCase();
+  if (tax && iso === "AE" && !/^100\d{12}$/.test(tax)) errors.gstNumber = "A UAE TRN is 15 digits starting with 100";
+  else if (tax && iso === "SA" && !/^3\d{13}3$/.test(tax)) errors.gstNumber = "A Saudi VAT number is 15 digits that start and end with 3";
+  const iban = String(form.bankAccountNumber ?? "").replace(/\s+/g, "").toUpperCase();
+  if (iban && iso === "AE" && !/^AE\d{21}$/.test(iban)) errors.bankAccountNumber = "A UAE IBAN is AE followed by 21 digits (23 characters)";
+  else if (iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) errors.bankAccountNumber = "Enter the IBAN: 2 letters, 2 digits, then up to 30 letters or digits";
+  const swift = String(form.bankIfscCode ?? "").replace(/\s+/g, "").toUpperCase();
+  if (swift && !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(swift)) errors.bankIfscCode = "A SWIFT / BIC code is 8 or 11 letters and digits";
+  return errors;
+};
 
 /** Upper-cased value with all spaces removed. Used for GST, PAN, IFSC and currency. */
 const code = (value: unknown): string | null => text(value)?.replace(/\s+/g, "").toUpperCase() ?? null;
@@ -79,13 +123,21 @@ const vendorConfig: PurchaseResourceConfig = {
       searchable: true, // type "t" → Tamil Nadu, Telangana, Tripura
       placeholder: "Type state name, e.g. Tamil",
       options: INDIAN_STATE_OPTIONS,
-      // The list and the PIN are India's; elsewhere an emirate, region or state is typed
-      adapt: (form) => (isIndianAddress(form) ? {} : { type: "text", label: "State / Emirate / Region", placeholder: "", searchable: false, options: undefined, textCase: "title", maxLength: 60 }),
+      // India: the state list; UAE: the 7 emirates; Saudi Arabia: its regions; elsewhere typed
+      adapt: (form) => {
+        if (isIndianAddress(form)) return {};
+        const iso = vendorIso(form);
+        if (iso === "AE" || iso === "SA") {
+          const names = iso === "AE" ? UAE_EMIRATES : SAUDI_REGIONS;
+          return { label: iso === "AE" ? "Emirate" : "Region", placeholder: "", searchable: false, options: names.map((value) => ({ value, label: value })) };
+        }
+        return { type: "text", label: "State / Region", placeholder: "", searchable: false, options: undefined, textCase: "title", maxLength: 60 };
+      },
     },
     { name: "city", section: "Address", label: "City", textCase: "title", maxLength: 60 },
     {
       name: "postalCode", section: "Address", label: "PIN Code", maxLength: 6,
-      adapt: (form) => (isIndianAddress(form) ? {} : { label: "Postal Code / P.O. Box", maxLength: 12 }),
+      adapt: (form) => (isIndianAddress(form) ? {} : { label: vendorIso(form) === "AE" ? "P.O. Box" : "Postal Code", maxLength: 12 }),
     },
     { name: "address", section: "Address", label: "Address (building, street, area)", type: "textarea", gridClassName: "md:col-span-2" },
     // Terms first (Currency, Payment Terms), then tax IDs: two rows of two.
@@ -109,19 +161,31 @@ const vendorConfig: PurchaseResourceConfig = {
     {
       // Indian vendors: GSTIN (checked when Country is India); Gulf vendors: VAT TRN, for input VAT on their bills
       name: "gstNumber", section: "Terms & Tax",
-      label: "GSTIN / VAT TRN",
+      label: "GSTIN",
       textCase: "upper",
       maxLength: 20,
+      adapt: (form) => ({ label: taxIdLabel(vendorIso(form)) }),
       // A GSTIN contains the PAN (characters 3–12), so a full GSTIN fills PAN by itself (not a 15-digit UAE TRN)
       onValueChange: (value) => {
         const gst = String(value ?? "").toUpperCase();
         return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]/.test(gst) && gst.length === 15 ? { panNumber: gst.slice(2, 12) } : undefined;
       },
     },
-    { name: "panNumber", section: "Terms & Tax", label: "PAN (India; filled from GSTIN)", textCase: "upper", maxLength: 10 },
+    // PAN and IFSC are Indian: outside India the PAN is hidden, and the bank fields are the IBAN and SWIFT code
+    {
+      name: "panNumber", section: "Terms & Tax", label: "PAN (filled from GSTIN)", textCase: "upper", maxLength: 10,
+      adapt: (form) => (vendorIso(form) === "IN" ? {} : { gridClassName: "hidden" }),
+    },
     { name: "bankName", section: "Bank Details", label: "Bank Name", textCase: "title", maxLength: 100 },
-    { name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number", maxLength: 18 },
-    { name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)", textCase: "upper", maxLength: 11 },
+    {
+      name: "bankAccountNumber", section: "Bank Details", label: "Bank Account Number", maxLength: 18,
+      // An IBAN is up to 34 characters (a UAE IBAN is 23)
+      adapt: (form) => (vendorIso(form) === "IN" ? {} : { label: vendorIso(form) === "AE" ? "IBAN (e.g. AE07 0331 2345 6789 0123 456)" : "IBAN", textCase: "upper", maxLength: 42 }),
+    },
+    {
+      name: "bankIfscCode", section: "Bank Details", label: "Bank IFSC Code (e.g. HDFC0001234)", textCase: "upper", maxLength: 11,
+      adapt: (form) => (vendorIso(form) === "IN" ? {} : { label: "SWIFT / BIC Code (e.g. EBILAEAD)" }),
+    },
   ],
 
   searchFields: ["vendorCode", "name", "legalName", "contactName", "contactEmail", "city", "country"],
@@ -159,7 +223,14 @@ const vendorConfig: PurchaseResourceConfig = {
   // Errors are shown under each field and on its tab (red dot); Save jumps to the first tab with an error.
   // Indian formats (GST, PAN, PIN, IFSC, phone, bank account) are checked only when Country is India.
   // The vendor code is read-only on edit, so it is only checked when creating.
-  validateFields: (form, editingRow) => validateVendorForm(form, { checkVendorCode: !editingRow }),
+  validateFields: (form, editingRow) => ({ ...validateVendorForm(form, { checkVendorCode: !editingRow }), ...foreignVendorErrors(form) }),
+
+  // The drawer is titled with the vendor and labels its fields the way the vendor's country does
+  detailsTitle: (row) => String(row.name || row.vendorCode || "Vendor"),
+  detailsSubtitle: "Vendor details",
+  // The same values under country-neutral names (shown once, under the vendor's country's labels)
+  hiddenDetailKeys: ["taxNumber", "bankCode"],
+  detailLabels: vendorLabels,
 
   // Only business fields are sent. id, tenantId, createdBy, createdDate and
   // updatedDate are set by the server (tenant comes from the JWT / X-Tenant-ID).
@@ -178,7 +249,8 @@ const vendorConfig: PurchaseResourceConfig = {
       contactPhone: isIndia ? normalizePhone(form.contactPhone) : text(form.contactPhone),
       website: text(form.website),
       gstNumber: code(form.gstNumber),
-      panNumber: code(form.panNumber),
+      // PAN is Indian only
+      panNumber: isIndia ? code(form.panNumber) : null,
       paymentTerms: text(form.paymentTerms),
       currency: code(form.currency),
       address: text(form.address),
@@ -187,7 +259,7 @@ const vendorConfig: PurchaseResourceConfig = {
       postalCode: compact(form.postalCode),
       country: text(form.country),
       bankName: text(form.bankName),
-      bankAccountNumber: compact(form.bankAccountNumber),
+      bankAccountNumber: isIndia ? compact(form.bankAccountNumber) : code(form.bankAccountNumber),
       bankIfscCode: code(form.bankIfscCode),
       // New vendor: active. Edit form: keeps the current status (form.active comes from the record).
       // Status dropdown in the table: sends the new value chosen there.

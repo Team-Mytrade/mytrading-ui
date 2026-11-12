@@ -166,6 +166,11 @@ export type PurchaseResourceConfig = {
   statsCards?: (rows: PurchaseRecord[]) => StatsCardConfig[];
   /** Raw fields to leave out of the row-details drawer (ids are always hidden). */
   hiddenDetailKeys?: string[];
+  /** The details drawer's heading for a row (default "<Title> — Details") and the line under it. */
+  detailsTitle?: (row: PurchaseRecord) => string;
+  detailsSubtitle?: string;
+  /** Labels for raw fields in the details drawer, per row (e.g. "TRN" instead of "Gst Number" abroad). */
+  detailLabels?: (row: PurchaseRecord) => Record<string, string>;
   /** Per-row check: return false to hide the Edit button for that row (e.g. a submitted PR). */
   canEditRow?: (row: PurchaseRecord) => boolean;
   /** Per-row check: return false to hide the Delete button for that row. */
@@ -1496,7 +1501,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
               loading={loading}
               pageSize={config.pageSize || 10}
               defaultSortKey={config.columns[0]?.key}
-              rowDetailsTitle={`${t(config.title)} — ${t("Details")}`}
+              rowDetailsTitle={config.detailsTitle ? (row: PurchaseRecord) => config.detailsTitle!(row) : `${t(config.title)} — ${t("Details")}`}
+              rowDetailsSubtitle={config.detailsSubtitle ? t(config.detailsSubtitle) : undefined}
+              detailLabels={config.detailLabels}
               searchFields={config.searchFields as any}
               hiddenDetailKeys={config.hiddenDetailKeys}
               // Edit straight from the details drawer: the drawer hides while the form is open

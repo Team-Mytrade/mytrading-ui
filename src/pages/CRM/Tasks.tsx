@@ -47,6 +47,8 @@ import {
   contactsOfCustomers,
   toDateTimeInput,
   toLocalDateTime,
+  crmDateTime,
+  isOverdue,
 } from "./crmShared";
 import { formatDate as companyFormatDate, formatDateTime } from "../../company/format";
 
@@ -60,6 +62,9 @@ const PAGE_SIZE = 10;
 interface Lead {
   id: number;
   name: string;
+  // Converted: the lead became a customer, so tasks go to the customer instead
+  converted?: boolean;
+  status?: string;
 }
 
 interface Customer {
@@ -238,7 +243,7 @@ const Tasks: React.FC = () => {
       }
       await fetchAll();
       ToasterService.success(
-        form.id ? "Activity updated successfully!" : "Activity added successfully!"
+        form.id ? "Task updated" : "Task added"
       );
       resetForm();
     } catch (err: any) {
@@ -275,7 +280,7 @@ const Tasks: React.FC = () => {
     try {
       await axios.delete(`${API_BASE}/${id}`);
       await fetchAll();
-      ToasterService.success("Activity deleted successfully!");
+      ToasterService.success("Task deleted");
     } catch (err: any) {
       console.error("Delete error:", err);
       ToasterService.error(apiError(err, "Failed to delete activity"));
@@ -298,7 +303,7 @@ const Tasks: React.FC = () => {
         `${API_BASE}/${activity.id}${getLinkQuery(next)}`,
         getActivityPayload(next)
       );
-      ToasterService.success("Activity status updated successfully!");
+      ToasterService.success("Task status updated");
       // Completing records the completed time on the server
       await fetchAll();
     } catch (err) {
@@ -348,7 +353,7 @@ const Tasks: React.FC = () => {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not set";
-    return formatDateTime(dateString);
+    return crmDateTime(dateString);
   };
 
   const filteredContacts = useMemo(() => {
@@ -359,7 +364,7 @@ const Tasks: React.FC = () => {
   const tableColumns: ColumnDef<Activity>[] = [
     {
       key: "title",
-      label: "Activity",
+      label: "Task",
       sortable: true,
       render: (activity) => (
         <div className="flex items-start">
@@ -377,6 +382,18 @@ const Tasks: React.FC = () => {
             )}
           </div>
         </div>
+      ),
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      sortable: true,
+      sortValueGetter: (a) => ({ HIGH: 3, MEDIUM: 2, LOW: 1 } as Record<string, number>)[a.priority ?? ""] ?? 0,
+      render: (a) => (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${a.priority === "HIGH" ? "bg-red-50 text-red-700" : a.priority === "LOW" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+          {getPriorityIcon(a.priority)}
+          {t(String(PRIORITY_OPTIONS.find((o) => o.id === a.priority)?.name ?? a.priority ?? "—"))}
+        </span>
       ),
     },
     {
@@ -424,11 +441,11 @@ const Tasks: React.FC = () => {
       label: "Scheduled",
       sortable: true,
       render: (a) => (
-        <div className="flex items-center text-xs text-gray-600">
-          <CalendarIcon className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-          {a.scheduledTime
-            ? companyFormatDate(a.scheduledTime)
-            : "-"}
+        <div className={`flex items-center text-xs ${isOverdue(a.scheduledTime, a.status) ? "font-semibold text-red-600" : "text-gray-600"}`}
+          title={isOverdue(a.scheduledTime, a.status) ? t("Overdue: the time has passed and the task is still pending") : undefined}>
+          <CalendarIcon className={`h-3 w-3 mr-1 flex-shrink-0 ${isOverdue(a.scheduledTime, a.status) ? "text-red-500" : "text-gray-400"}`} />
+          {a.scheduledTime ? crmDateTime(a.scheduledTime) : "-"}
+          {isOverdue(a.scheduledTime, a.status) && <span className="ml-1.5 rounded bg-red-50 px-1 text-[10px] font-semibold text-red-600">{t("Overdue")}</span>}
         </div>
       ),
     },
@@ -513,25 +530,25 @@ const Tasks: React.FC = () => {
 
   return (
     <>
-      <PageMeta title={t("Activities")} description="Manage your activities" />
+      <PageMeta title={t("Tasks")} description="Calls, meetings and follow-ups" />
       <PageBreadcrumb
-        pageTitle="Activities"
+        pageTitle="Tasks"
         actions={
           <AddButton
             onClick={() => {
               setForm({ activityType: "TASK", priority: "MEDIUM", status: "PENDING" });
               setShowFormModal(true);
             }}
-            label={t("New Activity")}
+            label={t("New Task")}
           />
         }
       />
 
       <div className="w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         <div className="py-4 px-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-[17px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-[17px]">
             <StatsCard
-              label={t("Total Activities")}
+              label={t("Total Tasks")}
               value={activities.length}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
@@ -561,6 +578,13 @@ const Tasks: React.FC = () => {
               gradient="from-orange-50 to-yellow-50"
               borderColor="border-orange-100"
               labelColor="text-orange-600"
+            />
+            <StatsCard
+              label={t("Overdue")}
+              value={activities.filter((a) => isOverdue(a.scheduledTime, a.status)).length}
+              gradient="from-rose-50 to-red-50"
+              borderColor="border-rose-100"
+              labelColor="text-rose-600"
             />
           </div>
 
@@ -619,7 +643,7 @@ const Tasks: React.FC = () => {
               <div data-overlay-header className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b border-gray-100">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {t("Activity Details")}
+                    {t("Task Details")}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {t("View complete information about this activity")}
@@ -673,7 +697,7 @@ const Tasks: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
-                        {t("Activity Type")}
+                        {t("Task Type")}
                       </p>
                       <div className="flex items-center gap-2">
                         {getTypeIcon(selectedActivity.activityType)}
@@ -784,7 +808,7 @@ const Tasks: React.FC = () => {
         )}
 <PaginatedPopup
   isOpen={showFormModal}
-  title={t(form.id ? "Edit Activity" : "Add New Activity")}
+  title={t(form.id ? "Edit Task" : "Add New Task")}
   subtitle={t(
     form.id
       ? "Update activity details"
@@ -836,7 +860,7 @@ const Tasks: React.FC = () => {
       fields: [
         <FloatingSelect
           key="activityType"
-          label={t("Activity Type")}
+          label={t("Task Type")}
           name="activityType"
           value={form.activityType || ""}
           onChange={handleChange}
@@ -887,14 +911,15 @@ const Tasks: React.FC = () => {
           name="lead"
           value={form.lead?.id ?? ""}
           onChange={(e) =>
-            setForm((f) => ({
-              ...f,
-              lead: e.target.value
-                ? leads.find((l) => l.id === Number(e.target.value)) || null
-                : null,
-            }))
+            setForm((f) => {
+              const lead = e.target.value ? leads.find((l) => l.id === Number(e.target.value)) || null : null;
+              // A lead is not a customer yet: picking one clears the customer and contact
+              return lead ? { ...f, lead, customer: null, contact: null } : { ...f, lead: null };
+            })
           }
-          options={leads.map((l) => ({ id: l.id, name: l.name }))}
+          options={leads
+            .filter((l) => !(l.converted || l.status === "CONVERTED") || l.id === form.lead?.id)
+            .map((l) => ({ id: l.id, name: l.name }))}
         />,
         <FloatingSelect
           key="customer"
@@ -907,9 +932,11 @@ const Tasks: React.FC = () => {
               : null;
             setForm((f) => ({
               ...f,
+              // A customer replaces the lead (a task is for one or the other)
+              lead: cust ? null : f.lead,
               customer: cust,
               contact:
-                f.contact && cust && f.contact.customerId !== cust.id
+                f.contact && (!cust || f.contact.customerId !== cust.id)
                   ? null
                   : f.contact,
             }));
@@ -925,12 +952,13 @@ const Tasks: React.FC = () => {
           name="contact"
           value={form.contact?.id ?? ""}
           onChange={(e) =>
-            setForm((f) => ({
-              ...f,
-              contact: e.target.value
-                ? contacts.find((ct) => ct.id === Number(e.target.value)) || null
-                : null,
-            }))
+            setForm((f) => {
+              const contact = e.target.value ? contacts.find((ct) => ct.id === Number(e.target.value)) || null : null;
+              if (!contact) return { ...f, contact: null };
+              // A contact belongs to a customer: that customer is filled in, and a lead is cleared
+              const owner = customers.find((c) => c.id === contact.customerId) || f.customer || null;
+              return { ...f, contact, customer: owner, lead: owner ? null : f.lead };
+            })
           }
           options={filteredContacts.map((ct) => ({
             id: ct.id,
@@ -942,9 +970,7 @@ const Tasks: React.FC = () => {
           className="md:col-span-2 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30"
         >
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            <span className="font-medium">{t("Note:")}</span> Link this activity to a
-            lead, customer, or contact. If a customer is selected, the contact
-            list is filtered to that customer.
+            <span className="font-medium">{t("Note:")}</span> {t("Link this task to a lead or to a customer (and, for a customer, one of its contacts). Picking a lead clears the customer, and the other way round; picking a contact fills in its customer. Clearing a field removes that link when you save. Leads already converted to customers are not listed: choose their customer.")}
           </p>
         </div>,
       ],
@@ -960,14 +986,14 @@ const Tasks: React.FC = () => {
         setIsPopupOpen={setShowDeleteConfirm}
         icon={<TrashIcon className="h-6 w-6 text-red-600" />}
         iconBg="bg-red-100"
-        innerText={t("Delete Activity")}
+        innerText={t("Delete Task")}
         subText={
           deleteConfirmId
             ? t('Are you sure you want to delete "{name}"? This action cannot be undone.', { name: String((
                 activities.find((a) => a.id === deleteConfirmId)?.title ||
-                "this activity"
+                "this task"
               ) ?? "") })
-            : "Are you sure you want to delete this activity?"
+            : "Are you sure you want to delete this task?"
         }
         confirmLabel={t("Delete")}
         cancelLabel={t("Cancel")}

@@ -156,8 +156,39 @@ const EMPTY_ADDRESS: Address = {
 
 const text = (value: unknown) => (value === null || value === undefined ? "" : String(value));
 
-const validate = (form: CustomerForm): Errors => {
+/** The country the customer's tax number belongs to: the default address's, else the first one's, else the company's. */
+const taxCountryOf = (form: CustomerForm, companyCountry?: string | null) => {
+  const address = form.addresses.find((a) => a.defaultAddress) ?? form.addresses[0];
+  return (address?.country || companyCountry || "").trim();
+};
+
+/** "GSTIN" in India, "TRN" in the UAE (and Bahrain, Oman), "VAT number" in Saudi Arabia; elsewhere "Tax number". */
+const taxLabelFor = (country: string) => {
+  const style = addressStyle(country);
+  const lower = country.toLowerCase();
+  if (lower === "india" || lower === "in") return "GSTIN";
+  if (style === "AE" || ["bahrain", "oman"].includes(lower)) return "TRN";
+  if (style === "SA") return "VAT number";
+  return "Tax number";
+};
+
+/** The same format rules the service applies. */
+const taxNumberProblem = (value: string, country: string): string | null => {
+  const number = value.replace(/\s+/g, "").toUpperCase();
+  if (!number) return null;
+  const style = addressStyle(country);
+  const lower = country.toLowerCase();
+  if (style === "AE" && !/^100\d{12}$/.test(number)) return "A UAE TRN is 15 digits starting with 100";
+  if (style === "SA" && !/^3\d{13}3$/.test(number)) return "A Saudi VAT number is 15 digits that start and end with 3";
+  if ((lower === "india" || lower === "in") && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(number)) return "A GSTIN is 15 characters, like 29ABCDE1234F1Z5";
+  if (style === "OTHER" && !(lower === "india" || lower === "in") && !/^[A-Z0-9-]{5,20}$/.test(number)) return "Use 5 to 20 letters, digits or hyphens";
+  return null;
+};
+
+const validate = (form: CustomerForm, companyCountry?: string | null): Errors => {
   const errors: Errors = {};
+  const taxProblem = taxNumberProblem(form.taxNumber, taxCountryOf(form, companyCountry));
+  if (taxProblem) errors.taxNumber = taxProblem;
   if (!form.customerName.trim()) errors.customerName = "Customer name is required";
   if (!form.customerType) errors.customerType = "Choose the customer type";
   if (!form.email.trim()) errors.email = "Email is required";
@@ -293,7 +324,7 @@ const CustomerFormPage: React.FC = () => {
     setForm((current) => {
       const next = { ...current, [field]: value };
       // After a failed save, errors clear as fields are fixed
-      if (submitted) setErrors(validate(next));
+      if (submitted) setErrors(validate(next, company?.country));
       return next;
     });
   };
@@ -343,7 +374,7 @@ const CustomerFormPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    const problems = validate(form);
+    const problems = validate(form, company?.country);
     setErrors(problems);
     if (Object.keys(problems).length) {
       ToasterService.error("Please fix the highlighted fields");
@@ -491,8 +522,9 @@ const CustomerFormPage: React.FC = () => {
                     includeEmptyOption={false}
                   />
                   <FloatingInput
-                    label={t("GSTIN / VAT TRN")}
+                    label={t(taxLabelFor(taxCountryOf(form, company?.country)))}
                     name="taxNumber"
+                    error={errors.taxNumber}
                     value={form.taxNumber}
                     onChange={(e) => update("taxNumber", e.target.value.toUpperCase())}
                     maxLength={50}
