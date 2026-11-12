@@ -79,6 +79,9 @@ export interface SalaryStructure {
   employerPfInCtc: boolean;
   employerBenefits: SalaryLine[];
   variablePayTarget: number;
+  // The CTC includes the variable pay: the fixed salary (paid monthly) is the CTC less it
+  variablePayInCtc?: boolean;
+  fixedCtc?: number;
   costToCompany: number;
 }
 

@@ -106,6 +106,8 @@ export interface Employee {
   countryCode: string;
   department: Department;
   active: boolean;
+  // Saved part-filled ("Save as draft"): inactive, no login, until saved in full
+  draft?: boolean;
   permanentAddress: Address;
   currentAddress: Address;
   countrySpecificData?: EmployeeCountrySpecificData;

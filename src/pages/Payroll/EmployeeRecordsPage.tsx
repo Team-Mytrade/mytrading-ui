@@ -23,6 +23,7 @@ import {
     EnvelopeIcon,
     BriefcaseIcon,
     CalendarIcon,
+    ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
@@ -42,7 +43,8 @@ import { usePermissions } from "../../access/usePermissions";
 import { apiError } from "../../utils/apiError";
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import ToolbarSelect from "../../components/common/ToolbarSelect";
-import { formatDate } from "../../company/format";
+import { InlineSelect, InlineText, OverlaySelect } from "./InlineEdit";
+import { formatDate, formatMoney } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
 import { stampCompany } from "../../company/pdfStamp";
@@ -51,11 +53,50 @@ const EMPLOYEE_API_URL = "/v1/api/common/employee";
 const DEPARTMENT_API_URL = "/v1/api/common/department";
 const PAGE_SIZE = 10;
 
+/**
+ * Active / Inactive as a dropdown on the status badge (a draft is finished on the form instead). A native select, so
+ * its list opens above the table's scroll area on every row. Deactivating still asks first.
+ */
+const StatusMenu: React.FC<{
+    active: boolean;
+    canActivate: boolean;
+    canDeactivate: boolean;
+    onActivate: () => void;
+    onDeactivate: () => void;
+}> = ({ active, canActivate, canDeactivate, onActivate, onDeactivate }) => {
+    const badge = active
+        ? "bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300"
+        : "bg-gray-100 text-gray-800 dark:bg-transparent dark:text-gray-400";
+    const dot = active ? "bg-emerald-500" : "bg-gray-500";
+    const canChange = active ? canDeactivate : canActivate;
+    if (!canChange) {
+        return (
+            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 ${dot}`} />
+                {t(active ? "Active" : "Inactive")}
+            </span>
+        );
+    }
+    return (
+        <OverlaySelect label={t("Change status")} value={active ? "ACTIVE" : "INACTIVE"}
+            options={[{ value: "ACTIVE", label: t("Active") }, { value: "INACTIVE", label: t("Inactive") }]}
+            onChange={(next) => (next === "ACTIVE" ? onActivate() : onDeactivate())}>
+            <span className={`inline-flex items-center whitespace-nowrap px-2 py-1 text-xs font-medium rounded-full ${badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 ${dot}`} />
+                {t(active ? "Active" : "Inactive")}
+                <ChevronDownIcon className="ml-1 h-3 w-3 shrink-0" aria-hidden="true" />
+            </span>
+        </OverlaySelect>
+    );
+};
+
 const EmployeeRecordsPage: React.FC = () => {
-  const { canDelete, canExport, canUpdate } = usePermissions();
+  const { canDelete, canExport, canUpdate, canApprove } = usePermissions();
     const navigate = useNavigate();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
+    // Yearly CTC by employee id, from payroll: only finance / HR (approve rights) may read salaries
+    const [ctcByEmployee, setCtcByEmployee] = useState<Record<number, { ctc: number; currency?: string }>>({});
     const [search, setSearch] = useState("");
     const [selectedDept, setSelectedDept] = useState<string>("");
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -161,10 +202,82 @@ const EmployeeRecordsPage: React.FC = () => {
         }
     };
 
+    const fetchCtc = async () => {
+        try {
+            const res = await axios.get(`/v1/api/payroll/employee-salaries`);
+            const rows: { employeeId?: number; ctc?: number; currency?: string }[] = Array.isArray(res.data) ? res.data : [];
+            setCtcByEmployee(Object.fromEntries(rows
+                .filter((r) => r.employeeId != null && r.ctc != null)
+                .map((r) => [Number(r.employeeId), { ctc: Number(r.ctc), currency: r.currency }])));
+        } catch {
+            setCtcByEmployee({}); // the column shows "—" rather than stopping the page
+        }
+    };
+
     useEffect(() => {
         fetchEmployees();
         fetchDepartments();
     }, []);
+
+    useEffect(() => {
+        if (canApprove) fetchCtc();
+    }, [canApprove]);
+
+    // A draft that won't be completed is removed for good, with any salary saved for it (it was never paid)
+    const handleDeleteDraft = async (row: { id: number; firstName?: string; lastName?: string }) => {
+        const name = [row.firstName, row.lastName].filter(Boolean).join(" ") || t("this draft");
+        const ok = await confirm({
+            message: `Delete the draft of ${name}? It is removed for good and can't be brought back.`,
+            confirmLabel: "Delete draft",
+            variant: "danger",
+        });
+        if (!ok) return;
+        try {
+            try {
+                await axios.delete(`/v1/api/payroll/employee-salaries/${row.id}`);
+            } catch (err: any) {
+                // No salary saved for the draft yet is fine; anything else stops the delete
+                if (err?.response?.status !== 404) throw err;
+            }
+            await axios.delete(`${EMPLOYEE_API_URL}/draft/${row.id}`);
+            ToasterService.success("Draft deleted");
+            fetchEmployees();
+        } catch (err: any) {
+            ToasterService.error(apiError(err, "The draft could not be deleted"));
+        }
+    };
+
+    // One field changed in the table; the row takes what the service saved
+    const mergeEmployee = (id: number, saved: Partial<Employee> | undefined) => {
+        if (!saved) return;
+        setEmployees((prev) => prev.map((e) => e.id !== id ? e : {
+            ...e,
+            firstName: saved.firstName ?? e.firstName,
+            lastName: saved.lastName ?? e.lastName,
+            officialEmail: saved.officialEmail ?? "",
+            phone: saved.phone ?? "",
+            department: saved.department ?? e.department,
+            active: saved.active ?? e.active,
+        }));
+    };
+    const saveField = async (id: number, field: string, value: string) => {
+        const { data } = await axios.put(`${EMPLOYEE_API_URL}/update/${id}/field`, { field, value });
+        mergeEmployee(id, data);
+    };
+    const saveFields = async (id: number, changed: Record<string, string>) => {
+        for (const [field, value] of Object.entries(changed)) await saveField(id, field, value);
+        ToasterService.success("Saved");
+    };
+
+    const reactivate = async (id: number) => {
+        try {
+            const { data } = await axios.put(`${EMPLOYEE_API_URL}/reactivate/${id}`);
+            mergeEmployee(id, data);
+            ToasterService.success("Employee is active again", "Their login is switched back on.");
+        } catch (err) {
+            ToasterService.error(apiError(err, "The employee could not be made active"));
+        }
+    };
 
     const handleDelete = async (id: number) => {
         // The service keeps the record and marks the employee inactive
@@ -198,7 +311,7 @@ const EmployeeRecordsPage: React.FC = () => {
                 e.phone,
                 e.department?.name || "-",
                 e.designation || "-",
-                e.active ? "Active" : "Inactive"
+                e.draft ? "Draft" : e.active ? "Active" : "Inactive"
             ]),
             startY: 30,
             styles: { fontSize: 8 },
@@ -217,7 +330,7 @@ const EmployeeRecordsPage: React.FC = () => {
             Phone: e.phone,
             Department: e.department?.name || "-",
             Designation: e.designation || "-",
-            Status: e.active ? "Active" : "Inactive",
+            Status: e.draft ? "Draft" : e.active ? "Active" : "Inactive",
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Employees");
@@ -274,10 +387,17 @@ const EmployeeRecordsPage: React.FC = () => {
                                 {initials}
                             </span>
                         </div>
-                        <div>
-                            <div className="text-xs font-medium text-gray-900 dark:text-white">
-                                {fullName}
-                            </div>
+                        <div className="min-w-0 flex-1">
+                            <InlineText label={t("name")} canEdit={canUpdate && !row.draft}
+                                parts={[
+                                    { key: "firstName", value: row.firstName || "", placeholder: t("First name"), required: true },
+                                    { key: "lastName", value: row.lastName || "", placeholder: t("Last name"), required: true },
+                                ]}
+                                onSave={(changed) => saveFields(row.id, changed)}>
+                                <div className="text-xs font-medium text-gray-900 dark:text-white">
+                                    {fullName}
+                                </div>
+                            </InlineText>
                             <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                                 {row.designation || "—"}
                             </div>
@@ -292,14 +412,22 @@ const EmployeeRecordsPage: React.FC = () => {
             minWidth: 260, // whole work e-mail addresses
             render: (row) => (
                 <div className="space-y-1 max-w-full">
-                    <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.officialEmail || ""}>
-                        <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
-                        <span className="truncate">{row.officialEmail || "—"}</span>
-                    </div>
-                    <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.phone || ""}>
-                        <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
-                        <span className="truncate">{row.phone || "—"}</span>
-                    </div>
+                    <InlineText label={t("email")} canEdit={canUpdate && !row.draft}
+                        parts={[{ key: "officialEmail", value: row.officialEmail || "", placeholder: t("Official email"), type: "email" }]}
+                        onSave={(changed) => saveFields(row.id, changed)}>
+                        <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.officialEmail || ""}>
+                            <EnvelopeIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <span className="truncate">{row.officialEmail || "—"}</span>
+                        </div>
+                    </InlineText>
+                    <InlineText label={t("phone")} canEdit={canUpdate && !row.draft}
+                        parts={[{ key: "phone", value: row.phone || "", placeholder: t("Phone"), type: "tel" }]}
+                        onSave={(changed) => saveFields(row.id, changed)}>
+                        <div className="flex items-center text-[10px] text-gray-600 dark:text-gray-400" title={row.phone || ""}>
+                            <PhoneIcon className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <span className="truncate">{row.phone || "—"}</span>
+                        </div>
+                    </InlineText>
                 </div>
             )
         },
@@ -309,26 +437,53 @@ const EmployeeRecordsPage: React.FC = () => {
             sortable: true,
             sortValueGetter: (row) => row.department?.name || "",
             render: (row) => (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
-                    <BuildingOfficeIcon className="h-3 w-3 mr-1 shrink-0 text-blue-600 dark:text-gray-400" />
-                    {row.department?.name || "—"}
-                </span>
+                <InlineSelect label={t("department")} canEdit={canUpdate && !row.draft}
+                    value={row.department?.id != null ? String(row.department.id) : ""}
+                    options={(Array.isArray(departments) ? departments : [])
+                        .filter((d) => d.id != null && d.name)
+                        .map((d) => ({ value: String(d.id), label: d.name }))
+                        .sort((a, b) => a.label.localeCompare(b.label))}
+                    onSave={async (value) => { await saveField(row.id, "departmentId", value); ToasterService.success("Department changed"); }}>
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
+                        <BuildingOfficeIcon className="h-3 w-3 mr-1 shrink-0 text-blue-600 dark:text-gray-400" />
+                        {row.department?.name || "—"}
+                    </span>
+                </InlineSelect>
             )
         },
+        // Salary is confidential: the column is there only for finance / HR
+        ...(canApprove ? [{
+            key: "ctc",
+            label: "CTC (yearly)",
+            sortable: true,
+            minWidth: 130,
+            // Left-aligned like the other columns, so the amount doesn't press against Status
+            sortValueGetter: (row: Employee) => ctcByEmployee[row.id]?.ctc ?? -1,
+            render: (row: Employee) => {
+                const pay = ctcByEmployee[row.id];
+                return pay ? (
+                    <span className="text-xs font-medium tabular-nums text-gray-900 dark:text-gray-200">
+                        {formatMoney(pay.ctc, { currency: pay.currency, whole: true })}
+                    </span>
+                ) : (
+                    <span className="text-xs text-gray-400" title={t("No salary set up yet")}>—</span>
+                );
+            },
+        } as ColumnDef<Employee>] : []),
         {
             key: "active",
             label: "Status",
             sortable: true,
-            render: (row) => row.active ? (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-transparent dark:text-gray-300 dark:border dark:border-transparent">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0" />
-                    {t("Active")}
+            render: (row) => row.draft ? (
+                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-transparent dark:text-amber-300 dark:border dark:border-transparent"
+                    title={t("Saved part-filled: open it to complete the details")}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 shrink-0" />
+                    {t("Draft")}
                 </span>
             ) : (
-                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-transparent dark:text-gray-400 dark:border dark:border-transparent">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-500 mr-1.5 shrink-0" />
-                    {t("Inactive")}
-                </span>
+                <StatusMenu active={row.active}
+                    canActivate={canUpdate} canDeactivate={canDelete}
+                    onActivate={() => reactivate(row.id)} onDeactivate={() => handleDelete(row.id)} />
             )
         },
         {
@@ -354,11 +509,13 @@ const EmployeeRecordsPage: React.FC = () => {
                     >
                         <PencilSquareIcon className="h-4 w-4" />
                     </button>)}
-                    {canDelete && (<button
+                    {/* Drafts are deleted for good; employees saved in full are only deactivated (their history stays) */}
+                    {canDelete && row.draft && (<button
                         type="button"
-                        onClick={() => handleDelete(row.id)}
+                        onClick={() => handleDeleteDraft(row)}
                         className={ROW_ICON_BUTTON_DANGER}
-                        title={t("Delete")}
+                        title={t("Delete draft")}
+                        aria-label={t("Delete draft")}
                     >
                         <TrashIcon className="h-4 w-4" />
                     </button>)}

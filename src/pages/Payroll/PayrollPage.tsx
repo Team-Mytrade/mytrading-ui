@@ -686,7 +686,11 @@ const PayrollPage: React.FC = () => {
                 {emailOpen && filterMonth && (
                     <PayslipEmailDialog
                         month={filterMonth}
-                        names={Object.fromEntries(salaries.map((s) => [Number(s.employeeId), s.employeeName || `#${s.employeeId}`]))}
+                        names={Object.fromEntries(salaries
+                            // The row's own fields are for the table; the employee id is on the record behind it
+                            .map((s) => ({ id: Number((s as any)._raw?.employeeId), name: (s as any).employeeName as string, code: (s as any).employeeCode as string }))
+                            .filter((p) => Number.isFinite(p.id))
+                            .map((p) => [p.id, { name: p.name || `#${p.id}`, code: p.code }]))}
                         onClose={() => setEmailOpen(false)}
                     />
                 )}

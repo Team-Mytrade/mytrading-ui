@@ -1178,6 +1178,19 @@ html:not(.dark) .app-content-tight :is(.rounded-lg, .rounded-xl, .rounded-2xl):i
 :where(.app-content-tight, [role="dialog"], .fixed.inset-0) input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]):not(.page-breadcrumb *, .peer, table *, .stats-card *, [class*="pl-"], .react-tel-input *) {
   padding-left: 10px !important;
 }
+/* Searchable dropdowns (react-select): the box you type into sits inside the dropdown's own frame, so none of
+   the field look above (height, border, padding, focus ring) applies to it, or it shows as a box in a box */
+input[id^="react-select-"][id$="-input"][id] {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
 /* Phone fields: the number starts after the country flag (Login.css's .form-control padding would hide it) */
 .react-tel-input .form-control {
   padding-left: 48px !important;

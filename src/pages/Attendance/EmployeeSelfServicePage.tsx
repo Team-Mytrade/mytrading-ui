@@ -7,7 +7,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Plus, 
   Sparkles, CheckCircle2, AlertCircle, FileText, Gift, Briefcase, UserCheck,
   Maximize2, Minimize2, X, Loader2,
-  CalendarDays,
+  CalendarDays, Cake, PartyPopper,
 } from 'lucide-react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
@@ -134,6 +134,77 @@ const DayDetailsPanel: React.FC<{
   );
 };
 
+type CelebrationRow = { employeeId: number; employeeName: string; designation?: string; date?: string; yearsCompleted?: number };
+
+const initialsOf = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?';
+
+/** Highlights: who has a birthday or work anniversary today, and who joined this month. */
+const CelebrationsList: React.FC<{
+  data: { birthday: CelebrationRow[]; workAnniversary: CelebrationRow[]; newJoinee: CelebrationRow[] } | null;
+  failed: boolean;
+}> = ({ data, failed }) => {
+  const box = "p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/60 dark:border-[#303030]";
+  if (failed || !data) {
+    return (
+      <div className={`${box} flex items-start gap-3`}>
+        <Gift className="w-4.5 h-4.5 text-slate-500 dark:text-gray-400 shrink-0 mt-0.5" />
+        <p className="text-[11px] text-slate-500 dark:text-gray-400">
+          {failed ? t("Today's celebrations could not be loaded.") : t("Loading today's celebrations…")}
+        </p>
+      </div>
+    );
+  }
+  const groups = [
+    { key: 'birthday', title: t("Birthdays today"), icon: <Cake className="w-4 h-4 text-pink-500" />, rows: data.birthday,
+      note: () => t("Happy birthday!"), tint: "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300" },
+    { key: 'anniversary', title: t("Work anniversaries today"), icon: <PartyPopper className="w-4 h-4 text-amber-500" />, rows: data.workAnniversary,
+      note: (r: CelebrationRow) => `${r.yearsCompleted ?? 1} ${t(r.yearsCompleted === 1 ? "year" : "years")}`, tint: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" },
+    { key: 'joinee', title: t("New this month"), icon: <UserCheck className="w-4 h-4 text-cyan-600" />, rows: data.newJoinee,
+      note: (r: CelebrationRow) => (r.date ? `${t("Joined")} ${new Date(`${r.date}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : t("Joined this month")),
+      tint: "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300" },
+  ].filter((g) => g.rows.length > 0);
+
+  if (groups.length === 0) {
+    return (
+      <div className={`${box} flex items-start gap-3`}>
+        <Gift className="w-4.5 h-4.5 text-slate-500 dark:text-gray-400 shrink-0 mt-0.5" />
+        <div>
+          <h4 className="text-xs font-bold text-slate-800 dark:text-white">{t("Today's Celebration")}</h4>
+          <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{t("No birthdays or work anniversaries today.")}</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {groups.map((g) => (
+        <div key={g.key} className={box}>
+          <h4 className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white">
+            {g.icon}{g.title}
+            <span className="font-normal text-slate-400">({g.rows.length})</span>
+          </h4>
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {g.rows.map((r) => (
+              <li key={`${g.key}-${r.employeeId}`} className="flex min-w-0 items-center gap-2.5">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${g.tint}`}>
+                  {initialsOf(r.employeeName)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold text-slate-800 dark:text-gray-100">{r.employeeName}</span>
+                  <span className="block truncate text-[11px] text-slate-500 dark:text-gray-400">
+                    {[r.designation, g.note(r)].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const EmployeeSelfServicePage: React.FC = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -183,6 +254,20 @@ const EmployeeSelfServicePage: React.FC = () => {
     reason: ''
   });
   const [isSubmittingLeave, setIsSubmittingLeave] = useState<boolean>(false);
+
+  // Today's birthdays and work anniversaries, and this month's new joiners (only your own company's people)
+  type Celebration = { employeeId: number; employeeName: string; designation?: string; date?: string; yearsCompleted?: number };
+  const [celebrations, setCelebrations] = useState<{ birthday: Celebration[]; workAnniversary: Celebration[]; newJoinee: Celebration[] } | null>(null);
+  const [celebrationsFailed, setCelebrationsFailed] = useState(false);
+  useEffect(() => {
+    axios.get('/v1/api/common/employee/dashboard/celebrations')
+      .then((res) => setCelebrations({
+        birthday: res.data?.birthday ?? [],
+        workAnniversary: res.data?.workAnniversary ?? [],
+        newJoinee: res.data?.newJoinee ?? [],
+      }))
+      .catch(() => setCelebrationsFailed(true));
+  }, []);
 
   // Lock body scroll when calendar or apply leave modal is open
   useEffect(() => {
@@ -560,13 +645,7 @@ const EmployeeSelfServicePage: React.FC = () => {
                 <h3 className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">{t("Highlights")}</h3>
               </div>
 
-              <div className="p-3 bg-slate-50/70 dark:bg-[#222222] rounded-xl border border-slate-200/60 dark:border-[#303030] flex items-start gap-3">
-                <Gift className="w-4.5 h-4.5 text-slate-500 dark:text-gray-400 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-white">{t("Today's Celebration")}</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">{t("Check team birthdays and work anniversaries")}</p>
-                </div>
-              </div>
+              <CelebrationsList data={celebrations} failed={celebrationsFailed} />
             </div>
 
             {/* Activity Feed Card */}
