@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { language, useLanguage, type Language } from "../i18n/i18n";
-import type { HelpFlow, HelpTopic } from "./types";
+import type { HelpExample, HelpFlow, HelpFlowExample, HelpTopic } from "./types";
 
 // Help in other languages (backlog 8.1.8). Each language has files that mirror the English topics and flows by id,
 // field by field and item by item (the same order). They are loaded only when the screen is in that language, so the
@@ -24,9 +24,24 @@ export interface FlowText {
   steps?: { title?: string; who?: string; detail?: string }[];
 }
 
+/** A topic's example: the story, the data labels (values stay as they are) and the result. */
+export interface ExampleText {
+  story?: string;
+  labels?: string[];
+  result?: string;
+}
+
+/** A flow's example: the story and one line per step. */
+export interface FlowExampleText {
+  story?: string;
+  steps?: string[];
+}
+
 export interface HelpTranslation {
   topics: Record<string, TopicText>;
   flows: Record<string, FlowText>;
+  examples?: Record<string, ExampleText>;
+  flowExamples?: Record<string, FlowExampleText>;
 }
 
 const LOADERS: Partial<Record<Language, () => Promise<HelpTranslation>>> = {
@@ -115,6 +130,31 @@ export const localizeFlow = (flow: HelpFlow, translation: HelpTranslation | null
         return t ? { ...s, title: pick(s.title, t.title), who: s.who ? pick(s.who, t.who) : s.who, detail: pick(s.detail, t.detail) } : s;
       }),
     },
+  };
+};
+
+/** A topic's example in the translation's language (labels translated, values kept), and whether it was translated. */
+export const localizeExample = (id: string, example: HelpExample, translation: HelpTranslation | null): { example: HelpExample; translated: boolean } => {
+  const text = translation?.examples?.[id];
+  if (!text) return { example, translated: false };
+  return {
+    translated: true,
+    example: {
+      ...example,
+      story: pick(example.story, text.story),
+      data: example.data?.map((d, i) => ({ ...d, label: pick(d.label, text.labels?.[i]) })),
+      result: example.result ? pick(example.result, text.result) : example.result,
+    },
+  };
+};
+
+/** A flow's example in the translation's language, and whether it was translated. */
+export const localizeFlowExample = (id: string, example: HelpFlowExample, translation: HelpTranslation | null): { example: HelpFlowExample; translated: boolean } => {
+  const text = translation?.flowExamples?.[id];
+  if (!text) return { example, translated: false };
+  return {
+    translated: true,
+    example: { ...example, story: pick(example.story, text.story), steps: example.steps.map((s, i) => pick(s, text.steps?.[i])) },
   };
 };
 

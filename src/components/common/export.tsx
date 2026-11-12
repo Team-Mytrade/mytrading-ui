@@ -45,6 +45,8 @@ export type ListingPdfOptions<T extends object> = {
   emptyMessage?: string;
   /** Opens the print dialog for the same PDF instead of downloading it (report print view, 8.2). */
   print?: boolean;
+  /** Returns the PDF as a Blob instead of downloading it (to share it as a file). */
+  asBlob?: boolean;
 };
 
 // Prints a PDF from a hidden frame, so no pop-up window is needed
@@ -375,7 +377,8 @@ export async function exportListingPdf<T extends object>({
    serialNumberLabel = "Sl No", 
   emptyMessage = "No records available",
   print = false,
-}: ListingPdfOptions<T>) {
+  asBlob = false,
+}: ListingPdfOptions<T>): Promise<Blob | void> {
   const doc = await createPdf({ orientation, unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -462,6 +465,7 @@ export async function exportListingPdf<T extends object>({
 
     drawFooter(doc, pageWidth, pageHeight, generatedBy);
 
+    if (asBlob) return doc.output("blob") as Blob;
     if (print) printPdf(doc);
     else doc.save(`${fileSafe(fileName || title)}_${todayIso()}.pdf`);
   });

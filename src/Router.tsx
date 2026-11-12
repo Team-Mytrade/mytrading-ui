@@ -126,6 +126,7 @@ const Alert = lazy(() => import("./pages/Notification/Alerts"));
 const UserPreferences = lazy(() => import("./pages/Notification/UserPreferences"));
 import AuthLayout from "./pages/AuthPages/AuthPageLayout";
 const CrmViewPage = lazy(() => import("./pages/CRM/CrmViewPage"));
+const CustomerViewPage = lazy(() => import("./pages/common/CustomerViewPage"));
 const SalesChannels = lazy(() => import("./pages/Sales/SalesChannels"));
 const AttendanceRecordPage = lazy(() => import("./pages/Attendance/AttendanceRecordPage"));
 const LeaveBalancePage = lazy(() => import("./pages/Attendance/LeaveBalancePage"));
@@ -286,6 +287,8 @@ export default function AppRouter() {
           <Route path="/customer-segment/:id" element={<Segments />} />
           <Route path="/communication-history" element={<Interactions />} />
           <Route path="/task" element={<Navigate to="/activities" replace />} />
+          {/* Customers have their own view; the other CRM records keep the generic one */}
+          <Route path="/crm-view/customers/:id" element={<CustomerViewPage />} />
           <Route path="/crm-view/:requestFrom/:id" element={<CrmViewPage />} />
           <Route path="/crm_dashboard" element={<CrmDashboardPage />} />
           <Route path="/customers/new" element={<CustomerFormPage />} />

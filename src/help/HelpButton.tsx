@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router";
-import { CircleHelp } from "lucide-react";
+import { ArrowRight, BookOpen, CircleHelp } from "lucide-react";
 import RecordDetailDrawer from "../components/common/RecordDetailDrawer";
 import { t } from "../i18n/i18n";
 import HelpContent from "./HelpContent";
@@ -55,15 +55,20 @@ const HelpButton = () => {
         ) : (
           <p className="text-sm text-gray-700 dark:text-gray-300">{t("There is no help for this page yet.")}</p>
         )}
-        <div className="mt-8 border-t border-gray-200 pt-4 dark:border-gray-700">
-          <Link
-            to={topic ? `/help/${topic.id}` : "/help"}
-            onClick={close}
-            className="text-sm font-medium text-brand-500 hover:underline dark:text-brand-400"
-          >
-            {t("Open the Help Center: user manual, flows and search")}
-          </Link>
-        </div>
+        <Link
+          to={topic ? `/help/${topic.id}` : "/help"}
+          onClick={close}
+          className="group mt-8 flex items-center gap-3 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:hover:bg-cyan-500/15"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500 text-white">
+            <BookOpen className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-800 dark:text-gray-100">{t("Help Center")}</span>
+            <span className="block text-xs text-slate-500 dark:text-gray-400">{t("User manual, business flows and search")}</span>
+          </span>
+          <ArrowRight className="h-4 w-4 text-cyan-500 transition group-hover:translate-x-0.5 rtl:-scale-x-100" aria-hidden="true" />
+        </Link>
       </RecordDetailDrawer>,
       document.body,
       )}

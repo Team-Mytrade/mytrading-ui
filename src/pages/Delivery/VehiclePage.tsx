@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
@@ -9,10 +10,7 @@ import {
   IdentificationIcon,
   ScaleIcon,
   UserIcon,
-  WrenchScrewdriverIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-} from "@heroicons/react/24/outline";
+  WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -80,7 +78,8 @@ const VehiclePage: React.FC = () => {
   const [form, setForm]         = useState<Vehicle>(emptyForm);
   const [saving, setSaving]     = useState(false);
 
-  const [search, setSearch]             = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [activeFilter, setActiveFilter] = useState("ALL"); // ALL | Active | Inactive | Maintenance
   const [showFilters, setShowFilters]   = useState(false);
 
@@ -357,7 +356,7 @@ const VehiclePage: React.FC = () => {
             borderColor="border-gray-200"
             labelColor="text-gray-500"
           />
-          <StatsCard
+          <StatsCard onRefresh={loadData} onFilter={() => setShowFilters((open) => !open)}
             label={t("Maintenance")}
             value={stats.maintenance}
             gradient="from-amber-50 to-orange-50"
@@ -367,39 +366,7 @@ const VehiclePage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t("Search by license plate, model, type, or owner...")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <button title={t("Filters")} aria-label={t("Filters")}
-              onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
-                showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
-            </button>
-          </div>
-        </div>
+        
 
         {/* Filters Panel */}
         {showFilters && (
@@ -433,6 +400,7 @@ const VehiclePage: React.FC = () => {
 
         {/* Table */}
         <ReusableTable<Vehicle>
+          externalSearch
           data={filteredVehicles}
           columns={columns}
           loading={loading}

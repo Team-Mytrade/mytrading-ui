@@ -1,15 +1,13 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, ChangeEvent, FormEvent, useMemo } from "react";
 import PaginatedPopup from "../../components/common/unpopup";
 import axios from "axios";
 import {
   PencilSquareIcon,
   TrashIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
   DocumentTextIcon,
   ReceiptRefundIcon,
-  TruckIcon,
-} from "@heroicons/react/24/outline";
+  TruckIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -111,7 +109,8 @@ const PurchaseInvoices: React.FC = () => {
   const [invoiceToDelete, setInvoiceToDelete] = useState<PurchaseInvoice | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [search, setSearch] = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [centres, setCentres] = useState<CostCentre[]>([]);
@@ -477,7 +476,23 @@ const PurchaseInvoices: React.FC = () => {
             borderColor="border-yellow-100"
             labelColor="text-yellow-600"
           />
-          <StatsCard
+          <StatsCard filterControl={
+            <FilterPopover
+                  title={t("Filter Purchase Invoices")}
+                  buttonLabel="Filters"
+                  label={t("Filter by Status")}
+                  value={activeFilter}
+                  options={[
+                    { label: "All Invoices", value: "ALL" },
+                    { label: "Paid", value: "PAID" },
+                    { label: "Open / Partial", value: "OPEN" },
+                    { label: "Overdue", value: "OVERDUE" },
+                  ]}
+                  onChange={setActiveFilter}
+                  onReset={() => setActiveFilter("ALL")}
+                  onApply={() => undefined}
+                />
+          }
             label={t("Total Amount")}
             value={money(stats.totalAmount)}
             gradient="from-purple-50 to-pink-50"
@@ -486,48 +501,9 @@ const PurchaseInvoices: React.FC = () => {
           />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t("Search by number, vendor, reference or status...")}
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button
-                  onClick={() => { setSearch(""); }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <FilterPopover
-              title={t("Filter Purchase Invoices")}
-              buttonLabel="Filters"
-              label={t("Filter by Status")}
-              value={activeFilter}
-              options={[
-                { label: "All Invoices", value: "ALL" },
-                { label: "Paid", value: "PAID" },
-                { label: "Open / Partial", value: "OPEN" },
-                { label: "Overdue", value: "OVERDUE" },
-              ]}
-              onChange={setActiveFilter}
-              onReset={() => setActiveFilter("ALL")}
-              onApply={() => undefined}
-            />
-          </div>
-        </div>
 
         <ReusableTable
+          externalSearch
           data={filteredInvoices}
           columns={tableColumns}
           pageSize={PAGE_SIZE}

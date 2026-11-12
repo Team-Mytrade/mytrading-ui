@@ -16,7 +16,7 @@
 .table-export-modal__dates input { display:block; box-sizing:border-box; width:100%; margin-top:4px; border:1px solid #e5e7eb; border-radius:8px; padding:8px; color:#374151; font-size:14px; }
 .table-export-modal__summary { margin:16px 0 0; border-radius:8px; padding:12px; background:#f8fafc; color:#64748b; font-size:12px; }
 .table-export-modal footer { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; padding:20px; border-top:1px solid #f1f5f9; }
-.table-export-modal footer button:nth-last-child(2) { border-color:rgb(var(--brand-600, 8 145 178)); color:rgb(var(--brand-700, 14 116 144)); }
+.table-export-modal footer button:nth-last-child(2), .table-export-modal footer button:nth-last-child(3):not(:first-child) { border-color:rgb(var(--brand-600, 8 145 178)); color:rgb(var(--brand-700, 14 116 144)); }
 .table-export-modal footer button:last-child { border-color:rgb(var(--brand-600, 8 145 178)); background:rgb(var(--brand-600, 8 145 178)); color:#fff; }
 .table-export-modal footer button:disabled { cursor:not-allowed; opacity:.5; }
 @media (max-width:480px) { .table-export-modal footer button { width:100%; } }

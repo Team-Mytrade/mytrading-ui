@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { createPdf } from "../../utils/pdfDocument";
@@ -7,8 +8,6 @@ import {
     EllipsisVerticalIcon,
     PencilSquareIcon,
     TrashIcon,
-    MagnifyingGlassIcon,
-    FunnelIcon,
     ArrowUpIcon,
     ArrowDownIcon,
     BuildingOfficeIcon,
@@ -27,8 +26,7 @@ import {
     ClockIcon,
     PlayCircleIcon,
     PauseIcon,
-    BriefcaseIcon,
-} from "@heroicons/react/24/outline";
+    BriefcaseIcon } from "@heroicons/react/24/outline";
 import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -74,7 +72,9 @@ const PayrollRunsPage: React.FC = () => {
   const { canDelete, canExport, canUpdate } = usePermissions();
     const [runs, setRuns] = useState<PayrollRun[]>([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState("");
+    // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
+  useEffect(() => setPage(1), [search]);
     const [sortKey, setSortKey] = useState<keyof PayrollRun>("period");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [page, setPage] = useState(1);
@@ -294,34 +294,16 @@ const PayrollRunsPage: React.FC = () => {
                     <StatsCard label={t("Total Cycles")} value={totalRuns} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" icon={<ClockIcon className="h-6 w-6" />} />
                     <StatsCard label={t("Employees Processed")} value={totalEmployeesProcessed} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" icon={<UserGroupIcon className="h-6 w-6" />} />
                     <StatsCard label={t("Total Amount")} value={formatMoney(totalAmountProcessed, { compact: true })} gradient="from-purple-50 to-pink-50" borderColor="border-purple-100" labelColor="text-purple-600" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                    <StatsCard label={t("Completed / Pending")} value={completedRuns + " / " + pendingRuns} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<ChartBarIcon className="h-6 w-6" />} />
+                    <StatsCard onRefresh={fetchRuns} onFilter={() => setShowFilters((open) => !open)} onShare={() => setShowExportMenu((open) => !open)} label={t("Completed / Pending")} value={completedRuns + " / " + pendingRuns} gradient="from-blue-50 to-cyan-50" borderColor="border-blue-100" labelColor="text-blue-600" icon={<ChartBarIcon className="h-6 w-6" />} />
                 </div>
 
                 {/* Toolbar */}
                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 max-w-md">
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder={t("Search by period or status...")}
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                            />
-                        </div>
-                    </div>
 
                     <div className="flex items-center gap-3">
                         {/* Export Menu */}
                         <div className="relative">
-                            {canExport && (<button
-                                onClick={() => setShowExportMenu(!showExportMenu)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                disabled={runs.length === 0}
-                            >
-                                <DocumentArrowDownIcon className="h-5 w-5 text-gray-600" />
-                            </button>)}
+                            
 
                             {showExportMenu && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
@@ -352,24 +334,7 @@ const PayrollRunsPage: React.FC = () => {
                             <PrinterIcon className="h-5 w-5 text-gray-600" />
                         </button>
 
-                        {/* Filter Button */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2 rounded-lg border ${showFilters ? 'bg-cyan-50 border-cyan-300' : 'border-gray-300 hover:bg-gray-50'
-                                }`}
-                        >
-                            <FunnelIcon className={`h-5 w-5 ${showFilters ? 'text-cyan-600' : 'text-gray-600'}`} />
-                        </button>
 
-                        {/* Refresh Button */}
-                        <button
-                            onClick={fetchRuns}
-                            className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors ${loading ? 'animate-spin' : ''}`}
-                        >
-                            <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </button>
 
                     </div>
                 </div>

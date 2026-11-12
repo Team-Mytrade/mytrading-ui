@@ -95,6 +95,42 @@ for (const flow of flows) {
 }
 for (const id of Object.keys(ar.flows)) if (!flows.some((f) => f.id === id)) problems.push(`flow ${id}: in Arabic but not in English`);
 
+// Examples with sample data (src/help/examples): every topic and flow has one; its Arabic has the story, one label per
+// data row (values stay as they are) and the result; a flow's Arabic has one line per step
+const examplesFile = path.join(help, "examples", "index.ts");
+if (fs.existsSync(examplesFile)) {
+  const { HELP_EXAMPLES: ex, FLOW_EXAMPLES: fx } = load(examplesFile);
+  const arEx = ar.examples ?? {};
+  const arFx = ar.flowExamples ?? {};
+  let exDone = 0;
+  for (const topic of topics) {
+    const e = ex[topic.id];
+    const at = `example ${topic.id}`;
+    if (!e) { problems.push(`${at}: no English example`); continue; }
+    const a = arEx[topic.id];
+    if (!a) { problems.push(`${at}: no Arabic`); continue; }
+    exDone++;
+    text(`${at}.story`, e.story, a.story);
+    if (e.result !== undefined) text(`${at}.result`, e.result, a.result);
+    // A label that is itself data (a document number, a product or vendor name) is kept exactly as in the English
+    list(`${at}.labels`, e.data, a.labels, (w, d, x) => (x === d.label ? undefined : text(w, d.label, x)));
+  }
+  for (const id of Object.keys(ex)) if (!topics.some((t) => t.id === id)) problems.push(`example ${id}: no topic with this id`);
+  let fxDone = 0;
+  for (const flow of flows) {
+    const e = fx[flow.id];
+    const at = `flow example ${flow.id}`;
+    if (!e) { problems.push(`${at}: no English example`); continue; }
+    if (e.steps.length !== flow.steps.length) problems.push(`${at}: ${e.steps.length} line(s) for ${flow.steps.length} step(s)`);
+    const a = arFx[flow.id];
+    if (!a) { problems.push(`${at}: no Arabic`); continue; }
+    fxDone++;
+    text(`${at}.story`, e.story, a.story);
+    list(`${at}.steps`, e.steps, a.steps, (w, s, x) => text(w, s, x));
+  }
+  console.log(`${exDone === topics.length && fxDone === flows.length ? "✔" : " "} Examples: ${exDone}/${topics.length} pages, ${fxDone}/${flows.length} flows in Arabic`);
+}
+
 let missing = 0;
 for (const [module, { total, done }] of Object.entries(byModule)) {
   missing += total - done;

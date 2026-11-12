@@ -4,6 +4,7 @@ import {
   FunnelIcon,
   ListBulletIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
   ShareIcon,
 } from "@heroicons/react/24/outline";
 import { usePermissions } from "../../access/usePermissions";
@@ -18,7 +19,7 @@ export interface TableToolbarProps {
   filterControl?: React.ReactNode;
 }
 
-const notifyTable = (type: "export" | "refresh", source: HTMLElement) =>
+const notifyTable = (type: "export" | "share" | "refresh", source: HTMLElement) =>
   window.dispatchEvent(new CustomEvent(`reusable-table:${type}`, { detail: { source } }));
 
 /** Standalone compact toolbar with the same 5 actions as StatsCardActions.
@@ -102,6 +103,19 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
           onClick={handleShare}
           title="Export"
           aria-label="Export table"
+        >
+          <ArrowDownTrayIcon />
+        </button>
+      )}
+
+      {/* 2b. Share the associated table (WhatsApp, email, the device's share sheet): it hands data out, so export permission */}
+      {canExport && (
+        <button
+          type="button"
+          className="stats-card-actions__button"
+          onClick={(event) => notifyTable("share", event.currentTarget)}
+          title="Share"
+          aria-label="Share table"
         >
           <ShareIcon />
         </button>

@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
@@ -8,12 +9,9 @@ import {
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   CalendarDaysIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
   PlusIcon,
   CheckCircleIcon,
-  NoSymbolIcon,
-} from "@heroicons/react/24/outline";
+  NoSymbolIcon } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { AddButton } from "../../components/common/AddButton";
@@ -102,7 +100,8 @@ const GoodsIssuePage: React.FC = () => {
   const [saving, setSaving]     = useState(false);
   const [loading, setLoading]   = useState(false);
 
-  const [search, setSearch]             = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [activeFilter, setActiveFilter] = useState<IssueStatus | "ALL">("ALL");
   const [showFilters, setShowFilters]   = useState(false);
 
@@ -407,39 +406,10 @@ const GoodsIssuePage: React.FC = () => {
           <StatsCard label={t("Total Goods Issues")} value={stats.total} gradient="from-cyan-50 to-blue-50" borderColor="border-cyan-100" labelColor="text-cyan-600" />
           <StatsCard label={t("Draft")} value={stats.draft} gradient="from-gray-50 to-slate-50" borderColor="border-gray-200" labelColor="text-gray-500" />
           <StatsCard label={t("Posted")} value={stats.posted} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard onRefresh={loadGoodsIssues} onFilter={() => setShowFilters((open) => !open)} label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t("Search by issue number, delivery note, or status...")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-full w-full items-center justify-end gap-3 sm:w-auto">
-            <button title={t("Filters")} aria-label={t("Filters")}
-              onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
-                showFilters ? "bg-cyan-50 border-cyan-300" : "border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <FunnelIcon className={`h-5 w-5 ${showFilters ? "text-cyan-600" : "text-gray-600"}`} />
-            </button>
-          </div>
-        </div>
+        
 
         {showFilters && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-slide-down">
@@ -465,6 +435,7 @@ const GoodsIssuePage: React.FC = () => {
         )}
 
         <ReusableTable<GoodsIssueRecord>
+          externalSearch
           data={filteredRecords}
           columns={columns}
           loading={loading}
