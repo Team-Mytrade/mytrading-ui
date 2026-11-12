@@ -57,6 +57,29 @@ export interface HelpFlowStep {
   detail: string;
 }
 
+/** The demo companies the examples use (tools/demo-data): Gulf Electronics (UAE), Al Bina (Saudi), Speedline (India). */
+export type SampleCompany = "GET" | "ABM" | "SAP";
+
+/** A worked example with sample business data: what someone at a demo company enters and what happens. */
+export interface HelpExample {
+  /** Defaults to Gulf Electronics Trading LLC. */
+  company?: SampleCompany;
+  /** One or two sentences: who does what. */
+  story: string;
+  /** What they enter or see, label and value as on screen. Values are data (names, codes, amounts) and stay as they
+   *  are in every language; only labels are translated. */
+  data?: { label: string; value: string }[];
+  /** What happens next. */
+  result?: string;
+}
+
+/** A flow followed with one sample case: a line of sample data for each step, in step order. */
+export interface HelpFlowExample {
+  company?: SampleCompany;
+  story: string;
+  steps: string[];
+}
+
 /** An end-to-end business flow across pages (the user manual). */
 export interface HelpFlow {
   id: string;
