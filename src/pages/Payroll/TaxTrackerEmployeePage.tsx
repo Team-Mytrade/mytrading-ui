@@ -147,9 +147,21 @@ const CtcCard: React.FC<{ salary: SalaryStructure }> = ({ salary }) => {
       {salary.employerBenefits.map((l) => (
         <Row key={l.name} muted label={<><Swatch color={EMPLOYER_SHADE} />{l.name}</>} value={money(l.yearly)} />
       ))}
-      <Row label={t("Total CTC")} value={money(salary.ctc)} strong topLine />
-      {!salary.employerPfInCtc && salary.employerPfYearly > 0 && <Row label={t("Cost to company")} value={money(salary.costToCompany)} muted />}
-      {salary.variablePayTarget > 0 && <Row muted label={t("Variable pay target (on top, paid separately)")} value={money(salary.variablePayTarget)} />}
+      {salary.variablePayInCtc && salary.variablePayTarget > 0 ? (
+        <>
+          {/* The CTC includes the variable pay: fixed salary + variable pay = CTC */}
+          <Row label={t("Fixed salary (paid monthly)")} value={money(salary.fixedCtc ?? salary.ctc - salary.variablePayTarget)} strong topLine />
+          <Row muted label={t("Variable pay (in CTC, paid separately)")} value={money(salary.variablePayTarget)} />
+          <Row label={t("Total CTC")} value={money(salary.ctc)} strong topLine />
+          {!salary.employerPfInCtc && salary.employerPfYearly > 0 && <Row label={t("Cost to company")} value={money(Number(salary.costToCompany) + Number(salary.variablePayTarget))} muted />}
+        </>
+      ) : (
+        <>
+          <Row label={t("Total CTC")} value={money(salary.ctc)} strong topLine />
+          {!salary.employerPfInCtc && salary.employerPfYearly > 0 && <Row label={t("Cost to company")} value={money(salary.costToCompany)} muted />}
+          {salary.variablePayTarget > 0 && <Row muted label={t("Variable pay target (on top, paid separately)")} value={money(salary.variablePayTarget)} />}
+        </>
+      )}
     </div>
   );
 };

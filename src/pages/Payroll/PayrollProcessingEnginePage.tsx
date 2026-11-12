@@ -47,11 +47,13 @@ interface MonthReview {
     employeesWithLossOfPay: number;
     totalEarnings: number;
     totalDeductions: number;
+    totalNonTaxableEarnings?: number;
     problems: string[];
     warnings: string[];
 }
 
-type UploadKind = "earnings" | "deductions" | "attendance";
+// non_taxable: earnings paid on top of the take-home after TDS (e.g. a meal card), not taxed; optional each month
+type UploadKind = "earnings" | "non_taxable" | "deductions" | "attendance";
 
 // Finance's bank accounts (invoice service), for where the salaries were paid from
 interface BankAccountOption {
@@ -190,7 +192,8 @@ const PayrollProcessingEnginePage: React.FC = () => {
         }
     };
 
-    // The server reads files by name: earnings_<Name>.xlsx, deductions_<Name>.xlsx, attendance_<YYYY-MM>.xlsx
+    // The server reads files by name: earnings_<Name>.xlsx, non_taxable_<Name>.xlsx, deductions_<Name>.xlsx,
+    // attendance_<YYYY-MM>.xlsx
     const uploadName = () => {
         if (uploadKind === "attendance") return `attendance_${salaryMonth}.xlsx`;
         const name = componentName.trim().replace(/[^\p{L}\p{M}\p{N} ]/gu, "").replace(/\s+/g, "_");
@@ -204,7 +207,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
         }
         const fileName = uploadName();
         if (!fileName) {
-            ToasterService.warning(`Name the ${uploadKind === "earnings" ? "earning" : "deduction"} (e.g. Bonus); payslips show this name`);
+            ToasterService.warning(`Name the ${uploadKind === "deductions" ? "deduction" : "earning"} (e.g. ${uploadKind === "non_taxable" ? "Meal Card" : "Bonus"}); payslips show this name`);
             return;
         }
 
@@ -516,10 +519,16 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                             className="block w-full text-sm px-3 py-2 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200"
                                                         >
                                                             <option value="earnings">{t("One-off earning")}</option>
+                                                            <option value="non_taxable">{t("Non-taxable earning")}</option>
                                                             <option value="deductions">{t("One-off deduction")}</option>
                                                             <option value="attendance">{t("Attendance")}</option>
                                                         </select>
                                                     </div>
+                                                    {uploadKind === "non_taxable" && (
+                                                        <p className="md:col-span-3 order-last text-xs text-gray-500 dark:text-gray-400">
+                                                            {t("Not taxed: added to the take-home after TDS, and kept out of PF, ESI and pension wages. Shown on the payslip as \"<name> (non-taxable)\". Optional: upload only in months that have it.")}
+                                                        </p>
+                                                    )}
                                                     {uploadKind !== "attendance" ? (
                                                         <div>
                                                             <label htmlFor="componentName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -531,7 +540,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                                 value={componentName}
                                                                 maxLength={40}
                                                                 onChange={(e) => setComponentName(e.target.value)}
-                                                                placeholder={uploadKind === "earnings" ? "e.g. Bonus" : "e.g. Salary Advance"}
+                                                                placeholder={uploadKind === "earnings" ? "e.g. Bonus" : uploadKind === "non_taxable" ? "e.g. Meal Card" : "e.g. Salary Advance"}
                                                                 className="block w-full text-sm px-3 py-2 border border-gray-300 dark:border-transparent rounded-md bg-white dark:bg-[#191919] text-gray-900 dark:text-gray-200"
                                                             />
                                                         </div>
@@ -607,7 +616,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td className="px-4 py-2">
-                                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium dark:bg-transparent ${file.type === 'earnings' ? 'bg-green-100 text-green-800 dark:text-gray-300' : file.type === 'deductions' ? 'bg-red-100 text-red-800 dark:text-gray-300' : 'bg-blue-100 text-blue-800 dark:text-gray-300'}`}>
+                                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium dark:bg-transparent ${file.type === 'earnings' ? 'bg-green-100 text-green-800 dark:text-gray-300' : file.type === 'non-taxable earnings' ? 'bg-teal-100 text-teal-800 dark:text-gray-300' : file.type === 'deductions' ? 'bg-red-100 text-red-800 dark:text-gray-300' : 'bg-blue-100 text-blue-800 dark:text-gray-300'}`}>
                                                                         {file.type}
                                                                     </span>
                                                                 </td>
@@ -662,11 +671,13 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                             <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">{t("Checking")} {salaryMonth}...</div>
                                         ) : review && (
                                             <>
-                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" data-testid="run-review">
+                                                <div className={`grid grid-cols-2 gap-3 mb-5 ${Number(review.totalNonTaxableEarnings) > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`} data-testid="run-review">
                                                     {[
                                                         { label: "Employees to pay", value: String(review.employeesToPay) },
                                                         { label: "Already paid this month", value: String(review.alreadyPaid) },
                                                         { label: "One-off earnings", value: rupees(review.totalEarnings) },
+                                                        ...(Number(review.totalNonTaxableEarnings) > 0
+                                                            ? [{ label: "Non-taxable earnings", value: rupees(review.totalNonTaxableEarnings) }] : []),
                                                         { label: "One-off deductions", value: rupees(review.totalDeductions) },
                                                     ].map((card) => (
                                                         <div key={card.label} className="rounded-xl border border-gray-200 dark:border-transparent bg-gray-50 dark:bg-[#222222] p-3">

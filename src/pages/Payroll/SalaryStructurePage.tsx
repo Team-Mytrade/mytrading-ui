@@ -49,6 +49,10 @@ type SalaryStructure = {
     effectiveFrom: string;
     employeeCode?: string;
     department?: string | null;
+    // Yearly variable pay target (not in the monthly gross); inside the CTC or on top of it
+    variablePay?: number;
+    variablePayInCtc?: boolean;
+    fixedCtc?: number;
 };
 
 type EmployeeOption = { id: number; employeeCode?: string; firstName?: string; lastName?: string; joiningDate?: string };
@@ -212,6 +216,9 @@ const SalaryStructurePage: React.FC = () => {
                 ['House Rent Allowance (HRA)', monthly(record.hra), formatNumber(record.hra)],
                 ['Other Allowances', monthly(record.allowances), formatNumber(record.allowances)],
                 ['Gross Earnings', monthly(record.netSalary), formatNumber(record.netSalary)],
+                ...(Number(record.variablePay) > 0
+                    ? [[`Variable Pay (${record.variablePayInCtc ? 'in CTC' : 'on top of CTC'}, paid separately)`, '', formatNumber(record.variablePay)]]
+                    : []),
                 ['Annual CTC', '', formatNumber(record.ctc)],
             ],
             startY: 50,
@@ -233,7 +240,7 @@ const SalaryStructurePage: React.FC = () => {
         doc.text(`Total Records: ${rows.length}${department ? ` (${department})` : ""}`, 14, 34);
 
         autoTable(doc, {
-            head: [['Employee', 'Department', 'Basic', 'HRA', 'Allowances', 'Gross', 'CTC', 'Effective From']],
+            head: [['Employee', 'Department', 'Basic', 'HRA', 'Allowances', 'Gross', 'Variable', 'CTC', 'Effective From']],
             body: rows.map(s => [
                 label(s),
                 s.department || "-",
@@ -241,6 +248,7 @@ const SalaryStructurePage: React.FC = () => {
                 formatNumber(s.hra),
                 formatNumber(s.allowances),
                 formatNumber(s.netSalary),
+                Number(s.variablePay) > 0 ? `${formatNumber(s.variablePay)} (${s.variablePayInCtc ? 'in CTC' : 'on top'})` : "-",
                 formatNumber(s.ctc),
                 s.effectiveFrom ? formatDate(s.effectiveFrom) : "-",
             ]),
@@ -263,6 +271,8 @@ const SalaryStructurePage: React.FC = () => {
             'HRA (yearly)': s.hra,
             'Other Allowances (yearly)': s.allowances,
             'Gross (yearly)': s.netSalary,
+            'Variable Pay (yearly)': Number(s.variablePay) || 0,
+            'Variable Pay': Number(s.variablePay) > 0 ? (s.variablePayInCtc ? 'In CTC' : 'On top of CTC') : '',
             'Annual CTC': s.ctc,
             'Effective From': s.effectiveFrom ? formatDate(s.effectiveFrom) : "",
         })));
@@ -336,6 +346,19 @@ const SalaryStructurePage: React.FC = () => {
                     <p className="text-xs text-slate-400 dark:text-slate-500">{rupees(row.netSalary / 12)} / month</p>
                 </div>
             )
+        },
+        {
+            // Paid separately, not in the monthly gross: inside the CTC (fixed salary = CTC less it) or on top of it
+            key: "variablePay",
+            label: "Variable Pay",
+            sortable: true,
+            sortValueGetter: (row) => Number(row.variablePay) || 0,
+            render: (row) => Number(row.variablePay) > 0 ? (
+                <div>
+                    <p className="text-sm font-medium text-violet-700 dark:text-violet-300">{rupees(Number(row.variablePay))}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{row.variablePayInCtc ? t("in CTC") : t("on top of CTC")}</p>
+                </div>
+            ) : <span className="text-sm text-slate-400">—</span>
         },
         {
             key: "ctc",

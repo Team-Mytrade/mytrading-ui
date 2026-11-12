@@ -36,7 +36,7 @@ const STATUS_STYLE: Record<EmailRow["status"], string> = {
 };
 
 /** Payslips → Email: how emailed payslips are protected, sending a month's payslips, and what happened to each. */
-const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string>; onClose: () => void }> = ({ month, names, onClose }) => {
+const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, { name: string; code?: string }>; onClose: () => void }> = ({ month, names, onClose }) => {
   const [settings, setSettings] = useState<RunSettings | null>(null);
   const [rows, setRows] = useState<EmailRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -96,11 +96,14 @@ const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string
 
   // Everyone paid in the month (from the page), with their latest email attempt if any
   const lastByEmployee = Object.fromEntries(latest.map((r) => [r.employeeId, r]));
-  const people = Object.entries(names)
-    .map(([id, name]) => ({ id: Number(id), name, last: lastByEmployee[Number(id)] as EmailRow | undefined }))
-    .concat(latest.filter((r) => !(r.employeeId in names)).map((r) => ({ id: r.employeeId, name: `#${r.employeeId}`, last: r })))
-    .filter((p) => !search.trim() || p.name.toLowerCase().includes(search.trim().toLowerCase()))
+  const everyone = Object.entries(names)
+    .map(([id, who]) => ({ id: Number(id), name: who.name, code: who.code ?? "", last: lastByEmployee[Number(id)] as EmailRow | undefined }))
+    .concat(latest.filter((r) => !(r.employeeId in names)).map((r) => ({ id: r.employeeId, name: `#${r.employeeId}`, code: "", last: r })))
     .sort((a, b) => a.name.localeCompare(b.name));
+  // Search by name, employee code or the address it went to
+  const query = search.trim().toLowerCase();
+  const people = everyone.filter((p) => !query
+    || [p.name, p.code, p.last?.sentTo ?? ""].some((v) => v.toLowerCase().includes(query)));
   const allShownSelected = people.length > 0 && people.every((p) => selected.has(p.id));
   const toggle = (id: number) => setSelected((prev) => {
     const next = new Set(prev);
@@ -124,7 +127,7 @@ const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label={t("Close")}><X size={18} /></button>
         </div>
 
-        <div className="space-y-4 overflow-y-auto px-5 py-4 text-xs">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4 text-xs">
           {settings && (
             <div className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-[#2a2a2a]">
               <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-300">
@@ -132,7 +135,7 @@ const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string
                 {t("Password-protect emailed payslips")}
               </label>
               {settings.payslipPasswordProtected && (
-                <select className="h-8 w-full rounded-lg border border-gray-300 px-2 dark:border-gray-700 dark:bg-[#222222] dark:text-white"
+                <select className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs leading-5 dark:border-gray-700 dark:bg-[#222222] dark:text-white"
                   value={settings.payslipPasswordFormat} onChange={(e) => save({ payslipPasswordFormat: e.target.value as PasswordFormat })}>
                   {(Object.keys(FORMATS) as PasswordFormat[]).map((f) => <option key={f} value={f}>{t(FORMATS[f])}</option>)}
                 </select>
@@ -152,7 +155,7 @@ const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string
               <span className="text-emerald-600">{count("SENT")} {t("sent")}</span> · <span className="text-rose-600">{count("FAILED")} {t("failed")}</span> ·{" "}
               <span className="text-amber-600">{count("SKIPPED")} {t("skipped")}</span> · {count("QUEUED")} {t("waiting")}
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button type="button" onClick={loadLog} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 dark:border-[#2a2a2a] dark:text-gray-300">
                 <RefreshCw className="h-3.5 w-3.5" /> {t("Refresh")}
               </button>
@@ -171,27 +174,35 @@ const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string
             </div>
           </div>
 
-          <input className="h-8 w-full rounded-lg border border-gray-300 px-2 dark:border-gray-700 dark:bg-[#222222] dark:text-white"
-            placeholder={t("Search employee")} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="search" className="min-w-0 flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-xs leading-5 dark:border-gray-700 dark:bg-[#222222] dark:text-white"
+              placeholder={t("Search name, employee code or email")} value={search} onChange={(e) => setSearch(e.target.value)} />
+            <span className="text-gray-500">{query ? `${people.length} ${t("of")} ${everyone.length}` : `${everyone.length} ${t("employees")}`}</span>
+          </div>
 
+          {/* The list scrolls on its own, tall enough for six or so employees */}
+          <div className="min-h-[15rem] flex-1 overflow-auto rounded-lg border border-gray-100 dark:border-[#2a2a2a]">
           <table className="w-full">
-            <thead className="text-left text-[10px] uppercase text-gray-500">
+            <thead className="sticky top-0 z-[1] bg-gray-50 text-left text-[10px] uppercase text-gray-500 dark:bg-[#222222]">
               <tr>
-                <th className="w-8 py-1">
+                <th className="w-8 px-2 py-2">
                   <input type="checkbox" aria-label={t("Select all shown")} checked={allShownSelected} disabled={people.length === 0} onChange={toggleAllShown} />
                 </th>
-                <th>{t("Employee")}</th><th>{t("Sent to")}</th><th>{t("Status")}</th><th>{t("When")}</th>
+                <th className="py-2 pr-2">{t("Employee")}</th><th className="py-2 pr-2">{t("Sent to")}</th><th className="py-2 pr-2">{t("Status")}</th><th className="py-2 pr-2">{t("When")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a2a]">
-              {people.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-gray-400">{t("No employees for this month")}</td></tr>}
+              {people.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-gray-400">{t(query ? "No employee matches the search" : "No employees for this month")}</td></tr>}
               {people.map((p) => (
                 <tr key={p.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-[#222222]" onClick={() => toggle(p.id)}>
-                  <td className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" aria-label={`${t("Select")} ${p.name}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
                   </td>
-                  <td>{p.name}</td>
-                  <td>{p.last?.sentTo || "—"}{p.last?.passwordProtected ? ` · ${t("protected")}` : ""}</td>
+                  <td className="pr-2">
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{p.name}</span>
+                    {p.code && <span className="block text-[10px] text-gray-400">{p.code}</span>}
+                  </td>
+                  <td className="break-all pr-2">{p.last?.sentTo || "—"}{p.last?.passwordProtected ? ` · ${t("protected")}` : ""}</td>
                   <td className={p.last ? STATUS_STYLE[p.last.status] : "text-gray-400"}>
                     {!p.last ? t("Not emailed")
                       : t(p.last.status === "QUEUED" ? "Waiting" : p.last.status === "SENT" ? "Sent" : p.last.status === "FAILED" ? "Failed" : "Skipped")}
@@ -202,6 +213,7 @@ const PayslipEmailDialog: React.FC<{ month: string; names: Record<number, string
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

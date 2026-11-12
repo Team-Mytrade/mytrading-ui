@@ -28,6 +28,7 @@ import {
   TrendingDown,
   Building2,
   Shield,
+  Save,
 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -128,12 +129,15 @@ interface AdditionalBenefit {
   amount: number;
 }
 
-// Shown in the CTC (fixed CTC + yearly targets); payroll runs do not pay it
+// A flat yearly amount or a % of the CTC. Inside the CTC (the "CTC includes variable pay" box) or on top of it;
+// either way the monthly payroll pays the fixed salary only
 interface VariablePay {
   name: string;
   targetAmount: number;
   frequency: string;
   payoutBasis: string;
+  // PERCENTAGE_OF_CTC: the % of the yearly CTC
+  percentage?: number;
 }
 
 const VARIABLE_FREQUENCIES = [
@@ -144,10 +148,17 @@ const VARIABLE_FREQUENCIES = [
   { value: "AD_HOC", label: "Ad hoc" },
 ];
 const VARIABLE_BASES = [
-  { value: "FIXED_AMOUNT", label: "Fixed amount" },
-  { value: "PERCENTAGE_OF_BASIC", label: "% of basic" },
-  { value: "KPI_LINKED", label: "Linked to targets / KPIs" },
+  { value: "FIXED_AMOUNT", label: "Flat amount" },
+  { value: "PERCENTAGE_OF_CTC", label: "% of CTC" },
 ];
+// Kinds saved before (shown on salaries that have them; new lines use the two above)
+const OLDER_VARIABLE_BASES: Record<string, string> = { PERCENTAGE_OF_BASIC: "% of basic", KPI_LINKED: "Linked to targets / KPIs" };
+
+/** A variable pay line's yearly amount: as entered, or its % of the CTC. */
+const variableAmount = (row: VariablePay, ctc: number) =>
+  row.payoutBasis === "PERCENTAGE_OF_CTC"
+    ? Math.round(ctc * (Number(row.percentage) || 0)) / 100
+    : Number(row.targetAmount) || 0;
 
 interface Role {
   id: number;
@@ -170,16 +181,22 @@ enum UserType {
 
 const customClassNames = {
   control: (state: any) =>
-    `!min-h-[42px] !rounded-lg !border !bg-white !transition-all ${
+    // 32px like every text field (the global field style), so a dropdown and a text box line up in a row
+    `!min-h-[32px] !h-8 !rounded-lg !border !bg-white !text-sm !transition-all ${
       state.isFocused
         ? '!border-cyan-500 !shadow-[0_0_0_2px_rgb(var(--brand-500,6_182_212)/0.2)]'
         : '!border-gray-300 hover:!border-cyan-500'
     } ${state.isDisabled ? '!bg-gray-100' : ''}`,
-  valueContainer: () => '!px-3',
-  input: () => '!m-0 !p-0',
-  placeholder: () => '!m-0 !text-gray-500',
+  valueContainer: () => '!px-[10px] !py-0',
+  indicatorsContainer: () => '!h-full',
+  dropdownIndicator: () => '!px-2 !py-0',
+  clearIndicator: () => '!px-1 !py-0',
+  indicatorSeparator: () => '!hidden',
+  input: () => '!m-0 !p-0 !text-sm !text-gray-900',
+  singleValue: () => '!m-0 !text-sm !text-gray-900',
+  placeholder: () => '!m-0 !text-sm !text-gray-500',
   option: (state: any) =>
-    `!cursor-pointer !px-4 !py-2 ${
+    `!cursor-pointer !px-4 !py-2 !text-sm ${
       state.isSelected
         ? '!bg-cyan-500 !text-white'
         : state.isFocused
@@ -189,6 +206,9 @@ const customClassNames = {
   menu: () => '!mt-1 !overflow-hidden !rounded-lg !border !border-gray-200 !bg-white !shadow-lg !z-50',
   menuList: () => '!p-0',
 };
+
+// Salary components may differ from the yearly CTC by this much (₹1 a month of rounding)
+const CTC_ROUNDING = 12;
 
 const AddEmployeePage: React.FC = () => {
   const [geoData, setGeoData] = useState<GeoData>(NO_GEO_DATA);
@@ -260,6 +280,8 @@ const AddEmployeePage: React.FC = () => {
     ifscCode: "",
     branch: "Main",
     isActive: true,
+    // Saved part-filled with "Save as draft" (from the server when a draft is opened)
+    draft: false,
     taxRegime: "New Regime",
     esiApplicable: false,
     metroCity: false,
@@ -302,6 +324,8 @@ const AddEmployeePage: React.FC = () => {
       earnings: [] as Earning[],
       additionalBenefits: [] as AdditionalBenefit[],
       variablePay: [] as VariablePay[],
+      // The CTC includes the variable pay: the fixed salary is the CTC less the variable pay
+      variablePayInCtc: false,
     },
   });
 
@@ -500,8 +524,10 @@ const AddEmployeePage: React.FC = () => {
               targetAmount: Number(v?.targetAmount) || 0,
               frequency: v?.frequency || "ANNUAL",
               payoutBasis: v?.payoutBasis || "FIXED_AMOUNT",
+              percentage: Number(v?.percentage) || 0,
             }))
           : [];
+        employeeData.salary.variablePayInCtc = !!employeeData.salary.variablePayInCtc;
       }
 
       // Map nested countrySpecificData (PAN, Aadhaar) to root level
@@ -513,7 +539,10 @@ const AddEmployeePage: React.FC = () => {
         employeeData.panNumber = "";
         employeeData.aadhaarNumber = "";
       }
-      employeeData.countryCode = (employeeData.countryCode || "IN").toUpperCase();
+      // Saved before the payroll country was stored: the home country when payroll can pay there, else the company's
+      const homeCountry = String(employeeData.permanentAddress?.country?.code || "").toUpperCase();
+      employeeData.countryCode = (employeeData.countryCode
+        || (PAYROLL_COUNTRIES.some((c) => c.code === homeCountry) ? homeCountry : defaultPayrollCountry())).toUpperCase();
       employeeData.gulf = gulfFromCountryData(employeeData.countrySpecificData);
 
       // Map nested salary.countrySpecificData (PF, UAN, ESI, Metrocity, taxRegime) to root level
@@ -566,7 +595,8 @@ const AddEmployeePage: React.FC = () => {
       current[keys[keys.length - 1]] = value;
       return updated;
     });
-    setErrors((prev) => ({ ...prev, [path]: "" }));
+    // Any salary change can fix the CTC balance, so its message goes too (checked again on Next / Save)
+    setErrors((prev) => ({ ...prev, [path]: "", ...(path.startsWith("salary.") ? { "salary.ctc": "" } : {}) }));
   };
 
   const handleEarningChange = (index: number, field: "name" | "amount", value: string | number) => {
@@ -626,7 +656,7 @@ const AddEmployeePage: React.FC = () => {
   const variablePayRows: VariablePay[] = form.salary.variablePay ?? [];
   const handleVariablePayChange = (index: number, field: keyof VariablePay, value: string | number) => {
     const rows = [...variablePayRows];
-    rows[index] = { ...rows[index], [field]: field === "targetAmount" ? Number(value) || 0 : value };
+    rows[index] = { ...rows[index], [field]: field === "targetAmount" || field === "percentage" ? Number(value) || 0 : value };
     handleChange("salary.variablePay", rows);
   };
   const addVariablePay = () =>
@@ -641,6 +671,12 @@ const AddEmployeePage: React.FC = () => {
   const handleCountryChange = (addressType: "permanentAddress" | "currentAddress", country: any) => {
     handleChange(`${addressType}.country`, country);
     handleChange(`${addressType}.state`, "");
+    // The home country is where the employee is usually paid: a UAE address makes UAE the payroll country
+    // (it can still be changed on the Bank & Salary step), instead of leaving the company default (India)
+    const code = String(country?.code || "").toUpperCase();
+    if (addressType === "permanentAddress" && PAYROLL_COUNTRIES.some((c) => c.code === code)) {
+      changePayrollCountry(code);
+    }
   };
 
   const handleDepartmentChange = (deptId: number) => {
@@ -724,13 +760,23 @@ const AddEmployeePage: React.FC = () => {
           }
         }
         if (!(Number(form.salary.ctc) > 0)) newErrors["salary.ctc"] = "Enter the yearly CTC";
+        else if (variableInCtc && fixedCtc <= 0) newErrors["salary.variablePay"] = "The variable pay must be less than the CTC it is part of";
+        // The components must add up to the CTC (12 a year either way is rounding), as the service checks on save
+        else if (unallocated != null && Math.abs(unallocated) > CTC_ROUNDING) {
+          newErrors["salary.ctc"] = unallocated > 0
+            ? `${money(unallocated)} of the ${splitBase} is not in any component, so it would never be paid. Add it as Special Allowance or lower the CTC.`
+            : `The components are ${money(-unallocated)} over the ${splitBase}${variableInCtc ? " (CTC less variable pay)" : ""}. ${canTakeOffSpecial ? "Take it off Special Allowance, or lower" : "Lower"} a component or raise the CTC.`;
+        }
         {
           const names = new Set<string>();
           (form.salary.variablePay ?? []).forEach((row: VariablePay) => {
             const name = row.name.trim().toLowerCase();
             if (!name) newErrors["salary.variablePay"] = "Give each variable pay component a name";
             else if (names.has(name)) newErrors["salary.variablePay"] = `${row.name.trim()} is listed twice`;
-            else if (!(row.targetAmount > 0)) newErrors["salary.variablePay"] = `Enter the yearly target for ${row.name.trim()}`;
+            else if (row.payoutBasis === "PERCENTAGE_OF_CTC" && !(Number(row.percentage) > 0 && Number(row.percentage) < 100)) {
+              newErrors["salary.variablePay"] = `Enter the % of the CTC for ${row.name.trim()} (more than 0, less than 100)`;
+            }
+            else if (!(variableAmount(row, Number(form.salary.ctc) || 0) > 0)) newErrors["salary.variablePay"] = `Enter the yearly target for ${row.name.trim()}`;
             names.add(name);
           });
         }
@@ -753,11 +799,29 @@ const AddEmployeePage: React.FC = () => {
     return created.id;
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep(currentStep)) return;
+  // A new employee, or a draft being completed: saving in full makes them active and gives them a login
+  const canSaveDraft = !editId || !!form.draft;
+
+  /**
+   * Saves the employee. As a draft only the first name is needed and nothing else is checked here: the employee
+   * stays inactive, with no login and no pay, until saved in full (Create Employee).
+   */
+  const handleSubmit = async (asDraft = false) => {
+    if (asDraft) {
+      if (!(form.firstName || "").trim()) {
+        setErrors((prev) => ({ ...prev, firstName: "Enter the first name to save a draft" }));
+        setCurrentStep(1);
+        ToasterService.warning("Enter the first name to save a draft");
+        return;
+      }
+    } else if (!validateStep(currentStep)) {
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const departmentId = await resolveDepartmentId();
+      const departmentId = asDraft && isOtherDepartment && !customDepartment.trim()
+        ? 0
+        : await resolveDepartmentId();
       // Convert earnings array to object
       const earningsObject: Record<string, number> = {};
       form.salary.earnings.forEach((earning) => {
@@ -773,10 +837,15 @@ const AddEmployeePage: React.FC = () => {
           additionalBenefitsObject[benefit.name] = benefit.amount;
         }
       });
-      const variablePayObject: Record<string, { targetAmount: number; frequency: string; payoutBasis: string; taxable: boolean }> = {};
+      const variablePayObject: Record<string, { targetAmount: number; frequency: string; payoutBasis: string; percentage?: number; taxable: boolean }> = {};
       (form.salary.variablePay ?? []).forEach((row: VariablePay) => {
-        if (row.name.trim() && row.targetAmount > 0) {
-          variablePayObject[row.name.trim()] = { targetAmount: row.targetAmount, frequency: row.frequency, payoutBasis: row.payoutBasis, taxable: true };
+        const amount = variableAmount(row, Number(form.salary.ctc) || 0);
+        if (row.name.trim() && amount > 0) {
+          // A % of CTC line is worked out again by the service from the CTC it saves
+          variablePayObject[row.name.trim()] = {
+            targetAmount: amount, frequency: row.frequency, payoutBasis: row.payoutBasis, taxable: true,
+            ...(row.payoutBasis === "PERCENTAGE_OF_CTC" ? { percentage: Number(row.percentage) } : {}),
+          };
         }
       });
       // The service numbers the employee per department and creates the login (signed in with the official email)
@@ -796,14 +865,17 @@ const AddEmployeePage: React.FC = () => {
         joiningDate: toApiDate(form.joiningDate),
         designation: form.designation,
         exitDate: toApiDate(form.exitDate),
-        // Paid to the IBAN in the Gulf when no separate account number is given
-        bankAccountNumber: form.bankAccountNumber || (isGcc(form.countryCode) ? form.gulf.iban.replace(/\s+/g, "").toUpperCase() : ""),
+        // Paid to the IBAN in the Gulf (the form asks for no separate account number there)
+        bankAccountNumber: isGcc(form.countryCode)
+          ? (form.gulf.iban.replace(/\s+/g, "").toUpperCase() || form.bankAccountNumber || "")
+          : form.bankAccountNumber,
         bankName: form.bankName,
         ifscCode: form.ifscCode,
         branch: form.branch,
         countryCode: form.countryCode,
         userType: form.userType,
-        department: { id: departmentId },
+        department: departmentId > 0 ? { id: departmentId } : null,
+        draft: asDraft,
         // No role keeps the login's current role (a new login gets none until one is assigned)
         role: form.role || null,
         userDetails: {
@@ -831,9 +903,9 @@ const AddEmployeePage: React.FC = () => {
           country: form.currentAddress.country?.label || form.currentAddress.country,
           postalCode: form.currentAddress.postalCode,
         },
+        // PAN and Aadhaar are Indian IDs: not sent for an employee paid elsewhere
         countrySpecificData: {
-          pan: form.panNumber,
-          aadhaar: form.aadhaarNumber,
+          ...(form.countryCode === "IN" ? { pan: form.panNumber, aadhaar: form.aadhaarNumber } : {}),
           ...gulfToCountryData(form.countryCode, form.gulf),
         },
       };
@@ -853,16 +925,37 @@ const AddEmployeePage: React.FC = () => {
         earnings: earningsObject,
         additionalBenefits: additionalBenefitsObject,
         variablePay: variablePayObject,
+        variablePayInCtc: !!form.salary.variablePayInCtc && Object.keys(variablePayObject).length > 0,
       };
 
       // Checked first, so a designation without pay components stops before anything is saved
-      const check = await axios.get(`${SALARY_API_URL}/check-designation`, { params: { designation: form.designation } });
-      const designation = check.data.designation;
+      // A draft's designation is checked when it is saved in full
+      const designation = asDraft
+        ? form.designation
+        : (await axios.get(`${SALARY_API_URL}/check-designation`, { params: { designation: form.designation } })).data.designation;
       const employeeBody = { ...submitData, designation };
 
       const created = editId ? null : (await axios.post(`${EMPLOYEE_API_URL}/create`, employeeBody)).data;
       if (editId) await axios.put(`${EMPLOYEE_API_URL}/update/${editId}`, employeeBody);
       const employeeId = editId ?? created.id;
+
+      if (asDraft) {
+        // The pay so far is kept when there is one to keep; a draft is never paid, so a problem here waits
+        if ((form.designation || "").trim() && Number(form.salary.ctc) > 0) {
+          try {
+            await axios.put(`${SALARY_API_URL}/employee/${employeeId}`, { designation, salary: salaryData });
+          } catch {
+            ToasterService.warning("Draft saved without the salary", "The salary is checked when the employee is saved in full.");
+            if (!editId) navigate(`/addEmployee?editId=${employeeId}`, { replace: true });
+            return;
+          }
+        }
+        ToasterService.success("Draft saved", "Not active yet: no login and no pay until you save the employee in full.");
+        // Saving the draft again updates it instead of adding another
+        if (!editId) navigate(`/addEmployee?editId=${employeeId}`, { replace: true });
+        else handleChange("draft", true);
+        return;
+      }
 
       // Salaries belong to payroll. The employee is already saved here, so say so if only this part fails
       try {
@@ -882,7 +975,8 @@ const AddEmployeePage: React.FC = () => {
           `They sign in as ${created.userDto?.username ?? form.officialEmail.toLowerCase()}`
         );
       } else {
-        ToasterService.success("Employee updated");
+        ToasterService.success(form.draft ? "Employee added" : "Employee updated",
+          form.draft ? "The draft is now an active employee with a login." : undefined);
       }
       navigate(-1);
     } catch (error) {
@@ -981,14 +1075,16 @@ const AddEmployeePage: React.FC = () => {
   const totalBenefits = form.salary.additionalBenefits.reduce((sum, b) => sum + b.amount, 0);
   // const totalCTC = totalEarnings + totalBenefits;
   const totalCTC = Number(form.salary.ctc) || 0;
-  // Variable pay sits on top of the fixed CTC (shown, not paid by payroll)
-  const totalVariable = (form.salary.variablePay ?? []).reduce((sum: number, row: VariablePay) => sum + (Number(row.targetAmount) || 0), 0);
+  // Variable pay: inside the CTC (the fixed salary is what is left) or on top of it; payroll pays the fixed salary
+  const totalVariable = (form.salary.variablePay ?? []).reduce((sum: number, row: VariablePay) => sum + variableAmount(row, totalCTC), 0);
+  const variableInCtc = !!form.salary.variablePayInCtc && totalVariable > 0;
+  const fixedCtc = variableInCtc ? Math.round((totalCTC - totalVariable) * 100) / 100 : totalCTC;
 
   // What the service will store for the designation: basic = CTC × basic %, HRA = basic × hra %
   const components = payComponents.find((c) => c.employeeRole === form.designation)?.componentDetails;
   const basicPercent = percentOf(components, "basic");
   const hraPercent = percentOf(components, "hra");
-  const basicAmount = basicPercent != null ? Math.round(totalCTC * basicPercent) / 100 : null;
+  const basicAmount = basicPercent != null ? Math.round(fixedCtc * basicPercent) / 100 : null;
   const hraAmount = basicAmount != null && hraPercent != null ? Math.round(basicAmount * hraPercent) / 100 : null;
   // India: when the company counts employer PF inside the CTC, the split leaves room for it (unless the
   // salary already lists an employer PF line); on top of the CTC, nothing is held back
@@ -1001,7 +1097,7 @@ const AddEmployeePage: React.FC = () => {
   // Monthly pay is (basic + HRA + earnings) / 12, so CTC left outside them is never paid
   const unallocated =
     basicAmount != null && hraAmount != null
-      ? Math.round((totalCTC - basicAmount - hraAmount - totalEarnings - totalBenefits - employerPfInCtc) * 100) / 100
+      ? Math.round((fixedCtc - basicAmount - hraAmount - totalEarnings - totalBenefits - employerPfInCtc) * 100) / 100
       : null;
   // Only designations with pay components can be chosen: the service splits the salary by them
   const designationOptions = payComponents.map((c) => c.employeeRole).sort((a, b) => a.localeCompare(b));
@@ -1011,14 +1107,27 @@ const AddEmployeePage: React.FC = () => {
   const roleOptions = allRoles.map((r) => ({ name: r.roleName, grantable: r.grantable !== false }));
   if (form.role && !roleOptions.some((r) => r.name === form.role)) roleOptions.unshift({ name: form.role, grantable: true });
 
+  // Special Allowance balances the split: CTC left over goes into it, an excess comes off it (e.g. after the CTC
+  // starts to include variable pay, Basic, HRA and PF shrink but a saved Special Allowance doesn't)
+  const specialIndex = form.salary.earnings.findIndex((e) => e.name === "Special Allowance");
+  const specialAllowance = specialIndex >= 0 ? Number(form.salary.earnings[specialIndex].amount) || 0 : 0;
+  const canTakeOffSpecial = unallocated != null && unallocated < 0 && specialAllowance + unallocated >= 0;
   const addUnallocatedAsSpecialAllowance = () => {
-    if (!unallocated || unallocated <= 0) return;
-    const existing = form.salary.earnings.findIndex((e) => e.name === "Special Allowance");
+    if (!unallocated) return;
     const earnings = [...form.salary.earnings];
-    if (existing >= 0) earnings[existing] = { ...earnings[existing], amount: earnings[existing].amount + unallocated };
-    else earnings.push({ name: "Special Allowance", amount: unallocated });
+    if (unallocated > 0) {
+      if (specialIndex >= 0) earnings[specialIndex] = { ...earnings[specialIndex], amount: Math.round((specialAllowance + unallocated) * 100) / 100 };
+      else earnings.push({ name: "Special Allowance", amount: unallocated });
+    } else {
+      if (!canTakeOffSpecial) return;
+      const left = Math.round((specialAllowance + unallocated) * 100) / 100;
+      if (left > 0) earnings[specialIndex] = { ...earnings[specialIndex], amount: left };
+      else earnings.splice(specialIndex, 1);
+    }
     handleChange("salary.earnings", earnings);
   };
+  // What the components have to add up to: the fixed salary when the CTC includes variable pay
+  const splitBase = variableInCtc ? "fixed salary" : "CTC";
   const money = (value: number) => `${currencySymbol} ${formatNumber(value, 2)}`;
 
 
@@ -1805,9 +1914,11 @@ const AddEmployeePage: React.FC = () => {
                         />
                         <ErrorMessage message={errors.bankName} />
                       </div>
+                      {/* In the Gulf the salary goes to the IBAN (entered with the Gulf details), so no account number */}
+                      {!isGcc(form.countryCode) && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          {t("Account Number")} {!isGcc(form.countryCode) && <span className="text-red-500">*</span>}
+                          {t("Account Number")} <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -1818,6 +1929,7 @@ const AddEmployeePage: React.FC = () => {
                         />
                         <ErrorMessage message={errors.bankAccountNumber} />
                       </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2033,26 +2145,42 @@ const AddEmployeePage: React.FC = () => {
                           </p>
                         ) : (
                           <div className="space-y-1">
-                            <div className="flex justify-between"><span className="text-gray-600">Basic ({basicPercent}% of CTC)</span><span className="font-medium text-gray-900">{money(basicAmount)}</span></div>
+                            {variableInCtc && (
+                              <div className="space-y-1 border-b border-gray-200 pb-1">
+                                <div className="flex justify-between"><span className="text-gray-600">{t("Fixed salary")}</span><span className="font-medium text-gray-900">{money(fixedCtc)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">{t("Variable salary")}</span><span className="font-medium text-gray-900">{money(totalVariable)}</span></div>
+                              </div>
+                            )}
+                            <div className="flex justify-between"><span className="text-gray-600">Basic ({basicPercent}% of {splitBase})</span><span className="font-medium text-gray-900">{money(basicAmount)}</span></div>
                             <div className="flex justify-between"><span className="text-gray-600">HRA ({hraPercent}% of basic)</span><span className="font-medium text-gray-900">{money(hraAmount)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">{t("Earnings below")}</span><span className="font-medium text-gray-900">{money(totalEarnings)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">{t("Benefits below")}</span><span className="font-medium text-gray-900">{money(totalBenefits)}</span></div>
+                            {/* Each earning and benefit by its own name (Special Allowance, Group insurance...) */}
+                            {form.salary.earnings.filter((e) => e.name?.trim() && Number(e.amount) > 0).map((e, i) => (
+                              <div key={`earning-${i}`} className="flex justify-between"><span className="text-gray-600">{e.name}</span><span className="font-medium text-gray-900">{money(Number(e.amount))}</span></div>
+                            ))}
+                            {form.salary.additionalBenefits.filter((b) => b.name?.trim() && Number(b.amount) > 0).map((b, i) => (
+                              <div key={`benefit-${i}`} className="flex justify-between"><span className="text-gray-600">{b.name} <span className="text-[11px] text-gray-400">({t("benefit")})</span></span><span className="font-medium text-gray-900">{money(Number(b.amount))}</span></div>
+                            ))}
                             {employerPfInCtc > 0 && (
                               <div className="flex justify-between"><span className="text-gray-600">{t("Employer PF (in the CTC, not paid out)")}</span><span className="font-medium text-gray-900">{money(employerPfInCtc)}</span></div>
                             )}
                             {employerPfOnTop > 0 && (
                               <div className="flex justify-between border-t border-gray-200 pt-1"><span className="text-gray-600">{t("Employer PF (on top of the CTC)")}</span><span className="font-medium text-gray-900">+ {money(employerPfOnTop)}</span></div>
                             )}
-                            {unallocated != null && totalCTC > 0 && unallocated !== 0 && (
+                            {unallocated != null && totalCTC > 0 && Math.abs(unallocated) > CTC_ROUNDING && (
                               <div className={`flex items-center justify-between gap-2 border-t border-gray-200 pt-1 ${unallocated > 0 ? "text-amber-700" : "text-red-600"}`}>
                                 <span>
                                   {unallocated > 0
-                                    ? `${money(unallocated)} of the CTC is not paid out yet`
-                                    : `Over the CTC by ${money(-unallocated)}`}
+                                    ? `${money(unallocated)} of the ${splitBase} is not paid out yet`
+                                    : `Over the ${splitBase} by ${money(-unallocated)}`}
                                 </span>
                                 {unallocated > 0 && (
                                   <button type="button" onClick={addUnallocatedAsSpecialAllowance} className="shrink-0 text-cyan-700 hover:underline">
                                     {t("Add as Special Allowance")}
+                                  </button>
+                                )}
+                                {canTakeOffSpecial && (
+                                  <button type="button" onClick={addUnallocatedAsSpecialAllowance} className="shrink-0 text-cyan-700 hover:underline">
+                                    {t("Take it off Special Allowance")}
                                   </button>
                                 )}
                               </div>
@@ -2161,7 +2289,7 @@ const AddEmployeePage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Variable Pay: part of the CTC on top of the fixed CTC; payroll runs do not pay it */}
+                  {/* Variable Pay: a flat amount or a % of the CTC, inside the CTC or on top of it; payroll pays the fixed salary */}
                   <div className="space-y-4 pt-6 border-t border-gray-100">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-1">
                       <div className="flex items-center gap-2">
@@ -2174,15 +2302,28 @@ const AddEmployeePage: React.FC = () => {
                       </button>
                     </div>
                     <p className="text-[11px] text-gray-500">
-                      {t("Yearly targets such as commission or a performance bonus. They are shown in the CTC on top of the fixed CTC above, but are not paid through payroll runs.")}
+                      {t("Yearly targets such as commission or a performance bonus: a flat amount or a % of the CTC. The monthly payroll pays the fixed salary; variable pay is paid when it is earned.")}
                     </p>
+                    <label className="flex items-start gap-2 text-sm text-gray-700">
+                      <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                        checked={!!form.salary.variablePayInCtc}
+                        onChange={(e) => handleChange("salary.variablePayInCtc", e.target.checked)} />
+                      <span>
+                        {t("The CTC above includes the variable pay")}
+                        <span className="block text-[11px] text-gray-500">
+                          {form.salary.variablePayInCtc
+                            ? t("Fixed salary = CTC less variable pay. Basic, HRA and the monthly pay are worked out from the fixed salary.")
+                            : t("Variable pay is on top of the CTC. Basic, HRA and the monthly pay are worked out from the full CTC.")}
+                        </span>
+                      </span>
+                    </label>
 
                     {variablePayRows.length === 0 ? (
                       <div className="text-center py-4 text-gray-500 text-sm">{t("No variable pay added.")}</div>
                     ) : (
                       <div className="space-y-3">
                         {variablePayRows.map((row, idx) => (
-                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-2 items-center">
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr_1.2fr_auto] gap-2 items-start">
                             <input
                               type="text"
                               value={row.name}
@@ -2191,18 +2332,38 @@ const AddEmployeePage: React.FC = () => {
                               aria-label={t("Variable pay component")}
                               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                             />
-                            <div className="relative">
-                              <span className="absolute left-3 top-2.5 text-gray-500 text-sm">{currencySymbol}</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={row.targetAmount === 0 ? "" : row.targetAmount}
-                                onChange={(e) => handleVariablePayChange(idx, "targetAmount", e.target.value)}
-                                placeholder={t("Yearly target")}
-                                aria-label={t("Yearly target")}
-                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                              />
-                            </div>
+                            {row.payoutBasis === "PERCENTAGE_OF_CTC" ? (
+                              <div>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={99.99}
+                                    step="0.01"
+                                    value={!row.percentage ? "" : row.percentage}
+                                    onChange={(e) => handleVariablePayChange(idx, "percentage", e.target.value)}
+                                    placeholder={t("% of CTC")}
+                                    aria-label={t("% of CTC")}
+                                    className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                                  />
+                                  <span className="absolute right-3 top-2 text-gray-500 text-sm">%</span>
+                                </div>
+                                <span className="mt-0.5 block text-[11px] text-gray-500">= {money(variableAmount(row, totalCTC))} {t("a year")}</span>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <span className="absolute left-3 top-2.5 text-gray-500 text-sm">{currencySymbol}</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={row.targetAmount === 0 ? "" : row.targetAmount}
+                                  onChange={(e) => handleVariablePayChange(idx, "targetAmount", e.target.value)}
+                                  placeholder={t("Yearly amount")}
+                                  aria-label={t("Yearly amount")}
+                                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                                />
+                              </div>
+                            )}
                             <select
                               value={row.frequency}
                               onChange={(e) => handleVariablePayChange(idx, "frequency", e.target.value)}
@@ -2217,7 +2378,8 @@ const AddEmployeePage: React.FC = () => {
                               aria-label={t("Payout basis")}
                               className="w-full px-2.5 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500"
                             >
-                              {VARIABLE_BASES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+                              {VARIABLE_BASES.map((b) => <option key={b.value} value={b.value}>{t(b.label)}</option>)}
+                              {OLDER_VARIABLE_BASES[row.payoutBasis] && <option value={row.payoutBasis}>{t(OLDER_VARIABLE_BASES[row.payoutBasis])}</option>}
                             </select>
                             <button type="button" onClick={() => removeVariablePay(idx)} className="p-2 text-red-500 hover:text-red-700 w-fit" title={t("Remove")}>
                               <TrashIcon className="h-4 w-4" />
@@ -2225,9 +2387,22 @@ const AddEmployeePage: React.FC = () => {
                           </div>
                         ))}
                         <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 text-xs text-gray-600">
-                          <span>{t("Variable target:")} <b className="text-gray-900">{money(totalVariable)}</b></span>
-                          <span>{t("CTC incl. variable:")} <b className="text-gray-900">{money(totalCTC + totalVariable)}</b></span>
+                          {variableInCtc ? (
+                            <>
+                              <span>{t("Fixed salary:")} <b className="text-gray-900">{money(fixedCtc)}</b></span>
+                              <span>{t("Variable pay:")} <b className="text-gray-900">{money(totalVariable)}</b></span>
+                              <span>{t("Total CTC:")} <b className="text-gray-900">{money(totalCTC)}</b></span>
+                            </>
+                          ) : (
+                            <>
+                              <span>{t("Variable pay:")} <b className="text-gray-900">{money(totalVariable)}</b></span>
+                              <span>{t("CTC incl. variable:")} <b className="text-gray-900">{money(totalCTC + totalVariable)}</b></span>
+                            </>
+                          )}
                         </div>
+                        {variableInCtc && fixedCtc <= 0 && (
+                          <p className="text-xs text-red-600">{t("The variable pay is as much as the CTC: the fixed salary has to be more than zero.")}</p>
+                        )}
                       </div>
                     )}
                     <ErrorMessage message={errors["salary.variablePay"]} />
@@ -2321,12 +2496,12 @@ const AddEmployeePage: React.FC = () => {
                           <div className="text-gray-500">{t("Bank")}</div>
                           <div className="text-gray-900">{form.bankName}</div>
                         </div>
-                        <div className="text-sm break-all">
-                          <div className="text-gray-500">{t("Account Number")}</div>
-                          <div className="text-gray-900">
-                            {form.bankAccountNumber || (isGcc(form.countryCode) ? t("Paid to the IBAN") : "")}
+                        {!isGcc(form.countryCode) && (
+                          <div className="text-sm break-all">
+                            <div className="text-gray-500">{t("Account Number")}</div>
+                            <div className="text-gray-900">{form.bankAccountNumber}</div>
                           </div>
-                        </div>
+                        )}
                         {isIndia && form.ifscCode && (
                           <div className="text-sm">
                             <div className="text-gray-500">{t("IFSC")}</div>
@@ -2390,19 +2565,28 @@ const AddEmployeePage: React.FC = () => {
                         )}
                         {variablePayRows.length > 0 && (
                           <div className="text-sm">
-                            <div className="text-gray-500 mb-1">Variable Pay (yearly target, not paid by payroll):</div>
+                            <div className="text-gray-500 mb-1">
+                              {variableInCtc ? t("Variable Pay (yearly, inside the CTC; paid separately):") : t("Variable Pay (yearly, on top of the CTC; paid separately):")}
+                            </div>
                             {variablePayRows.map((row, idx) => (
                               <div key={idx} className="flex justify-between text-xs">
                                 <span>
                                   {row.name || "—"} · {VARIABLE_FREQUENCIES.find((f) => f.value === row.frequency)?.label ?? row.frequency}
                                 </span>
-                                <span>{money(row.targetAmount)}</span>
+                                <span>{money(variableAmount(row, totalCTC))}{row.payoutBasis === "PERCENTAGE_OF_CTC" ? ` (${row.percentage}%)` : ""}</span>
                               </div>
                             ))}
-                            <div className="mt-1 flex justify-between border-t border-gray-100 pt-1 text-xs font-semibold">
-                              <span>{t("CTC incl. variable")}</span>
-                              <span>{money(totalCTC + totalVariable)}</span>
-                            </div>
+                            {variableInCtc ? (
+                              <div className="mt-1 space-y-0.5 border-t border-gray-100 pt-1 text-xs">
+                                <div className="flex justify-between"><span>{t("Fixed salary (paid monthly)")}</span><span>{money(fixedCtc)}</span></div>
+                                <div className="flex justify-between font-semibold"><span>{t("Total CTC")}</span><span>{money(totalCTC)}</span></div>
+                              </div>
+                            ) : (
+                              <div className="mt-1 flex justify-between border-t border-gray-100 pt-1 text-xs font-semibold">
+                                <span>{t("CTC incl. variable")}</span>
+                                <span>{money(totalCTC + totalVariable)}</span>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -2484,6 +2668,30 @@ const AddEmployeePage: React.FC = () => {
             {t("Previous")}
           </button>
 
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+          {/* Leaves without saving, like Cancel at the top (on every step, adding or editing) */}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-[#222222] disabled:opacity-50 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center cursor-pointer"
+            data-testid="cancel-bottom"
+          >
+            {t("Cancel")}
+          </button>
+          {canSaveDraft && (
+            <button
+              type="button"
+              onClick={() => handleSubmit(true)}
+              disabled={isSubmitting}
+              title={t("Save what is filled so far; the employee stays inactive, with no login, until saved in full")}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-gray-700 rounded-lg hover:bg-cyan-50 dark:hover:bg-[#222222] disabled:opacity-50 disabled:cursor-not-allowed transition w-full sm:w-auto justify-center cursor-pointer"
+              data-testid="save-draft"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {t("Save as Draft")}
+            </button>
+          )}
           {currentStep < 5 ? (
             <button
               onClick={nextStep}
@@ -2494,7 +2702,7 @@ const AddEmployeePage: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               disabled={isSubmitting}
               className="px-5 py-1.5 bg-cyan-600 !text-white text-xs font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-2xs cursor-pointer"
             >
@@ -2504,10 +2712,11 @@ const AddEmployeePage: React.FC = () => {
                   Processing...
                 </>
               ) : (
-                editId ? "Update Employee" : "Create Employee"
+                editId && !form.draft ? "Update Employee" : "Create Employee"
               )}
             </button>
           )}
+          </div>
         </div>
       </div>
 
