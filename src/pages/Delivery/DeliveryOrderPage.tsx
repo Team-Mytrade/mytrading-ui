@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -11,12 +12,10 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import {
   FloatingInput,
   FloatingTextarea,
-  FloatingSelect1 as FloatingSelect,
-} from "../../components/inputfeild/FloatingInput";
+  FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 
-import { MagnifyingGlassIcon, UserIcon, CalendarIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { UserIcon, CalendarIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import {
-  FunnelIcon,
   PackageIcon,
   ClipboardListIcon,
   TruckIcon,
@@ -24,10 +23,8 @@ import {
   PencilIcon,
   TrashIcon,
   PlusIcon,
-  RefreshCwIcon,
   MapPinIcon,
-  ArrowRightLeftIcon,
-} from "lucide-react";
+  ArrowRightLeftIcon } from "lucide-react";
 import { todayIso } from "../../utils/localDate";
 import {
   DELIVERY_API,
@@ -42,8 +39,7 @@ import {
   formatDateTime,
   nextStatuses,
   statusConfig,
-  useDeliveryLookups,
-} from "./deliveryShared";
+  useDeliveryLookups } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
@@ -125,7 +121,8 @@ const DeliveryOrderPage: React.FC = () => {
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it against names too
+  const search = useToolbarSearch();
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
@@ -535,32 +532,10 @@ const DeliveryOrderPage: React.FC = () => {
           <StatsCard label={t("In Transit")} value={stats.inTransit} gradient="from-purple-50 to-violet-50" borderColor="border-purple-100" labelColor="text-purple-600" />
           <StatsCard label={t("Delivered")} value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
           <StatsCard label={t("Returned")} value={stats.returned} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
-          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600"
+            onRefresh={fetchOrders} onFilter={() => setShowFilters((open) => !open)} />
         </div>
 
-        {/* SEARCH & FILTERS */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                placeholder={t("Search by order no, customer, vehicle or sales order...")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={fetchOrders} className="p-2 border rounded-lg hover:bg-gray-50" title={t("Refresh")}>
-              <RefreshCwIcon className={`h-5 w-5 text-gray-600 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            <button onClick={() => setShowFilters(!showFilters)} className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-              <FunnelIcon className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-600">{t("Filters")}</span>
-            </button>
-          </div>
-        </div>
 
         {showFilters && (
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -605,6 +580,7 @@ const DeliveryOrderPage: React.FC = () => {
         {/* TABLE */}
         <ReusableTable<DeliveryOrder>
           data={filteredOrders}
+          externalSearch
           columns={tableColumns}
           pageSize={PAGE_SIZE}
           defaultSortKey="createdDate"

@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -11,14 +12,10 @@ import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { FloatingInput } from "../../components/inputfeild/FloatingInput";
 
 import {
-  MagnifyingGlassIcon,
   BuildingOfficeIcon,
   TruckIcon as TruckSolidIcon,
-  XMarkIcon,
-
-} from "@heroicons/react/24/solid";
+  XMarkIcon } from "@heroicons/react/24/solid";
 import {
-  FunnelIcon,
   TruckIcon,
   EyeIcon,
   PencilIcon,
@@ -30,8 +27,7 @@ import {
   MapPinIcon,
   ListChecksIcon,
   XCircleIcon,
-  ArrowRightLeftIcon,
-} from "lucide-react";
+  ArrowRightLeftIcon } from "lucide-react";
 import { todayIso } from "../../utils/localDate";
 import { apiError, useDeliveryLookups } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
@@ -146,7 +142,8 @@ const Shipment: React.FC = () => {
   const { canCreate, canDelete, canUpdate } = usePermissions();
   const lookups = useDeliveryLookups(["products"]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [search, setSearch] = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -664,7 +661,7 @@ const Shipment: React.FC = () => {
             borderColor="border-blue-100"
             labelColor="text-blue-600"
           />
-          <StatsCard
+          <StatsCard onRefresh={fetchShipments} onFilter={() => setShowFilters((open) => !open)}
             label={t("Delivered")}
             value={stats.delivered}
             gradient="from-green-50 to-emerald-50"
@@ -673,28 +670,7 @@ const Shipment: React.FC = () => {
           />
         </div>
 
-        {/* SEARCH & FILTERS */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                placeholder={t("Search by shipment no, tracking, carrier, or ID...")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"
-          >
-            <FunnelIcon className="h-5 w-5 text-gray-600" />
-            <span className="text-sm text-gray-600">{t("Filters")}</span>
-          </button>
-        </div>
+        
 
         {/* FILTERS */}
         {showFilters && (
@@ -732,6 +708,7 @@ const Shipment: React.FC = () => {
 
         {/* TABLE */}
         <ReusableTable<Shipment>
+          externalSearch
           data={filteredShipments}
           columns={tableColumns}
           pageSize={PAGE_SIZE}

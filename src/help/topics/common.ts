@@ -5,6 +5,8 @@ export const COMMON_TOPICS: HelpTopic[] = [
   {
     id: "customers",
     route: "/customer-management",
+    // The customer view and the add / edit pages
+    aliases: ["/crm-view/customers", "/customers"],
     module: "Common",
     title: "Customers",
     summary:

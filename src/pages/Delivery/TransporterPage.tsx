@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
@@ -14,8 +15,7 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   ChevronDownIcon,
-  CheckCircleIcon,
-} from "@heroicons/react/24/outline";
+  CheckCircleIcon } from "@heroicons/react/24/outline";
 import { AddButton } from "../../components/common/AddButton";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -182,7 +182,8 @@ const TransporterPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Transporter>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [activeFilter, setActiveFilter] = useState("ALL"); // ALL | Active | Inactive
   const [showFilters, setShowFilters] = useState(false);
 
@@ -473,40 +474,8 @@ useEffect(() => {
             borderColor="border-green-100"
             labelColor="text-green-600"
           />
-          <StatsCard
-            label={t("Inactive")}
-            value={stats.inactive}
-            gradient="from-gray-50 to-slate-50"
-            borderColor="border-gray-200"
-            labelColor="text-gray-500"
-          />
-        </div>
-
-        {/* Toolbar */}
-<div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-  <div className="w-full sm:flex-1 sm:max-w-md">
-    <div className="relative">
-      <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-      <input
-        type="text"
-        placeholder={t("Search by name, contact, email, or GST...")}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-      />
-      {search && (
-        <button
-          onClick={() => setSearch("")}
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        >
-          <XMarkIcon className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  </div>
-
-  {/* Filter popover trigger */}
-  <div className="relative flex-shrink-0" ref={filterRef}>
+          <StatsCard filterControl={
+<div className="relative flex-shrink-0" ref={filterRef}>
     <button
       onClick={() => setShowFilters((o) => !o)}
       className={`relative rounded-lg border p-2 flex items-center justify-center transition-colors h-[40px] w-[40px] ${
@@ -549,10 +518,19 @@ useEffect(() => {
       </div>
     )}
   </div>
-</div>
+          }
+            label={t("Inactive")}
+            value={stats.inactive}
+            gradient="from-gray-50 to-slate-50"
+            borderColor="border-gray-200"
+            labelColor="text-gray-500"
+          />
+        </div>
+
 
         {/* Table */}
         <ReusableTable<Transporter>
+          externalSearch
           data={filteredTransporters}
           columns={columns}
           loading={loading}

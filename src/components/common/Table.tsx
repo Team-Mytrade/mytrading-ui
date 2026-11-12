@@ -63,6 +63,8 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   searchable?: boolean;
   searchPlaceholder?: string;
   searchFields?: (keyof T)[];
+  /** The page filters by the toolbar's search itself (useToolbarSearch): the table doesn't filter again. */
+  externalSearch?: boolean;
   pageSize?: number;
   defaultSortKey?: string;
   defaultSortOrder?: "asc" | "desc";
@@ -595,6 +597,7 @@ export function ReusableTable<T extends { id?: number | string }>({
   searchable = false,
   searchPlaceholder = "Search...",
   searchFields,
+  externalSearch = false,
   pageSize = 10,
   defaultSortKey,
   defaultSortOrder = "asc",
@@ -631,6 +634,24 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => columns.map((column) => column.key));
   const tableShellRef = useRef<HTMLDivElement | null>(null);
   const tableRootRef = useRef<HTMLDivElement | null>(null);
+  // The page's list toolbar (beside the stat cards) already has a search for this table: then the table's own
+  // search box would be a second one. Tables in dialogs keep theirs.
+  const [pageHasToolbar, setPageHasToolbar] = useState(false);
+  useEffect(() => {
+    // The stat cards (and their toolbar) may appear after the table, once the page's data loads: keep looking
+    const check = () => {
+      const found = Boolean(document.querySelector(".stats-card-actions")) && !tableRootRef.current?.closest("[role=dialog]");
+      setPageHasToolbar(found);
+      return found;
+    };
+    if (check()) return;
+    const observer = new MutationObserver(() => {
+      if (check()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+  const showSearchBox = searchable && !pageHasToolbar;
   // The sideways-scrolling area: whether more columns sit to the left / right of what is shown
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const [moreColumns, setMoreColumns] = useState({ left: false, right: false });
@@ -662,6 +683,8 @@ export function ReusableTable<T extends { id?: number | string }>({
   const [activeTableTooltip, setActiveTableTooltip] = useState<{ content: string; left: number; top: number; alignRight: boolean } | null>(null);
   const [viewportPageSize, setViewportPageSize] = useState(pageSize);
   const [showExportModal, setShowExportModal] = useState(false);
+  // The same dialog, sharing instead of downloading (toolbar Share)
+  const [exportMode, setExportMode] = useState<"export" | "share">("export");
   const [hasRowActions, setHasRowActions] = useState(true);
   const [isToolbarRefreshing, setIsToolbarRefreshing] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(
@@ -782,7 +805,17 @@ export function ReusableTable<T extends { id?: number | string }>({
 
     const openExport = (event: Event) => {
       const source = (event as CustomEvent<{ source?: HTMLElement }>).detail?.source;
-      if (source && isAssociatedToolbar(source)) setShowExportModal(true);
+      if (source && isAssociatedToolbar(source)) {
+        setExportMode("export");
+        setShowExportModal(true);
+      }
+    };
+    const openShare = (event: Event) => {
+      const source = (event as CustomEvent<{ source?: HTMLElement }>).detail?.source;
+      if (source && isAssociatedToolbar(source)) {
+        setExportMode("share");
+        setShowExportModal(true);
+      }
     };
     const showRefreshSkeleton = (event: Event) => {
       const source = (event as CustomEvent<{ source?: HTMLElement }>).detail?.source;
@@ -792,9 +825,11 @@ export function ReusableTable<T extends { id?: number | string }>({
     };
 
     window.addEventListener("reusable-table:export", openExport);
+    window.addEventListener("reusable-table:share", openShare);
     window.addEventListener("reusable-table:refresh", showRefreshSkeleton);
     return () => {
       window.removeEventListener("reusable-table:export", openExport);
+      window.removeEventListener("reusable-table:share", openShare);
       window.removeEventListener("reusable-table:refresh", showRefreshSkeleton);
     };
   }, []);
@@ -849,14 +884,14 @@ export function ReusableTable<T extends { id?: number | string }>({
       : "";
 
   const filtered = useMemo(() => data.filter((row) => {
-    if (!rowMatchesSearch(row, search, searchFields)) return false;
+    if (!externalSearch && !rowMatchesSearch(row, search, searchFields)) return false;
     return columns.every((column) => {
       const filter = columnFilters[column.key]?.trim().toLowerCase();
       if (!filter) return true;
       const value = String(column.filterValueGetter?.(row) ?? getCellValue(row, column.key) ?? "").toLowerCase();
       return getFilterOptions(column).length ? value === filter : value.includes(filter);
     });
-  }), [data, search, searchFields, columns, columnFilters]);
+  }), [data, search, searchFields, externalSearch, columns, columnFilters]);
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered;
@@ -1023,9 +1058,9 @@ export function ReusableTable<T extends { id?: number | string }>({
         .filter(Boolean)
         .join(" ")}
     >
-      {(searchable || toolbar) && (
+      {(showSearchBox || toolbar) && (
         <div className="my-[3px] flex flex-col gap-[3px] sm:flex-row items-start sm:items-center justify-between">
-          {searchable && (
+          {showSearchBox && (
             <div className="relative flex-1 max-w-md w-full">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
               <input
@@ -1407,7 +1442,7 @@ export function ReusableTable<T extends { id?: number | string }>({
         onClose={() => setShowExportModal(false)}
         data={filtered}
         columns={visibleColumns}
-        title="Table data"
+        mode={exportMode}
       />
     </div>
   );

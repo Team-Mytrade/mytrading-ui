@@ -6,6 +6,8 @@ declare const TableExportModal: ComponentType<{
   data: object[];
   columns: Array<{ key: string; label: string; sortValueGetter?: (row: any) => unknown }>;
   title?: string;
+  /** "share": WhatsApp, email, copy or the device's share sheet instead of downloading. */
+  mode?: "export" | "share";
 }>;
 
 export default TableExportModal;

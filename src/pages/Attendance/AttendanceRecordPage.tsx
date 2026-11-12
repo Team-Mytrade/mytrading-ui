@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import DatePicker from "react-datepicker";
@@ -17,15 +18,12 @@ import {
   DevicePhoneMobileIcon,
   FingerPrintIcon,
   PencilIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   PlusIcon,
   BuildingOfficeIcon,
   EyeIcon,
-  ArrowLeftIcon,
-} from "@heroicons/react/24/outline";
+  ArrowLeftIcon } from "@heroicons/react/24/outline";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import StatsCard from "../../components/common/Statscard";
@@ -133,7 +131,8 @@ const AttendanceRecordPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [form, setForm] = useState<AttendanceRecord>({ ...emptyForm });
-  const [search, setSearch] = useState<string>('');
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("");
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
@@ -807,18 +806,6 @@ const AttendanceRecordPage: React.FC = () => {
           <>
             {/* Filter Bar for ReusableTable */}
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex-1 max-w-md">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder={t("Search by employee, date, or location...")}
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
 
               <div className="flex items-center gap-2">
                 {/* Employee Filter Dropdown */}
@@ -851,7 +838,6 @@ const AttendanceRecordPage: React.FC = () => {
                     onClick={() => {
                       setSelectedEmployeeFilter("");
                       setSelectedStatus("");
-                      setSearch("");
                     }}
                     className="px-3 py-2 text-sm text-red-600 hover:text-red-800 rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
                   >
@@ -863,6 +849,7 @@ const AttendanceRecordPage: React.FC = () => {
 
             {/* Reusable Table */}
             <ReusableTable<AttendanceRecord>
+              externalSearch
               data={filteredData}
               columns={columns}
               loading={loading}

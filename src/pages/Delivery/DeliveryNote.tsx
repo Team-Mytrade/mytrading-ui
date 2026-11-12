@@ -1,3 +1,4 @@
+import { useToolbarSearch } from "../../components/common/useToolbarSearch";
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -10,20 +11,17 @@ import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../components/inputfeild/FloatingInput";
 
-import { MagnifyingGlassIcon, UserIcon, CalendarIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { UserIcon, CalendarIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import {
-  FunnelIcon,
   PackageIcon,
   NotebookTextIcon,
   EyeIcon,
   PencilIcon,
   TrashIcon,
   PlusIcon,
-  RefreshCwIcon,
   PackageMinusIcon,
   BadgeCheckIcon,
-  PrinterIcon,
-} from "lucide-react";
+  PrinterIcon } from "lucide-react";
 import { printDeliveryChallan } from "./deliveryChallan";
 import { todayIso } from "../../utils/localDate";
 import {
@@ -35,8 +33,7 @@ import {
   formatDate,
   formatDateTime,
   statusConfig,
-  useDeliveryLookups,
-} from "./deliveryShared";
+  useDeliveryLookups } from "./deliveryShared";
 import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
@@ -117,7 +114,8 @@ const DeliveryNote: React.FC = () => {
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState("");
+  // The list toolbar's search (beside the stat cards); this page matches it itself
+  const search = useToolbarSearch();
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [dateFilter, setDateFilter] = useState("");
@@ -494,31 +492,10 @@ const DeliveryNote: React.FC = () => {
           <StatsCard label={t("Open")} value={stats.pending} gradient="from-yellow-50 to-amber-50" borderColor="border-yellow-100" labelColor="text-yellow-600" />
           <StatsCard label={t("Partial")} value={stats.partial} gradient="from-orange-50 to-amber-50" borderColor="border-orange-100" labelColor="text-orange-600" />
           <StatsCard label={t("Delivered")} value={stats.delivered} gradient="from-green-50 to-emerald-50" borderColor="border-green-100" labelColor="text-green-600" />
-          <StatsCard label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
+          <StatsCard onRefresh={fetchNotes} onFilter={() => setShowFilters((open) => !open)} label={t("Cancelled")} value={stats.cancelled} gradient="from-red-50 to-rose-50" borderColor="border-red-100" labelColor="text-red-600" />
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:flex-1 sm:max-w-md">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                placeholder={t("Search by note no, customer, delivery or sales order...")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={fetchNotes} className="p-2 border rounded-lg hover:bg-gray-50" title={t("Refresh")}>
-              <RefreshCwIcon className={`h-5 w-5 text-gray-600 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            <button onClick={() => setShowFilters(!showFilters)} className="p-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-              <FunnelIcon className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-600">{t("Filters")}</span>
-            </button>
-          </div>
-        </div>
+        
 
         {showFilters && (
           <div className="p-4 border rounded bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -556,6 +533,7 @@ const DeliveryNote: React.FC = () => {
         )}
 
         <ReusableTable<DeliveryNoteRecord>
+          externalSearch
           data={filteredNotes}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
