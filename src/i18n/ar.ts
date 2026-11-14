@@ -7758,4 +7758,18 @@ export const ar: Record<string, string> = {
   "No pages match.": "لا توجد صفحات مطابقة.",
   "A limit here applies even if the person has another role that allows the page (only the Tenant Administrator is never limited).":
     "يسري القيد هنا حتى لو كان لدى الشخص دور آخر يسمح بالصفحة (لا يُقيَّد إلا مسؤول الشركة).",
+  // Page access: summary, quick choices, preview
+  "Read only. Edit the role to change its page access.": "للقراءة فقط. عدّل الدور لتغيير صلاحيات صفحاته.",
+  "Every page follows the role's module rights: nothing is limited page by page.": "كل الصفحات تتبع صلاحيات وحدات الدور: لا قيود على مستوى الصفحات.",
+  Hidden: "مخفية",
+  Limited: "مقيّدة",
+  "A limit applies even if the person has another role that allows the page; only the Tenant Administrator is never limited. People get changes at their next sign-in.":
+    "يسري القيد حتى لو كان لدى الشخص دور آخر يسمح بالصفحة؛ ولا يُقيَّد إلا مسؤول الشركة. ويحصل الأشخاص على التغييرات عند تسجيل دخولهم التالي.",
+  "What they'll see": "ما سيرونه",
+  "The menu for people with only this role. Crossed out: hidden by page access.": "القائمة لمن لديه هذا الدور وحده. المشطوب: مخفي بصلاحيات الصفحات.",
+  Access: "الوصول",
+  "Same as module": "مثل الوحدة",
+  "View only": "عرض فقط",
+  "Unticking View hides the page and switches off everything on it": "إلغاء «عرض» يخفي الصفحة ويوقف كل ما فيها",
+  "Unsaved changes to this role": "تغييرات غير محفوظة على هذا الدور",
 };

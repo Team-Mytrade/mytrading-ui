@@ -11,7 +11,7 @@ import { AppModule, MODULE_LABELS, PERMISSION_ACTIONS } from "../../access/acces
 import { PageLimit, RoleAccess, errorText, userAdminApi } from "../../access/accessApi";
 import PageAccessEditor from "./PageAccessEditor";
 import {
-  CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
+  CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
 
 import { t } from "../../i18n/i18n";
@@ -208,7 +208,9 @@ export default function RolesPage() {
                     ) : selected && canEditSelected && (
                       <>
                         {canUpdate && selected.grantable && (
-                          <button type="button" title={t("Edit role")} className={ROW_ICON_BUTTON} onClick={() => startEdit(selected)}><Pencil className="h-4 w-4" /></button>
+                          <button type="button" className={`${SECONDARY_BUTTON} inline-flex items-center gap-1.5`} onClick={() => startEdit(selected)}>
+                            <Pencil className="h-3.5 w-3.5" />{t("Edit role")}
+                          </button>
                         )}
                         {canDelete && !selected.systemRole && (
                           <button type="button" title={t((selected.userCount ?? 0) > 0 ? "Remove it from its users first" : "Delete role")}
@@ -233,7 +235,8 @@ export default function RolesPage() {
 
                 {tab === "pages" ? (
                   <PageAccessEditor permissions={shown} limits={shownPages}
-                    onChange={draft ? (pages) => setDraft({ ...draft, pages }) : null} />
+                    onChange={draft ? (pages) => setDraft({ ...draft, pages }) : null}
+                    onEdit={!draft && selected && canEditSelected && canUpdate && selected.grantable ? () => startEdit(selected) : undefined} />
                 ) : (
                 <>
                 <div className="overflow-x-auto">
@@ -279,6 +282,15 @@ export default function RolesPage() {
                   </p>
                 )}
                 </>
+                )}
+
+                {/* Save stays in reach at the bottom while a long page list scrolls */}
+                {draft && (
+                  <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-4 flex items-center justify-end gap-2 rounded-b-xl border-t border-slate-200 bg-inherit px-4 py-3 dark:border-gray-700">
+                    <span className="mr-auto text-[11px] text-slate-500 dark:text-gray-400">{t("Unsaved changes to this role")}</span>
+                    <button type="button" className={SECONDARY_BUTTON} onClick={() => setDraft(null)}>{t("Cancel")}</button>
+                    <button type="button" className={PRIMARY_BUTTON} disabled={saving} onClick={save}>{t(saving ? "Saving..." : "Save role")}</button>
+                  </div>
                 )}
               </>
             )}
