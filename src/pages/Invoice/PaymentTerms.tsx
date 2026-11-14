@@ -344,8 +344,16 @@ const PaymentTerms: React.FC = () => {
                   label={t("Due in (days)")}
                   name="dueDays"
                   type="number"
+                  min={0}
+                  step={1}
                   value={form.dueDays ?? ""}
-                  onChange={handleChange}
+                  // Whole days, 0 or more: a minus sign or decimal point can't be typed
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                    if (["-", "+", "e", "E", ".", ","].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, dueDays: e.target.value === "" ? undefined : (e.target.value.replace(/\D/g, "") as unknown as number) })
+                  }
                   required
                 />,
               ],

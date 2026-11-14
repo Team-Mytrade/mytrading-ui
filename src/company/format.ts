@@ -66,14 +66,20 @@ export const currencyChoices = (...keep: (string | null | undefined)[]): string[
 
 const numberFormats = new Map<string, Intl.NumberFormat>();
 
-const numberFormat = (key: string, options: Intl.NumberFormatOptions) => {
+// Indian lakh grouping (12,34,567) is for rupee amounts only: AED 250,000.00, never AED 2,50,000.00
+const localeFor = (currency: string) =>
+  regional.numberLocale === "en-IN" && currency.toUpperCase() !== "INR" ? "en-US" : regional.numberLocale;
+
+const numberFormat = (key: string, options: Intl.NumberFormatOptions, currency: string = regional.currency) => {
+  const locale = localeFor(currency);
+  key = `${locale}|${key}`;
   let format = numberFormats.get(key);
   if (!format) {
     try {
-      format = new Intl.NumberFormat(regional.numberLocale, options);
+      format = new Intl.NumberFormat(locale, options);
     } catch {
       // Unknown currency code on a document: show the number with the code in front
-      format = new Intl.NumberFormat(regional.numberLocale, {
+      format = new Intl.NumberFormat(locale, {
         minimumFractionDigits: options.minimumFractionDigits,
         maximumFractionDigits: options.maximumFractionDigits,
       });
@@ -117,7 +123,7 @@ export const formatMoney = (value: unknown, options: MoneyOptions | string = {})
     minimumFractionDigits: opts.compact ? 0 : decimals,
     maximumFractionDigits: decimals,
     notation: opts.compact ? "compact" : "standard",
-  });
+  }, currency);
   const text = format.format(toNumber(value));
   // Fallback format has no currency in it
   return format.resolvedOptions().style === "currency" ? text : `${currency} ${text}`;
@@ -128,8 +134,9 @@ export const moneyDecimals = (currency?: string | null): number => decimalsFor((
 
 /** An amount without the currency (table cells under a currency header, inputs' read-only totals). */
 export const formatAmount = (value: unknown, currency?: string | null): string => {
-  const decimals = decimalsFor((currency || regional.currency).toUpperCase());
-  return numberFormat(`a|${decimals}`, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  const code = (currency || regional.currency).toUpperCase();
+  const decimals = decimalsFor(code);
+  return numberFormat(`a|${decimals}`, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }, code)
     .format(toNumber(value));
 };
 

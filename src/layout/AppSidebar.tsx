@@ -415,6 +415,8 @@ export const navItems: NavItem[] = [
       { name: "API keys", path: "/api-keys", permission: "USERS:ADMIN", icon: KeyRound, section: "Company" },
       { name: "Webhooks", path: "/webhooks", permission: "USERS:ADMIN", icon: Webhook, section: "Company" },
       { name: "Customer Portal", path: "/portal-accounts", permission: "USERS:VIEW", icon: Store, section: "Company" },
+      // Moving a company's HR, payroll and leave data in (tenant data migration): HR admins only
+      { name: "Go-live", path: "/go-live", permission: "HRM:ADMIN", icon: Rocket, section: "Company" },
       { name: "Data Import", path: "/data-import", permission: "PRODUCT_CATALOGUE:CREATE|CRM:CREATE|INVENTORY:CREATE|INVOICE:CREATE|INVOICE:ADMIN", icon: FileUp, section: "Company" },
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },

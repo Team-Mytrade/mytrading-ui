@@ -49,6 +49,7 @@ import { formatNumber, formatDate, companyCurrency } from "../../company/format"
 import { t } from "../../i18n/i18n";
 import GulfEmployeeFields from "./GulfEmployeeFields";
 import { DEFAULT_PF_SETTINGS, PF_SETTINGS_API, PfSettings, toPfSettings, yearlyEmployerPf } from "./pfSettings";
+import { phoneProblem, withPlus } from "../../utils/phone";
 import {
   EMPTY_GULF,
   GULF_LABELS,
@@ -710,6 +711,8 @@ const AddEmployeePage: React.FC = () => {
           newErrors.officialEmail = "Invalid email format";
         }
         if (!form.phone) newErrors.phone = "Phone number is required";
+        // The phone box gives digits only ("971501234567"): checked with its "+" country code
+        else if (phoneProblem(withPlus(form.phone))) newErrors.phone = phoneProblem(withPlus(form.phone)) as string;
         if (!form.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
         if (!form.gender) newErrors.gender = "Gender is required";
         break;
@@ -857,7 +860,7 @@ const AddEmployeePage: React.FC = () => {
         maritalStatus: form.maritalStatus,
         fatherName: form.fatherName,
         // The phone box gives digits only: saved with its "+" country code, like customers' numbers
-        phone: form.phone && /^\d/.test(form.phone.trim()) ? `+${form.phone.trim()}` : form.phone,
+        phone: withPlus(form.phone),
         gender: form.gender,
         dateOfBirth: toApiDate(form.dateOfBirth),
         employmentType: form.employmentType,
@@ -880,7 +883,8 @@ const AddEmployeePage: React.FC = () => {
         // No role keeps the login's current role (a new login gets none until one is assigned)
         role: form.role || null,
         userDetails: {
-          phoneNumber: form.userDetails.phoneNumber || form.phone,
+          // With its "+" too, the same as phone
+          phoneNumber: withPlus(form.userDetails.phoneNumber || form.phone),
           country: form.userDetails.country || form.permanentAddress.country?.label || "",
           city: form.userDetails.city || form.permanentAddress.city,
           address: form.userDetails.address || `${form.permanentAddress.line1} ${form.permanentAddress.line2 || ""}`.trim(),
@@ -2456,7 +2460,7 @@ const AddEmployeePage: React.FC = () => {
                         </div>
                         <div className="text-sm">
                           <div className="text-gray-500">{t("Phone")}</div>
-                          <div className="text-gray-900">+{form.phone}</div>
+                          <div className="text-gray-900">{withPlus(form.phone)}</div>
                         </div>
                         <div className="text-sm">
                           <div className="text-gray-500">{t("Location")}</div>
@@ -2546,7 +2550,7 @@ const AddEmployeePage: React.FC = () => {
                         {basicAmount != null && hraAmount != null && (
                           <div className="text-sm">
                             <div className="flex justify-between text-xs"><span>{t("Basic")}</span><span>{money(basicAmount)}</span></div>
-                            <div className="flex justify-between text-xs"><span>{t("HRA")}</span><span>{money(hraAmount)}</span></div>
+                            <div className="flex justify-between text-xs"><span>{t(isGcc(form.countryCode) ? "Housing" : "HRA")}</span><span>{money(hraAmount)}</span></div>
                           </div>
                         )}
                         {unallocated != null && unallocated > 0 && (

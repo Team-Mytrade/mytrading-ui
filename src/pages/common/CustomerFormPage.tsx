@@ -29,6 +29,8 @@ import { addressStyle, regionalAddressErrors, regionalAddressLines } from "../..
 import RegionalAddressFields from "../../components/common/RegionalAddressFields";
 
 import { language, t } from "../../i18n/i18n";
+import { phoneProblem } from "../../utils/phone";
+import { usePaymentTermOptions, withStoredTerm } from "../../utils/paymentTerms";
 // Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
 
 const API_URL = "/v1/api/common/customers";
@@ -43,14 +45,6 @@ const STATUS_OPTIONS = [
   { id: "INACTIVE", name: "Inactive" },
 ];
 
-const PAYMENT_TERM_OPTIONS = [
-  { id: "IMMEDIATE", name: "Due on receipt" },
-  { id: "NET15", name: "Net 15 days" },
-  { id: "NET30", name: "Net 30 days" },
-  { id: "NET45", name: "Net 45 days" },
-  { id: "NET60", name: "Net 60 days" },
-  { id: "NET90", name: "Net 90 days" },
-];
 
 // "AED — UAE Dirham" (named in the screen language): the company's currency first, then Gulf, INR and major currencies
 const currencyNames = () => {
@@ -74,8 +68,7 @@ const ADDRESS_TYPES = [
   { id: "OTHER", name: "Other", icon: MapPinIcon },
 ];
 
-// Same patterns the service validates with
-const PHONE_PATTERN = /^\+?[0-9][0-9 ()-]{5,18}[0-9]$/;
+// Same patterns the service validates with (phone: utils/phone, UAE numbers by their real lengths)
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Address {
@@ -194,8 +187,7 @@ const validate = (form: CustomerForm, companyCountry?: string | null): Errors =>
   if (!form.email.trim()) errors.email = "Email is required";
   else if (!EMAIL_PATTERN.test(form.email.trim())) errors.email = "Enter a valid email address";
   if (!form.phone.trim()) errors.phone = "Phone is required";
-  else if (!PHONE_PATTERN.test(form.phone.trim()))
-    errors.phone = "7–20 digits; spaces, dashes, brackets and a leading + are allowed";
+  else if (phoneProblem(form.phone)) errors.phone = phoneProblem(form.phone) as string;
   if (form.creditLimit !== "" && (Number.isNaN(Number(form.creditLimit)) || Number(form.creditLimit) < 0))
     errors.creditLimit = "Credit limit can't be negative";
   return errors;
@@ -431,13 +423,11 @@ const CustomerFormPage: React.FC = () => {
 
   const leave = () => (isDirty ? setConfirmLeave(true) : navigate("/customer-management"));
 
-  // Keep a stored value that isn't in the standard lists (older records used free text)
+  // The company's terms (Invoice → Payment Terms), plus a stored value that isn't in them (older records used free text)
+  const companyPaymentTerms = usePaymentTermOptions();
   const paymentTermOptions = useMemo(
-    () =>
-      form.paymentTerms && !PAYMENT_TERM_OPTIONS.some((o) => o.id === form.paymentTerms)
-        ? [...PAYMENT_TERM_OPTIONS, { id: form.paymentTerms, name: form.paymentTerms }]
-        : PAYMENT_TERM_OPTIONS,
-    [form.paymentTerms]
+    () => withStoredTerm(companyPaymentTerms, form.paymentTerms),
+    [companyPaymentTerms, form.paymentTerms]
   );
   const currencySelectOptions = useMemo(() => currencyOptions(form.currencyCode), [form.currencyCode]);
   const salesPersonOptions = (salesPersons ?? [])

@@ -12,16 +12,8 @@ const EMAIL_FORMAT = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const emailProblem = (value: string) =>
   value.trim() && !EMAIL_FORMAT.test(value.trim()) ? "Enter a valid email, like name@company.com" : null;
 
-/** What is wrong with a phone number, or null: 7–20 digits; spaces, dashes, brackets and a leading + are fine. */
-export const phoneProblem = (value: string) => {
-  const v = value.trim();
-  if (!v) return null;
-  const digits = v.replace(/\D/g, "").length;
-  if (!/^\+?[\d\s()-]+$/.test(v) || digits < 7 || digits > 20) {
-    return "Use 7–20 digits; spaces, dashes, brackets and a leading + are fine";
-  }
-  return null;
-};
+/** What is wrong with a phone number, or null: UAE numbers by their real lengths, others 7–15 digits. */
+export { phoneProblem } from "../../utils/phone";
 
 // A phone number in the company's country, as an example in empty phone boxes
 const PHONE_EXAMPLES: Record<string, string> = {

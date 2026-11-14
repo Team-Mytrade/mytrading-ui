@@ -1,10 +1,12 @@
 import PurchaseResourcePage, { PurchaseResourceConfig } from "../Purchase/PurchaseResourcePage";
 import { INDIAN_STATE_OPTIONS, normalizePhone, toStateName, validateVendorForm } from "../../utils/indiaValidators";
 import { companyCurrency, currencyChoices } from "../../company/format";
+import {
+  DEFAULT_PAYMENT_TERM, PAYMENT_TERMS_API, STANDARD_PAYMENT_TERMS, paymentTermLabel, withStoredTerm,
+} from "../../utils/paymentTerms";
 
 const VENDORS = "/v1/api/common/vendors";
 
-const PAYMENT_TERMS = ["Due on Receipt", "Advance Payment", "7 Days", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"];
 
 /** Trimmed string, or null when empty (so the API stores NULL instead of ""). */
 const text = (value: unknown): string | null => {
@@ -156,7 +158,16 @@ const vendorConfig: PurchaseResourceConfig = {
       label: "Payment Terms",
       type: "select",
       placeholderOption: "Select Payment Terms",
-      options: PAYMENT_TERMS.map((value) => ({ value, label: value })),
+      // The company's terms (Invoice → Payment Terms), saved by code like customers' (NET30, TEST-75...)
+      optionsEndpoint: PAYMENT_TERMS_API,
+      optionValue: "termCode",
+      optionLabel: (row) => paymentTermLabel(row as { termCode?: string; description?: string; dueDays?: number }),
+      // The standard terms when the list can't be read; a stored value that isn't listed ("30 Days") is kept
+      getOptions: ({ form, options }) => {
+        const loaded = (options.paymentTerms ?? []).map((o) => ({ id: String(o.value), name: o.label }));
+        return withStoredTerm(loaded.length ? loaded : STANDARD_PAYMENT_TERMS, String(form.paymentTerms ?? ""))
+          .map((o) => ({ value: o.id, label: o.name }));
+      },
     },
     {
       // Indian vendors: GSTIN (checked when Country is India); Gulf vendors: VAT TRN, for input VAT on their bills
@@ -201,7 +212,7 @@ const vendorConfig: PurchaseResourceConfig = {
     website: "",
     gstNumber: "",
     panNumber: "",
-    paymentTerms: "30 Days",
+    paymentTerms: DEFAULT_PAYMENT_TERM,
     currency: companyCurrency(),
     address: "",
     city: "",
