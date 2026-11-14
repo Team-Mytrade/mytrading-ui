@@ -7743,4 +7743,19 @@ export const ar: Record<string, string> = {
   "Back to home": "العودة إلى الرئيسية",
   "User manual, business flows and search": "دليل المستخدم ومسارات العمل والبحث",
   "Sample data": "بيانات نموذجية",
+  // Roles & Permissions: page access
+  "Module rights": "صلاحيات الوحدات",
+  "Page access": "صلاحيات الصفحات",
+  "Search pages": "ابحث في الصفحات",
+  "Only pages limited for this role": "الصفحات المقيّدة لهذا الدور فقط",
+  pages: "صفحات",
+  limited: "مقيّدة",
+  "The role's module rights don't include this": "صلاحيات الوحدة لهذا الدور لا تشمل ذلك",
+  "Follow the module rights again": "اتبع صلاحيات الوحدة من جديد",
+  "A page follows the role's module rights until you change it here (highlighted). Unticking View hides the page; greyed boxes are outside the module rights.":
+    "تتبع الصفحة صلاحيات وحدة الدور حتى تغيّرها هنا (تُميَّز بلون). إلغاء «عرض» يخفي الصفحة؛ والمربعات الرمادية خارج صلاحيات الوحدة.",
+  "Give the role module rights first: pages follow them.": "امنح الدور صلاحيات الوحدات أولًا: الصفحات تتبعها.",
+  "No pages match.": "لا توجد صفحات مطابقة.",
+  "A limit here applies even if the person has another role that allows the page (only the Tenant Administrator is never limited).":
+    "يسري القيد هنا حتى لو كان لدى الشخص دور آخر يسمح بالصفحة (لا يُقيَّد إلا مسؤول الشركة).",
 };
