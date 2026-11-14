@@ -943,11 +943,20 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       { title: "See a role", steps: ["Select a role to see its permissions."] },
       { title: "Make a role", steps: ["Click New role and name it (e.g. Sales Executive).", "Tick the permissions per Module and save."] },
       { title: "Change or remove one", steps: ["Click Edit role, or Delete the role (custom roles only). Not assigned counts the roles nobody has."] },
+      {
+        title: "Limit a role's pages",
+        steps: [
+          "Edit the role and open Page access.",
+          "Open a module and untick what the role may not do on a page; untick View to hide the page from the menu.",
+          "Save. People with the role get the change at their next sign-in.",
+        ],
+      },
     ],
     rules: [
       "Greyed boxes are permissions you don't hold or don't administer: nobody can give more than they have.",
       "Admin includes every action of its module.",
       "System roles (with a lock) come from the platform: only the Super Admin can change them.",
+      "A page limit always applies: a page or action switched off in one of a person's roles stays off even if another of their roles allows it. Only the Tenant Administrator and the Super Admin are never limited.",
     ],
     related: [{ route: "/role_config", label: "Users" }],
   },
