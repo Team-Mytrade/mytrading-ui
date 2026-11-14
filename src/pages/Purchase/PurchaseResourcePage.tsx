@@ -753,7 +753,9 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
   const fieldErrors = useMemo<Record<string, string>>(() => {
     if (!showForm || config.renderCustomForm) return {};
     const errors: Record<string, string> = {};
-    config.fields.forEach((field) => {
+    config.fields.forEach((baseField) => {
+      // Checked the way the field is shown: e.g. a vendor outside India has an IBAN (up to 42) instead of an 18-digit account
+      const field = baseField.adapt ? { ...baseField, ...baseField.adapt(form) } : baseField;
       if (!isFieldEditable(field)) return;
       const value = form[field.name];
       const isEmpty = value === "" || value == null;

@@ -172,7 +172,9 @@ export const formatTimeIn = (date: Date, timeFormat: string, timeZone: string): 
   new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", minute: "2-digit", hour12: timeFormat !== "24h" }).format(date);
 
 export const formatMoneyIn = (amount: number, currency: string, decimals: number, numberLocale: string): string => {
-  const number = new Intl.NumberFormat(numberLocale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(amount);
+  // Lakh grouping is for rupee amounts only (AED 250,000.00, not AED 2,50,000.00)
+  const locale = numberLocale === "en-IN" && currency.toUpperCase() !== "INR" ? "en-US" : numberLocale;
+  const number = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(amount);
   return `${currency} ${number}`;
 };
 

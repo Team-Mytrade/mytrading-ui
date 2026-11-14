@@ -232,6 +232,7 @@ const ROUTE_MODULES: [string, AppModule | "PLATFORM"][] = [
   ["/attendance_dashboard", "ATTENDANCE"],
 
   ["/employee*", "HRM"],
+  ["/go-live", "HRM"],
   ["/employees", "HRM"],
   ["/addEmployee", "HRM"],
   ["/salaryStructure", "HRM"],
@@ -303,6 +304,8 @@ const ON_BEHALF_ROUTES = ["/att_leaveRequest", "/att_timesheetManagement", "/att
 // alone (e.g. Staff with HRM:VIEW / ATTENDANCE:VIEW) isn't enough: the services refuse their data the same way.
 // "A|B" means either permission.
 const ROUTE_PERMISSIONS: [string, string][] = [
+  // Go-live (tenant data migration): HR admins only, as the API requires
+  ["/go-live", "HRM:ADMIN"],
   // Report Center (8.2): the sales reports are read by sales and finance alike; /reports itself is open to everyone
   ["/reports/sales-register", "SALES:VIEW|INVOICE:VIEW"],
   ["/reports/sales-analysis", "SALES:VIEW|INVOICE:VIEW"],
