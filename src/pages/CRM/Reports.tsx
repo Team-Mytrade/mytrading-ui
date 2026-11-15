@@ -39,6 +39,9 @@ interface ReportSummary {
   wonDeals?: number;
   lostDeals?: number;
   pipelineValue?: number;
+  // 8.3.3: in the company's currency; open deals × probability; deals whose currency has no exchange rate
+  weightedPipelineValue?: number;
+  notConverted?: { currency: string; deals: number; amount: number }[];
   wonValue?: number;
   averageDealSize?: number;
 
@@ -135,6 +138,8 @@ const normalizeReport = (raw: unknown): ReportSummary => {
     wonDeals: pickNumber(src, ["wonDeals", "closedWon"]),
     lostDeals: pickNumber(src, ["lostDeals", "closedLost"]),
     pipelineValue: pickNumber(src, ["pipelineValue", "openValue"]),
+    weightedPipelineValue: pickNumber(src, ["weightedPipelineValue"]),
+    notConverted: Array.isArray((src as any)?.notConverted) ? (src as any).notConverted : [],
     wonValue: pickNumber(src, ["wonValue", "revenue"]),
     averageDealSize: pickNumber(src, ["averageDealSize", "avgDealSize"]),
 
@@ -249,12 +254,20 @@ const KpiTile: React.FC<{
   label: string;
   value: string | number;
   accent?: string;
-}> = ({ label, value, accent = "text-slate-900" }) => (
+  // A short second line, e.g. the weighted pipeline
+  note?: string;
+  noteTitle?: string;
+}> = ({ label, value, accent = "text-slate-900", note, noteTitle }) => (
   <div className="flex flex-col justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
     <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 truncate">
       {label}
     </span>
     <span className={`text-lg font-bold truncate ${accent}`}>{value}</span>
+    {note && (
+      <span className="truncate text-[10px] text-slate-500" title={noteTitle || note}>
+        {note}
+      </span>
+    )}
   </div>
 );
 
@@ -555,6 +568,13 @@ const Reports: React.FC = () => {
                 loading ? "—" : formatCurrency(safeNumber(report.pipelineValue))
               }
               accent="text-cyan-700"
+              // Each open deal × its probability; deals in a currency without an exchange rate aren't in either figure
+              note={loading ? undefined : `${t("Weighted")} ${formatCurrency(safeNumber(report.weightedPipelineValue))}${
+                report.notConverted?.length ? " · " + t("{count} not converted", { count: String(report.notConverted.reduce((n, c) => n + c.deals, 0)) }) : ""
+              }`}
+              noteTitle={report.notConverted?.length
+                ? t("No exchange rate for: {list}", { list: report.notConverted.map((c) => `${c.currency} ${c.amount} (${c.deals})`).join(", ") })
+                : undefined}
             />
             <KpiTile
               label={t("Won Value")}

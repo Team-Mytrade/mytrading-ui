@@ -41,7 +41,8 @@ export default defineConfig({
       // must be served by Vite: proxying it sent the page request to the gateway, which answered 401.
       "/v1/api": {
        		//target: process.env.API_TARGET || "http://localhost:9595",
-			target: process.env.API_TARGET || "http://193.181.209.14/myTrading",
+			//target: process.env.API_TARGET || "http://193.181.209.14/myTrading",
+			target: process.env.API_TARGET || "http://localhost:9595/myTrading",
         changeOrigin: true,
         secure: false,
       },

@@ -7,6 +7,7 @@ import {
   useMemo,
 } from "react";
 import axios from "axios";
+import { createPortal } from "react-dom";
 import {
   PencilSquareIcon,
   TrashIcon,
@@ -18,7 +19,11 @@ import {
   TagIcon,
   BuildingOfficeIcon,
   DocumentTextIcon,
+  ViewColumnsIcon,
+  TableCellsIcon,
+  CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
+import DealsBoard from "./DealsBoard";
 import { useNavigate, useLocation } from "react-router-dom";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -81,6 +86,13 @@ interface Opportunity {
   // Who works the deal (a login's username); none = unassigned
   owner?: string | null;
   ownerName?: string | null;
+  // 8.3.3: how likely it is to be won (0–100; none on older deals: the stage's default), why it was lost, when it closed
+  probability?: number | null;
+  lostReason?: string | null;
+  lostNote?: string | null;
+  closedOn?: string | null;
+  // The amount in the company's currency at the latest exchange rate (none when finance has no rate)
+  companyAmount?: number | null;
 }
 
 interface DealLine {
@@ -120,6 +132,15 @@ const getToken = () => localStorage.getItem("accessToken") || "";
 const linesTotal = (items?: DealLine[]) =>
   (items || []).reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.expectedPrice) || 0), 0);
 
+// Board or table, remembered on this browser; the owner filter's "nobody" choice
+const VIEW_KEY = "crm.dealsView";
+const UNASSIGNED = "__unassigned__";
+const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+const monthLabel = (key: string) => {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+};
+
 export default function Deals() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,6 +160,35 @@ export default function Deals() {
   const [showForm, setShowForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [inlineUpdatingId, setInlineUpdatingId] = useState<number | null>(null);
+  // Choosing Lost in the list asks why
+  const [lostPrompt, setLostPrompt] = useState<{ deal: Opportunity; reason: string } | null>(null);
+  // Board (8.3.4): which view, its filters (they apply to the table too), and a deal dropped on Won awaiting confirmation
+  const [view, setView] = useState<"board" | "table">(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === "board" ? "board" : "table";
+    } catch {
+      return "table";
+    }
+  });
+  const changeView = (next: "board" | "table") => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // storage unavailable: the choice lasts for this page only
+    }
+  };
+  const [ownerFilter, setOwnerFilter] = useState("");
+  const [closeFilter, setCloseFilter] = useState("");
+  const [wonConfirm, setWonConfirm] = useState<Opportunity | null>(null);
+
+  // A stage's default win probability (CRM Settings); a deal without its own shows this
+  const stageProbability = (stage?: string) => crmSettings.stageProbabilities[normalizeStage(stage)] ?? 0;
+  const probabilityOf = (o: Partial<Opportunity>) => (o.probability ?? stageProbability(o.stage)) as number;
+  const lostReasonOptions = (current?: string | null) => {
+    const list = crmSettings.lostReasons.map((s) => ({ id: s, name: s }));
+    return current && !list.some((o) => o.id.toLowerCase() === current.toLowerCase()) ? [...list, { id: current, name: current }] : list;
+  };
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
@@ -258,11 +308,16 @@ export default function Deals() {
       currencyCode: form.currencyCode || companyCurrency(),
       // The person working the deal; empty = unassigned
       owner: form.owner ?? "",
+      // Won and Lost fix it (100 / 0) on the server
+      probability: form.probability == null || String(form.probability) === "" ? null : Number(form.probability),
+      lostReason: normalizeStage(form.stage) === "LOST" ? form.lostReason || "" : null,
+      lostNote: normalizeStage(form.stage) === "LOST" ? form.lostNote || "" : null,
       ...owner,
     };
   };
 
-  const buildInlinePayload = (o: Opportunity) => ({
+  // An inline stage change sends no probability (the new stage's default applies) and, for Lost, the reason asked for
+  const buildInlinePayload = (o: Opportunity, lostReason?: string) => ({
     dealName: o.dealName?.trim(),
     amount: o.amount ?? null,
     stage: normalizeStage(o.stage),
@@ -271,6 +326,7 @@ export default function Deals() {
     currencyCode: o.currencyCode || undefined,
     lead: o.lead ? { id: o.lead.id, name: o.lead.name } : undefined,
     customer: o.customer ? { id: o.customer.id } : undefined,
+    ...(lostReason ? { lostReason } : {}),
   });
 
   // The amount follows the lines until the user types their own
@@ -305,7 +361,8 @@ export default function Deals() {
 
   const handleInlineChange = async (
     o: Opportunity,
-    changes: Partial<Pick<Opportunity, "stage" | "status">>
+    changes: Partial<Pick<Opportunity, "stage" | "status">>,
+    lostReason?: string
   ) => {
     const next = {
       ...o,
@@ -313,6 +370,11 @@ export default function Deals() {
       stage: changes.stage ? normalizeStage(changes.stage) : o.stage,
     };
     if (next.stage === o.stage && next.status === o.status) return;
+    // Moving to Lost asks why first
+    if (next.stage === "LOST" && normalizeStage(o.stage) !== "LOST" && !lostReason) {
+      setLostPrompt({ deal: o, reason: crmSettings.lostReasons[0] ?? "" });
+      return;
+    }
 
     const previous = opportunities;
     setOpportunities((cur) =>
@@ -323,7 +385,7 @@ export default function Deals() {
       setInlineUpdatingId(o.id);
       await axios.put(
         `${API_URL}/${o.id}`,
-        buildInlinePayload(next),
+        buildInlinePayload(next, lostReason),
         { headers: { ...authHeaders, "Content-Type": "application/json" } }
       );
       ToasterService.success("Opportunity updated successfully!");
@@ -346,6 +408,15 @@ export default function Deals() {
     }
     if (!form.lead?.id && !form.customer?.id) {
       ToasterService.error("Please link this deal to a lead or a customer");
+      return;
+    }
+    if (normalizeStage(form.stage) === "LOST" && !form.lostReason) {
+      ToasterService.error("Choose why the deal was lost");
+      return;
+    }
+    const probability = form.probability == null ? null : Number(form.probability);
+    if (probability != null && (!Number.isFinite(probability) || probability < 0 || probability > 100)) {
+      ToasterService.error("Probability is a percentage from 0 to 100");
       return;
     }
 
@@ -395,8 +466,46 @@ export default function Deals() {
     }
   };
 
-  // Mine: the deals the signed-in person owns
-  const shownDeals = mineOnly ? opportunities.filter((o) => isMine(o.owner, me)) : opportunities;
+  // Mine: the deals the signed-in person owns; then the owner and close-month filters (both views and the cards)
+  const thisMonth = monthKey(new Date());
+  const nextMonth = monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
+  const todayKey = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const matchesClose = (o: Opportunity) => {
+    const date = (o.expectedCloseDate || "").slice(0, 10);
+    switch (closeFilter) {
+      case "":
+        return true;
+      case "none":
+        return !date;
+      case "overdue":
+        return !!date && date < todayKey && !isClosedStage(normalizeStage(o.stage)) && o.status !== "CANCELLED";
+      case "this":
+        return date.slice(0, 7) === thisMonth;
+      case "next":
+        return date.slice(0, 7) === nextMonth;
+      default:
+        return date.slice(0, 7) === closeFilter;
+    }
+  };
+  const shownDeals = opportunities
+    .filter((o) => !mineOnly || isMine(o.owner, me))
+    .filter((o) => !ownerFilter || (ownerFilter === UNASSIGNED ? !o.owner : isMine(o.owner, ownerFilter)))
+    .filter(matchesClose);
+  const ownerChoices = Array.from(
+    new Map(opportunities.filter((o) => o.owner).map((o) => [String(o.owner).toLowerCase(), { id: String(o.owner), name: o.ownerName || String(o.owner) }])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+  const closeMonths = Array.from(new Set(opportunities.map((o) => (o.expectedCloseDate || "").slice(0, 7)).filter(Boolean))).sort();
+
+  // Board: a card dropped on another column. Won asks first; Lost asks why (handleInlineChange)
+  const moveDeal = (deal: { id: number }, stage: string) => {
+    const full = opportunities.find((o) => o.id === deal.id);
+    if (!full || normalizeStage(full.stage) === stage) return;
+    if (stage === "WON") {
+      setWonConfirm(full);
+      return;
+    }
+    handleInlineChange(full, { stage });
+  };
 
   const filtered = shownDeals.filter((o) => {
     const term = (searchInputRef.current?.value || "").toLowerCase();
@@ -406,8 +515,15 @@ export default function Deals() {
     );
   });
 
-  // The cards count open, active deals only: cancelled, won and lost deals are not in the pipeline
-  const activeDeals = shownDeals.filter((o) => o.status === "ACTIVE");
+  // The cards count open, active deals only: cancelled, won and lost deals are not in the pipeline. Money is in the
+  // company's currency (each deal at the latest exchange rate, from the service); a deal finance has no rate for is
+  // left out and named under the cards.
+  const activeDeals = shownDeals.filter((o) => o.status === "ACTIVE" && !isClosedStage(normalizeStage(o.stage)));
+  const valued = activeDeals.filter((o) => o.companyAmount != null);
+  const pipelineValue = valued.reduce((sum, o) => sum + Number(o.companyAmount), 0);
+  const weightedValue = valued.reduce((sum, o) => sum + (Number(o.companyAmount) * probabilityOf(o)) / 100, 0);
+  const unvalued = activeDeals.filter((o) => o.companyAmount == null && o.amount != null && Number(o.amount) !== 0);
+  const unvaluedCurrencies = Array.from(new Set(unvalued.map((o) => o.currencyCode || "?")));
 
   // A new deal is the signed-in person's unless another owner is picked
   const openNewDeal = () => {
@@ -474,12 +590,30 @@ export default function Deals() {
       key: "amount",
       label: "Amount",
       sortable: true,
-      render: (o) => (
-        <div className="flex items-center text-sm font-medium text-gray-900">
-          <BanknotesIcon className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
-          {formatCurrency(o.amount, o.currencyCode || o.customer?.currencyCode)}
-        </div>
-      ),
+      render: (o) => {
+        const foreign = !!o.currencyCode && o.currencyCode !== companyCurrency();
+        return (
+          <div>
+            <div className="flex items-center text-sm font-medium text-gray-900">
+              <BanknotesIcon className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
+              {formatCurrency(o.amount, o.currencyCode || o.customer?.currencyCode)}
+            </div>
+            {/* In another currency: what it comes to in the company's (or that there is no rate yet) */}
+            {foreign && o.amount != null && (
+              <div className="ps-[18px] text-xs text-gray-500">
+                {o.companyAmount != null ? `≈ ${formatCurrency(o.companyAmount)}` : t("No exchange rate")}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "probability",
+      label: "Probability",
+      sortable: true,
+      sortValueGetter: (o) => probabilityOf(o),
+      render: (o) => <span className="text-sm text-gray-700">{probabilityOf(o)}%</span>,
     },
     {
       key: "expectedCloseDate",
@@ -534,9 +668,20 @@ export default function Deals() {
       render: (o) =>
         // Won / Lost come from the stage; only an open deal can be made active or cancelled
         isClosedStage(normalizeStage(o.stage)) ? (
-          <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}>
-            {t(DEAL_STATUS_LABELS[o.status] ?? o.status ?? "")}
-          </span>
+          <div>
+            <span
+              className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${getStageColor(o.stage)}`}
+              title={[o.lostReason, o.lostNote].filter(Boolean).join(" — ") || undefined}
+            >
+              {t(DEAL_STATUS_LABELS[o.status] ?? o.status ?? "")}
+            </span>
+            {/* When it closed and, for a lost deal, why */}
+            {(o.closedOn || o.lostReason) && (
+              <div className="mt-0.5 max-w-[150px] truncate text-[11px] text-gray-500" title={o.lostNote || undefined}>
+                {[o.closedOn ? formatDate(o.closedOn) : null, o.lostReason].filter(Boolean).join(" · ")}
+              </div>
+            )}
+          </div>
         ) : !canUpdate ? (
           <span className={`inline-flex w-[96px] items-center rounded-lg border px-2 py-1.5 text-xs font-semibold ${
             o.status === "ACTIVE" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"
@@ -716,37 +861,112 @@ export default function Deals() {
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
         <OwnRecordsNote settings={crmSettings} />
         <div className="mb-[17px]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
             <StatsCard label={t("Total Deals")} value={shownDeals.length} />
             <StatsCard
               label={t("Active Deals")}
               value={activeDeals.length}
             />
             <StatsCard
-              label={t("Total Value")}
-              value={formatCurrency(activeDeals.reduce((a, o) => a + (Number(o.amount) || 0), 0))}
+              label={t("Pipeline value")}
+              value={formatCurrency(pipelineValue)}
+            />
+            <StatsCard
+              label={t("Weighted pipeline")}
+              value={formatCurrency(weightedValue)}
             />
             <StatsCard
               label={t("Average Deal Size")}
-              value={
-                activeDeals.length
-                  ? formatCurrency(
-                      activeDeals.reduce((a, o) => a + (Number(o.amount) || 0), 0) /
-                        activeDeals.length
-                    )
-                  : formatCurrency(0)
-              }
+              value={formatCurrency(valued.length ? pipelineValue / valued.length : 0)}
             />
           </div>
+          {unvalued.length > 0 && (
+            <p className="mx-3 mt-2 text-xs text-amber-700 dark:text-amber-400">
+              {t("{count} open deal(s) in {currencies} aren't counted: finance has no exchange rate for them yet.", {
+                count: String(unvalued.length),
+                currencies: unvaluedCurrencies.join(", "),
+              })}
+            </p>
+          )}
         </div>
 
+        {/* Board or table, and the filters both use */}
+        <div className="mx-3 mb-3 flex flex-wrap items-center gap-2">
+          <div role="group" aria-label={t("View")} className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5 dark:border-gray-700 dark:bg-transparent">
+            {(["board", "table"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={view === option}
+                onClick={() => changeView(option)}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  view === option ? "bg-cyan-600 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
+                }`}
+              >
+                {option === "board" ? <ViewColumnsIcon className="h-4 w-4" /> : <TableCellsIcon className="h-4 w-4" />}
+                {t(option === "board" ? "Board" : "Table")}
+              </button>
+            ))}
+          </div>
+          <MineAllToggle mineOnly={mineOnly} onChange={setMineOnly} mineLabel="My deals" />
+          <select
+            aria-label={t("Owner")}
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            className="h-8 rounded-lg border border-gray-200 bg-white px-2 py-0 text-xs leading-none text-gray-700 outline-none focus:border-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+          >
+            <option value="">{t("All owners")}</option>
+            <option value={UNASSIGNED}>{t("Unassigned")}</option>
+            {ownerChoices.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+          <select
+            aria-label={t("Close month")}
+            value={closeFilter}
+            onChange={(e) => setCloseFilter(e.target.value)}
+            className="h-8 rounded-lg border border-gray-200 bg-white px-2 py-0 text-xs leading-none text-gray-700 outline-none focus:border-cyan-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+          >
+            <option value="">{t("Any close date")}</option>
+            <option value="overdue">{t("Close date passed")}</option>
+            <option value="this">{t("Closing this month")}</option>
+            <option value="next">{t("Closing next month")}</option>
+            {closeMonths.filter((m) => m !== thisMonth && m !== nextMonth).map((m) => (
+              <option key={m} value={m}>{monthLabel(m)}</option>
+            ))}
+            <option value="none">{t("No close date")}</option>
+          </select>
+          {(ownerFilter || closeFilter) && (
+            <button type="button" onClick={() => { setOwnerFilter(""); setCloseFilter(""); }}
+              className="text-xs font-semibold text-cyan-700 hover:underline">
+              {t("Clear filters")}
+            </button>
+          )}
+        </div>
+
+        {view === "board" ? (
+          <DealsBoard
+            deals={shownDeals.map((o) => ({ ...o, stage: normalizeStage(o.stage) }))}
+            stages={stageOptions}
+            probabilityOf={(d) => probabilityOf(d as Opportunity)}
+            canUpdate={canUpdate}
+            updatingId={inlineUpdatingId}
+            onMove={moveDeal}
+            onOpen={(d) => {
+              const full = opportunities.find((o) => o.id === d.id);
+              if (!full) return;
+              setForm(full);
+              setOwnerType(full.lead ? "LEAD" : "CUSTOMER");
+              setShowForm(true);
+            }}
+          />
+        ) : (
         <ReusableTable<Opportunity>
           data={filtered}
           columns={tableColumns}
           pageSize={PAGE_SIZE}
           defaultSortKey="dealName"
           defaultSortOrder="asc"
-          toolbar={<MineAllToggle mineOnly={mineOnly} onChange={setMineOnly} mineLabel="My deals" />}
           enableRowDetails={true}
           rowDetailsTitle={(o) => o.dealName || "Deal details"}
           rowDetailsSubtitle={t("Opportunity details")}
@@ -781,6 +1001,7 @@ export default function Deals() {
             </div>
           }
         />
+        )}
         <PaginatedPopup
   isOpen={showForm}
   title={t(form.id ? "Edit Opportunity" : "Create New Opportunity")}
@@ -843,9 +1064,46 @@ export default function Deals() {
           label={t("Stage")}
           name="stage"
           value={form.stage || ""}
-          onChange={handleChange}
+          // A new stage brings its default probability (change it after if this deal is different)
+          onChange={(e) => {
+            const stage = e.target.value;
+            setForm((prev) => ({ ...prev, stage, probability: stageProbability(stage) }));
+          }}
           options={stageOptions}
         />,
+        ...(normalizeStage(form.stage) === "LOST"
+          ? [
+              <FloatingSelect
+                key="lostReason"
+                label={t("Lost reason")}
+                name="lostReason"
+                value={form.lostReason || ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, lostReason: e.target.value }))}
+                options={lostReasonOptions(form.lostReason)}
+                required
+              />,
+              <FloatingInput
+                key="lostNote"
+                label={t("Lost note")}
+                name="lostNote"
+                value={form.lostNote || ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, lostNote: e.target.value }))}
+                example={t("e.g. went with another supplier at 4% less")}
+              />,
+            ]
+          : isClosedStage(normalizeStage(form.stage))
+            ? []
+            : [
+                <FloatingInput
+                  key="probability"
+                  label={t("Probability (%)")}
+                  name="probability"
+                  type="number"
+                  value={form.probability ?? stageProbability(form.stage)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, probability: e.target.value === "" ? null : Number(e.target.value) }))}
+                  example={t("How likely it is to be won")}
+                />,
+              ]),
         <FloatingSelect
           key="status"
           label={t("Status")}
@@ -1034,6 +1292,78 @@ export default function Deals() {
   ]}
 />
       </div>
+
+      {/* Lost: why? (from the company's list) */}
+      {lostPrompt &&
+        createPortal(
+          <div data-overlay-dim data-overlay className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+            <div data-overlay-panel className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto">
+              <div data-overlay-header className="flex items-start justify-between gap-3 p-5 border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{t("Why was the deal lost?")}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{lostPrompt.deal.dealName}</p>
+                </div>
+                <button type="button" onClick={() => setLostPrompt(null)} className="text-gray-400 hover:text-gray-600" aria-label={t("Close")}>
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-5">
+                <FloatingSelect
+                  label={t("Lost reason")}
+                  name="dealLostReason"
+                  value={lostPrompt.reason}
+                  onChange={(e) => setLostPrompt({ ...lostPrompt, reason: e.target.value })}
+                  options={lostReasonOptions(lostPrompt.reason)}
+                  includeEmptyOption={false}
+                  required
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLostPrompt(null)}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
+                  >
+                    {t("Cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!lostPrompt.reason}
+                    onClick={() => {
+                      const { deal, reason } = lostPrompt;
+                      setLostPrompt(null);
+                      handleInlineChange(deal, { stage: "LOST" }, reason);
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 shadow-sm disabled:opacity-60"
+                  >
+                    {t("Mark as Lost")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Board: a deal dropped on Won is confirmed first (it closes the deal at 100%) */}
+      <DynamicPopup
+        isPopupOpen={!!wonConfirm}
+        setIsPopupOpen={(open: boolean) => { if (!open) setWonConfirm(null); }}
+        icon={<CheckBadgeIcon className="h-6 w-6 text-emerald-600" />}
+        iconBg="bg-emerald-100"
+        innerText={t("Mark the deal as won?")}
+        subText={wonConfirm
+          ? t('"{name}" will be closed as won at 100%, dated today.', { name: wonConfirm.dealName })
+          : ""}
+        confirmLabel={t("Mark as won")}
+        cancelLabel={t("Cancel")}
+        onConfirm={() => {
+          const deal = wonConfirm;
+          setWonConfirm(null);
+          if (deal) handleInlineChange(deal, { stage: "WON" });
+        }}
+        onCancel={() => setWonConfirm(null)}
+        confirmBtnClass="bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500 text-white"
+      />
 
       <DynamicPopup
         isPopupOpen={showDeletePopup}

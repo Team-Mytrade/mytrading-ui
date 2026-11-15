@@ -17,6 +17,10 @@ export interface CrmSettings {
   // The company's lists (8.3.2): where leads come from, why leads and deals are lost
   leadSources: string[];
   lostReasons: string[];
+  // Remind a lead's or open deal's owner after this many days without a task or interaction; 0 = never
+  idleDays: number;
+  // Each stage's default win probability (8.3.3); Won 100 and Lost 0 always
+  stageProbabilities: Record<string, number>;
 }
 
 const DEFAULTS: CrmSettings = {
@@ -25,6 +29,8 @@ const DEFAULTS: CrmSettings = {
   seesAll: true,
   leadSources: ["Walk-in", "Phone", "Website", "Exhibition", "Referral", "WhatsApp", "Social media", "Marketplace", "Other"],
   lostReasons: ["Price", "Lost to competitor", "No budget", "No response", "Product not available", "Delivery time", "Other"],
+  idleDays: 14,
+  stageProbabilities: { PROSPECTING: 10, QUALIFIED: 25, NEGOTIATION: 60, WON: 100, LOST: 0 },
 };
 
 let cache: Promise<CrmSettings> | null = null;

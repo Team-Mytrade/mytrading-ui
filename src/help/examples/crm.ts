@@ -19,7 +19,7 @@ export const CRM_EXAMPLES: Record<string, HelpExample> = {
       { label: "Deal", value: "Hive – 40 ThinkPads for new branch" },
       { label: "Customer", value: "Hive Coworking Spaces" },
       { label: "Value", value: "AED 147,960" },
-      { label: "Stage", value: "Proposal" },
+      { label: "Stage", value: "Negotiation · 60%" },
       { label: "Expected close", value: "30 Nov 2026" },
     ],
     result: "From the deal she makes a quotation with 40 × Lenovo ThinkPad E14 at AED 3,699.",

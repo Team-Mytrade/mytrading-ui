@@ -16,6 +16,10 @@ interface CrmReport {
   leadConversionRate?: number;
   opportunityStageBreakdown?: Record<string, number>;
   monthlyLeads?: Record<string, number>;
+  // In the company's currency, each deal at the latest exchange rate (8.3.3); deals without a rate are left out
+  pipelineValue?: number;
+  weightedPipelineValue?: number;
+  wonValue?: number;
 }
 
 interface Deal {
@@ -81,10 +85,12 @@ export default function CrmDashboardPage() {
     });
   }, []);
 
-  // Same rule as the CRM report: open = not won, lost or cancelled
+  // Same rule as the CRM report: open = not won, lost or cancelled. Money comes from the report, which converts each
+  // deal to the company's currency (adding the deals' own amounts would mix currencies)
   const openDeals = deals.filter((d) => d.stage !== "WON" && d.stage !== "LOST" && d.status !== "CANCELLED");
-  const pipelineValue = openDeals.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-  const wonValue = deals.filter((d) => d.stage === "WON").reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const pipelineValue = Number(report.pipelineValue ?? 0);
+  const weightedValue = Number(report.weightedPipelineValue ?? 0);
+  const wonValue = Number(report.wonValue ?? 0);
   const pendingActivities = activities.filter((a) => a.status !== "COMPLETED" && a.status !== "CANCELLED");
 
   const stages = useMemo(() => {
@@ -123,7 +129,8 @@ export default function CrmDashboardPage() {
         panelClass="lg:grid-cols-3"
         kpis={
           <>
-            <KpiCard label={t("Pipeline Value")} value={money(pipelineValue)} hint={t("{count} open deal(s)", { count: openDeals.length })}
+            <KpiCard label={t("Pipeline Value")} value={money(pipelineValue)}
+              hint={t("{count} open deal(s) · weighted {value}", { count: openDeals.length, value: money(weightedValue) })}
               icon={Target} tone="cyan" loading={loading} />
             <KpiCard label={t("Won Value")} value={money(wonValue)} hint={t("{count} deal(s) won", { count: deals.filter((d) => d.stage === "WON").length })}
               icon={Trophy} tone="emerald" loading={loading} />
