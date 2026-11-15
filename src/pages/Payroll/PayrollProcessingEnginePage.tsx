@@ -126,6 +126,25 @@ const PayrollProcessingEnginePage: React.FC = () => {
         }
     };
 
+    // Overtime pay (India payroll): on or off, the multiplier and the days and hours the hourly rate divides the basic by
+    const [overtime, setOvertime] = useState<{ overtimePaid: boolean; overtimeMultiplier: number; overtimeDaysPerMonth: number; overtimeHoursPerDay: number } | null>(null);
+    useEffect(() => {
+        if (!canApprove) return;
+        axios.get(`/v1/api/payroll/overtime-settings`).then(({ data }) => setOvertime({
+            overtimePaid: !!data.overtimePaid, overtimeMultiplier: Number(data.overtimeMultiplier ?? 2),
+            overtimeDaysPerMonth: Number(data.overtimeDaysPerMonth ?? 26), overtimeHoursPerDay: Number(data.overtimeHoursPerDay ?? 8),
+        })).catch(() => setOvertime(null));
+    }, [canApprove]);
+    const saveOvertime = async (change: Partial<{ overtimePaid: boolean; overtimeMultiplier: number; overtimeDaysPerMonth: number; overtimeHoursPerDay: number }>) => {
+        try {
+            const { data } = await axios.put(`/v1/api/payroll/overtime-settings`, change);
+            setOvertime({ overtimePaid: !!data.overtimePaid, overtimeMultiplier: Number(data.overtimeMultiplier ?? 2), overtimeDaysPerMonth: Number(data.overtimeDaysPerMonth ?? 26), overtimeHoursPerDay: Number(data.overtimeHoursPerDay ?? 8) });
+            ToasterService.success(data.overtimePaid ? "Overtime is paid from the next run" : "Overtime isn't paid");
+        } catch (error) {
+            ToasterService.error(apiError(error, "The overtime settings were not saved"));
+        }
+    };
+
     const saveApprovalSettings = async (change: Partial<{ approvalRequired: boolean; varianceThresholdPercent: number }>) => {
         try {
             const { data } = await axios.put(`/v1/api/payroll/run-settings`, change);
@@ -782,6 +801,31 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                                 && saveApprovalSettings({ varianceThresholdPercent: Number(e.target.value) })} />
                                                         %
                                                     </label>
+                                                )}
+                                            </div>
+                                        )}
+                                        {canApprove && overtime && (
+                                            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs dark:border-[#2a2a2a]"
+                                                title={t("Overtime hours come from the attendance file's Overtime Hours column or the Attendance module's locked month. Paid at the multiplier × the monthly basic ÷ days ÷ hours (India payroll).")}>
+                                                <label className="flex cursor-pointer items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-300">
+                                                    <input type="checkbox" checked={overtime.overtimePaid} onChange={(e) => saveOvertime({ overtimePaid: e.target.checked })} />
+                                                    {t("Pay overtime")}
+                                                </label>
+                                                {overtime.overtimePaid && (
+                                                    <span className="flex items-center gap-1 text-gray-500">
+                                                        <input type="number" min={1} max={4} step={0.25} className="h-6 w-12 rounded border border-gray-300 px-1 dark:border-gray-700 dark:bg-[#222222]"
+                                                            defaultValue={overtime.overtimeMultiplier} aria-label={t("Overtime multiplier")}
+                                                            onBlur={(e) => Number(e.target.value) !== overtime.overtimeMultiplier && saveOvertime({ overtimeMultiplier: Number(e.target.value) })} />
+                                                        {t("× basic ÷")}
+                                                        <input type="number" min={20} max={31} className="h-6 w-10 rounded border border-gray-300 px-1 dark:border-gray-700 dark:bg-[#222222]"
+                                                            defaultValue={overtime.overtimeDaysPerMonth} aria-label={t("Days a month")}
+                                                            onBlur={(e) => Number(e.target.value) !== overtime.overtimeDaysPerMonth && saveOvertime({ overtimeDaysPerMonth: Number(e.target.value) })} />
+                                                        {t("days ÷")}
+                                                        <input type="number" min={4} max={12} className="h-6 w-10 rounded border border-gray-300 px-1 dark:border-gray-700 dark:bg-[#222222]"
+                                                            defaultValue={overtime.overtimeHoursPerDay} aria-label={t("Hours a day")}
+                                                            onBlur={(e) => Number(e.target.value) !== overtime.overtimeHoursPerDay && saveOvertime({ overtimeHoursPerDay: Number(e.target.value) })} />
+                                                        {t("hours, per hour")}
+                                                    </span>
                                                 )}
                                             </div>
                                         )}

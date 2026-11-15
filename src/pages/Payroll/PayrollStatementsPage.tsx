@@ -268,7 +268,30 @@ const PayrollStatementsPage: React.FC = () => {
                 {shown.length === 0 ? (
                   <div className="p-8 text-center text-sm text-slate-500">{t("No salary paid in this financial year yet.")}</div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  {/* On a phone: one card per month with its headcount, gross, deductions and net pay */}
+                  <div className="space-y-2 p-3 sm:hidden">
+                    {shown.filter((m) => m.employees > 0).map((m) => {
+                      const earned = data.groups.find((g) => g.key === "EARNINGS")?.total.months?.[m.month];
+                      const deducted = data.groups.find((g) => g.key === "DEDUCTIONS")?.total.months?.[m.month];
+                      return (
+                        <button key={m.month} type="button" className="w-full rounded-lg border border-slate-200 p-3 text-left dark:border-gray-700"
+                          onClick={() => openCell("NET", null, m.month, `${t("Net pay")} · ${monthLabel(m.month)}`)}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">{monthLabel(m.month)}</span>
+                            <span className="text-[11px] text-slate-500 dark:text-gray-400">{m.employees} {t("paid")}</span>
+                          </div>
+                          <div className="mt-1 text-lg font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">
+                            {money(data.netPay.months?.[m.month] ?? 0)} <span className="text-[11px] font-normal text-slate-500">{t("net pay")}</span>
+                          </div>
+                          <div className="mt-1 flex justify-between text-xs text-slate-600 dark:text-gray-300">
+                            <span>{t("Gross")} {money(earned ?? 0)}</span><span>{t("Deductions")} {money(deducted ?? 0)}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden overflow-x-auto sm:block">
                     <table className="min-w-full text-xs">
                       <thead className="bg-slate-50 dark:bg-[#222]">
                         <tr>
@@ -309,6 +332,7 @@ const PayrollStatementsPage: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
                 <div className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500 dark:border-gray-800 dark:text-gray-400">
                   {t("From processed payslips, months brought in from the old system included; runs waiting for approval show once approved. The department is the one the salary was paid under.")}

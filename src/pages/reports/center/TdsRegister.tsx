@@ -90,6 +90,190 @@ const StatusBadge: React.FC<{ status: DepositStatus }> = ({ status }) => (
   <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS[status].tone}`}>{t(STATUS[status].label)}</span>
 );
 
+interface Deductor {
+  tan?: string | null;
+  responsiblePerson?: string | null;
+  responsibleFatherName?: string | null;
+  responsibleDesignation?: string | null;
+  signingPlace?: string | null;
+}
+
+/**
+ * The deductor on Form 16 and the TDS return: the company's TAN and the person responsible for deducting tax, who
+ * signs Form 16's verification. Shown filled in, with Edit; a missing TAN is called out.
+ */
+const DeductorCard: React.FC = () => {
+  const [saved, setSaved] = useState<Deductor | null>(null);
+  const [form, setForm] = useState<Deductor | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    axios.get<Deductor>(`${API}/deductor`).then((r) => setSaved(r.data ?? {})).catch(() => setSaved(null));
+  }, []);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form) return;
+    try {
+      setBusy(true);
+      const r = await axios.put<Deductor>(`${API}/deductor`, form);
+      setSaved(r.data);
+      setForm(null);
+      ToasterService.success(t("Deductor details saved"));
+    } catch (err) {
+      ToasterService.error(apiError(err, "The deductor details could not be saved"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!saved) return null;
+  const fields: { key: keyof Deductor; label: string; hint?: string }[] = [
+    { key: "tan", label: "TAN", hint: "4 letters, 5 digits, a letter" },
+    { key: "responsiblePerson", label: "Person responsible" },
+    { key: "responsibleFatherName", label: "Their father's name" },
+    { key: "responsibleDesignation", label: "Designation" },
+    { key: "signingPlace", label: "Place" },
+  ];
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-transparent dark:bg-[#191919]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{t("Deductor details")}</h2>
+          <p className="text-xs text-slate-500 dark:text-gray-400">{t("On Form 16 and the TDS return: the company's TAN and who signs the certificate.")}</p>
+        </div>
+        {!form && (
+          <button type="button" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300"
+            onClick={() => setForm({ ...saved })}>{t("Edit")}</button>
+        )}
+      </div>
+      {form ? (
+        <form onSubmit={save} className="mt-3 flex flex-wrap items-end gap-3">
+          {fields.map((f) => (
+            <Field key={f.key} label={f.label}>
+              <input className={`${inputClass} ${f.key === "tan" ? "font-mono uppercase" : ""}`} value={form[f.key] ?? ""} placeholder={f.hint}
+                maxLength={f.key === "tan" ? 10 : 100} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+            </Field>
+          ))}
+          <button type="submit" disabled={busy} className="h-10 rounded-lg bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50">
+            {busy ? t("Saving…") : t("Save")}
+          </button>
+          <button type="button" className="h-10 rounded-lg px-3 text-sm text-slate-600 dark:text-gray-300" onClick={() => setForm(null)}>{t("Cancel")}</button>
+        </form>
+      ) : (
+        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-5">
+          {fields.map((f) => (
+            <div key={f.key}>
+              <dt className="text-[11px] text-slate-500 dark:text-gray-400">{t(f.label)}</dt>
+              <dd className={`${saved[f.key] ? "text-slate-800 dark:text-gray-200" : "text-red-600"} ${f.key === "tan" ? "font-mono" : ""}`}>
+                {saved[f.key] || t("not set")}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+};
+
+interface ReturnQuarter {
+  financialYear: string;
+  quarter: number;
+  months: string;
+  dueDate: string;
+  challans: { serial: number }[];
+  deductions: { employeeId: number }[];
+  taxDeducted: number;
+  taxDeposited: number;
+  employees: number;
+  problems: string[];
+  warnings: string[];
+}
+
+/**
+ * The quarterly TDS return on salaries (24Q) for the chosen year: pick a quarter, see what it holds and what to fix
+ * before filing, and download the working (deductor, challans, deductees, and the salary details in Q4) for the
+ * Return Preparation Utility.
+ */
+const ReturnCard: React.FC<{ year: string }> = ({ year }) => {
+  const [quarter, setQuarter] = useState<number | null>(null);
+  const [data, setData] = useState<ReturnQuarter | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setData(null);
+    if (!quarter) return;
+    setLoading(true);
+    axios.get<ReturnQuarter>(`${API}/return`, { params: { year, quarter } })
+      .then((r) => setData(r.data ?? null))
+      .catch((err) => ToasterService.error(apiError(err, "The quarter could not be loaded")))
+      .finally(() => setLoading(false));
+  }, [year, quarter]);
+
+  const download = async () => {
+    if (!quarter) return;
+    try {
+      const res = await axios.get<Blob>(`${API}/return/export`, { params: { year, quarter }, responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `24Q-${year}-Q${quarter}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      ToasterService.error(apiError(err, "The working could not be downloaded"));
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-transparent dark:bg-[#191919]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{t("Quarterly return (24Q)")}</h2>
+          <p className="text-xs text-slate-500 dark:text-gray-400">{t("The quarter's challans and deductions, checked, as a working for the Return Preparation Utility.")}</p>
+        </div>
+        <div className="flex gap-1.5" role="tablist">
+          {[1, 2, 3, 4].map((q) => (
+            <button key={q} type="button" role="tab" aria-selected={quarter === q} onClick={() => setQuarter(q)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${quarter === q ? "bg-cyan-600 text-white" : "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300"}`}>
+              Q{q}
+            </button>
+          ))}
+        </div>
+      </div>
+      {loading && <p className="mt-3 text-sm text-slate-500">{t("Loading…")}</p>}
+      {data && (
+        <div className="mt-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-700 dark:text-gray-300">
+            <span><span className="text-slate-500">{t("Months")}</span> {data.months}</span>
+            <span><span className="text-slate-500">{t("Due by")}</span> {day(data.dueDate)}</span>
+            <span><span className="text-slate-500">{t("Employees")}</span> {data.employees}</span>
+            <span><span className="text-slate-500">{t("Deducted")}</span> {money(data.taxDeducted)}</span>
+            <span><span className="text-slate-500">{t("Deposited")}</span> {money(data.taxDeposited)}</span>
+            <span><span className="text-slate-500">{t("Challans")}</span> {data.challans.length}</span>
+            <button type="button" onClick={download} disabled={data.deductions.length === 0}
+              className="ml-auto rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300">
+              {t("Download working (Excel)")}
+            </button>
+          </div>
+          {data.problems.length === 0 && data.deductions.length > 0 ? (
+            <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950/40 dark:text-green-300">{t("No problems found: ready to prepare the return.")}</p>
+          ) : data.problems.length > 0 && (
+            <ul className="list-disc space-y-0.5 rounded-md border-l-4 border-red-500 bg-red-50 py-2 pl-8 pr-3 text-sm text-red-800 dark:bg-[#222] dark:text-red-300">
+              {data.problems.map((p) => <li key={p}>{p}</li>)}
+            </ul>
+          )}
+          {data.warnings.length > 0 && <ReportWarnings warnings={data.warnings} />}
+          {data.deductions.length === 0 && <p className="text-sm text-slate-500">{t("No tax deducted in this quarter.")}</p>}
+          <p className="text-[11px] text-slate-500 dark:text-gray-400">
+            {t("The official upload file (FVU) is made in the Return Preparation Utility from this working; the receipt numbers it gives go on Form 16 Part A.")}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+};
+
 /**
  * TDS register (docs/HRMS-TENANT-DATA-MIGRATION.md §8.1): the income tax deducted from salaries each month, with each
  * employee's PAN, for finance to pay to the income-tax department by the due date; the challan is recorded here.
@@ -286,6 +470,9 @@ const TdsRegister: React.FC = () => {
           <TotalCard label="Still to pay" tone={num(summary?.outstanding) > 0 ? "red" : "slate"} value={money(summary?.outstanding)} />
           <TotalCard label="Employees without a valid PAN" tone={num(summary?.employeesWithoutPan) > 0 ? "red" : "slate"} value={String(summary?.employeesWithoutPan ?? 0)} />
         </div>
+
+        <DeductorCard />
+        <ReturnCard year={year} />
 
         <p className="text-xs text-slate-500">
           {t("Tax deducted from processed salaries, months brought in from the old system included. Each month's tax is due by the 7th of the next month, and March's by 30 April. Open a month to see each employee and record the challan.")}

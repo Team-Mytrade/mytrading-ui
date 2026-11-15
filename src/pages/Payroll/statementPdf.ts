@@ -16,9 +16,9 @@ const blobError = async (err: unknown, fallback: string) => {
   return apiError(err, fallback);
 };
 
-export type StatementKind = "ytd" | "pf" | "tax" | "all";
+export type StatementKind = "ytd" | "pf" | "tax" | "all" | "form16";
 
-const NAMES: Record<StatementKind, string> = { ytd: "ytd-statement", pf: "pf-statement", tax: "income-tax-statement", all: "salary-statements" };
+const NAMES: Record<StatementKind, string> = { ytd: "ytd-statement", pf: "pf-statement", tax: "income-tax-statement", all: "salary-statements", form16: "form16" };
 
 /** Downloads a salary statement as PDF (docs/PAYROLL-STATEMENTS.md): one kind, or all three in one file. */
 export const downloadStatementPdf = async (kind: StatementKind, employeeId: string, fy?: string) => {

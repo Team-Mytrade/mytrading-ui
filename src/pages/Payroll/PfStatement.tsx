@@ -15,6 +15,7 @@ interface PfMonth {
   status: MonthStatus;
   pfWage?: number | null;
   employee?: number | null;
+  vpf?: number | null;
   employerEpf?: number | null;
   pension?: number | null;
   total?: number | null;
@@ -28,6 +29,7 @@ interface PfStatementData {
   months: PfMonth[];
   pfWage: number;
   employeePf: number;
+  vpf: number;
   employerEpf: number;
   pension: number;
   total: number;
@@ -132,7 +134,8 @@ const PfStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId,
       </div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Metric label={t("Your PF")} value={money(data.employeePf)} dot={PF_COLORS.employee} note={t("12% of your PF wage")} />
+        <Metric label={t("Your PF")} value={money(data.employeePf + (data.vpf || 0))} dot={PF_COLORS.employee}
+          note={data.vpf > 0 ? `${t("12% of your PF wage")} + ${money(data.vpf)} ${t("voluntary")}` : t("12% of your PF wage")} />
         <Metric label={t("Employer EPF")} value={money(data.employerEpf)} dot={PF_COLORS.epf} />
         <Metric label={t("Pension (EPS)")} value={money(data.pension)} dot={PF_COLORS.pension} note={t("8.33% of up to ₹15,000")} />
         <Metric label={t("Total this year")} value={money(data.total)} note={`${data.monthsWithPf} ${t(data.monthsWithPf === 1 ? "month" : "months")}`} />
@@ -163,6 +166,7 @@ const PfStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId,
                     <th className="px-3 py-2 text-left text-[11px] font-semibold text-slate-500 dark:text-gray-400 whitespace-nowrap">{t("Wage month")}</th>
                     {reveal && <th className={th}>{t("PF wage")}</th>}
                     <th className={th}>{t("Your PF")}</th>
+                    {data.vpf > 0 && <th className={th}>{t("Voluntary PF")}</th>}
                     <th className={th}>{t("Employer EPF")}</th>
                     <th className={th}>{t("Pension")}</th>
                     <th className={th}>{t("Total")}</th>
@@ -179,6 +183,7 @@ const PfStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId,
                       </td>
                       {reveal && <td className={td}>{m.pfWage == null ? "—" : money(m.pfWage)}</td>}
                       <td className={td}>{m.employee == null ? "—" : money(m.employee)}</td>
+                      {data.vpf > 0 && <td className={td}>{m.vpf == null ? "—" : money(m.vpf)}</td>}
                       <td className={td}>{m.employerEpf == null ? "—" : money(m.employerEpf)}</td>
                       <td className={td}>{m.pension == null ? "—" : money(m.pension)}</td>
                       <td className={`${td} font-semibold text-slate-900 dark:text-white`}>{m.total == null ? "—" : money(m.total)}</td>
@@ -188,6 +193,7 @@ const PfStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId,
                     <td className="px-3 py-2 text-left">{t("Total")}</td>
                     {reveal && <td className={td}>{money(data.pfWage)}</td>}
                     <td className={td}>{money(data.employeePf)}</td>
+                    {data.vpf > 0 && <td className={td}>{money(data.vpf)}</td>}
                     <td className={td}>{money(data.employerEpf)}</td>
                     <td className={td}>{money(data.pension)}</td>
                     <td className={`${td} text-cyan-700 dark:text-cyan-300`}>{money(data.total)}</td>

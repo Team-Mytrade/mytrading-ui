@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, FileText, Building, Calendar, User, CreditCard } from 'lucide-react';
 import { useCompany } from '../../company/companyApi';
@@ -23,6 +23,17 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
     loading 
 }) => {
     const { company, logo } = useCompany();
+
+    // Escape closes the preview, as any dialog
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     // B: statutory contributions (PF, ESI, LWF, pension); C: income tax and every other deduction
@@ -34,15 +45,19 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4"
+                onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
                 <motion.div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Payslip for ${month}`}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
+                    className="bg-white dark:bg-[#191919] rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
                 >
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-[#222222]">
                         <div className="flex items-center gap-3">
                             {logo ? (
                                 <img src={logo.dataUrl} alt="" className="h-10 max-w-[120px] object-contain" />
@@ -52,15 +67,15 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                 </div>
                             )}
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900">{company?.legalName || company?.companyName || "Payslip Preview"}</h3>
-                                <p className="text-sm text-gray-500">Payslip for the month of {month}</p>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{company?.legalName || company?.companyName || "Payslip Preview"}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Payslip for the month of {month}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
                             {onDownload && (
                                 <button 
                                     onClick={onDownload}
-                                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-cyan-700 bg-cyan-50 hover:bg-cyan-100 rounded-lg transition-colors"
+                                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-50 hover:bg-cyan-100 rounded-lg transition-colors"
                                 >
                                     <Download size={16} />
                                     Download
@@ -68,6 +83,8 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                             )}
                             <button 
                                 onClick={onClose}
+                                aria-label="Close"
+                                title="Close (Esc)"
                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
                             >
                                 <X size={20} />
@@ -76,14 +93,14 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                     </div>
 
                     {/* Content */}
-                    <div className="p-6 overflow-y-auto flex-1 bg-white">
+                    <div className="p-6 overflow-y-auto flex-1 bg-white dark:bg-[#191919]">
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-12">
                                 <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="mt-4 text-gray-500">Loading payslip details...</p>
+                                <p className="mt-4 text-gray-500 dark:text-gray-400">Loading payslip details...</p>
                             </div>
                         ) : !payslipData ? (
-                            <div className="text-center py-12 text-gray-500">
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                                 No payslip data available for this month.
                             </div>
                         ) : (
@@ -91,71 +108,71 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                 {/* Employee & Company Info Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {/* Employee Details */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
                                             <User size={16} className="text-gray-400" />
                                             Employee Details
                                         </h4>
                                         <div className="space-y-2 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Name:</span>
-                                                <span className="font-medium text-gray-900">{payslipData.employeeName || 'N/A'}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">Name:</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">{payslipData.employeeName || 'N/A'}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Employee Code:</span>
-                                                <span className="font-medium text-gray-900">{payslipData.employeeCode || payslipData.employeeId || 'N/A'}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">Employee Code:</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">{payslipData.employeeCode || payslipData.employeeId || 'N/A'}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Designation:</span>
-                                                <span className="font-medium text-gray-900">{payslipData.designation || 'N/A'}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">Designation:</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">{payslipData.designation || 'N/A'}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Joining Date:</span>
-                                                <span className="font-medium text-gray-900">{payslipData.joiningDate || 'N/A'}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">Joining Date:</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">{payslipData.joiningDate || 'N/A'}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Base Location:</span>
-                                                <span className="font-medium text-gray-900">{payslipData.baseLocation || 'N/A'}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">Base Location:</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">{payslipData.baseLocation || 'N/A'}</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Bank & Attendance */}
                                     <div className="space-y-4">
-                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                        <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                                            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
                                                 <Calendar size={16} className="text-gray-400" />
                                                 Attendance Details
                                             </h4>
                                             <div className="space-y-2 text-sm">
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-500">Working Days:</span>
-                                                    <span className="font-medium text-gray-900">{payslipData.workingDays || 0}</span>
+                                                    <span className="text-gray-500 dark:text-gray-400">Working Days:</span>
+                                                    <span className="font-medium text-gray-900 dark:text-white">{payslipData.workingDays || 0}</span>
                                                 </div>
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-500">Loss of Pay (LOP) Days:</span>
-                                                    <span className="font-medium text-gray-900">{payslipData.lossOfPayDays || 0}</span>
+                                                    <span className="text-gray-500 dark:text-gray-400">Loss of Pay (LOP) Days:</span>
+                                                    <span className="font-medium text-gray-900 dark:text-white">{payslipData.lossOfPayDays || 0}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                        <div className="bg-gray-50 dark:bg-[#222222] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                                            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
                                                 <Building size={16} className="text-gray-400" />
                                                 Bank Details
                                             </h4>
                                             <div className="space-y-2 text-sm">
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-500">Bank Name:</span>
-                                                    <span className="font-medium text-gray-900">{payslipData.bankName || 'N/A'}</span>
+                                                    <span className="text-gray-500 dark:text-gray-400">Bank Name:</span>
+                                                    <span className="font-medium text-gray-900 dark:text-white">{payslipData.bankName || 'N/A'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-500">Account No:</span>
-                                                    <span className="font-medium text-gray-900">{payslipData.accountNumber || 'N/A'}</span>
+                                                    <span className="text-gray-500 dark:text-gray-400">Account No:</span>
+                                                    <span className="font-medium text-gray-900 dark:text-white">{payslipData.accountNumber || 'N/A'}</span>
                                                 </div>
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-500">IFSC Code:</span>
-                                                    <span className="font-medium text-gray-900">{payslipData.ifscCode || 'N/A'}</span>
+                                                    <span className="text-gray-500 dark:text-gray-400">IFSC Code:</span>
+                                                    <span className="font-medium text-gray-900 dark:text-white">{payslipData.ifscCode || 'N/A'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -163,29 +180,29 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                 </div>
 
                                 {/* Salary Structure */}
-                                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                                        <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                                <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                                    <div className="bg-gray-50 dark:bg-[#222222] px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                        <h4 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                                             <CreditCard size={18} className="text-gray-400" />
                                             Salary Breakdown
                                         </h4>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
                                         {/* Earnings */}
                                         <div className="p-4">
-                                            <h5 className="text-sm font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-100">Earnings</h5>
+                                            <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 pb-2 border-b border-gray-100 dark:border-gray-800">Earnings</h5>
                                             {/* The earnings lines include Basic and HRA, so they aren't listed again */}
                                             <div className="space-y-3 text-sm">
                                                 {payslipData.earnings?.map((e: any, i: number) => (
                                                     <div key={i} className="flex justify-between">
-                                                        <span className="text-gray-600">{e.componentName || e.name || e.earningName}</span>
-                                                        <span className="font-medium">{formatMoney(e.amount)}</span>
+                                                        <span className="text-gray-600 dark:text-gray-300">{e.componentName || e.name || e.earningName}</span>
+                                                        <span className="font-medium text-gray-900 dark:text-white">{formatMoney(e.amount)}</span>
                                                     </div>
                                                 ))}
                                             </div>
-                                            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
-                                                <span className="font-bold text-gray-800">Total Earnings (A)</span>
-                                                <span className="font-bold text-gray-900">{formatMoney((payslipData.totalEarnings ?? payslipData.grossSalary))}</span>
+                                            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                                                <span className="font-bold text-gray-800 dark:text-gray-100">Total Earnings (A)</span>
+                                                <span className="font-bold text-gray-900 dark:text-white">{formatMoney((payslipData.totalEarnings ?? payslipData.grossSalary))}</span>
                                             </div>
                                         </div>
 
@@ -196,56 +213,56 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
                                                 { title: "Taxes & Deductions", total: "Total Taxes & Deductions (C)", lines: taxesAndDeductions },
                                             ].map((section) => (
                                                 <div key={section.title}>
-                                                    <h5 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">{section.title}</h5>
+                                                    <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">{section.title}</h5>
                                                     <div className="space-y-3 text-sm">
                                                         {section.lines.length > 0 ? (
                                                             section.lines.map((d: any, i: number) => (
                                                                 <div key={i} className="flex justify-between">
-                                                                    <span className="text-gray-600">{lineName(d)}</span>
-                                                                    <span className="font-medium">{formatMoney(d.amount)}</span>
+                                                                    <span className="text-gray-600 dark:text-gray-300">{lineName(d)}</span>
+                                                                    <span className="font-medium text-gray-900 dark:text-white">{formatMoney(d.amount)}</span>
                                                                 </div>
                                                             ))
                                                         ) : (
                                                             <div className="text-gray-400 italic">None</div>
                                                         )}
                                                     </div>
-                                                    <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between">
-                                                        <span className="font-bold text-gray-800">{section.total}</span>
-                                                        <span className="font-bold text-gray-900">{formatMoney(sumOf(section.lines))}</span>
+                                                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                                                        <span className="font-bold text-gray-800 dark:text-gray-100">{section.total}</span>
+                                                        <span className="font-bold text-gray-900 dark:text-white">{formatMoney(sumOf(section.lines))}</span>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-6 gap-y-3 text-sm items-center">
-                                        <span className="text-gray-700">Net Salary Payable ( A - B - C )</span>
-                                        <span className="font-bold text-cyan-700 text-xl">{formatMoney(payslipData.netSalary)}</span>
+                                    <div className="bg-gray-50 dark:bg-[#222222] px-6 py-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-6 gap-y-3 text-sm items-center">
+                                        <span className="text-gray-700 dark:text-gray-200">Net Salary Payable ( A - B - C )</span>
+                                        <span className="font-bold text-cyan-700 dark:text-cyan-300 text-xl">{formatMoney(payslipData.netSalary)}</span>
                                         {amountInWords(payslipData.netSalary, companyCurrency()) && (
                                             <>
-                                                <span className="text-gray-700">Net Salary in words</span>
-                                                <span className="font-semibold text-gray-900">{amountInWords(payslipData.netSalary, companyCurrency())}</span>
+                                                <span className="text-gray-700 dark:text-gray-200">Net Salary in words</span>
+                                                <span className="font-semibold text-gray-900 dark:text-white">{amountInWords(payslipData.netSalary, companyCurrency())}</span>
                                             </>
                                         )}
                                     </div>
                                     {(payslipData.employerContributions ?? []).length > 0 && (
-                                        <div className="px-6 py-4 border-t border-gray-200 text-sm" data-testid="employer-contributions">
-                                            <h5 className="font-semibold text-gray-700 mb-1">Employer Contributions</h5>
-                                            <p className="text-xs text-gray-500 mb-3">Paid by the company, not deducted from your pay</p>
+                                        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 text-sm" data-testid="employer-contributions">
+                                            <h5 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Employer Contributions</h5>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Paid by the company, not deducted from your pay</p>
                                             <div className="space-y-2">
                                                 {payslipData.employerContributions.map((d: any, i: number) => (
                                                     <div key={i} className="flex justify-between">
-                                                        <span className="text-gray-600">{lineName(d)}</span>
-                                                        <span className="font-medium">{formatMoney(d.amount)}</span>
+                                                        <span className="text-gray-600 dark:text-gray-300">{lineName(d)}</span>
+                                                        <span className="font-medium text-gray-900 dark:text-white">{formatMoney(d.amount)}</span>
                                                     </div>
                                                 ))}
                                             </div>
-                                            <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between">
-                                                <span className="font-bold text-gray-800">Total Employer Contributions</span>
-                                                <span className="font-bold text-gray-900">{formatMoney(sumOf(payslipData.employerContributions))}</span>
+                                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+                                                <span className="font-bold text-gray-800 dark:text-gray-100">Total Employer Contributions</span>
+                                                <span className="font-bold text-gray-900 dark:text-white">{formatMoney(sumOf(payslipData.employerContributions))}</span>
                                             </div>
                                         </div>
                                     )}
-                                    <div className="px-6 py-3 text-xs text-gray-600">
+                                    <div className="px-6 py-3 text-xs text-gray-600 dark:text-gray-300">
                                         <span className="font-semibold">**Note:</span> <i>All amounts displayed in this payslip are in <b>{companyCurrency()}</b></i>
                                     </div>
                                 </div>
