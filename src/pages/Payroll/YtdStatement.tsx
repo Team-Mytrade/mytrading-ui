@@ -6,6 +6,7 @@ import { apiError } from "../../utils/apiError";
 import { t } from "../../i18n/i18n";
 import { CARD, CARD_TITLE, TOOL_BUTTON } from "./hrmsUi";
 import { money, monthLabel } from "./taxTracker";
+import { downloadStatementPdf } from "./statementPdf";
 
 type MonthStatus = "PAID" | "OLD_SYSTEM" | "AWAITING_APPROVAL" | "NOT_PAID";
 
@@ -139,9 +140,12 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
       <div className={`${CARD} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-gray-800">
           <div className={CARD_TITLE}>{t("YTD statement")} · FY {data.financialYear}</div>
-          <button type="button" className={TOOL_BUTTON} onClick={download}>
-            <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("Download Excel")}
+          <span className="flex gap-2"><button type="button" className={TOOL_BUTTON} onClick={download}>
+            <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("Excel")}
           </button>
+          <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("ytd", employeeId, data.financialYear)}>
+            <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("PDF")}
+          </button></span>
         </div>
         {data.monthsPaid === 0 && shown.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">{t("No salary paid in this financial year yet.")}</div>

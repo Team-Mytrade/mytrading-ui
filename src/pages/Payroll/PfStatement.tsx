@@ -6,6 +6,7 @@ import { apiError } from "../../utils/apiError";
 import { t } from "../../i18n/i18n";
 import { CARD, CARD_TITLE, TOOL_BUTTON } from "./hrmsUi";
 import { money, monthLabel } from "./taxTracker";
+import { downloadStatementPdf } from "./statementPdf";
 
 type MonthStatus = "PAID" | "OLD_SYSTEM" | "AWAITING_APPROVAL" | "NOT_PAID";
 
@@ -146,7 +147,8 @@ const PfStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId,
               <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: PF_COLORS.epf }} />{t("Employer EPF")}</span>
               <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: PF_COLORS.pension }} />{t("Pension")}</span>
             </span>
-            <button type="button" className={TOOL_BUTTON} onClick={download}><ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("Download Excel")}</button>
+            <button type="button" className={TOOL_BUTTON} onClick={download}><ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("Excel")}</button>
+            <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("pf", employeeId, data.financialYear)}><ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("PDF")}</button>
           </div>
         </div>
         {paid.length === 0 ? (

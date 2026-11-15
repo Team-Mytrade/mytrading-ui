@@ -3,7 +3,7 @@ import { usePayrollRegion } from "../../company/payrollRegion";
 import GulfSalaryPage from "./GulfSalaryPage";
 import axios from "axios";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeftIcon, DocumentArrowDownIcon, EyeIcon, FolderArrowDownIcon, MinusIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, DocumentArrowDownIcon, EnvelopeIcon, EyeIcon, FolderArrowDownIcon, MinusIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PayslipPreviewModal from "../../components/Payroll/PayslipPreviewModal";
@@ -18,6 +18,7 @@ import { RegimePill } from "./TaxTrackerPage";
 import YtdStatement from "./YtdStatement";
 import PfStatement from "./PfStatement";
 import TaxStatement from "./TaxStatement";
+import { downloadStatementPdf } from "./statementPdf";
 import { EmployeeTaxDetail, MonthLine, SalaryStructure, TAX_TRACKER_API, chartColors, initials, isDarkTheme, money, monthLabel, paidShare } from "./taxTracker";
 
 // Payslip downloads ask for a blob, so an error's JSON body arrives as one too
@@ -254,6 +255,24 @@ const IndiaSalaryPage: React.FC = () => {
   const [preview, setPreview] = useState<unknown | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+
+  // HR emails the employee their YTD, PF and income tax statements for the year in one PDF
+  const emailStatements = async () => {
+    if (!detail) return;
+    const who = detail.employee.employeeName;
+    if (!window.confirm(`${t("Email the salary statements for FY")} ${detail.financialYear} ${t("to")} ${who}?`)) return;
+    try {
+      setEmailing(true);
+      const res = await axios.post<{ sentTo: string; passwordProtected: boolean }>(
+        `/v1/api/payroll/statements/all/${detail.employee.employeeId}/email`, null, { params: { fy: detail.financialYear } });
+      ToasterService.success(`${t("Statements emailed to")} ${res.data.sentTo}${res.data.passwordProtected ? ` (${t("password-protected")})` : ""}`);
+    } catch (error) {
+      ToasterService.error(apiError(error, "The statements could not be emailed"));
+    } finally {
+      setEmailing(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -324,6 +343,18 @@ const IndiaSalaryPage: React.FC = () => {
             {person && (
               <button type="button" className={TOOL_BUTTON} onClick={() => setZipOpen(true)}>
                 <FolderArrowDownIcon className="h-3.5 w-3.5" />{t("Payslips (ZIP)")}
+              </button>
+            )}
+            {person && (
+              <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("all", own ? "me" : String(person.employeeId), detail?.financialYear)}
+                title={t("YTD, PF and income tax statements in one PDF")}>
+                <DocumentArrowDownIcon className="h-3.5 w-3.5" />{t("Statements (PDF)")}
+              </button>
+            )}
+            {person && canApprove && !own && (
+              <button type="button" className={TOOL_BUTTON} onClick={emailStatements} disabled={emailing}
+                title={t("Email the YTD, PF and income tax statements to the employee")}>
+                <EnvelopeIcon className="h-3.5 w-3.5" />{emailing ? t("Sending…") : t("Email statements")}
               </button>
             )}
             {detail && (

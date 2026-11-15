@@ -4,8 +4,10 @@ import { Link } from "react-router-dom";
 import { ChevronDownIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { apiError } from "../../utils/apiError";
 import { t } from "../../i18n/i18n";
-import { CARD, CARD_TITLE } from "./hrmsUi";
+import { CARD, CARD_TITLE, TOOL_BUTTON } from "./hrmsUi";
 import { money, monthLabel } from "./taxTracker";
+import { downloadStatementPdf } from "./statementPdf";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 
 interface Slab {
   from: number;
@@ -230,8 +232,13 @@ const TaxStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId
       <div className={`${CARD} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-gray-800">
           <div className={CARD_TITLE}>{t("How your tax is worked out")} · FY {data.financialYear}</div>
-          <span className="text-[11px] text-slate-500 dark:text-gray-400">
-            {forecast ? `${t("As payroll will work out")} ${asOf}` : `${t("As worked out for")} ${asOf}`}
+          <span className="flex items-center gap-3">
+            <span className="text-[11px] text-slate-500 dark:text-gray-400">
+              {forecast ? `${t("As payroll will work out")} ${asOf}` : `${t("As worked out for")} ${asOf}`}
+            </span>
+            <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("tax", employeeId, data.financialYear)}>
+              <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("PDF")}
+            </button>
           </span>
         </div>
         <Step index="1" label={t("Salary income for the year")} value={money(data.projectedIncome)} detail={
