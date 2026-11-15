@@ -80,3 +80,46 @@ export const menuForRoles = (
     }))
     .filter((g) => g.pages.length > 0);
 };
+
+/* ---- Tenants & Modules: which sub menus a company gets ---- */
+
+const optional = (p: MenuPage) => p.module !== "USERS";
+
+/** Main menus with their sub menu pages a company can be given (Settings / Users left out: always on). */
+export const pickerGroups = () =>
+  menuGroups().map((g) => ({ ...g, pages: g.pages.filter(optional) })).filter((g) => g.pages.length > 0);
+
+/** Whether the company gets this page. */
+export const pageOn = (p: MenuPage, modules: AppModule[], hiddenPages: string[]) =>
+  modules.includes(p.module) && !hiddenPages.includes(p.key);
+
+/** Applies page switches, keeping modules and hidden pages in step. */
+export const switchPages = (
+  modules: AppModule[], hiddenPages: string[], changes: { page: MenuPage; on: boolean }[],
+): { modules: AppModule[]; hiddenPages: string[] } => {
+  const allPages = pickerGroups().flatMap((g) => g.pages);
+  let mods = [...modules];
+  let hidden = new Set(hiddenPages);
+  for (const { page, on: wanted } of changes) {
+    if (wanted) {
+      if (!mods.includes(page.module)) {
+        // Turning a module on through one page: its other pages stay off until ticked
+        mods = [...mods, page.module];
+        allPages.filter((p) => p.module === page.module && p.key !== page.key).forEach((p) => hidden.add(p.key));
+      }
+      hidden.delete(page.key);
+    } else if (mods.includes(page.module)) {
+      hidden.add(page.key);
+    }
+  }
+  // A module with none of its pages left is switched off (and its pages no longer need listing)
+  for (const m of [...mods]) {
+    const pages = allPages.filter((p) => p.module === m);
+    if (pages.length > 0 && pages.every((p) => hidden.has(p.key))) {
+      mods = mods.filter((x) => x !== m);
+      pages.forEach((p) => hidden.delete(p.key));
+    }
+  }
+  hidden = new Set([...hidden].filter((k) => allPages.some((p) => p.key === k && mods.includes(p.module))));
+  return { modules: mods, hiddenPages: [...hidden].sort() };
+};

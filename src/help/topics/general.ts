@@ -1323,7 +1323,8 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       {
         title: "Create a company",
         steps: [
-          "Click New tenant: the Company name, Company address (its own sign-in address), Plan (or modules) and the Tenant Administrator's name and email.",
+          "Click New tenant and go through the steps: Company (name and plan), Menus (main menus and sub menus, when there is no plan), Administrator (name and email).",
+          "Review shows everything: click a sub menu to leave it out or put it back, or Change to go back to a step. Confirm and create.",
           "They get an email to set their own password, then fill in the company details under Company Settings.",
         ],
       },
