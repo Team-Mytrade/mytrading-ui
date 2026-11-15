@@ -1,5 +1,6 @@
 import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import DatePicker from 'react-datepicker';
+import { shift } from '@floating-ui/react';
 import { format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
 import { t } from '../../i18n/i18n';
@@ -633,6 +634,8 @@ const toIsoDate = (date: Date | null) => (date ? format(date, "yyyy-MM-dd") : ""
  * dropdowns, but still gives the form "2026-10-13", so callers don't change:
  * onChange receives an event-like object with target.value.
  */
+const KEEP_CALENDAR_ON_SCREEN = [shift({ padding: 8, crossAxis: true })];
+
 export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
   label,
   value,
@@ -678,6 +681,10 @@ export const FloatingDatePicker: React.FC<FloatingDatePickerProps> = ({
         autoComplete="off"
         // Shown above drawers and popups, never cut off by them.
         portalId="floating-datepicker-portal"
+        // Below the field, or above it when there's more room there; when it fits neither (a field low in a popup on a
+        // short screen) it slides up or down to stay whole on screen, over the field, so the month and year stay visible
+        popperModifiers={KEEP_CALENDAR_ON_SCREEN}
+        showPopperArrow={false}
         calendarClassName="floating-range-picker"
         wrapperClassName="floating-datepicker-wrapper"
         className={`floating-input floating-datepicker ${error ? 'error' : ''}`}
