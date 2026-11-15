@@ -100,6 +100,7 @@ import {
   Sparkles,
   Calculator,
   CircleHelp,
+  HeartPulse,
 } from "lucide-react";
 import { PayrollRegion, usePayrollRegion } from "../company/payrollRegion";
 import { useSidebar } from "../context/SidebarContext";
@@ -412,6 +413,7 @@ export const navItems: NavItem[] = [
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
       { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
       { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
+      { name: "System health", path: "/system-health", permission: "USERS:ADMIN", icon: HeartPulse, section: "Company" },
       { name: "API keys", path: "/api-keys", permission: "USERS:ADMIN", icon: KeyRound, section: "Company" },
       { name: "Webhooks", path: "/webhooks", permission: "USERS:ADMIN", icon: Webhook, section: "Company" },
       { name: "Customer Portal", path: "/portal-accounts", permission: "USERS:VIEW", icon: Store, section: "Company" },
@@ -421,6 +423,7 @@ export const navItems: NavItem[] = [
       // Super Admins only: /platform pages are PLATFORM routes in access.ts, so nobody else sees this
       { name: "Tenants & Modules", path: "/platform/tenants", icon: Building2, section: "Platform" },
       { name: "Plans", path: "/platform/plans", icon: CreditCard, section: "Platform" },
+      { name: "Monitoring", path: "/platform/monitoring", icon: Activity, section: "Platform" },
     ],
   },
 

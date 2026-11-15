@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Building2, CheckCircle2, CreditCard, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
+import { Activity, Building2, CheckCircle2, CreditCard, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
 import TenantPlanDialog from "./TenantPlanDialog";
 import { CompanyPlan, Plan, SUBSCRIPTION_TONE, plansApi, subscriptionText } from "../../platform/plansApi";
 import TenantClosureDialog, { TenantClosure, closing, closureApi } from "./TenantClosureDialog";
@@ -16,6 +16,7 @@ import {
   CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
 import { formatDate } from "../../company/format";
+import { grafanaLink, monitoringApi } from "../../monitoring/monitoringApi";
 
 import { t as tr } from "../../i18n/i18n";
 const OPTIONAL_MODULES = APP_MODULES.filter((m) => m !== "USERS");
@@ -69,6 +70,11 @@ export default function TenantsPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [companyPlans, setCompanyPlans] = useState<Record<string, CompanyPlan>>({});
   const [planFor, setPlanFor] = useState<TenantAccess | null>(null);
+  // Where Grafana is, for each company's Health link (null: not set up, the link is left out)
+  const [grafanaUrl, setGrafanaUrl] = useState<string | null>(null);
+  useEffect(() => {
+    monitoringApi.grafanaUrl().then(setGrafanaUrl).catch(() => setGrafanaUrl(null));
+  }, []);
   const selected = getSelectedTenant();
 
   const load = useCallback(async () => {
@@ -337,6 +343,10 @@ export default function TenantsPage() {
         <div className="flex items-center gap-1">
           <button type="button" title={tr("Edit name and modules")} className={ROW_ICON_BUTTON} onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></button>
           <button type="button" title={tr("Plan, limits and prices")} className={ROW_ICON_BUTTON} onClick={() => setPlanFor(t)}><CreditCard className="h-4 w-4" /></button>
+            {grafanaUrl && (
+              <a href={grafanaLink(grafanaUrl, "mt-company-health", { tenant: t.tenantId })} target="_blank" rel="noreferrer"
+                title={tr("Company health in Grafana")} aria-label={tr("Company health in Grafana")} className={ROW_ICON_BUTTON}><Activity className="h-4 w-4" /></a>
+            )}
           <button type="button" title={tr(selected === t.tenantId ? "Already working here" : "Work in this tenant")} className={ROW_ICON_BUTTON}
             disabled={selected === t.tenantId || !t.active} onClick={() => workIn(t.tenantId)}>
             <LogIn className="h-4 w-4" />

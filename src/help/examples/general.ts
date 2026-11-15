@@ -138,6 +138,24 @@ export const GENERAL_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "The company admin gets an invitation and starts the Getting started checklist.",
   },
+  "platform-monitoring": {
+    story: "The platform admin checks MyTrade first thing in the morning.",
+    data: [
+      { label: "Services up", value: "12 / 13 (eventnotify down)" },
+      { label: "Alerts firing", value: "2 · ServiceDown, PosInvoicesPending" },
+      { label: "Companies with something stuck", value: "Gulf Electronics Trading LLC · 3 waiting · oldest 25 min" },
+    ],
+    result: "They open the ServiceDown runbook, restart eventnotify, then open Company health for Gulf Electronics.",
+  },
+  "system-health": {
+    story: "Gulf Electronics' administrator opens System health after a cashier says receipts are slow.",
+    data: [
+      { label: "Needs a look", value: "3 · Counter sales waiting for their invoice (oldest 25 min)" },
+      { label: "Alerts", value: "1 · counter sales still without a tax invoice after 15 minutes" },
+      { label: "Business steps, last 24 h", value: "412 (Sales 268, Finance 96, Inventory 48)" },
+    ],
+    result: "They click Point of Sale beside the line and retry the three invoices once finance is back.",
+  },
   "platform-plans": {
     story: "The platform admin defines a mid-size plan.",
     data: [

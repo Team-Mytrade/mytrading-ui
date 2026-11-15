@@ -1185,4 +1185,60 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     ],
     related: [{ route: "/platform/tenants", label: "Tenants & Modules" }],
   },
+  {
+    id: "platform-monitoring",
+    route: "/platform/monitoring",
+    module: "Settings",
+    title: "Monitoring",
+    summary: "Is MyTrade healthy right now: services up or down, alerts firing, companies with something stuck, and the way into the Grafana dashboards.",
+    who: SUPER_ADMIN,
+    tasks: [
+      {
+        title: "Check the platform",
+        steps: [
+          "Look at the four cards: services up, alerts firing, critical ones, companies with something stuck.",
+          "In Alerts firing now, open an alert's Runbook for what to check and do.",
+          "In Companies with something stuck, open Company health to see that company in Grafana.",
+        ],
+      },
+      { title: "Open a dashboard", steps: ["Click a dashboard under Dashboards, or Open Grafana at the top. Grafana opens in a new tab with its own sign-in."] },
+    ],
+    rules: [
+      "The page refreshes every minute; Refresh reads it again now.",
+      "Figures come from Prometheus on the server. When it can't be reached, a message says so; the companies' work is not affected.",
+      "Dashboards open only when user-service knows Grafana's address (GRAFANA_URL); each company row in Tenants & Modules then has a Company health link too.",
+      "Company administrators never see Grafana: they have Settings → System health, with their own company's figures only.",
+    ],
+    related: [
+      { route: "/platform/tenants", label: "Tenants & Modules" },
+      { route: "/system-health", label: "System health", why: "What a company's administrator sees" },
+    ],
+  },
+  {
+    id: "system-health",
+    route: "/system-health",
+    module: "Settings",
+    title: "System health",
+    summary: "Whether anything is stuck in your company right now, alerts about it, and how much business went through in the last day.",
+    who: TENANT_ADMIN,
+    tasks: [
+      {
+        title: "See what needs a look",
+        steps: [
+          "Needs a look lists what should have gone through by now (counter sales without their invoice, store orders, e-invoices, stock postings) with how long the oldest has waited.",
+          "Click the page name beside a line to finish or retry it there.",
+        ],
+      },
+      { title: "Follow the day's work", steps: ["Work in progress shows normal work waiting for someone; Business steps, last 24 h shows activity by module."] },
+    ],
+    rules: [
+      "Only your company's figures are shown; nothing comes from other companies.",
+      "The page refreshes every minute. Figures are live and approximate: Report Center has the exact ones.",
+      "When monitoring can't be reached a message says so; your data and work are not affected.",
+    ],
+    related: [
+      { route: "/audit-log", label: "Audit Log", why: "Who did what" },
+      { route: "/company-settings", label: "Company Settings" },
+    ],
+  },
 ];
