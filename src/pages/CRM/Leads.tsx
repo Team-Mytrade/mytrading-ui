@@ -1308,19 +1308,21 @@ const Leads: React.FC = () => {
         fields={
           convertForm
             ? [
-                <FloatingInput
-                  key="customerName"
-                  label={t("Customer name")}
-                  name="customerName"
-                  value={convertForm.customerName}
-                  onChange={(e) => setConvertForm({ ...convertForm, customerName: e.target.value })}
-                  example={
-                    convertLead?.companyName && convertLead.companyName !== convertLead.name
-                      ? t("{name} becomes its main contact", { name: convertLead.name })
-                      : undefined
-                  }
-                  required
-                />,
+                <div key="customerName">
+                  <FloatingInput
+                    label={t("Customer name")}
+                    name="customerName"
+                    value={convertForm.customerName}
+                    onChange={(e) => setConvertForm({ ...convertForm, customerName: e.target.value })}
+                    required
+                  />
+                  {/* Shown, not a placeholder: the name is filled in, so a placeholder would never be seen */}
+                  {convertLead && convertForm.customerName.trim().toLowerCase() !== convertLead.name.trim().toLowerCase() && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {t("{name} becomes its main contact", { name: convertLead.name })}
+                    </p>
+                  )}
+                </div>,
                 <FloatingSelect
                   key="customerType"
                   label={t("Customer type")}

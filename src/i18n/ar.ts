@@ -1921,6 +1921,53 @@ export const ar: Record<string, string> = {
   "Already on the list": "موجود بالفعل في القائمة",
   "Up to {n} entries": "حتى {n} بندًا",
 
+  // ---------------- CRM: deal probability, lost reasons, pipeline in one currency (8.3.3) ----------------
+  Probability: "الاحتمال",
+  "Weighted pipeline": "المسار المرجّح",
+  "{count} open deal(s) in {currencies} aren't counted: finance has no exchange rate for them yet.":
+    "لا تُحتسب {count} صفقة مفتوحة بعملة {currencies}: لا يوجد لها سعر صرف في المالية بعد.",
+  "Lost note": "ملاحظة الخسارة",
+  "e.g. went with another supplier at 4% less": "مثال: اختار موردًا آخر بسعر أقل بـ 4%",
+  "Probability (%)": "الاحتمال (%)",
+  "How likely it is to be won": "مدى احتمال كسبها",
+  "Why was the deal lost?": "لماذا خُسرت الصفقة؟",
+  "Choose why the deal was lost": "اختر سبب خسارة الصفقة",
+  "Probability is a percentage from 0 to 100": "الاحتمال نسبة من 0 إلى 100",
+  "{count} open deal(s) · weighted {value}": "{count} صفقة مفتوحة · المرجّح {value}",
+  Weighted: "المرجّح",
+  "{count} not converted": "{count} غير محوَّلة",
+  "No exchange rate for: {list}": "لا يوجد سعر صرف لـ: {list}",
+  "The choices on leads and deals. Removing an entry doesn't change the records that already have it.":
+    "الخيارات في العملاء المحتملين والصفقات. حذف بند لا يغيّر السجلات التي تحمله.",
+  "Why leads and deals are lost; asked whenever one is marked Lost.": "لماذا يُخسر العملاء المحتملون والصفقات؛ ويُسأل عنه كلما عُيّن أحدها كخاسر.",
+  "Win probability by stage": "احتمال الكسب حسب المرحلة",
+  "A deal takes its stage's probability when it moves there; it can be changed on the deal. The weighted pipeline is each open deal's amount × its probability.":
+    "تأخذ الصفقة احتمال مرحلتها عند انتقالها إليها، ويمكن تغييره في الصفقة. المسار المرجّح هو مبلغ كل صفقة مفتوحة × احتمالها.",
+  "Won is always 100% and Lost 0%.": "المكسوبة دائمًا 100% والخاسرة 0%.",
+  "Enter a whole number from 0 to 100 for each stage": "أدخل عددًا صحيحًا من 0 إلى 100 لكل مرحلة",
+  "Stage probabilities saved": "تم حفظ احتمالات المراحل",
+
+  // ---------------- CRM: pipeline board and deal filters (8.3.4) ----------------
+  Board: "لوحة",
+  Table: "جدول",
+  "Pipeline board": "لوحة مسار المبيعات",
+  "+{count} without an exchange rate": "+{count} بلا سعر صرف",
+  "The expected close date has passed": "فات تاريخ الإغلاق المتوقع",
+  "Move to": "نقل إلى",
+  "Move to…": "نقل إلى…",
+  "Drop a deal here": "أفلت صفقة هنا",
+  "No deals": "لا توجد صفقات",
+  "All owners": "كل المالكين",
+  "Close month": "شهر الإغلاق",
+  "Any close date": "أي تاريخ إغلاق",
+  "Close date passed": "فات تاريخ الإغلاق",
+  "Closing this month": "تُغلق هذا الشهر",
+  "Closing next month": "تُغلق الشهر القادم",
+  "No close date": "بلا تاريخ إغلاق",
+  "Mark the deal as won?": "تعيين الصفقة كمكسوبة؟",
+  "\"{name}\" will be closed as won at 100%, dated today.": "ستُغلق «{name}» كمكسوبة بنسبة 100% بتاريخ اليوم.",
+  "Mark as won": "تعيين كمكسوبة",
+
   // ---------------- Messages (toasts) ----------------
   "A transfer needs two different warehouses.": "يتطلب التحويل مستودعين مختلفين.",
   "A warehouse with this name already exists": "يوجد مستودع بهذا الاسم بالفعل",

@@ -106,7 +106,25 @@ export const CRM_TOPICS: HelpTopic[] = [
           "Save.",
         ],
       },
-      { title: "Move a deal through the pipeline", steps: ["Edit the deal and set the stage: Prospecting → Qualified → Negotiation → Won or Lost."] },
+      {
+        title: "Move a deal through the pipeline",
+        steps: [
+          "Choose Board above the list: one column per stage, Prospecting → Qualified → Negotiation → Won and Lost.",
+          "Drag the deal's card to the next column, or pick the stage under Move to… on the card (easier on a phone). The probability changes to the new stage's own.",
+          "In the Table view, change the stage straight from the list, or edit the deal and set the stage.",
+          "Moving a deal to Won asks you to confirm: it closes at 100%, dated today.",
+          "Setting Lost asks why: pick the reason and, if you like, add a note.",
+        ],
+      },
+      {
+        title: "Find the deals that need you",
+        steps: [
+          "Pick a person under All owners to see their deals, or Unassigned for the ones nobody works yet.",
+          "Pick Close date passed to see open deals whose expected close date is behind you; on the board their date is red.",
+          "Or pick Closing this month, Closing next month, a month, or No close date.",
+          "Clear filters shows every deal again. The page remembers whether you last used Board or Table.",
+        ],
+      },
       {
         title: "Make a quotation from a deal",
         steps: [
@@ -121,16 +139,22 @@ export const CRM_TOPICS: HelpTopic[] = [
       { name: "Expected close date", meaning: "When you expect a decision; drives the pipeline report." },
       { name: "Lead / Customer", meaning: "Who the deal is with. A deal needs one of them." },
       { name: "Owner", meaning: "Who works the deal. A new deal is yours unless you pick someone else; a new owner gets a bell alert." },
+      { name: "Probability", meaning: "How likely the deal is to be won, in %. It takes the stage's own (CRM Settings) when the deal moves; change it if this deal is different. Won is 100% and Lost 0%." },
+      { name: "Lost reason", meaning: "Why a Lost deal was lost, from your company's list, with an optional note." },
     ],
     statuses: [
       { name: "Prospecting / Qualified / Negotiation", meaning: "Open stages, from first interest to agreeing terms." },
-      { name: "Won", meaning: "The customer agreed: quote and sell." },
-      { name: "Lost", meaning: "The customer said no." },
+      { name: "Won", meaning: "The customer agreed: quote and sell. The day it was won is recorded." },
+      { name: "Lost", meaning: "The customer said no. The day and the reason are recorded." },
       { name: "Active / Cancelled", meaning: "Status of an open deal; Won and Lost follow the stage." },
     ],
     rules: [
-      "The cards show the deals in the list (all of them, or only yours under My deals): all, active, total value and average deal size.",
+      "The cards show the deals in the list (all of them, or only yours under My deals): all, active, pipeline value, weighted pipeline (each open deal × its probability) and average deal size.",
+      "My deals, the owner and the close date filters apply to the cards, the board and the table alike.",
+      "Each board column shows how many deals it has and their value in the company's currency; open stages also show the weighted value. Cancelled deals stay in their column but aren't counted.",
       "When CRM Settings shows sales people only their own, you see the deals you own and the unassigned ones; CRM admins see all.",
+      "Money on the cards is in the company's currency: a deal in another currency counts at the latest exchange rate in Finance. One whose currency has no rate yet is named under the cards and left out.",
+      "Reopening a Won or Lost deal clears its closing day and lost reason.",
     ],
     related: [
       { route: "/leads", label: "Leads" },
@@ -263,8 +287,12 @@ export const CRM_TOPICS: HelpTopic[] = [
       { name: "Conversion", meaning: "Share of leads that became customers." },
       { name: "Win rate", meaning: "Won deals out of closed (won + lost) deals." },
       { name: "Avg deal", meaning: "Average value of the deals." },
+      { name: "Weighted", meaning: "Under Pipeline: each open deal's amount × its probability, added up — what the pipeline is likely to bring." },
     ],
-    rules: ["When CRM Settings shows sales people only their own, the figures and exports count only the leads, deals, tasks and interactions you can see."],
+    rules: [
+      "When CRM Settings shows sales people only their own, the figures and exports count only the leads, deals, tasks and interactions you can see.",
+      "Money is in the company's currency: each deal at the latest exchange rate in Finance. Deals in a currency without a rate are left out and counted under Pipeline (\"not converted\"; hover to see them).",
+    ],
     related: [
       { route: "/opportunities", label: "Deals" },
       { route: "/leads", label: "Leads" },
@@ -304,11 +332,20 @@ export const CRM_TOPICS: HelpTopic[] = [
         ],
         who: "CRM admin",
       },
+      {
+        title: "Set the win probability of each stage",
+        steps: [
+          "Under Win probability by stage, enter a percentage for Prospecting, Qualified and Negotiation.",
+          "Click Save. Deals take the new value when they next move to that stage; deals already there keep theirs.",
+        ],
+        who: "CRM admin",
+      },
     ],
     fields: [
       { name: "Owner", meaning: "The login responsible for a lead or deal; set on Leads and Deals." },
       { name: "Lead sources", meaning: "The Source choices on a lead (Walk-in, Website, Exhibition…)." },
-      { name: "Lost reasons", meaning: "The reasons offered when a lead is set to Lost (Price, Lost to competitor…)." },
+      { name: "Lost reasons", meaning: "The reasons offered when a lead or deal is set to Lost (Price, Lost to competitor…)." },
+      { name: "Win probability by stage", meaning: "Each open stage's default probability: Prospecting 10%, Qualified 25%, Negotiation 60% until you change them; Won is always 100% and Lost 0%." },
     ],
     rules: [
       "CRM admins and Tenant Admins always see everything.",
@@ -316,7 +353,7 @@ export const CRM_TOPICS: HelpTopic[] = [
       "Tasks and interactions about a customer only stay visible to everyone: customers are shared by the whole company.",
       "A lead or deal you can't see can't be opened, edited or linked to a task, interaction or deal.",
       "Leads and deals added before owners existed are unassigned until someone becomes their owner.",
-      "A list keeps at least one entry and up to 30, each up to 50 characters. Removing an entry doesn't change the leads that already have it.",
+      "A list keeps at least one entry and up to 30, each up to 50 characters. Removing an entry doesn't change the leads and deals that already have it.",
     ],
     related: [
       { route: "/leads", label: "Leads" },
