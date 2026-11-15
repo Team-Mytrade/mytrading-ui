@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import axios from "axios";
-import { Download, LogOut } from "lucide-react";
+import { CreditCard, Download, LogOut } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import SignIn from "../AuthPages/SignIn";
 import PageLoading from "../../components/common/PageLoading";
@@ -48,7 +48,21 @@ export default function CustomerPortal() {
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(todayIso);
   const [statement, setStatement] = useState<Statement | null>(null);
+  // The company takes payments online (7.1.3): open invoices get Pay now
+  const [canPay, setCanPay] = useState(false);
+  const [paying, setPaying] = useState<number | null>(null);
   const portalUser = access.portalCustomerId != null;
+
+  const payNow = async (invoiceId: number) => {
+    setPaying(invoiceId);
+    try {
+      const { data } = await axios.get<{ url: string }>(`${PORTAL}/invoices/${invoiceId}/pay`);
+      window.location.assign(data.url);
+    } catch (err) {
+      ToasterService.error("Online payment isn't available for this invoice", errorText(err, "Please try again."));
+      setPaying(null);
+    }
+  };
 
   const load = useCallback(() => {
     const failed = (err: unknown) => ToasterService.error("Your account could not be loaded", errorText(err, "Please try again."));
@@ -56,6 +70,7 @@ export default function CustomerPortal() {
     axios.get<InvoiceRow[]>(`${PORTAL}/invoices`).then((r) => setInvoices(r.data)).catch(() => setInvoices([]));
     axios.get<ReceiptRow[]>(`${PORTAL}/receipts`).then((r) => setReceipts(r.data)).catch(() => setReceipts([]));
     axios.get<CreditRow[]>(`${PORTAL}/credit-notes`).then((r) => setCredits(r.data)).catch(() => setCredits([]));
+    axios.get<{ enabled: boolean }>(`${PORTAL}/online-payments`).then((r) => setCanPay(!!r.data?.enabled)).catch(() => setCanPay(false));
   }, []);
 
   useEffect(() => {
@@ -145,7 +160,14 @@ export default function CustomerPortal() {
                     <td className={TD}>{i.overdue ? <span className="font-semibold text-rose-600">{t("Overdue")}</span> : t(STATUS[i.status] ?? i.status)}</td>
                     <td className={`${TD} whitespace-nowrap text-end`}>{money(i.grandTotal, i.currency)}</td>
                     <td className={`${TD} whitespace-nowrap text-end font-medium`}>{money(i.balance, i.currency)}</td>
-                    <td className={`${TD} text-end`}>
+                    <td className={`${TD} whitespace-nowrap text-end`}>
+                      {canPay && Number(i.balance) > 0 && !["PAID", "CANCELLED", "VOID"].includes(i.status) && (
+                        <button type="button" disabled={paying !== null} onClick={() => void payNow(i.id)}
+                          className="me-1 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                          <CreditCard className="h-3.5 w-3.5" />
+                          {paying === i.id ? t("Opening…") : t("Pay now")}
+                        </button>
+                      )}
                       {i.downloadable && <button type="button" className={ROW_ICON_BUTTON} title={t("Download PDF")} aria-label={t("Download PDF")} onClick={() => void download(`${PORTAL}/invoices/${i.id}/pdf`, i.invoiceNumber)}><Download className="h-4 w-4" /></button>}
                     </td>
                   </tr>

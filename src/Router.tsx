@@ -212,6 +212,7 @@ const GeneralLedger = lazy(() => import("./pages/Invoice/GeneralLedger"));
 const PostingAccounts = lazy(() => import("./pages/Invoice/PostingAccounts"));
 const FinancialStatements = lazy(() => import("./pages/Invoice/FinancialStatements"));
 const BankAccounts = lazy(() => import("./pages/Invoice/BankAccounts"));
+const OnlinePayments = lazy(() => import("./pages/Invoice/OnlinePayments"));
 const Cheques = lazy(() => import("./pages/Invoice/Cheques"));
 const LettersOfCredit = lazy(() => import("./pages/Invoice/LettersOfCredit"));
 const ExportEvidence = lazy(() => import("./pages/Invoice/ExportEvidence"));
@@ -412,6 +413,7 @@ export default function AppRouter() {
           <Route path="/postingAccounts" element={<PostingAccounts />} />
           <Route path="/financialStatements" element={<FinancialStatements />} />
           <Route path="/bankAccounts" element={<BankAccounts />} />
+          <Route path="/onlinePayments" element={<OnlinePayments />} />
           <Route path="/cheques" element={<Cheques />} />
           <Route path="/lettersOfCredit" element={<LettersOfCredit />} />
           <Route path="/exportEvidence" element={<ExportEvidence />} />

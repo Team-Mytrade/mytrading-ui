@@ -1270,6 +1270,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       { title: "Invite a contact", steps: ["Click Invite a contact: the Customer, First name, Last name and Email, then Send invitation."] },
       { title: "Manage access", steps: ["Send the invitation again, Stop access, or Restore access on the row."] },
     ],
+    rules: ["When the company takes payments online, open invoices show Pay now: the customer pays by card and the payment shows on the invoice."],
     related: [{ route: "/customer-management", label: "Customers" }],
   },
   {
