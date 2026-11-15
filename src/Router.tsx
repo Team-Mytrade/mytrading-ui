@@ -93,6 +93,7 @@ const LeaveManagementPage = lazy(() => import("./pages/Payroll/LeaveManagementPa
 const PerformanceManagementPage = lazy(() => import("./pages/Payroll/PerformanceManagementPage"));
 const StatutoryCompliancesPage = lazy(() => import("./pages/Payroll/StatutoryCompliancesPage"));
 const PayrollProcessingEnginePage = lazy(() => import("./pages/Payroll/PayrollProcessingEnginePage"));
+const PayrollStatementsPage = lazy(() => import("./pages/Payroll/PayrollStatementsPage"));
 const PayrollSummaryPage = lazy(() => import("./pages/Payroll/PayrollSummaryPage"));
 const GratuityProvisionPage = lazy(() => import("./pages/Payroll/GratuityProvisionPage"));
 const GulfPayFilesPage = lazy(() => import("./pages/Payroll/GulfPayFilesPage"));
@@ -250,6 +251,7 @@ const CustomerLedgerReport = lazy(() => import("./pages/reports/center/PartyLedg
 const VendorLedgerReport = lazy(() => import("./pages/reports/center/PartyLedger").then((m) => ({ default: m.VendorLedger })));
 const HeadcountReport = lazy(() => import("./pages/reports/center/Headcount"));
 const PayrollRegisterReport = lazy(() => import("./pages/reports/center/PayrollRegister"));
+const TdsRegisterReport = lazy(() => import("./pages/reports/center/TdsRegister"));
 const LeaveBalancesReport = lazy(() => import("./pages/reports/center/LeaveBalances"));
 const StockAgingReport = lazy(() => import("./pages/reports/center/StockAging"));
 const AbcAnalysisReport = lazy(() => import("./pages/reports/center/AbcAnalysis"));
@@ -451,6 +453,7 @@ export default function AppRouter() {
           <Route path="/reports/vendor-ledger" element={<VendorLedgerReport />} />
           <Route path="/reports/headcount" element={<HeadcountReport />} />
           <Route path="/reports/payroll-register" element={<PayrollRegisterReport />} />
+          <Route path="/reports/tds-register" element={<TdsRegisterReport />} />
           <Route path="/reports/leave-balances" element={<LeaveBalancesReport />} />
           <Route path="/reports/stock-aging" element={<StockAgingReport />} />
           <Route path="/reports/abc-analysis" element={<AbcAnalysisReport />} />
@@ -507,6 +510,7 @@ export default function AppRouter() {
           <Route path="/employees/:employeeId/documents" element={<EmployeeDocumentsPage />} />
           <Route path="/payroll_dashboard" element={<PayrollDashboard />} />
           <Route path="/payrollEngine" element={<PayrollProcessingEnginePage />} />
+          <Route path="/payrollStatements" element={<PayrollStatementsPage />} />
           <Route path="/payrollSummary" element={<PayrollSummaryPage />} />
           <Route path="/gratuityProvision" element={<GratuityProvisionPage />} />
           <Route path="/gulfPayFiles" element={<GulfPayFilesPage />} />

@@ -18,6 +18,8 @@ interface Readiness {
 interface LockView {
   month: string; status: "LOCKED" | "UNLOCKED"; recordsLocked?: number | null; lockedBy?: string | null; lockedAt?: string | null;
   unlockedBy?: string | null; unlockedAt?: string | null; unlockReason?: string | null;
+  // Payroll was run on this month's attendance (both modules): it stays locked until payroll rolls the month back
+  payrollReference?: string | null; payrollProcessedAt?: string | null;
 }
 
 const card = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-transparent dark:bg-[#191919]";
@@ -149,11 +151,13 @@ const AttendanceMonthLockPage: React.FC = () => {
                     <td className={l.status === "LOCKED" ? "text-emerald-600" : "text-slate-500"}>
                       {t(l.status === "LOCKED" ? "Locked" : "Unlocked")}
                       {l.unlockReason && l.status === "UNLOCKED" && <span className="block text-[10px] text-slate-500">{l.unlockReason}</span>}
+                      {l.payrollProcessedAt && <span className="block text-[10px] text-slate-500">{t("Paid in payroll")} ({l.payrollReference})</span>}
                     </td>
                     <td>{l.status === "LOCKED" ? `${l.lockedBy || "—"} · ${when(l.lockedAt)}` : `${l.unlockedBy || "—"} · ${when(l.unlockedAt)}`}</td>
                     <td className="text-right">
                       {l.status === "LOCKED" && (
-                        <button type="button" disabled={busy} onClick={() => unlock(l.month)}
+                        <button type="button" disabled={busy || !!l.payrollProcessedAt} onClick={() => unlock(l.month)}
+                          title={l.payrollProcessedAt ? t("Roll the month's payroll back first") : undefined}
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                           <LockOpen className="h-3 w-3" /> {t("Unlock")}
                         </button>

@@ -187,6 +187,13 @@ export const REPORTS: ReportEntry[] = [
     center: true,
   },
   {
+    path: "/reports/tds-register",
+    title: "TDS Register",
+    description: "Income tax deducted from salaries each month, by employee with PAN, and the challans that paid it.",
+    module: "hr",
+    center: true,
+  },
+  {
     path: "/reports/leave-balances",
     title: "Leave Balances",
     description: "Every employee's leave by type for a leave year: entitled, taken and left.",
