@@ -1853,6 +1853,74 @@ export const ar: Record<string, string> = {
   "Add deals to see sales insights here.": "أضف صفقات لرؤية تحليلات المبيعات هنا.",
   "New (mo)": "جديد (الشهر)",
 
+  // ---------------- CRM: owners and CRM Settings ----------------
+  "My leads": "عملائي المحتملون",
+  "My deals": "صفقاتي",
+  "My tasks": "مهامي",
+  "You see the leads and deals you own and the unassigned ones. A CRM admin can change this in CRM → CRM Settings.":
+    "ترى العملاء المحتملين والصفقات التي تملكها وغير المخصصة. يمكن لمسؤول علاقات العملاء تغيير ذلك من علاقات العملاء ← «إعدادات علاقات العملاء».",
+  "CRM Settings": "إعدادات علاقات العملاء",
+  "Who sees which leads and deals": "من يرى أي عملاء محتملين وصفقات",
+  "Every lead and deal has an owner: the person who added it, unless someone else is picked.":
+    "لكل عميل محتمل وصفقة مالك: الشخص الذي أضافه، ما لم يُختر غيره.",
+  "Sales people see only their own leads and deals": "لا يرى المندوبون إلا عملاءهم المحتملين وصفقاتهم",
+  "Off: everyone in the CRM sees all leads and deals": "متوقف: يرى كل مستخدمي علاقات العملاء جميع العملاء المحتملين والصفقات",
+  "Only a CRM admin can change this.": "لا يغيّر هذا إلا مسؤول علاقات العملاء.",
+  "When it is on:": "عند تشغيله:",
+  "People without the CRM admin right see the leads and deals they own, and unassigned ones anyone can take.":
+    "يرى من لا يملك صلاحية مسؤول علاقات العملاء العملاءَ المحتملين والصفقات التي يملكها، وغير المخصصة التي يمكن لأي شخص تولّيها.",
+  "They see the tasks and interactions assigned to them, written by them, or on a lead they can see.":
+    "ويرون المهام والتفاعلات المكلَّفين بها أو التي سجّلوها أو التي على عميل محتمل يرونه.",
+  "Tasks and interactions about a customer stay visible to everyone: customers are shared by the whole company.":
+    "تبقى المهام والتفاعلات التي تخص عميلًا ظاهرة للجميع: فالعملاء مشتركون بين الشركة كلها.",
+  "The CRM dashboard and CRM reports count only what each person can see.": "لا تعدّ لوحة علاقات العملاء وتقاريرها إلا ما يراه كل شخص.",
+  "CRM admins always see everything.": "يرى مسؤولو علاقات العملاء كل شيء دائمًا.",
+  "Leads and deals added before owners existed are unassigned, so everyone keeps seeing them until someone becomes their owner.":
+    "العملاء المحتملون والصفقات المضافة قبل وجود المالكين غير مخصصة، فيبقى الجميع يرونها حتى يصبح أحدهم مالكها.",
+  "Sales people now see only their own leads and deals": "أصبح المندوبون لا يرون إلا عملاءهم المحتملين وصفقاتهم",
+  "Everyone in the CRM now sees all leads and deals": "أصبح كل مستخدمي علاقات العملاء يرون جميع العملاء المحتملين والصفقات",
+  "Failed to save the CRM settings": "تعذّر حفظ إعدادات علاقات العملاء",
+
+  // ---------------- CRM: lead details, duplicates, convert, lists (8.3.2) ----------------
+  "Lost reason": "سبب الخسارة",
+  "When the lead is a person: the company they buy for": "إن كان العميل المحتمل شخصًا: الشركة التي يشتري لها",
+  "Job title": "المسمى الوظيفي",
+  "Not known": "غير معروف",
+  "Expected value": "القيمة المتوقعة",
+  "What the business could be worth": "ما قد تبلغه قيمة التعامل",
+  "Interested in": "مهتم بـ",
+  "e.g. 40 laptops for a new branch": "مثال: 40 حاسوبًا محمولًا لفرع جديد",
+  "This may already be in the CRM": "قد يكون موجودًا بالفعل في علاقات العملاء",
+  "A lead or customer has the same email or phone. Check before adding it again.":
+    "لدى عميل محتمل أو عميل البريد أو الهاتف نفسه. تحقّق قبل إضافته مرة أخرى.",
+  "Same email": "البريد نفسه",
+  "Same phone": "الهاتف نفسه",
+  "Another sales person's lead": "عميل محتمل لمندوب آخر",
+  "Save anyway": "احفظ على أي حال",
+  "Why was the lead lost?": "لماذا خُسر العميل المحتمل؟",
+  "Mark as Lost": "تعيين كخاسر",
+  "A new customer is made from the lead; check the details first.": "يُنشأ عميل جديد من العميل المحتمل؛ راجع التفاصيل أولًا.",
+  "{name} becomes its main contact": "يصبح {name} جهة الاتصال الرئيسية له",
+  "Building, street, area": "المبنى، الشارع، المنطقة",
+  "Needed on tax invoices; you can add it later": "مطلوب في الفواتير الضريبية؛ ويمكنك إضافته لاحقًا",
+  "Choose why the lead was lost": "اختر سبب خسارة العميل المحتمل",
+  "Enter an amount of zero or more": "أدخل مبلغًا يساوي صفرًا أو أكثر",
+  Lists: "القوائم",
+  "The choices on leads. Removing an entry doesn't change the leads that already have it.":
+    "الخيارات في العملاء المحتملين. حذف بند لا يغيّر العملاء المحتملين الذين يحملونه.",
+  "Lead sources": "مصادر العملاء المحتملين",
+  "Where leads come from; reports will compare them.": "من أين يأتي العملاء المحتملون؛ وستقارن التقارير بينها.",
+  "Lost reasons": "أسباب الخسارة",
+  "Why leads are lost; asked whenever a lead is marked Lost.": "لماذا يُخسر العملاء المحتملون؛ ويُسأل عنه كلما عُيّن عميل محتمل كخاسر.",
+  "Move up": "نقل لأعلى",
+  "Add an entry": "أضف بندًا",
+  "Use the standard list": "استخدم القائمة القياسية",
+  "Save list": "احفظ القائمة",
+  "List saved": "تم حفظ القائمة",
+  "Up to {n} characters": "حتى {n} حرفًا",
+  "Already on the list": "موجود بالفعل في القائمة",
+  "Up to {n} entries": "حتى {n} بندًا",
+
   // ---------------- Messages (toasts) ----------------
   "A transfer needs two different warehouses.": "يتطلب التحويل مستودعين مختلفين.",
   "A warehouse with this name already exists": "يوجد مستودع بهذا الاسم بالفعل",

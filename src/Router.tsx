@@ -164,6 +164,7 @@ const PayrollPage = lazy(() => import("./pages/Payroll/PayrollPage"));
 const EmployeeDocumentsPage = lazy(() => import("./pages/Payroll/EmployeeDocumentsPage"));
 const SalesDashboard = lazy(() => import("./pages/Sales/SalesDashboard"));
 const CrmDashboardPage = lazy(() => import("./pages/CRM/CrmDashboardPage"));
+const CrmSettingsPage = lazy(() => import("./pages/CRM/CrmSettings"));
 const ProcurementDashboard = lazy(() => import("./pages/Purchase/ProcurementDashboard"));
 const DeliveryDashboard = lazy(() => import("./pages/Delivery/DeliveryDashboard"));
 const PayrollDashboard = lazy(() => import("./pages/Payroll/PayrollDashboard"));
@@ -299,7 +300,8 @@ export default function AppRouter() {
           <Route path="/customers/new" element={<CustomerFormPage />} />
           <Route path="/customers/edit/:id" element={<CustomerFormPage />} />
           <Route path="/crm-reports" element={<Reports />} />
-          
+          <Route path="/crm-settings" element={<CrmSettingsPage />} />
+
           <Route path="/role_config" element={<UsersPage />} />
           <Route path="/role_config/*" element={<Navigate to="/role_config" replace />} />
           <Route path="/platform/tenants" element={<TenantsPage />} />

@@ -43,6 +43,8 @@ import {
   isClosedStage,
 } from "./crmShared";
 import { usePermissions } from "../../access/usePermissions";
+import { useUserDirectory, userOptions } from "../../access/useUserDirectory";
+import { MineAllToggle, OwnRecordsNote, OwnerCell, isMine, useCrmSettings, useMineOnly, useMyUsername } from "./crmOwnership";
 import { formatDate, companyCurrency, moneyDecimals, currencyChoices } from "../../company/format";
 import { cellInput, NumberCell } from "../Purchase/LineItemsEditor";
 
@@ -76,6 +78,9 @@ interface Opportunity {
   items?: DealLine[];
   quotationId?: number | null;
   quotationNumber?: string | null;
+  // Who works the deal (a login's username); none = unassigned
+  owner?: string | null;
+  ownerName?: string | null;
 }
 
 interface DealLine {
@@ -119,6 +124,10 @@ export default function Deals() {
   const navigate = useNavigate();
   const location = useLocation();
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const me = useMyUsername();
+  const { users: directoryUsers } = useUserDirectory();
+  const { settings: crmSettings } = useCrmSettings();
+  const [mineOnly, setMineOnly] = useMineOnly("deals");
 
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -247,6 +256,8 @@ export default function Deals() {
       expectedCloseDate: form.expectedCloseDate || null,
       status: form.status || "ACTIVE",
       currencyCode: form.currencyCode || companyCurrency(),
+      // The person working the deal; empty = unassigned
+      owner: form.owner ?? "",
       ...owner,
     };
   };
@@ -384,7 +395,10 @@ export default function Deals() {
     }
   };
 
-  const filtered = opportunities.filter((o) => {
+  // Mine: the deals the signed-in person owns
+  const shownDeals = mineOnly ? opportunities.filter((o) => isMine(o.owner, me)) : opportunities;
+
+  const filtered = shownDeals.filter((o) => {
     const term = (searchInputRef.current?.value || "").toLowerCase();
     if (!term) return true;
     return [o.dealName, o.stage, o.status].some((f) =>
@@ -393,7 +407,14 @@ export default function Deals() {
   });
 
   // The cards count open, active deals only: cancelled, won and lost deals are not in the pipeline
-  const activeDeals = opportunities.filter((o) => o.status === "ACTIVE");
+  const activeDeals = shownDeals.filter((o) => o.status === "ACTIVE");
+
+  // A new deal is the signed-in person's unless another owner is picked
+  const openNewDeal = () => {
+    setForm({ status: "ACTIVE", stage: "PROSPECTING", owner: me });
+    setOwnerType("LEAD");
+    setShowForm(true);
+  };
 
   // In the deal's currency, else the company's (formatted the company's way: 1,320,000 or 13,20,000)
   const formatCurrency = (amount: number, currency?: string) =>
@@ -550,6 +571,13 @@ export default function Deals() {
       ),
     },
     {
+      key: "ownerName",
+      label: "Owner",
+      sortable: true,
+      sortValueGetter: (o) => o.ownerName || o.owner || "",
+      render: (o) => <OwnerCell owner={o.owner} ownerName={o.ownerName} />,
+    },
+    {
       key: "actions",
       label: "Actions",
       sortable: false,
@@ -678,11 +706,7 @@ export default function Deals() {
         actions={
           <>
             <AddButton
-              onClick={() => {
-                setForm({ status: "ACTIVE", stage: "PROSPECTING" });
-                setOwnerType("LEAD");
-                setShowForm(true);
-              }}
+              onClick={openNewDeal}
               label={t("Add Opportunity")}
             />
           </>
@@ -690,9 +714,10 @@ export default function Deals() {
       />
 
       <div className="crm-report-page w-full max-w-none px-0 sm:px-0 lg:px-0 py-4">
+        <OwnRecordsNote settings={crmSettings} />
         <div className="mb-[17px]">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-            <StatsCard label={t("Total Deals")} value={opportunities.length} />
+            <StatsCard label={t("Total Deals")} value={shownDeals.length} />
             <StatsCard
               label={t("Active Deals")}
               value={activeDeals.length}
@@ -721,11 +746,13 @@ export default function Deals() {
           pageSize={PAGE_SIZE}
           defaultSortKey="dealName"
           defaultSortOrder="asc"
+          toolbar={<MineAllToggle mineOnly={mineOnly} onChange={setMineOnly} mineLabel="My deals" />}
           enableRowDetails={true}
           rowDetailsTitle={(o) => o.dealName || "Deal details"}
           rowDetailsSubtitle={t("Opportunity details")}
            hiddenDetailKeys={[
              "id",
+             "owner",
              "tenantId",
                "createdBy",
              "updatedBy",
@@ -745,11 +772,7 @@ export default function Deals() {
               {canCreate && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setForm({ status: "ACTIVE", stage: "PROSPECTING" });
-                    setOwnerType("LEAD");
-                    setShowForm(true);
-                  }}
+                  onClick={openNewDeal}
                   className="mt-1 text-cyan-600 hover:text-cyan-700 text-xs font-medium"
                 >
                   {t("Add your first opportunity")}
@@ -835,6 +858,15 @@ export default function Deals() {
               ? [{ id: normalizeStage(form.stage), name: DEAL_STATUS_LABELS[normalizeStage(form.stage)] }]
               : OPEN_DEAL_STATUS_OPTIONS
           }
+        />,
+        <FloatingSelect
+          key="owner"
+          label={t("Owner")}
+          name="owner"
+          value={form.owner || ""}
+          onChange={(e) => setForm((prev) => ({ ...prev, owner: e.target.value }))}
+          options={userOptions(directoryUsers, form.owner || undefined)}
+          includeEmptyOption={false}
         />,
       ],
     },
