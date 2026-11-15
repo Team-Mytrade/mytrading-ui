@@ -15,6 +15,7 @@ import {
   ArrowTrendingDownIcon,
   TrophyIcon,
 } from "@heroicons/react/24/outline";
+import { Link } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -500,7 +501,21 @@ const Reports: React.FC = () => {
         pageTitle="Reports"
         className="crm-report-breadcrumb"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The team reports in the Report Center (8.3.7) */}
+            <nav aria-label={t("Team reports")} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span className="font-medium text-slate-500">{t("Team reports")}:</span>
+              {[
+                ["/reports/sales-forecast", "Sales Forecast"],
+                ["/reports/sales-team", "Sales Team Performance"],
+                ["/reports/lead-sources", "Lead Sources"],
+                ["/reports/win-loss", "Win / Loss Reasons"],
+              ].map(([to, label]) => (
+                <Link key={to} to={to} className="font-semibold text-cyan-700 hover:underline">
+                  {t(label)}
+                </Link>
+              ))}
+            </nav>
             <button
               type="button"
               onClick={fetchReport}

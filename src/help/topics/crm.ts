@@ -218,11 +218,22 @@ export const CRM_TOPICS: HelpTopic[] = [
           "Save.",
         ],
       },
+      {
+        title: "Close the open tasks and plan the next follow-up",
+        steps: [
+          "After you add an interaction, a Follow up window opens.",
+          "Under Open tasks, the lead's or customer's pending tasks are ticked: untick any the conversation didn't settle.",
+          "Under Plan the next follow-up, change the title, type and date if you like (a call a week ahead at 10:00 is suggested), or untick it.",
+          "Click Save to mark the ticked tasks done and add the new task, or Skip to leave everything as it is.",
+        ],
+      },
       { title: "Read the notes", steps: ["Click View Notes on a row."] },
     ],
     rules: [
       "Type, subject and date are required.",
       "The cards count all communications and the emails, calls and meetings.",
+      "The new follow-up task is assigned to you and shows on Tasks; you get its reminder before it's due.",
+      "An interaction counts as a follow-up: it closes the \"No follow-up\" bell alert on the lead or on the customer's open deals.",
       "When CRM Settings shows sales people only their own, you see the interactions you logged, those on a lead you can see, and every one about a customer.",
     ],
     related: [
@@ -304,7 +315,7 @@ export const CRM_TOPICS: HelpTopic[] = [
     module: "CRM",
     title: "CRM Settings",
     summary:
-      "Your company's own CRM rules: whether sales people see everyone's leads and deals or only their own, and the lists of lead sources and lost reasons.",
+      "Your company's own CRM rules: whether sales people see everyone's leads and deals or only their own, the lists of lead sources and lost reasons, each stage's win probability and when owners are reminded to follow up.",
     who: [
       { role: "CRM admin", can: "Change the settings and the lists (needs the CRM admin right, as the CRM Admin and Tenant Admin roles have)." },
       { role: "Everyone in the CRM", can: "See what is set." },
@@ -340,12 +351,40 @@ export const CRM_TOPICS: HelpTopic[] = [
         ],
         who: "CRM admin",
       },
+      {
+        title: "Take enquiries from your website",
+        steps: [
+          "Under Website form, choose who the leads go to (or Unassigned) and click Switch on.",
+          "Copy the HTML to paste on your website and give it to whoever looks after the site (or use the Form address in your own form).",
+          "Each enquiry becomes a New lead with source Website; its owner gets a bell alert.",
+          "Make a new key if the address is being misused; Switch off stops the form.",
+        ],
+        who: "CRM admin",
+      },
+      {
+        title: "Choose when owners are reminded to follow up",
+        steps: [
+          "Under Follow-up reminders, enter the days without a task or interaction (14 to start with).",
+          "Click Save. Enter 0 to turn these reminders off.",
+        ],
+        who: "CRM admin",
+      },
     ],
     fields: [
       { name: "Owner", meaning: "The login responsible for a lead or deal; set on Leads and Deals." },
       { name: "Lead sources", meaning: "The Source choices on a lead (Walk-in, Website, Exhibition…)." },
       { name: "Lost reasons", meaning: "The reasons offered when a lead or deal is set to Lost (Price, Lost to competitor…)." },
       { name: "Win probability by stage", meaning: "Each open stage's default probability: Prospecting 10%, Qualified 25%, Negotiation 60% until you change them; Won is always 100% and Lost 0%." },
+      {
+        name: "Follow-up reminders",
+        meaning:
+          "The owner of a lead still open, or of an open deal, gets a bell alert after this many days with no task or interaction and nothing planned ahead. A deal's tasks and interactions are those on its lead or customer. The alert closes by itself once something is done.",
+      },
+      {
+        name: "Website form",
+        meaning:
+          "Name (required), email or phone (one is required), company, job title, country, city, interest and message. A hidden field catches spam robots; one address can send 5 enquiries an hour and the form 200. Only CRM admins see this card.",
+      },
     ],
     rules: [
       "CRM admins and Tenant Admins always see everything.",
