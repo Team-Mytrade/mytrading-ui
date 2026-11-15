@@ -8233,4 +8233,22 @@ export const ar: Record<string, string> = {
     "العملاء المحتملون المضافون في الفترة حسب مصدرهم، وكم منهم أصبح عميلًا، والصفقات المكسوبة منهم (على العميل المحتمل أو على العميل الذي أصبحه)، أيًّا كان وقت كسبها.",
   "Deals won or lost in the period, and leads marked Lost in it, by the reason picked (CRM Settings → Lost reasons). Share: of the deals closed, or of the leads lost. A lead's value is its expected value.":
     "الصفقات المكسوبة أو الخاسرة في الفترة، والعملاء المحتملون المعلَّمون كخاسرين فيها، حسب السبب المختار («إعدادات علاقات العملاء» ← «أسباب الخسارة»). الحصة: من الصفقات المغلقة، أو من العملاء المحتملين الخاسرين. وقيمة العميل المحتمل قيمته المتوقعة.",
+  // Data Import: the business-records and HR, payroll & attendance tabs
+  "Business records": "السجلات التجارية",
+  "HR, payroll & attendance": "الموارد البشرية والرواتب والحضور",
+  "You don't have permission to import data.": "ليست لديك صلاحية استيراد البيانات.",
+  "Checked, not imported": "تم الفحص، لم يُستورد",
+  "Checked but not imported": "تم الفحص ولم يُستورد",
+  "Import first:": "استورد أولًا:",
+  "What to import, in order": "ما يُستورد بالترتيب",
+  "Each step needs the one before it imported first.": "كل خطوة تحتاج استيراد الخطوة التي قبلها أولًا.",
+  "Everything in one workbook": "كل شيء في مصنف واحد",
+  "Download workbook": "تنزيل المصنف",
+  "Files uploaded": "الملفات المرفوعة",
+  "Type in": "أدخل يدويًا",
+  "In progress": "قيد التنفيذ",
+  "Undo this import?": "التراجع عن هذا الاستيراد؟",
+  "Every step is in: you can go live.": "اكتملت كل الخطوات: يمكنك بدء التشغيل.",
+  "Template": "القالب",
+  "Type the rows in": "أدخل الصفوف يدويًا",
 };

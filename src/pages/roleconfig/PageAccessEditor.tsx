@@ -306,7 +306,7 @@ export default function PageAccessEditor({ permissions, limits, onChange, onEdit
                               {/* The usual settings in one choice; the boxes beside it fine-tune (shown as Custom) */}
                               <select aria-label={`${t(page.name)}: ${t("Access")}`} value={choiceOf(page)} disabled={!onChange}
                                 onChange={(e) => choose(page, e.target.value as Choice)}
-                                className={`h-7 min-w-[8.75rem] rounded-md border px-1.5 text-[11px] disabled:cursor-default disabled:opacity-100 dark:bg-[#222222] ${
+                                className={`h-7 min-w-[8.75rem] rounded-md border py-0 pl-2 pr-7 text-[11px] leading-[26px] disabled:cursor-default disabled:opacity-100 dark:bg-[#222222] ${
                                   choiceOf(page) === "hidden" ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:text-rose-300"
                                     : choiceOf(page) === "module" ? "border-slate-200 bg-white text-slate-600 dark:border-gray-700 dark:text-gray-300"
                                     : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:text-amber-300"}`}>

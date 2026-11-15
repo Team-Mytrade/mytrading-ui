@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Download, FileSpreadsheet, RefreshCw, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
 import PageMeta from "../../components/common/PageMeta";
@@ -8,26 +9,83 @@ import { errorText } from "../../access/accessApi";
 import { ImportResult, ImportRun, ImportType, importApi } from "../../dataImport/importApi";
 import { formatDateTime } from "../../company/format";
 import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
+import { AuthContext } from "../../context/AuthContext";
+import { hasPermission } from "../../access/access";
+import HrDataImport from "./HrDataImport";
+import {
+  ALERT_BAD, ALERT_GOOD, CARD_HEAD, EMPTY, INTRO, KIND_ICON, NOTE, TABLE_BOX, TBODY, TD, TH, THEAD, WARN_TEXT, saveBlob,
+} from "./importUi";
 
 import { t } from "../../i18n/i18n";
 
-const TH = "px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400";
-const TD = "px-3 py-2 align-top text-sm text-slate-700 dark:text-gray-200";
+/** Who sees which tab: the business records need one of these; HR, payroll & attendance needs HR admin. */
+const BUSINESS_PERMISSIONS = ["PRODUCT_CATALOGUE:CREATE", "CRM:CREATE", "INVENTORY:CREATE", "INVOICE:CREATE", "INVOICE:ADMIN"];
+const HR_PERMISSION = "HRM:ADMIN";
 
-const saveBlob = (blob: Blob, name: string) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
+type Tab = "business" | "hr";
 
 /**
- * Go-live data from Excel: choose what to import, download its template, upload the filled file. Every row is
- * checked first and nothing is saved until the whole file is right; then one click imports all of it.
+ * Settings → Data Import: bring existing records in from Excel. Two tabs, each shown to those who may use it:
+ * business records (products, customers, opening stock, invoices, ledger balances, leads) and HR, payroll &
+ * attendance (the step-by-step move from the old HR system, ending in go-live). The old Go-live page opens the
+ * second tab (/data-import?tab=hr).
  */
 export default function DataImportPage() {
+  const { access } = useContext(AuthContext);
+  const [params, setParams] = useSearchParams();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const business = BUSINESS_PERMISSIONS.some((perm) => hasPermission(access, perm));
+  const hr = hasPermission(access, HR_PERMISSION);
+  const tabs: [Tab, string][] = [
+    ...(business ? [["business", "Business records"] as [Tab, string]] : []),
+    ...(hr ? [["hr", "HR, payroll & attendance"] as [Tab, string]] : []),
+  ];
+  const asked = params.get("tab") === "hr" ? "hr" : "business";
+  const tab: Tab | null = tabs.some(([key]) => key === asked) ? asked : tabs[0]?.[0] ?? null;
+
+  const choose = (next: Tab) => setParams((all) => {
+    const copy = new URLSearchParams(all);
+    if (next === "hr") copy.set("tab", "hr");
+    else copy.delete("tab");
+    return copy;
+  }, { replace: true });
+
+  return (
+    <>
+      <PageMeta title={t("Data Import")} description="Bring your existing records in from Excel" />
+      <PageBreadcrumb
+        pageTitle="Data Import"
+        actions={(
+          <button type="button" className={TOOL_BUTTON} onClick={() => setRefreshKey((k) => k + 1)}>
+            <RefreshCw className="h-3.5 w-3.5" /> {t("Refresh")}
+          </button>
+        )}
+      />
+      <div className={PAGE_BODY}>
+        {tabs.length > 1 && (
+          <div className="mb-4 flex gap-5 border-b border-slate-200 dark:border-gray-800" role="tablist">
+            {tabs.map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => choose(key)}
+                className={`-mb-px border-b-2 px-0.5 pb-2 text-sm font-medium transition ${tab === key
+                  ? "border-cyan-600 text-slate-900 dark:text-white" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-gray-200"}`}>
+                {t(label)}
+              </button>
+            ))}
+          </div>
+        )}
+        {tab === "hr" ? <HrDataImport refreshKey={refreshKey} />
+          : tab === "business" ? <BusinessDataImport refreshKey={refreshKey} />
+            : <div className={`${CARD} p-8 text-center ${EMPTY}`}>{t("You don't have permission to import data.")}</div>}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Business records from Excel: choose what to import, download its template, upload the filled file. Every row is
+ * checked first and nothing is saved until the whole file is right; then one click imports all of it.
+ */
+function BusinessDataImport({ refreshKey }: { refreshKey: number }) {
   const [types, setTypes] = useState<ImportType[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -52,7 +110,7 @@ export default function DataImportPage() {
         ToasterService.error("Imports could not be loaded", errorText(err, "Is the common service running?"));
       });
     loadHistory();
-  }, [loadHistory]);
+  }, [loadHistory, refreshKey]);
 
   const type = types?.find((x) => x.type === selected) ?? null;
 
@@ -129,39 +187,29 @@ export default function DataImportPage() {
     : [];
 
   return (
-    <>
-      <PageMeta title={t("Data Import")} description="Bring your existing records in from Excel" />
-      <PageBreadcrumb
-        pageTitle="Data Import"
-        actions={(
-          <button type="button" className={TOOL_BUTTON} onClick={loadHistory}>
-            <RefreshCw className="h-3.5 w-3.5" /> {t("Refresh")}
-          </button>
-        )}
-      />
-      <div className={`${PAGE_BODY} space-y-4`}>
-        <div className={`${CARD} p-4 text-sm text-slate-600 dark:text-gray-300`}>
+      <div className="space-y-4">
+        <div className={INTRO}>
           {t("Bring your existing records in from Excel: download a template, fill it in and upload it. Every row is checked first, and nothing is saved until the whole file is right.")}
         </div>
 
         {types === null ? (
-          <div className={`${CARD} p-8 text-center text-sm text-slate-400`}>{t("Loading...")}</div>
+          <div className={`${CARD} p-8 text-center ${EMPTY}`}>{t("Loading...")}</div>
         ) : types.length === 0 ? (
-          <div className={`${CARD} p-8 text-center text-sm text-slate-400`}>{t("No imports are available right now.")}</div>
+          <div className={`${CARD} p-8 text-center ${EMPTY}`}>{t("No imports are available right now.")}</div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {types.map((x) => {
               const active = x.type === selected;
               return (
                 <button key={x.type} type="button" onClick={() => choose(x)} disabled={!x.allowed} aria-pressed={active}
-                  className={`${CARD} p-4 text-start transition ${active ? "ring-2 ring-cyan-500" : ""} ${x.allowed ? "hover:border-cyan-300" : "cursor-not-allowed opacity-60"}`}>
+                  className={`${CARD} p-4 text-start transition ${active ? "ring-2 ring-cyan-500" : ""} ${x.allowed ? "hover:border-cyan-300 dark:hover:border-cyan-800" : "cursor-not-allowed opacity-60"}`}>
                   <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="h-5 w-5 text-cyan-600" />
+                    <FileSpreadsheet className={KIND_ICON} />
                     <span className={CARD_TITLE}>{t(x.title)}</span>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-gray-400">{t(x.description)}</p>
+                  <p className={`mt-2 ${NOTE}`}>{t(x.description)}</p>
                   {!x.allowed && (
-                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">{t("Needs the permission")} {x.permission}</p>
+                    <p className={`mt-2 text-xs font-medium ${WARN_TEXT}`}>{t("Needs the permission")} {x.permission}</p>
                   )}
                 </button>
               );
@@ -192,9 +240,9 @@ export default function DataImportPage() {
                 {t("Columns in this template")} ({type.columns.length})
               </button>
               {showColumns && (
-                <div className="mt-2 overflow-x-auto">
+                <div className={`mt-2 ${TABLE_BOX}`}>
                   <table className="min-w-full divide-y divide-slate-100 text-sm dark:divide-gray-800">
-                    <thead className="bg-slate-50 dark:bg-[#222222]">
+                    <thead className={THEAD}>
                       <tr>
                         <th className={TH}>{t("Column")}</th>
                         <th className={TH}>{t("Required")}</th>
@@ -202,7 +250,7 @@ export default function DataImportPage() {
                         <th className={TH}>{t("Notes")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                    <tbody className={TBODY}>
                       {type.columns.map((c) => (
                         <tr key={c.header}>
                           <td className={`${TD} whitespace-nowrap font-medium`}>{c.header}</td>
@@ -210,7 +258,7 @@ export default function DataImportPage() {
                           <td className={`${TD} whitespace-nowrap`}>{c.example ?? ""}</td>
                           <td className={`${TD} min-w-[280px] text-xs`}>
                             {c.note ?? ""}
-                            {c.choices.length > 0 && <div className="mt-1 text-slate-500">{t("Allowed")}: {c.choices.join(", ")}</div>}
+                            {c.choices.length > 0 && <div className="mt-1 text-slate-500 dark:text-gray-400">{t("Allowed")}: {c.choices.join(", ")}</div>}
                           </td>
                         </tr>
                       ))}
@@ -220,11 +268,11 @@ export default function DataImportPage() {
               )}
             </div>
 
-            {busy === "check" && <p className="text-sm text-slate-500">{t("Checking")} {file?.name}...</p>}
+            {busy === "check" && <p className="text-sm text-slate-500 dark:text-gray-400">{t("Checking")} {file?.name}...</p>}
 
             {result && !result.imported && result.problemCount > 0 && (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+                <div className={`${ALERT_BAD} flex flex-wrap items-start justify-between gap-3`}>
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
@@ -239,16 +287,16 @@ export default function DataImportPage() {
                     <Download className="h-3.5 w-3.5" /> {t("Download list")}
                   </button>
                 </div>
-                <div className="max-h-[420px] overflow-auto rounded-lg border border-slate-100 dark:border-gray-800">
+                <div className={`${TABLE_BOX} max-h-[420px]`}>
                   <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-                    <thead className="sticky top-0 bg-slate-50 dark:bg-[#222222]">
+                    <thead className={`sticky top-0 ${THEAD}`}>
                       <tr>
                         <th className={`${TH} w-20`}>{t("Row")}</th>
                         <th className={`${TH} w-48`}>{t("Column")}</th>
                         <th className={TH}>{t("Problem")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                    <tbody className={TBODY}>
                       {result.problems.map((p, i) => (
                         <tr key={i}>
                           <td className={`${TD} whitespace-nowrap`}>{p.row === 0 ? t("File") : p.row}</td>
@@ -264,7 +312,7 @@ export default function DataImportPage() {
 
             {result && !result.imported && result.problemCount === 0 && (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+                <div className={`${ALERT_GOOD} flex flex-wrap items-center justify-between gap-3`}>
                   <span className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" />
                     {t("All")} {result.rows} {t(result.rows === 1 ? "row is correct" : "rows are correct")} ({result.fileName}).
@@ -276,15 +324,15 @@ export default function DataImportPage() {
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className={NOTE}>
                   {t("First rows, as they will be saved")}{result.rows > result.preview.length && <> ({result.preview.length} {t("of")} {result.rows})</>}:
                 </p>
-                <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-gray-800">
+                <div className={TABLE_BOX}>
                   <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-                    <thead className="bg-slate-50 dark:bg-[#222222]">
+                    <thead className={THEAD}>
                       <tr>{previewColumns.map((c) => <th key={c} className={`${TH} whitespace-nowrap`}>{c}</th>)}</tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                    <tbody className={TBODY}>
                       {result.preview.map((r, i) => (
                         <tr key={i}>{previewColumns.map((c) => <td key={c} className={`${TD} whitespace-nowrap`}>{r[c] ?? ""}</td>)}</tr>
                       ))}
@@ -295,7 +343,7 @@ export default function DataImportPage() {
             )}
 
             {result?.imported && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+              <div className={`${ALERT_GOOD} flex flex-wrap items-center justify-between gap-3`}>
                 <span className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />
                   {t(type.title)}: {t("Imported")} {result.rows} {t(result.rows === 1 ? "row" : "rows")} {t("from")} {result.fileName}.
@@ -307,12 +355,12 @@ export default function DataImportPage() {
         )}
 
         <div className={`${CARD} overflow-hidden`}>
-          <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800">
+          <div className={CARD_HEAD}>
             <h2 className={CARD_TITLE}>{t("Past imports")}</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-              <thead className="bg-slate-50 dark:bg-[#222222]">
+              <thead className={THEAD}>
                 <tr>
                   <th className={TH}>{t("Imported")}</th>
                   <th className={TH}>{t("What")}</th>
@@ -321,9 +369,9 @@ export default function DataImportPage() {
                   <th className={TH}>{t("By")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+              <tbody className={TBODY}>
                 {history.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-8 text-center text-sm text-slate-400">{t("Nothing has been imported yet.")}</td></tr>
+                  <tr><td colSpan={5} className={`px-3 py-8 text-center ${EMPTY}`}>{t("Nothing has been imported yet.")}</td></tr>
                 ) : history.map((h) => (
                   <tr key={`${h.type}-${h.id}`}>
                     <td className={`${TD} whitespace-nowrap`}>{formatDateTime(h.importedAt)}</td>
@@ -338,6 +386,5 @@ export default function DataImportPage() {
           </div>
         </div>
       </div>
-    </>
   );
 }

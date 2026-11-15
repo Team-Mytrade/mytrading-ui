@@ -180,7 +180,6 @@ const MyPreferences = lazy(() => import("./pages/profile/MyPreferences"));
 const NotificationSettingsPage = lazy(() => import("./pages/company/NotificationSettingsPage"));
 const AuditLogPage = lazy(() => import("./pages/company/AuditLogPage"));
 const DataImportPage = lazy(() => import("./pages/company/DataImportPage"));
-const GoLivePage = lazy(() => import("./pages/company/GoLivePage"));
 const GettingStartedPage = lazy(() => import("./pages/company/GettingStartedPage"));
 const HelpCenterPage = lazy(() => import("./pages/Help/HelpCenterPage"));
 const ApiKeysPage = lazy(() => import("./pages/company/ApiKeysPage"));
@@ -317,7 +316,8 @@ export default function AppRouter() {
           <Route path="/audit-log" element={<AuditLogPage />} />
           <Route path="/system-health" element={<SystemHealthPage />} />
           <Route path="/data-import" element={<DataImportPage />} />
-          <Route path="/go-live" element={<GoLivePage />} />
+          {/* Go-live is now the HR, payroll & attendance tab of Data Import */}
+          <Route path="/go-live" element={<Navigate to="/data-import?tab=hr" replace />} />
           <Route path="/getting-started" element={<GettingStartedPage />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/help/flow/:flowId" element={<HelpCenterPage />} />

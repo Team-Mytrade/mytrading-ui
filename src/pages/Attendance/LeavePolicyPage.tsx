@@ -579,7 +579,7 @@ const LeavePolicyPage: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50/60 px-3 py-2 dark:border-[#303030] dark:bg-[#222222]">
                     <label htmlFor="leave-policy-template" className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("Start from")}</label>
                     <select id="leave-policy-template" value={template} onChange={(e) => applyTemplate(e.target.value as LeavePolicyTemplate)}
-                      className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-gray-700 dark:bg-[#191919] dark:text-white">
+                      className="h-8 rounded-lg border border-slate-300 bg-white py-0 pl-2 pr-8 text-xs leading-[30px] dark:border-gray-700 dark:bg-[#191919] dark:text-white">
                       {LEAVE_POLICY_TEMPLATES.map((option) => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
                     </select>
                     {template !== "STANDARD" && (
@@ -654,7 +654,7 @@ const LeavePolicyPage: React.FC = () => {
                       <select
                         value=""
                         onChange={(e) => e.target.value && addLeaveType(e.target.value)}
-                        className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-gray-700 dark:bg-[#222222] dark:text-white"
+                        className="h-8 rounded-lg border border-slate-300 bg-white py-0 pl-2 pr-8 text-xs leading-[30px] dark:border-gray-700 dark:bg-[#222222] dark:text-white"
                         aria-label={t("Add a leave type")}
                       >
                         <option value="">{t("+ Add leave type")}</option>
@@ -715,7 +715,7 @@ const LeavePolicyPage: React.FC = () => {
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                                   <label className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-gray-300">
                                     {t("Given")}
-                                    <select value={detail.accrualFrequency || 'UPFRONT'} className={small}
+                                    <select value={detail.accrualFrequency || 'UPFRONT'} className="h-7 min-w-[9.5rem] rounded-md border border-slate-300 bg-white py-0 pl-2 pr-7 text-[11px] leading-[26px] dark:border-gray-700 dark:bg-[#191919] dark:text-white"
                                       onChange={(e) => update({ accrualFrequency: e.target.value as PolicyDetailItem['accrualFrequency'] })}>
                                       <option value="UPFRONT">{t("At the year start")}</option>
                                       <option value="MONTHLY">{t("Monthly")}</option>
