@@ -300,8 +300,9 @@ export default function AlertChannels({ editable }: { editable: boolean }) {
                     <td className="px-3 py-2">{d.channel}</td>
                     <td className="px-3 py-2">{d.recipient}</td>
                     <td className="px-3 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${d.status === "SENT" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                        {t(d.status === "SENT" ? "Sent" : "Failed")}
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${d.status === "SENT" ? "bg-emerald-50 text-emerald-700"
+                        : d.status === "RETRYING" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}>
+                        {t(d.status === "SENT" ? "Sent" : d.status === "RETRYING" ? "Retrying" : "Failed")}
                       </span>
                     </td>
                     <td className="max-w-[28rem] truncate px-3 py-2 text-slate-500" title={d.detail ?? ""}>{d.detail}</td>

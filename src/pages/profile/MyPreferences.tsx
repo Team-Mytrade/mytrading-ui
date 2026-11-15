@@ -164,6 +164,14 @@ export default function MyPreferences() {
                     <span className={`${HINT} block`}>{t("They always appear under the bell, whichever you choose.")}</span>
                   </span>
                 </label>
+                <label className="mt-3 flex items-start gap-2 text-sm text-slate-700 dark:text-gray-300">
+                  <input type="checkbox" className="mt-0.5 accent-cyan-600" checked={form.textNotifications !== false}
+                    onChange={(e) => set("textNotifications", e.target.checked ? null : false)} />
+                  <span>
+                    {t("Text me alerts by SMS and WhatsApp")}
+                    <span className={`${HINT} block`}>{t("When your company has them on, to the mobile number on your user.")}</span>
+                  </span>
+                </label>
               </section>
             </div>
           </form>

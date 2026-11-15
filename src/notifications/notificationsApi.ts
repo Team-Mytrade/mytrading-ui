@@ -72,7 +72,8 @@ export interface ChannelDelivery {
   at: string;
   channel: string;
   recipient: string;
-  status: "SENT" | "FAILED";
+  // RETRYING: failed for a reason that may pass; tried again after 1, 5, 15, 60 and 240 minutes
+  status: "SENT" | "FAILED" | "RETRYING";
   detail?: string | null;
 }
 
@@ -100,6 +101,9 @@ export interface NotificationSettings {
   dunningRepeatDays: number;
   dunningMaxReminders: number;
   replyTo?: string | null;
+  // Payment reminders also by SMS / WhatsApp to the customer's phone (needs that alert channel on)
+  dunningSms?: boolean;
+  dunningWhatsApp?: boolean;
 }
 
 export interface EmailTemplate {

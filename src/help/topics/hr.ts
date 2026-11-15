@@ -28,13 +28,24 @@ export const HR_TOPICS: HelpTopic[] = [
         steps: ["Employees upload theirs from their own Documents page (the Documents link on their profile): the Document Type and a PDF, JPG or PNG up to 5 MB."],
       },
       { title: "Check one", steps: ["Click Preview (or Download).", "Click Verify, or Reject with the reason."] },
+      {
+        title: "Expiry dates",
+        steps: [
+          "When uploading a passport, residence visa, residence ID (Emirates ID, iqama), work permit or licence, enter its Expiry date and Document number.",
+          "For one uploaded without a date, click Set expiry date (calendar icon) and enter it as YYYY-MM-DD.",
+          "The Expires column shows days left: amber within 30 days, red once expired.",
+        ],
+      },
     ],
     statuses: [
       { name: "Pending", meaning: "Uploaded, waiting for HR." },
       { name: "Verified", meaning: "Checked by HR." },
       { name: "Rejected", meaning: "Not accepted; upload a new one." },
     ],
-    rules: ["Exporting the list (PDF, Excel, print) needs the export right; deleting needs the delete right."],
+    rules: [
+      "Exporting the list (PDF, Excel, print) needs the export right; deleting needs the delete right.",
+      "HR (update right) and the employee get a reminder under the bell 60, 30 and 7 days before a document expires, and when it has expired. Uploading the renewed document with its new date, changing the date, or deleting the document clears it.",
+    ],
     related: [{ route: "/employeeRecords", label: "Employees" }],
   },
   {

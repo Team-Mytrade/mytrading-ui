@@ -20,7 +20,7 @@ const EMAIL = /^[^\s@]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 
 const DEFAULTS: NotificationSettings = {
   emailApprovals: false, emailLowStock: false, emailOverdueInvoices: false, dunningEnabled: false,
-  dunningDaysBefore: 3, dunningRepeatDays: 7, dunningMaxReminders: 3, replyTo: "",
+  dunningDaysBefore: 3, dunningRepeatDays: 7, dunningMaxReminders: 3, replyTo: "", dunningSms: false, dunningWhatsApp: false,
 };
 
 const sectionTitle = (Icon: React.ComponentType<{ className?: string }>, text: string) => (
@@ -194,6 +194,14 @@ export default function NotificationSettingsPage() {
               <Toggle id="ns-dunning" label={t("Send automatic payment reminders")}
                 hint={t("Emailed in the morning (company time) to the customer email on each unpaid invoice, with the templates below. A reminder can also be sent by hand from Invoices.")}
                 checked={form.dunningEnabled} disabled={!editable} onChange={(v) => set("dunningEnabled", v)} />
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                <Toggle id="ns-dunning-sms" label={t("Also by SMS")}
+                  hint={t("To the phone on the customer, through your SMS channel (Alert channels above must have it on).")}
+                  checked={!!form.dunningSms} disabled={!editable} onChange={(v) => set("dunningSms", v)} />
+                <Toggle id="ns-dunning-whatsapp" label={t("Also by WhatsApp")}
+                  hint={t("To the phone on the customer, through your WhatsApp channel and its approved template.")}
+                  checked={!!form.dunningWhatsApp} disabled={!editable} onChange={(v) => set("dunningWhatsApp", v)} />
+              </div>
               <div className="mt-3 grid gap-4 md:grid-cols-4">
                 <div>
                   <label className={LABEL} htmlFor="ns-before">{t("Days before the due date")}</label>
