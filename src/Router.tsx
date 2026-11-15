@@ -171,6 +171,8 @@ const UserDashboard = lazy(() => import("./components/UserProfile/UserDashboard"
 const UsersPage = lazy(() => import("./pages/roleconfig/UsersPage"));
 const TenantsPage = lazy(() => import("./pages/Platform/TenantsPage"));
 const PlansPage = lazy(() => import("./pages/Platform/PlansPage"));
+const MonitoringPage = lazy(() => import("./pages/Platform/MonitoringPage"));
+const SystemHealthPage = lazy(() => import("./pages/company/SystemHealthPage"));
 const CompanySettingsPage = lazy(() => import("./pages/company/CompanySettingsPage"));
 const MyPreferences = lazy(() => import("./pages/profile/MyPreferences"));
 const NotificationSettingsPage = lazy(() => import("./pages/company/NotificationSettingsPage"));
@@ -300,9 +302,11 @@ export default function AppRouter() {
           <Route path="/role_config/*" element={<Navigate to="/role_config" replace />} />
           <Route path="/platform/tenants" element={<TenantsPage />} />
           <Route path="/platform/plans" element={<PlansPage />} />
+          <Route path="/platform/monitoring" element={<MonitoringPage />} />
           <Route path="/company-settings" element={<CompanySettingsPage />} />
           <Route path="/notification-settings" element={<NotificationSettingsPage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />
+          <Route path="/system-health" element={<SystemHealthPage />} />
           <Route path="/data-import" element={<DataImportPage />} />
           <Route path="/go-live" element={<GoLivePage />} />
           <Route path="/getting-started" element={<GettingStartedPage />} />
