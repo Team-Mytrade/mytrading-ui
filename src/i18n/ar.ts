@@ -8251,4 +8251,11 @@ export const ar: Record<string, string> = {
   "Every step is in: you can go live.": "اكتملت كل الخطوات: يمكنك بدء التشغيل.",
   "Template": "القالب",
   "Type the rows in": "أدخل الصفوف يدويًا",
+  "Common Service": "الخدمة المشتركة",
+  "Main menus and sub menus": "القوائم الرئيسية والفرعية",
+  "sub menus off": "قوائم فرعية مُوقفة",
+  "main menus": "قوائم رئيسية",
+  "Tick a main menu for all its sub menus, or open it to choose sub menus. Settings (Users) is a core module and is always on.": "حدّد قائمة رئيسية لتشمل كل قوائمها الفرعية، أو افتحها لاختيار القوائم الفرعية. الإعدادات (المستخدمون) وحدة أساسية ومفعّلة دائمًا.",
+  "Main menus and sub menus from the ticked roles. Crossed out: hidden by a role's page access. Change it in Roles & Permissions.": "القوائم الرئيسية والفرعية من الأدوار المحددة. المشطوب: مخفي بإعداد وصول الصفحات في أحد الأدوار. غيّره من الأدوار والصلاحيات.",
+  "Only self-service: tick a role to give menus.": "الخدمة الذاتية فقط: حدّد دورًا لإتاحة القوائم.",
 };

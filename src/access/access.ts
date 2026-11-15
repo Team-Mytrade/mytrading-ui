@@ -26,7 +26,8 @@ export const MODULE_LABELS: Record<AppModule, string> = {
   HRM: "HRM",
   ATTENDANCE: "Attendance",
   DELIVERY: "Delivery",
-  PRODUCT_CATALOGUE: "Product Catalogue",
+  // Products, categories, vendors and customers (mytrade-common-service); the code stays for stored rights
+  PRODUCT_CATALOGUE: "Common Service",
   USERS: "Users",
 };
 
@@ -98,7 +99,8 @@ export const pageDenied = (access: AccessInfo, pathname: string, action: string)
     const key = entry.slice(0, entry.lastIndexOf("|"));
     if ((pathname === key || pathname.startsWith(`${key}/`)) && key.length > page.length) page = key;
   }
-  return page !== "" && access.pageDenies.includes(`${page}|${action}`);
+  // "page|*": a page the company doesn't have (Tenants & Modules), every action off
+  return page !== "" && (access.pageDenies.includes(`${page}|${action}`) || access.pageDenies.includes(`${page}|*`));
 };
 
 /* ================= Super Admin tenant selection ================= */

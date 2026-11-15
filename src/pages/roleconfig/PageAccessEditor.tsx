@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, Pencil, Search, SlidersHorizontal } from "lucide-react";
-import { navItems } from "../../layout/AppSidebar";
-import { AppModule, MODULE_LABELS, isSelfServicePath, moduleForPath } from "../../access/access";
+import { MenuPage, menuGroups } from "../../access/menuPages";
+import { AppModule, MODULE_LABELS } from "../../access/access";
 import type { PageLimit } from "../../access/accessApi";
 import { t } from "../../i18n/i18n";
 
@@ -19,50 +19,7 @@ const ACTION_LABELS: Record<PageAction, string> = {
   VIEW: "View", CREATE: "Create", UPDATE: "Edit", DELETE: "Delete", APPROVE: "Approve", EXPORT: "Export",
 };
 
-interface PageRow {
-  key: string;
-  name: string;
-  module: AppModule;
-  section?: string;
-}
-
-interface MenuGroup {
-  menu: string;
-  pages: PageRow[];
-}
-
-type NavLike = { name: string; path?: string; section?: string; subItems?: NavLike[] };
-
-/** Every menu page a role's rights apply to, grouped by menu (self-service, report and platform pages left out). */
-const menuGroups = (): MenuGroup[] => {
-  const seen = new Set<string>();
-  const groups: MenuGroup[] = [];
-  const pageOf = (name: string, path: string | undefined, section?: string): PageRow | null => {
-    if (!path || seen.has(path) || isSelfServicePath(path)) return null;
-    const module = moduleForPath(path);
-    if (!module || module === "PLATFORM") return null;
-    seen.add(path);
-    return { key: path, name, module, section };
-  };
-  for (const nav of navItems as NavLike[]) {
-    const pages: PageRow[] = [];
-    const top = pageOf(nav.name, nav.path);
-    if (top) pages.push(top);
-    for (const sub of nav.subItems ?? []) {
-      if (sub.subItems) {
-        for (const leaf of sub.subItems) {
-          const row = pageOf(leaf.name, leaf.path, sub.name);
-          if (row) pages.push(row);
-        }
-      } else {
-        const row = pageOf(sub.name, sub.path, sub.section);
-        if (row) pages.push(row);
-      }
-    }
-    if (pages.length) groups.push({ menu: nav.name, pages });
-  }
-  return groups;
-};
+type PageRow = MenuPage;
 
 interface Props {
   /** The role's module rights (MODULE:ACTION, ADMIN included). */
