@@ -2,8 +2,8 @@
 // endpoints under its own base (products, customers and vendors are in common-service).
 import axios from "axios";
 
-/** Services with imports, in go-live order: master data, opening stock, then open invoices, bills and ledger balances. */
-const SOURCES = ["/v1/api/common/import", "/v1/api/inventory/import", "/v1/api/invoice/import"];
+/** Services with imports, in go-live order: master data, opening stock, open invoices, bills and ledger balances, then CRM leads. */
+const SOURCES = ["/v1/api/common/import", "/v1/api/inventory/import", "/v1/api/invoice/import", "/v1/api/crm/import"];
 
 export interface ImportColumn {
   header: string;

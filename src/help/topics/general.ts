@@ -74,6 +74,10 @@ const salesReader: HelpRole[] = [
   { role: "Anyone with Sales or Invoice access", can: "Read the report. Excel, PDF and Print need the export right in Sales or Invoice." },
 ];
 
+const crmReader: HelpRole[] = [
+  { role: "Anyone with CRM access", can: "Read the report, for the leads and deals they can see. Excel, PDF and Print need the CRM export right." },
+];
+
 export const REPORT_TOPICS: HelpTopic[] = [
   {
     id: "report-center",
@@ -110,6 +114,10 @@ export const REPORT_TOPICS: HelpTopic[] = [
       { route: "/reports/open-purchase-orders", label: "Open Purchase Orders" },
       { route: "/reports/received-not-billed", label: "Goods Received Not Billed" },
       { route: "/reports/vendor-performance", label: "Vendor Performance" },
+      { route: "/reports/sales-forecast", label: "Sales Forecast" },
+      { route: "/reports/sales-team", label: "Sales Team Performance" },
+      { route: "/reports/lead-sources", label: "Lead Sources" },
+      { route: "/reports/win-loss", label: "Win / Loss Reasons" },
       { route: "/reports/day-book", label: "Day Book" },
       { route: "/reports/cash-bank-book", label: "Cash & Bank Book" },
       { route: "/reports/receipts-payments", label: "Receipts & Payments" },
@@ -517,6 +525,126 @@ export const REPORT_TOPICS: HelpTopic[] = [
     related: [
       { route: "/reports/purchase-analysis", label: "Purchase Analysis" },
       { route: "/common/vendors", label: "Vendors" },
+    ],
+  },
+  {
+    id: "sales-forecast",
+    route: "/reports/sales-forecast",
+    module: "Reports",
+    title: "Sales Forecast",
+    summary: "What the pipeline should bring month by month: open deals by their expected close month, weighted by their probability, next to what was won and lost in each month.",
+    who: crmReader,
+    tasks: [
+      {
+        title: "Read the forecast",
+        steps: [
+          "Choose the Close dates (it opens on this month and the five after it) and, if you like, one Owner (or Unassigned).",
+          "The cards show the Weighted total, the Open value, what was Won, and the open deals whose close date has passed.",
+          "Each row is a month: open deals and their value, Weighted, Won (with the number of deals) and Lost.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Weighted", meaning: "Each open deal's amount × its probability (the stage's default from CRM Settings when the deal has none), added up." },
+      { name: "Close date passed", meaning: "Open deals whose expected close date is before today, whatever the period: move them on, or set a new date." },
+    ],
+    rules: [
+      "Money is in the company's currency at the latest exchange rate; deals in a currency without a rate are counted but left out of the sums, and named above the cards.",
+      "Open deals without a close date aren't in any month; their number and value are shown under the chart.",
+      "When CRM Settings shows sales people only their own, the figures count only the deals you can see.",
+    ],
+    related: [
+      { route: "/opportunities", label: "Deals" },
+      { route: "/reports/sales-team", label: "Sales Team Performance" },
+    ],
+  },
+  {
+    id: "sales-team",
+    route: "/reports/sales-team",
+    module: "Reports",
+    title: "Sales Team Performance",
+    summary: "Each owner's results: leads added and converted, deals won and their value, win rate, and the pipeline they still hold.",
+    who: crmReader,
+    tasks: [
+      {
+        title: "Compare the team",
+        steps: [
+          "Choose the Period (it opens on this quarter).",
+          "The cards show the team's Won value, Win rate, Conversion and Open pipeline.",
+          "Each row is an owner (and Unassigned): Leads, Conversion, Deals won, Won value, Win rate and Open pipeline with its weighted value.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Conversion", meaning: "Of the leads added in the period, the share that are customers now." },
+      { name: "Win rate", meaning: "Deals won out of deals won and lost in the period." },
+      { name: "Open pipeline", meaning: "Every deal still open today, whatever the period, with its weighted value." },
+    ],
+    rules: [
+      "A deal counts in the period it was won or lost; a lead in the one it was added. The owner is the record's owner now.",
+      "Money is in the company's currency at the latest exchange rate.",
+      "When CRM Settings shows sales people only their own, a sales person sees only their own row (and Unassigned).",
+    ],
+    related: [
+      { route: "/crm-settings", label: "CRM Settings" },
+      { route: "/reports/win-loss", label: "Win / Loss Reasons" },
+    ],
+  },
+  {
+    id: "lead-sources",
+    route: "/reports/lead-sources",
+    module: "Reports",
+    title: "Lead Sources",
+    summary: "Which sources bring business: leads added from each source, how many became customers, how many were lost, and the value of the deals won from them.",
+    who: crmReader,
+    tasks: [
+      {
+        title: "Compare sources",
+        steps: [
+          "Choose when the leads were added (it opens on this year) and, if you like, one Owner.",
+          "Each row is a source: Leads, Converted, Conversion, Lost and Won value (with the number of deals).",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    rules: [
+      "A lead's won deals are those on the lead, or on the customer it became, whenever they were won.",
+      "The sources are the company's list in CRM Settings; leads without one are under No source.",
+      "Leads from the website form have the source Website when it is on the list.",
+    ],
+    related: [
+      { route: "/leads", label: "Leads" },
+      { route: "/crm-settings", label: "CRM Settings" },
+    ],
+  },
+  {
+    id: "win-loss",
+    route: "/reports/win-loss",
+    module: "Reports",
+    title: "Win / Loss Reasons",
+    summary: "Why business is won and lost: the deals won and lost in a period, the reasons given for the lost ones, and the leads marked Lost with their reasons.",
+    who: crmReader,
+    tasks: [
+      {
+        title: "See why deals are lost",
+        steps: [
+          "Choose the Period (it opens on this quarter) and, if you like, one Owner.",
+          "The cards show the Win rate, the value Won and Lost, and the leads lost.",
+          "The chart and table give each reason with its count, share and value.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [{ name: "Share", meaning: "For deals: of the deals won and lost in the period. For leads: of the leads lost in it." }],
+    rules: [
+      "The reasons are the company's Lost reasons in CRM Settings, asked whenever a lead or deal is marked Lost. Older records without one are under No reason given.",
+      "A lead's value is its expected value, in the company's currency.",
+    ],
+    related: [
+      { route: "/reports/sales-team", label: "Sales Team Performance" },
+      { route: "/crm-settings", label: "CRM Settings" },
     ],
   },
   {
@@ -1065,7 +1193,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       "A send that fails because the provider is down or busy is tried again after 1, 5, 15, 60 and 240 minutes (Retrying in Recent deliveries); a wrong key or number is not retried. Each person can turn SMS and WhatsApp off for themselves on My preferences.",
       "Keys and passwords are stored encrypted and never shown again; leave a saved one empty to keep it. A channel that fails never stops the others; Recent deliveries shows what went out and why something failed.",
       "Slack, Teams and the webhook must be https:// addresses on the internet; addresses inside your network are refused.",
-      "The bell shows each alert to the people who can act on it, and it clears once that's done. Approvals: purchase requests and orders, vendor payments over the limit, leave and attendance requests, exit requests, payroll runs, and sales orders on credit hold (go to whoever can release them). Stock: low and out of stock, and batches with stock left 30 and 7 days before they expire and once expired. Invoices: overdue invoices, e-invoices rejected by ZATCA or the UAE network, and till sales whose invoice couldn't be made. Reminders: CRM calls, meetings and tasks 30 minutes before they're due (to the person assigned), post-dated cheques the day before their date, letters of credit before their expiry and latest shipment dates, employee documents before they expire, and compensatory off a week before it lapses (to the employee). Deliveries: returned or failed, and still not delivered after their delivery day. System: online store orders that need attention, store syncs that fail, and API keys 14 and 3 days before they expire.",
+      "The bell shows each alert to the people who can act on it, and it clears once that's done. Approvals: purchase requests and orders, vendor payments over the limit, leave and attendance requests, exit requests, payroll runs, and sales orders on credit hold (go to whoever can release them). Stock: low and out of stock, and batches with stock left 30 and 7 days before they expire and once expired. Invoices: overdue invoices, e-invoices rejected by ZATCA or the UAE network, and till sales whose invoice couldn't be made. Reminders: CRM calls, meetings and tasks 30 minutes before they're due and again once overdue (to the person assigned), leads and open deals with no follow-up for the days set in CRM Settings and deals past their expected close date (to the owner),post-dated cheques the day before their date, letters of credit before their expiry and latest shipment dates, employee documents before they expire, and compensatory off a week before it lapses (to the employee). Deliveries: returned or failed, and still not delivered after their delivery day. System: online store orders that need attention, store syncs that fail, and API keys 14 and 3 days before they expire.",
     ],
     related: [{ route: "/invoices", label: "Invoices" }],
   },
@@ -1126,6 +1254,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     rules: [
       "The receiver must answer with any 2xx within 10 seconds; otherwise the call is tried again after 1, 5 and 15 minutes, then 1, 3, 6 and 12 hours.",
       "New signing secret stops the old one at once.",
+      "CRM events: lead.created (also from the website form and imports), lead.converted, deal.won and deal.lost.",
     ],
     related: [{ route: "/api-keys", label: "API keys" }],
   },
@@ -1147,7 +1276,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     route: "/data-import",
     module: "Settings",
     title: "Data Import",
-    summary: "Bring your existing records in from Excel: products, customers and vendors, then opening stock, unpaid invoices and bills, and ledger balances on the go-live date.",
+    summary: "Bring your existing records in from Excel: products, customers and vendors, then opening stock, unpaid invoices and bills, and ledger balances on the go-live date, and CRM leads at any time.",
     who: [{ role: "Anyone with the right to create the records", can: "Import them; each import shows the permission it needs." }],
     tasks: [
       {
@@ -1160,8 +1289,12 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
         ],
       },
     ],
-    rules: ["Nothing is saved until the whole file is right.", "Past imports lists what was imported, by whom."],
-    related: [{ route: "/getting-started", label: "Getting started" }],
+    rules: [
+      "Nothing is saved until the whole file is right.",
+      "Past imports lists what was imported, by whom.",
+      "Leads (needs CRM create): the Source must be one of the lead sources in CRM Settings; Owner is a login's username or email (empty = unassigned); Status is New, Contacted or Qualified. A row whose email or phone is already on a lead, a customer or another row is a problem unless Allow duplicate is Yes. Owners get no bell alert for imported leads.",
+    ],
+    related: [{ route: "/getting-started", label: "Getting started" }, { route: "/leads", label: "Leads" }],
     flows: ["company-setup"],
   },
   {

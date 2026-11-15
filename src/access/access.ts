@@ -340,6 +340,11 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   ["/reports/open-purchase-orders", "PURCHASE:VIEW|INVOICE:VIEW"],
   ["/reports/received-not-billed", "PURCHASE:VIEW|INVOICE:VIEW"],
   ["/reports/vendor-performance", "PURCHASE:VIEW|INVOICE:VIEW"],
+  // CRM team reports (8.3.7): anyone in the CRM (the service counts only what each person may see)
+  ["/reports/sales-forecast", "CRM:VIEW"],
+  ["/reports/sales-team", "CRM:VIEW"],
+  ["/reports/lead-sources", "CRM:VIEW"],
+  ["/reports/win-loss", "CRM:VIEW"],
   // Finance books (8.2.1.5): finance only
   ["/reports/day-book", "INVOICE:VIEW"],
   ["/reports/cash-bank-book", "INVOICE:VIEW"],

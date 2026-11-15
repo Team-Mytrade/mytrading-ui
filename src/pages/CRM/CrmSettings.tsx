@@ -7,6 +7,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { DEAL_STAGE_LABELS as STAGE_LABELS, apiError, fieldErrorOf } from "./crmShared";
 import { CRM_SETTINGS_API, CrmSettings as Settings, rememberCrmSettings, useCrmSettings } from "./crmOwnership";
 import { t } from "../../i18n/i18n";
+import CrmWebForm from "./CrmWebForm";
 
 // The lists a company starts with (the service's defaults)
 const STANDARD_SOURCES = ["Walk-in", "Phone", "Website", "Exhibition", "Referral", "WhatsApp", "Social media", "Marketplace", "Other"];
@@ -394,6 +395,8 @@ export default function CrmSettings() {
           )}
           {probabilityProblem && settings.canChange && <p className="mt-1 text-xs text-rose-600">{t("Enter a whole number from 0 to 100 for each stage")}</p>}
         </section>
+
+        {settings.canChange && <CrmWebForm />}
       </div>
     </>
   );

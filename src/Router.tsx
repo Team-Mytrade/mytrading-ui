@@ -256,6 +256,10 @@ const TdsRegisterReport = lazy(() => import("./pages/reports/center/TdsRegister"
 const LeaveBalancesReport = lazy(() => import("./pages/reports/center/LeaveBalances"));
 const StockAgingReport = lazy(() => import("./pages/reports/center/StockAging"));
 const AbcAnalysisReport = lazy(() => import("./pages/reports/center/AbcAnalysis"));
+const CrmForecastReport = lazy(() => import("./pages/reports/center/CrmTeamReports").then((m) => ({ default: m.CrmForecast })));
+const CrmByOwnerReport = lazy(() => import("./pages/reports/center/CrmTeamReports").then((m) => ({ default: m.CrmByOwner })));
+const CrmBySourceReport = lazy(() => import("./pages/reports/center/CrmTeamReports").then((m) => ({ default: m.CrmBySource })));
+const CrmWinLossReport = lazy(() => import("./pages/reports/center/CrmTeamReports").then((m) => ({ default: m.CrmWinLoss })));
 const Reports = lazy(() => import("./pages/CRM/Reports"));
 export default function AppRouter() {
   return (
@@ -447,6 +451,10 @@ export default function AppRouter() {
           <Route path="/reports/open-purchase-orders" element={<OpenPurchaseOrdersReport />} />
           <Route path="/reports/received-not-billed" element={<ReceivedNotBilledReport />} />
           <Route path="/reports/vendor-performance" element={<VendorPerformanceReport />} />
+          <Route path="/reports/sales-forecast" element={<CrmForecastReport />} />
+          <Route path="/reports/sales-team" element={<CrmByOwnerReport />} />
+          <Route path="/reports/lead-sources" element={<CrmBySourceReport />} />
+          <Route path="/reports/win-loss" element={<CrmWinLossReport />} />
           <Route path="/reports/day-book" element={<DayBookReport />} />
           <Route path="/reports/cash-bank-book" element={<CashBankBookReport />} />
           <Route path="/reports/receipts-payments" element={<ReceiptsPaymentsReport />} />

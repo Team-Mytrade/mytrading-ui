@@ -45,6 +45,8 @@ import {
 import { usePermissions } from "../../access/usePermissions";
 import { formatDate as companyFormatDate } from "../../company/format";
 import { t } from "../../i18n/i18n";
+import FollowUpOffer, { FollowUpTarget, openTasksOf } from "./FollowUpOffer";
+import { useMyUsername } from "./crmOwnership";
 interface CommunicationEntry {
   id: number;
   type: string;
@@ -125,6 +127,9 @@ const Interactions: React.FC = () => {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const me = useMyUsername();
+  const [followUp, setFollowUp] = useState<FollowUpTarget | null>(null);
+  const [followUpTasks, setFollowUpTasks] = useState<Awaited<ReturnType<typeof openTasksOf>>>([]);
 
   useEffect(() => {
     if (showFormModal || showNotesModal || showDeletePopup) {
@@ -283,8 +288,23 @@ const Interactions: React.FC = () => {
         await axios.post(`${API_BASE}${COMMUNICATIONS_API}`, payload);
         ToasterService.success("Interaction added");
       }
+      const isNew = editingId === null;
       await fetchAllData();
       resetForm();
+      // A new interaction offers to close the open tasks and plan the next follow-up
+      if (isNew) {
+        const target: FollowUpTarget = {
+          leadId: leadId ? Number(leadId) : null,
+          customerId: customerId ? Number(customerId) : null,
+          contactId: contactId ? Number(contactId) : null,
+          name: leadId
+            ? leads.find((l) => l.id === Number(leadId))?.name || ""
+            : getCustomerLabel(customers.find((c) => c.id === Number(customerId))),
+          subject: String(subject),
+        };
+        setFollowUpTasks(await openTasksOf(target));
+        setFollowUp(target);
+      }
     } catch (err: any) {
       console.error("Error saving communication:", err);
       ToasterService.error(apiError(err, "Failed to save communication"));
@@ -727,6 +747,8 @@ const Interactions: React.FC = () => {
     },
   ]}
 />
+
+        <FollowUpOffer target={followUp} openTasks={followUpTasks} me={me} onClose={() => setFollowUp(null)} />
 
         {/* Notes View Modal */}
         {showNotesModal && selectedEntry && (

@@ -113,6 +113,40 @@ export const REPORT_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "Ingram is preferred for urgent orders.",
   },
+  "sales-forecast": {
+    story: "What the pipeline should bring this quarter.",
+    data: [
+      { label: "November", value: "6 open deals · AED 412,000 · weighted AED 158,600" },
+      { label: "December", value: "4 open deals · AED 260,000 · weighted AED 141,000" },
+      { label: "Close date passed", value: "3 deals · AED 48,500" },
+    ],
+    result: "The sales manager asks for new close dates on the three late deals before the weekly meeting.",
+  },
+  "sales-team": {
+    story: "How each sales person did this quarter.",
+    data: [
+      { label: "Asha Khan", value: "18 leads · 39% converted · 5 won · AED 186,000 · win rate 63%" },
+      { label: "Ravi Menon", value: "22 leads · 18% converted · 2 won · AED 54,000 · win rate 29%" },
+    ],
+    result: "Ravi gets help qualifying leads before turning them into deals.",
+  },
+  "lead-sources": {
+    story: "Which sources brought business this year.",
+    data: [
+      { label: "Exhibition", value: "64 leads · 22% converted · AED 520,000 won" },
+      { label: "Website", value: "130 leads · 6% converted · AED 140,000 won" },
+    ],
+    result: "Marketing books GITEX again and reviews what the website form asks.",
+  },
+  "win-loss": {
+    story: "Why deals were lost this quarter.",
+    data: [
+      { label: "Won", value: "9 deals · AED 312,000 · 45%" },
+      { label: "Price", value: "6 deals · 55% of those lost" },
+      { label: "Delivery time", value: "3 deals · 27%" },
+    ],
+    result: "Purchasing looks for a second supplier with shorter lead times.",
+  },
   "day-book": {
     story: "Everything posted on 14 November.",
     data: [
