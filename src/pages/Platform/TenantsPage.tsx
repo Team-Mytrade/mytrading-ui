@@ -1,8 +1,9 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Activity, Building2, CheckCircle2, CreditCard, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
 import TenantPlanDialog from "./TenantPlanDialog";
 import MenuPagePicker from "./MenuPagePicker";
+import NewTenantWizard from "./NewTenantWizard";
 import { CompanyPlan, Plan, SUBSCRIPTION_TONE, plansApi, subscriptionText } from "../../platform/plansApi";
 import TenantClosureDialog, { TenantClosure, closing, closureApi } from "./TenantClosureDialog";
 import PageMeta from "../../components/common/PageMeta";
@@ -23,9 +24,7 @@ import { t as tr } from "../../i18n/i18n";
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
 const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300";
-const EMAIL = /^[^\s@]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 
-const emptyForm = { tenantName: "", modules: [] as AppModule[], hiddenPages: [] as string[], planId: "" as number | "", email: "", firstName: "", lastName: "" };
 
 const message = (e: unknown, fallback: string) => (e as Error)?.message || fallback;
 
@@ -61,7 +60,6 @@ export default function TenantsPage() {
   const [editModules, setEditModules] = useState<AppModule[]>([]);
   const [editHidden, setEditHidden] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [statusFor, setStatusFor] = useState<TenantAccess | null>(null);
   const [nextStatus, setNextStatus] = useState<TenantStatus>("ACTIVE");
@@ -177,41 +175,6 @@ export default function TenantsPage() {
       else ToasterService.error("The email could not be sent. Check the mail settings of the user service.");
     } catch (e) {
       ToasterService.error(message(e, "Could not send the invite."));
-    }
-  };
-
-  const provision = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.tenantName.trim() || !form.firstName.trim() || !form.lastName.trim()) {
-      ToasterService.error("Company name and the admin's first and last name are required.");
-      return;
-    }
-    if (!EMAIL.test(form.email.trim())) {
-      ToasterService.error("Enter the admin's email address.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const email = form.email.trim().toLowerCase();
-      const { tenant, inviteSent } = await platformApi.provision({
-        tenantName: form.tenantName.trim(),
-        modules: form.modules,
-        hiddenPages: form.planId ? [] : form.hiddenPages,
-        planId: form.planId || undefined,
-        admin: { username: email, email, firstName: form.firstName.trim(), lastName: form.lastName.trim() },
-      });
-      if (inviteSent) ToasterService.success(`${tenant.tenantName} created. ${form.firstName.trim()} was emailed a link to set a password.`);
-      else ToasterService.error(`${tenant.tenantName} was created, but the invite email could not be sent. Use "Send invite" to try again.`);
-      setCreating(false);
-      setForm(emptyForm);
-      // List the new company straight away, before the reload returns
-      setTenants((all) => (all.some((x) => x.tenantId === tenant.tenantId) ? all : [...all, tenant]));
-      load();
-      announceTenantsChanged();
-    } catch (err) {
-      ToasterService.error(message(err, "Could not create the tenant."));
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -503,61 +466,14 @@ export default function TenantsPage() {
       )}
 
       {creating && (
-        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form data-overlay-panel onSubmit={provision} className={`${CARD} max-h-full w-full max-w-2xl space-y-4 overflow-y-auto p-5`}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("New tenant")}</h3>
-              <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
-            </div>
-            <div>
-              <label className={LABEL} htmlFor="tenant-name">{tr("Company name *")}</label>
-              <input id="tenant-name" className={INPUT} value={form.tenantName} maxLength={255}
-                onChange={(e) => setForm({ ...form, tenantName: e.target.value })} />
-            </div>
-            <div>
-              <label className={LABEL} htmlFor="tenant-plan-new">{tr("Plan")}</label>
-              <select id="tenant-plan-new" className={INPUT} value={form.planId}
-                onChange={(e) => setForm({ ...form, planId: e.target.value ? Number(e.target.value) : "" })}>
-                <option value="">{tr("No plan (choose modules)")}</option>
-                {plans.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-            {!form.planId && (
-              <div>
-                <label className={LABEL}>{tr("Main menus and sub menus")}</label>
-                <MenuPagePicker modules={form.modules} hiddenPages={form.hiddenPages}
-                  onChange={(modules, hiddenPages) => setForm({ ...form, modules, hiddenPages })} />
-              </div>
-            )}
-            <div>
-              <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-gray-200">{tr("Tenant Administrator")}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={LABEL} htmlFor="tenant-admin-first">{tr("First name *")}</label>
-                  <input id="tenant-admin-first" className={INPUT} value={form.firstName} maxLength={100}
-                    onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-                </div>
-                <div>
-                  <label className={LABEL} htmlFor="tenant-admin-last">{tr("Last name *")}</label>
-                  <input id="tenant-admin-last" className={INPUT} value={form.lastName} maxLength={100}
-                    onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-                </div>
-                <div className="col-span-2">
-                  <label className={LABEL} htmlFor="tenant-admin-email">Email (also their username) *</label>
-                  <input id="tenant-admin-email" className={INPUT} type="email" value={form.email} maxLength={150}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
-              </div>
-              <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
-                {tr("They get an email to set their own password, then fill in the company details under Company Settings.")}
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" className={SECONDARY_BUTTON} onClick={() => setCreating(false)}>{tr("Cancel")}</button>
-              <button type="submit" className={PRIMARY_BUTTON} disabled={saving}>{tr(saving ? "Creating..." : "Create and send invite")}</button>
-            </div>
-          </form>
-        </div>
+        <NewTenantWizard plans={plans} onClose={() => setCreating(false)}
+          onCreated={(tenant) => {
+            setCreating(false);
+            // List the new company straight away, before the reload returns
+            setTenants((all) => (all.some((x) => x.tenantId === tenant.tenantId) ? all : [...all, tenant]));
+            load();
+            announceTenantsChanged();
+          }} />
       )}
     </>
   );

@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { AppModule, MODULE_LABELS } from "../../access/access";
-import { MenuPage, menuGroups } from "../../access/menuPages";
+import { MenuPage, pageOn, pickerGroups, switchPages } from "../../access/menuPages";
 import { t } from "../../i18n/i18n";
 
 /*
@@ -16,46 +16,16 @@ interface Props {
   onChange: (modules: AppModule[], hiddenPages: string[]) => void;
 }
 
-const optional = (p: MenuPage) => p.module !== "USERS";
-
 export default function MenuPagePicker({ modules, hiddenPages, onChange }: Props) {
-  const groups = useMemo(
-    () => menuGroups().map((g) => ({ ...g, pages: g.pages.filter(optional) })).filter((g) => g.pages.length > 0),
-    [],
-  );
+  const groups = useMemo(pickerGroups, []);
   const allPages = useMemo(() => groups.flatMap((g) => g.pages), [groups]);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
-  const on = (p: MenuPage, mods = modules, hidden = hiddenPages) => mods.includes(p.module) && !hidden.includes(p.key);
-
-  /** Applies page switches, keeping modules and hidden pages in step. */
+  const on = (p: MenuPage) => pageOn(p, modules, hiddenPages);
   const apply = (changes: { page: MenuPage; on: boolean }[]) => {
-    let mods = [...modules];
-    let hidden = new Set(hiddenPages);
-    for (const { page, on: wanted } of changes) {
-      if (wanted) {
-        if (!mods.includes(page.module)) {
-          // Turning a module on through one page: its other pages stay off until ticked
-          mods = [...mods, page.module];
-          allPages.filter((p) => p.module === page.module && p.key !== page.key).forEach((p) => hidden.add(p.key));
-        }
-        hidden.delete(page.key);
-      } else if (mods.includes(page.module)) {
-        hidden.add(page.key);
-      }
-    }
-    // A module with none of its pages left is switched off (and its pages no longer need listing)
-    for (const m of [...mods]) {
-      const pages = allPages.filter((p) => p.module === m);
-      if (pages.length > 0 && pages.every((p) => hidden.has(p.key))) {
-        mods = mods.filter((x) => x !== m);
-        pages.forEach((p) => hidden.delete(p.key));
-      }
-    }
-    hidden = new Set([...hidden].filter((k) => allPages.some((p) => p.key === k && mods.includes(p.module))));
-    onChange(mods, [...hidden].sort());
+    const next = switchPages(modules, hiddenPages, changes);
+    onChange(next.modules, next.hiddenPages);
   };
-
   const total = allPages.length;
   const ticked = allPages.filter((p) => on(p)).length;
   const flip = (menu: string) => setOpen((o) => {
