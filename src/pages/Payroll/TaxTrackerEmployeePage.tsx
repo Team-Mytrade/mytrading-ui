@@ -15,6 +15,9 @@ import { CARD, CARD_TITLE, PAGE_BODY, TOOL_BUTTON } from "./hrmsUi";
 import ToolbarSelect from "../../components/common/ToolbarSelect";
 import { t } from "../../i18n/i18n";
 import { RegimePill } from "./TaxTrackerPage";
+import YtdStatement from "./YtdStatement";
+import PfStatement from "./PfStatement";
+import TaxStatement from "./TaxStatement";
 import { EmployeeTaxDetail, MonthLine, SalaryStructure, TAX_TRACKER_API, chartColors, initials, isDarkTheme, money, monthLabel, paidShare } from "./taxTracker";
 
 // Payslip downloads ask for a blob, so an error's JSON body arrives as one too
@@ -83,15 +86,25 @@ export const TakeHomeChip: React.FC<{ takeHome: number; previous: { month: strin
   );
 };
 
-/** One month as a small tile: the tax, its change, paid (solid) or forecast (dashed); click to show the month. */
-const TaxTile: React.FC<{ line: MonthLine; previous: MonthLine | null; selected: boolean; onSelect: () => void }> = ({ line, previous, selected, onSelect }) => {
+/**
+ * One month as a small tile: the tax, its change, paid (solid) or forecast (dashed); click to show the month. The
+ * payslip icon downloads that month's payslip (it sits inside the tile's button, so it is a span acting as a button).
+ */
+const TaxTile: React.FC<{ line: MonthLine; previous: MonthLine | null; selected: boolean; onSelect: () => void; onDownload?: () => void }> = ({ line, previous, selected, onSelect, onDownload }) => {
   const forecast = line.status === "FORECAST";
   return (
     <button type="button" onClick={onSelect} aria-pressed={selected}
       className={`flex flex-col items-start gap-1 rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${forecast ? "border-dashed" : ""} ${selected ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-950/30" : "border-slate-200 bg-white hover:border-cyan-300 dark:border-gray-700 dark:bg-[#191919]"}`}>
       <span className="flex w-full items-center justify-between text-[11px] text-slate-500 dark:text-gray-400">
         {monthLabel(line.month, true)}
-        {line.payslipAvailable && <DocumentArrowDownIcon className="h-3 w-3 text-cyan-600" aria-label={t("Payslip available")} />}
+        {line.payslipAvailable && onDownload && (
+          <span role="button" tabIndex={0} title={t("Download payslip")} aria-label={`${t("Download payslip")} ${monthLabel(line.month)}`}
+            className="-m-1 inline-flex rounded p-1 text-cyan-600 hover:bg-cyan-100 hover:text-cyan-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:hover:bg-cyan-900/50"
+            onClick={(e) => { e.stopPropagation(); onDownload(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onDownload(); } }}>
+            <DocumentArrowDownIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        )}
       </span>
       <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums">{money(line.incomeTax)}</span>
       <ChangeChip tax={line.incomeTax} previous={previous} />
@@ -225,6 +238,14 @@ const IndiaSalaryPage: React.FC = () => {
   const own = !employeeId || employeeId === "me";
   const [params, setParams] = useSearchParams();
   const fy = params.get("fy") ?? "";
+  // Overview (the year at a glance) or the YTD statement (docs/PAYROLL-STATEMENTS.md)
+  const tabParam = params.get("tab");
+  const tab = tabParam === "ytd" || tabParam === "pf" || tabParam === "tax" ? tabParam : "overview";
+  const setTab = (next: "overview" | "ytd" | "pf" | "tax") => {
+    const p = new URLSearchParams(params);
+    if (next === "overview") p.delete("tab"); else p.set("tab", next);
+    setParams(p, { replace: true });
+  };
   const [detail, setDetail] = useState<EmployeeTaxDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -307,7 +328,7 @@ const IndiaSalaryPage: React.FC = () => {
             )}
             {detail && (
               <ToolbarSelect aria-label={t("Financial year")} value={detail.financialYear}
-                onChange={(e) => setParams({ fy: e.target.value })}>
+                onChange={(e) => setParams(tab !== "overview" ? { fy: e.target.value, tab } : { fy: e.target.value })}>
                 {Array.from(new Set([detail.financialYear, ...detail.financialYears])).map((year) => <option key={year} value={year}>FY {year}</option>)}
               </ToolbarSelect>
             )}
@@ -336,6 +357,22 @@ const IndiaSalaryPage: React.FC = () => {
               </div>
             </div>
 
+            <div className="mb-4 flex gap-5 border-b border-slate-200 dark:border-gray-800" role="tablist">
+              {([["overview", t("Overview")], ["ytd", t("YTD statement")], ["pf", t("PF")], ["tax", t("Income tax")]] as const).map(([key, label]) => (
+                <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
+                  className={`-mb-px border-b-2 px-0.5 pb-2 text-sm font-medium transition ${tab === key
+                    ? "border-cyan-600 text-slate-900 dark:text-white" : "border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {tab === "ytd" ? (
+              <YtdStatement employeeId={own ? "me" : String(person.employeeId)} fy={detail.financialYear} onOpenPayslip={openPayslip} />
+            ) : tab === "pf" ? (
+              <PfStatement employeeId={own ? "me" : String(person.employeeId)} fy={detail.financialYear} />
+            ) : tab === "tax" ? (
+              <TaxStatement employeeId={own ? "me" : String(person.employeeId)} fy={detail.financialYear} />
+            ) : (<>
             <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Metric label={t("Yearly CTC")} value={money(detail.salary?.ctc ?? 0)} />
               <Metric label={t("Monthly gross")} value={money(monthlyGross)} note={t("full month")} />
@@ -374,6 +411,7 @@ const IndiaSalaryPage: React.FC = () => {
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                   {ordered.map((line, i) => (
                     <TaxTile key={line.month} line={line} previous={previousOf(i)} selected={shown?.month === line.month}
+                      onDownload={() => downloadPayslip(line.month)}
                       onSelect={() => setSelectedMonth(line.month)} />
                   ))}
                 </div>
@@ -381,10 +419,11 @@ const IndiaSalaryPage: React.FC = () => {
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-gray-400">
                 <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: colors.paid }} />{t("Solid: paid")}</span>
                 <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: colors.forecast }} />{t("Dashed: forecast")}</span>
-                <span className="inline-flex items-center gap-1"><DocumentArrowDownIcon className="h-3 w-3 text-cyan-600" aria-hidden="true" />{t("Payslip available: click the month")}</span>
+                <span className="inline-flex items-center gap-1"><DocumentArrowDownIcon className="h-3 w-3 text-cyan-600" aria-hidden="true" />{t("Download the month's payslip")}</span>
                 <span>{t("Forecast months assume a full month at today's salary; the tax left is spread evenly.")}</span>
               </div>
             </div>
+            </>)}
           </>
         )}
       </div>

@@ -42,6 +42,8 @@ interface MonthReview {
     month: string;
     responseList: UploadedFile[];
     attendanceUploaded: boolean;
+    // FILE: the uploaded attendance file; ATTENDANCE: the Attendance module's locked month (both modules)
+    attendanceSource?: "FILE" | "ATTENDANCE" | null;
     employeesToPay: number;
     alreadyPaid: number;
     employeesWithLossOfPay: number;
@@ -709,7 +711,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                                 {review.employeesToPay > 0 && (review.attendanceUploaded ? (
                                                     <div className="mb-5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                         <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-gray-400" />
-                                                        {t("Attendance uploaded:")} {review.employeesWithLossOfPay} employee{review.employeesWithLossOfPay === 1 ? "" : "s"} with loss of pay.
+                                                        {review.attendanceSource === "ATTENDANCE" ? t("Attendance from the Attendance module (locked month):") : t("Attendance uploaded:")} {review.employeesWithLossOfPay} employee{review.employeesWithLossOfPay === 1 ? "" : "s"} with loss of pay.
                                                     </div>
                                                 ) : (
                                                     <label className="mb-5 flex items-start gap-3 rounded-md border border-amber-200 dark:border-transparent bg-amber-50 dark:bg-[#222222] p-3 cursor-pointer">

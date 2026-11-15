@@ -337,6 +337,7 @@ export const navItems: NavItem[] = [
       { name: "Payslips", path: "/employeePayslips", icon: Receipt, section: "Payroll" },
       { name: "My Salary", path: "/mySalary", icon: Wallet, section: "Payroll" },
       { name: "Tax Tracker", gulfName: "Pay Tracker", path: "/taxTracker", permission: "HRM:APPROVE", icon: Calculator, section: "Payroll" },
+      { name: "Statements", path: "/payrollStatements", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll" },
       { name: "Gulf Pay Files", path: "/gulfPayFiles", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll" },
       {
         name: "Payroll Reports",

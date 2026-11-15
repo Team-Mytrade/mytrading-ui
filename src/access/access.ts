@@ -350,6 +350,8 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   // HR & stock (8.2.1.6): everyone's HR and pay records are for HR / approvers; stock for inventory
   ["/reports/headcount", "HRM:APPROVE"],
   ["/reports/payroll-register", "HRM:APPROVE"],
+  // Tax deducted from salaries with PAN: HR approvers and finance, who pay it to the income-tax department
+  ["/reports/tds-register", "HRM:APPROVE|INVOICE:APPROVE"],
   ["/reports/leave-balances", "ATTENDANCE:APPROVE"],
   ["/reports/stock-aging", "INVENTORY:VIEW"],
   ["/reports/abc-analysis", "INVENTORY:VIEW"],
@@ -362,6 +364,8 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   ["/employeeSalary", "HRM:APPROVE"],
   ["/employeeDocuments", "HRM:APPROVE"],
   ["/payrollEngine", "HRM:APPROVE"],
+  // Everyone's pay lines by month (company YTD statement)
+  ["/payrollStatements", "HRM:APPROVE"],
   ["/payroll_dashboard", "HRM:APPROVE"],
   ["/payrollSummary", "HRM:APPROVE"],
   ["/departmentSummary", "HRM:APPROVE"],
