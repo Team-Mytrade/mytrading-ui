@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { BellRing, Mail, RotateCcw, Save, Send } from "lucide-react";
+import { Mail, RotateCcw, Save, Send } from "lucide-react";
+import AlertChannels from "./AlertChannels";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -178,27 +179,15 @@ export default function NotificationSettingsPage() {
         {loading ? (
           <div className={`${CARD} p-6 text-sm text-slate-400`}>{t("Loading...")}</div>
         ) : (
+          <>
+          {/* Saved channel by channel, outside the form below */}
+          {editable && <div className="mb-4"><AlertChannels editable={editable} /></div>}
           <form id="notification-settings-form" onSubmit={save} className="space-y-4">
             {!editable && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 {t("Only a Tenant Administrator can change these settings.")}
               </p>
             )}
-
-            <section className={`${CARD} p-5`}>
-              {sectionTitle(BellRing, "Alerts to staff")}
-              <p className="mb-3 text-xs text-slate-600 dark:text-gray-300">
-                {t("Everyone sees their alerts under the bell at the top: approvers when a requisition or purchase order waits for them, stock and purchasing staff when stock falls to its reorder level, finance when an invoice becomes overdue. They can also get them by email:")}
-              </p>
-              <div className="grid gap-2 md:grid-cols-3">
-                <Toggle id="ns-approvals" label={t("Email approvers")} hint={t("Requisitions and purchase orders waiting for approval, and the decision to the requester.")}
-                  checked={form.emailApprovals} disabled={!editable} onChange={(v) => set("emailApprovals", v)} />
-                <Toggle id="ns-stock" label={t("Email low stock")} hint={t("To people with inventory or purchasing rights.")}
-                  checked={form.emailLowStock} disabled={!editable} onChange={(v) => set("emailLowStock", v)} />
-                <Toggle id="ns-overdue" label={t("Email overdue invoices")} hint={t("To people who manage invoices and receipts.")}
-                  checked={form.emailOverdueInvoices} disabled={!editable} onChange={(v) => set("emailOverdueInvoices", v)} />
-              </div>
-            </section>
 
             <section className={`${CARD} p-5`}>
               {sectionTitle(Send, "Payment reminders to customers")}
@@ -232,6 +221,7 @@ export default function NotificationSettingsPage() {
               </div>
             </section>
           </form>
+          </>
         )}
 
         {!loading && templates.length > 0 && (

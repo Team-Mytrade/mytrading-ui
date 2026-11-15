@@ -9,7 +9,7 @@ import {
 } from "../../utils/attendanceNotifications";
 import {
   Bell, Trash2, Clock, AlertCircle, CheckCircle, ClipboardCheck, Package, Receipt, Wallet,
-  Calendar, Zap, TrendingUp, AlertTriangle, Eye, Inbox,
+  Calendar, Zap, TrendingUp, AlertTriangle, Eye, Inbox, Truck,
 } from "lucide-react";
 import { InboxItem, NOTIFICATIONS_CHANGED, notificationsApi } from "../../notifications/notificationsApi";
 import { formatDateTime } from "../../company/format";
@@ -53,6 +53,9 @@ const getTypeStyles = (type: string) => {
     case "overtime": return "bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400";
     case "payroll": return "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400";
     case "violation": return "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400";
+    case "reminder": return "bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300";
+    case "delivery": return "bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300";
+    case "system": return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
     default: return "bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
   }
 };
@@ -68,11 +71,14 @@ const getTypeIcon = (type: string) => {
     case "overtime": return <Zap className="w-4 h-4" />;
     case "payroll": return <TrendingUp className="w-4 h-4" />;
     case "violation": return <AlertTriangle className="w-4 h-4" />;
+    case "reminder": return <Calendar className="w-4 h-4" />;
+    case "delivery": return <Truck className="w-4 h-4" />;
+    case "system": return <AlertCircle className="w-4 h-4" />;
     default: return <Bell className="w-4 h-4" />;
   }
 };
 
-const TYPE_LABELS: Record<string, string> = { approval: "Approval", stock: "Stock", invoice: "Invoice", payment: "Payment", system: "System" };
+const TYPE_LABELS: Record<string, string> = { approval: "Approval", stock: "Stock", invoice: "Invoice", payment: "Payment", system: "System", reminder: "Reminder", delivery: "Delivery" };
 
 /** "Just now", "5m ago", "3h ago", then the date and time in the company's format. */
 const timeAgo = (iso: string): string => {
