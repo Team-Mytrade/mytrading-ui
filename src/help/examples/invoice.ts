@@ -134,6 +134,15 @@ export const INVOICE_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "It counts as paid only when it clears; if it bounces, the invoice opens again.",
   },
+  "online-payments": {
+    story: "Bluewave Telecom pays invoice INV-2026-00318 by card from the link in its reminder.",
+    data: [
+      { label: "Gateway", value: "Tap Payments (live)" },
+      { label: "Paid", value: "AED 36,990 · Visa" },
+      { label: "Receipt", value: "RCPT-202611-000214 · ONLINE · Tap Payments chg_…" },
+    ],
+    result: "The invoice is paid and the money shows in Emirates NBD Current, ready to match with Tap's payout.",
+  },
   "cash-flow-forecast": {
     story: "Finance looks at the next 30 days.",
     data: [

@@ -77,6 +77,7 @@ export const INVOICE_TOPICS: HelpTopic[] = [
       "An invoice in another currency is booked at the rate of its date; the rate shows under the totals.",
       "Nothing dated in a locked period can be posted, changed or cancelled.",
       "Send by WhatsApp sends the invoice PDF to the customer's WhatsApp (the phone kept on the invoice unless you type another), from your company's WhatsApp number with its document template.",
+      "Pay link gives the invoice's pay-online address when Online Payments is set up; the customer pays what is still due by card and the receipt is recorded by itself.",
     ],
     related: [
       { route: "/sales-orders", label: "Sales Orders" },
@@ -481,6 +482,53 @@ export const INVOICE_TOPICS: HelpTopic[] = [
     related: [
       { route: "/paymentReceipts", label: "Payment Receipts" },
       { route: "/vendorPayments", label: "Vendor Payments" },
+    ],
+  },
+  {
+    id: "online-payments",
+    route: "/onlinePayments",
+    module: "Invoice",
+    title: "Online Payments",
+    summary: "Let customers pay invoices by card through your own payment gateway account (Tap, Checkout.com, PayTabs, Network International or Razorpay); each payment is checked with the gateway and recorded as a receipt.",
+    who: [
+      { role: "Finance administrator", can: "Choose the gateway and enter its keys (needs the Invoice admin right)." },
+      { role: "Finance staff", can: "Make and send pay links on invoices, and check a payment." },
+    ],
+    tasks: [
+      {
+        title: "Set up your gateway",
+        steps: [
+          "Choose your Gateway and enter what it asks for (keys from your gateway's dashboard; secret keys are stored encrypted and never shown again).",
+          "Choose where Payments go: the bank account the gateway pays out to.",
+          "Tick Test mode while you try it with the gateway's test keys, then untick it for real payments.",
+          "Tick Take payments online and Save.",
+        ],
+        who: "Finance administrator",
+      },
+      {
+        title: "Get paid for an invoice",
+        steps: [
+          "Open an issued invoice with something left to pay and click Pay link.",
+          "Copy the address and send it to the customer any way you like; payment reminders and the customer portal include it too.",
+          "When the customer has paid, the invoice shows it and a receipt (method ONLINE) is recorded.",
+        ],
+      },
+    ],
+    fields: [
+      { name: "Test mode", meaning: "Uses the gateway's sandbox (Checkout.com, N-Genius) or your test keys (Tap, PayTabs, Razorpay): no real money moves." },
+      { name: "Payments go to", meaning: "The bank account online receipts are recorded in; empty = your default bank account." },
+    ],
+    rules: [
+      "The customer pays what is still due when they open the link, so it stays right after part payments. Anything paid above what is due is kept as customer credit.",
+      "MyTrade asks the gateway whether a payment went through; it never relies on the customer coming back to the page. Unfinished payments are checked every few minutes for three days.",
+      "A link is paid once: opening it again after paying says so.",
+      "Gateway fees aren't recorded automatically: post them from the gateway's payout statement.",
+      "The server needs payments.secret (to store keys) and payments.public-url (the app's address, for the links).",
+    ],
+    related: [
+      { route: "/invoices", label: "Invoices" },
+      { route: "/bankAccounts", label: "Bank & Cash" },
+      { route: "/portal-accounts", label: "Customer Portal" },
     ],
   },
   {

@@ -304,6 +304,7 @@ export const navItems: NavItem[] = [
       { name: "Accounts Payable", path: "/accountsPayable", icon: Wallet, section: "Payables" },
       { name: "Bank & Cash", path: "/bankAccounts", icon: PiggyBank, section: "Banking" },
       { name: "Cheques", path: "/cheques", icon: Coins, section: "Banking" },
+      { name: "Online Payments", path: "/onlinePayments", icon: CreditCard, section: "Banking" },
       { name: "Cash Flow Forecast", path: "/cashFlowForecast", icon: TrendingUp, section: "Banking" },
       { name: "Letters of Credit", path: "/lettersOfCredit", icon: ScrollText, section: "Banking" },
       { name: "Journal Entries", path: "/journalEntries", icon: BookOpen, section: "Accounting" },

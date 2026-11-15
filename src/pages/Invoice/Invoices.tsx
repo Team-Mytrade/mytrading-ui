@@ -6,6 +6,7 @@ import {
   BanknotesIcon,
   ChatBubbleLeftRightIcon,
   CheckCircleIcon,
+  CreditCardIcon,
   DocumentPlusIcon,
   DocumentTextIcon,
   EnvelopeIcon,
@@ -43,6 +44,7 @@ import {
 import { ActionButton, DialogFooter, StatusBadge } from "./invoiceUi";
 import { companyCurrency } from "../../company/format";
 import WhatsAppDocumentDialog from "../../components/common/WhatsAppDocumentDialog";
+import PaymentLinkDialog from "./PaymentLinkDialog";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/invoices`;
@@ -157,6 +159,8 @@ const Invoices: React.FC = () => {
   const [busy, setBusy] = useState(false);
   // Sending the PDF by WhatsApp (7.1.4)
   const [whatsApping, setWhatsApping] = useState(false);
+  // The pay-online link (7.1.3)
+  const [payLinkOpen, setPayLinkOpen] = useState(false);
   const [confirm, setConfirm] = useState<"issue" | "delete" | "remind" | null>(null);
 
   // Generate from dispatch
@@ -935,6 +939,13 @@ const Invoices: React.FC = () => {
         )}
         {selected.status !== "DRAFT" && canExport && (
           <ActionButton icon={ArrowDownTrayIcon} label={t(busy ? "Preparing…" : "Download PDF")} onClick={downloadPdf} disabled={busy} />
+        )}
+        {isOpenInvoice(selected.status) && Number(selected.balanceAmount || 0) > 0 && canCreate && (
+          <ActionButton icon={CreditCardIcon} label={t("Pay link")} onClick={() => setPayLinkOpen(true)} disabled={busy} />
+        )}
+        {payLinkOpen && (
+          <PaymentLinkDialog invoiceId={selected.id} invoiceNumber={selected.invoiceNumber} canCancel={canDelete}
+            onClose={() => setPayLinkOpen(false)} onPaid={() => { void fetchInvoices(); }} />
         )}
         {selected.status !== "DRAFT" && selected.status !== "CANCELLED" && canExport && canCreate && (
           <ActionButton icon={ChatBubbleLeftRightIcon} label={t("Send by WhatsApp")} onClick={() => setWhatsApping(true)} disabled={busy} />
