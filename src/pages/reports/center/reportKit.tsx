@@ -347,8 +347,10 @@ export const exportExcel = <T,>({ title, period, columns, rows, totals, details 
   XLSX.writeFile(book, `${fileName(title, period)}.xlsx`);
 };
 
-export const exportPdf = async <T extends object>({ title, period, columns, rows, totals, details = [] }: ReportExport<T>, print = false) => {
-  await exportListingPdf<T>({
+/** Saves (or prints) the report as a PDF; asBlob hands the file back instead (to send it on, e.g. by WhatsApp). */
+export const exportPdf = async <T extends object>({ title, period, columns, rows, totals, details = [] }: ReportExport<T>, print = false,
+  asBlob = false): Promise<Blob | void> => {
+  return exportListingPdf<T>({
     title: t(title),
     subtitle: `${t("Period")}: ${periodLabel(period)}`,
     data: totals ? [...rows, totals] : rows,
@@ -359,6 +361,7 @@ export const exportPdf = async <T extends object>({ title, period, columns, rows
     includeSerialNumber: false,
     emptyMessage: t("Nothing in this period"),
     print,
+    asBlob,
   });
 };
 
@@ -370,7 +373,7 @@ export function ExportButtons<T extends object>({ report, modules, disabled }: {
   const canExport = useCanExport(modules);
   const [busy, setBusy] = useState(false);
   if (!canExport) return null;
-  const run = async (work: () => void | Promise<void>) => {
+  const run = async (work: () => unknown) => {
     try {
       setBusy(true);
       await work();

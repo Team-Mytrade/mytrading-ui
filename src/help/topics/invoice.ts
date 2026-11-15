@@ -76,6 +76,7 @@ export const INVOICE_TOPICS: HelpTopic[] = [
       "Only drafts can be edited or deleted (Delete draft: Finance Manager).",
       "An invoice in another currency is booked at the rate of its date; the rate shows under the totals.",
       "Nothing dated in a locked period can be posted, changed or cancelled.",
+      "Send by WhatsApp sends the invoice PDF to the customer's WhatsApp (the phone kept on the invoice unless you type another), from your company's WhatsApp number with its document template.",
     ],
     related: [
       { route: "/sales-orders", label: "Sales Orders" },

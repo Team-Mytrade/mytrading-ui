@@ -4,6 +4,7 @@ import axios from "axios";
 import {
   ArrowDownTrayIcon,
   BanknotesIcon,
+  ChatBubbleLeftRightIcon,
   CheckCircleIcon,
   DocumentPlusIcon,
   DocumentTextIcon,
@@ -41,6 +42,7 @@ import {
 } from "./invoiceShared";
 import { ActionButton, DialogFooter, StatusBadge } from "./invoiceUi";
 import { companyCurrency } from "../../company/format";
+import WhatsAppDocumentDialog from "../../components/common/WhatsAppDocumentDialog";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/invoices`;
@@ -153,6 +155,8 @@ const Invoices: React.FC = () => {
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
+  // Sending the PDF by WhatsApp (7.1.4)
+  const [whatsApping, setWhatsApping] = useState(false);
   const [confirm, setConfirm] = useState<"issue" | "delete" | "remind" | null>(null);
 
   // Generate from dispatch
@@ -539,18 +543,23 @@ const Invoices: React.FC = () => {
     }
   };
 
+  // The invoice's PDF: the latest generated one, or a new one the first time
+  const invoicePdf = async (invoice: Invoice): Promise<{ blob: Blob; fileName: string }> => {
+    let document = documents.find((doc) => doc.status === "GENERATED");
+    if (!document) {
+      const res = await axios.post<InvoiceDocument>(`${API_URL}/${invoice.id}/documents/pdf`);
+      document = res.data;
+    }
+    const file = await axios.get(`${API_URL}/${invoice.id}/documents/${document.id}/download`, { responseType: "blob" });
+    return { blob: file.data, fileName: document.fileName || `${invoice.invoiceNumber}.pdf` };
+  };
+
   const downloadPdf = async () => {
     if (!selected) return;
     setBusy(true);
     try {
-      // Reuse the latest generated PDF; create one the first time
-      let document = documents.find((doc) => doc.status === "GENERATED");
-      if (!document) {
-        const res = await axios.post<InvoiceDocument>(`${API_URL}/${selected.id}/documents/pdf`);
-        document = res.data;
-      }
-      const file = await axios.get(`${API_URL}/${selected.id}/documents/${document.id}/download`, { responseType: "blob" });
-      saveBlob(file.data, document.fileName || `${selected.invoiceNumber}.pdf`);
+      const { blob, fileName } = await invoicePdf(selected);
+      saveBlob(blob, fileName);
       loadDetailExtras(selected);
     } catch (err: any) {
       ToasterService.error(
@@ -926,6 +935,20 @@ const Invoices: React.FC = () => {
         )}
         {selected.status !== "DRAFT" && canExport && (
           <ActionButton icon={ArrowDownTrayIcon} label={t(busy ? "Preparing…" : "Download PDF")} onClick={downloadPdf} disabled={busy} />
+        )}
+        {selected.status !== "DRAFT" && selected.status !== "CANCELLED" && canExport && canCreate && (
+          <ActionButton icon={ChatBubbleLeftRightIcon} label={t("Send by WhatsApp")} onClick={() => setWhatsApping(true)} disabled={busy} />
+        )}
+        {whatsApping && (
+          <WhatsAppDocumentDialog
+            documentLabel="Invoice"
+            number={selected.invoiceNumber}
+            customerName={selected.customerName}
+            endpoint={`${API_URL}/${selected.id}/whatsapp`}
+            phoneOptional
+            getPdf={async () => (await invoicePdf(selected)).blob}
+            onClose={() => setWhatsApping(false)}
+          />
         )}
         {isOpenInvoice(selected.status) && canCreate && (
           <ActionButton tone="primary" icon={BanknotesIcon} label={t("Record payment")} disabled={busy}
