@@ -71,6 +71,7 @@ export const SALES_TOPICS: HelpTopic[] = [
       "Only drafts can be edited: change a sent quotation by making a new one.",
       "Accepting or rejecting needs SALES:APPROVE (a Sales Manager).",
       "A price typed on a line stays; otherwise the line takes the customer price, the price list price, or the catalogue price.",
+      "The chat icon sends the quotation PDF to the customer's WhatsApp, from your company's WhatsApp number (Notification Settings → Alert channels → WhatsApp, with a document template); a draft becomes Sent.",
     ],
     related: [
       { route: "/opportunities", label: "Deals", why: "Quotations can start from a deal." },

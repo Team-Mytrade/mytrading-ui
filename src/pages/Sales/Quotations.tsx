@@ -11,8 +11,10 @@ import {
   PencilSquareIcon,
   TrashIcon,
   EnvelopeIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import QuotationEmailDialog from "../../components/quotation/QuotationEmailDialog";
+import WhatsAppDocumentDialog from "../../components/common/WhatsAppDocumentDialog";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import Dragger from "../../components/common/Dragger";
@@ -600,6 +602,8 @@ const Quotations: React.FC = () => {
   const [deleteQuotation, setDeleteQuotation] = useState<Quotation | null>(null);
   // Email dialog; markSent when it was opened by moving a draft to Sent
   const [emailing, setEmailing] = useState<{ quotation: Quotation; markSent: boolean } | null>(null);
+  // Sending the PDF by WhatsApp (7.1.4)
+  const [whatsApping, setWhatsApping] = useState<Quotation | null>(null);
   const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
   const [customersLoaded, setCustomersLoaded] = useState(false);
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -1330,6 +1334,16 @@ const Quotations: React.FC = () => {
               <EnvelopeIcon className="h-4 w-4" />
             </button>
           )}
+          {canCreate && ["DRAFT", "SENT", "VIEWED", "ACCEPTED"].includes(getQuotationStatus(quotation.status) || "DRAFT") && (
+            <button
+              type="button"
+              onClick={() => setWhatsApping(quotation)}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+              title={t("Send quotation by WhatsApp")}
+            >
+              <ChatBubbleLeftRightIcon className="h-4 w-4" />
+            </button>
+          )}
           {getQuotationStatus(quotation.status) === "DRAFT" && (
             canUpdate && <button
               type="button"
@@ -1607,6 +1621,24 @@ const Quotations: React.FC = () => {
             const target = emailing.quotation;
             setEmailing(null);
             updateQuotationStatus(target, "SENT", true);
+          }}
+        />
+      )}
+
+      {whatsApping && (
+        <WhatsAppDocumentDialog
+          documentLabel="Quotation"
+          number={whatsApping.quoteNumber || `#${whatsApping.id}`}
+          customerName={getQuotationCustomerName(whatsApping, customers)}
+          endpoint={`${API_URL}/${whatsApping.id}/whatsapp`}
+          defaultPhone={customers.find((item) => Number(item.id) === Number(whatsApping.customerId))?.phone}
+          extra={{ markSent: String(getQuotationStatus(whatsApping.status) === "DRAFT") }}
+          getPdf={() => quotationPdfBlob(whatsApping)}
+          onClose={() => setWhatsApping(null)}
+          onSent={(response) => {
+            const updated = (response.quotation as Record<string, unknown>) ?? {};
+            const id = whatsApping.id;
+            setQuotations((current) => current.map((item) => (item.id === id ? { ...item, ...updated } as Quotation : item)));
           }}
         />
       )}

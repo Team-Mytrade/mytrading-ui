@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { UserCircleIcon } from "@heroicons/react/24/outline";
+import { ChatBubbleLeftRightIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import WhatsAppDocumentDialog from "../../../components/common/WhatsAppDocumentDialog";
+import { AuthContext } from "../../../context/AuthContext";
+import { hasPermission } from "../../../access/access";
 import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
 import ReusableTable, { ColumnDef } from "../../../components/common/Table";
@@ -16,8 +19,11 @@ import {
   ReportWarnings,
   SelectField,
   TotalCard,
+  exportPdf,
   initialPeriod,
   num,
+  periodLabel,
+  useCanExport,
   useSalesFilterOptions,
   useSyncedParams,
   useVendorOptions,
@@ -186,15 +192,54 @@ const PartyLedger: React.FC<{ party: Party }> = ({ party }) => {
   const totalsRow = report ? ({ id: "totals", date: "", type: "", number: t("Total"), debit: report.debit, credit: report.credit, balance: report.closing, affectsBalance: true } as Row) : undefined;
   const partyName = options.find((o) => o.value === partyId)?.label;
   const details = partyId ? [{ label: party === "customer" ? "Customer" : "Vendor", value: partyName ?? `#${partyId}` }] : [];
+  const exportReport = { title: partyName ? `${t(title)} — ${partyName}` : title, period, columns: exportColumns, rows: exportRows, totals: totalsRow, details };
+
+  // The statement to the customer's WhatsApp (7.1.4): the same PDF as the export, to the phone on the customer
+  const { access } = useContext(AuthContext);
+  const canExport = useCanExport(MODULES);
+  const canSendStatement = canExport && (access.superAdmin || hasPermission(access, "INVOICE:CREATE"));
+  const [whatsApp, setWhatsApp] = useState<{ phone: string } | null>(null);
+  const openWhatsApp = async () => {
+    let phone = "";
+    try {
+      const res = await axios.get<{ phone?: string; mobile?: string }>(`/v1/api/common/customers/${partyId}`, { skipSessionExpiredHandling: true } as object);
+      phone = res.data?.phone || res.data?.mobile || "";
+    } catch {
+      // No number to start with: they type it
+    }
+    setWhatsApp({ phone });
+  };
 
   return (
     <>
+      {whatsApp && (
+        <WhatsAppDocumentDialog
+          documentLabel="Statement"
+          customerName={partyName}
+          endpoint={`${CUSTOMER_FINANCIAL_API}/${partyId}/statement/whatsapp`}
+          defaultPhone={whatsApp.phone}
+          extra={{ customerName: partyName ?? "", label: `${t("Statement")} ${periodLabel(period)}` }}
+          getPdf={async () => (await exportPdf(exportReport, false, true)) as Blob}
+          onClose={() => setWhatsApp(null)}
+        />
+      )}
       <PageMeta title={t(title)} description={party === "customer" ? "A customer's invoices, credit notes and payments with the balance" : "A vendor's bills, debit notes, payments and advances with the balance"} />
       <PageBreadcrumb pageTitle={title} />
 
       <div className="w-full max-w-none space-y-4 py-4">
         <FilterBar
-          actions={<ExportButtons modules={MODULES} disabled={loading || !report} report={{ title: partyName ? `${t(title)} — ${partyName}` : title, period, columns: exportColumns, rows: exportRows, totals: totalsRow, details }} />}
+          actions={
+            <>
+              <ExportButtons modules={MODULES} disabled={loading || !report} report={exportReport} />
+              {party === "customer" && canSendStatement && (
+                <button type="button" disabled={loading || !report} onClick={openWhatsApp}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50">
+                  <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                  {t("WhatsApp")}
+                </button>
+              )}
+            </>
+          }
         >
           <PeriodPicker value={period} onChange={setPeriod} />
           <SelectField
