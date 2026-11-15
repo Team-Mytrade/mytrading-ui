@@ -497,7 +497,7 @@ const PayrollProcessingEnginePage: React.FC = () => {
                                         <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{t("Download Templates")}</h4>
                                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 max-w-xl mx-auto">
                                             {t("Each template lists the employees still to be paid for")} {salaryMonth}. Fill in the Amount column for a
-                                            one-off earning (e.g. Bonus) or deduction (e.g. Salary Advance), and the LOP days in the attendance template.
+                                            one-off earning (e.g. Bonus) or deduction (e.g. Salary Advance), and the LOP days in the attendance template (half days allowed, e.g. 1.5; overtime hours go in Overtime Hours).
                                         </p>
                                         {canExport && (
                                             <div className="flex flex-col sm:flex-row justify-center gap-3">

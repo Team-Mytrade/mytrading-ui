@@ -86,7 +86,7 @@ export const HELP_FLOWS: HelpFlow[] = [
       { title: "Decide", route: "/att_attendanceApproval", who: "Attendance Manager", detail: "Approve, or reject with the reason. Nobody decides their own request." },
       { title: "Balance and calendar", route: "/att_leaveManagerDashboard", who: "Attendance Manager", detail: "The days come off the balance and show on the calendar; adjust a balance by hand if needed." },
       { title: "Close the month", route: "/att_monthLock", who: "Attendance Manager", detail: "Lock the month once nothing waits for approval." },
-      { title: "Payroll", route: "/payrollEngine", who: "HR & Payroll Manager", detail: "Enter unpaid leave as LOP days in the month's attendance file (from the Attendance Template) and upload it with the run." },
+      { title: "Payroll", route: "/payrollEngine", who: "HR & Payroll Manager", detail: "Enter unpaid leave as LOP days (half days allowed, e.g. 1.5) in the month's attendance file (from the Attendance Template) and upload it with the run." },
     ],
   },
   {
