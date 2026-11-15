@@ -72,4 +72,13 @@ export const CRM_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "He exports the open deals to Excel for the meeting.",
   },
+  "crm-settings": {
+    story: "The sales team has grown to five, and Ahmed wants each salesperson to work only their own leads and deals.",
+    data: [
+      { label: "Sales people see only their own", value: "On" },
+      { label: "Maria D'Souza sees", value: "12 + 3 unassigned leads · 5 deals" },
+      { label: "Ahmed (CRM admin) sees", value: "48 leads · 21 deals" },
+    ],
+    result: "When Maria goes on leave, Ahmed gives her open deals to a colleague; the colleague gets a bell alert for each one.",
+  },
 };

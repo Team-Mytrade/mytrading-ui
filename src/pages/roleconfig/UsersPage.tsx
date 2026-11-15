@@ -21,7 +21,7 @@ const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
 const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300";
 
-const emptyForm = (): UserForm => ({ username: "", email: "", firstName: "", lastName: "", designation: "", roleIds: [] });
+const emptyForm = (): UserForm => ({ username: "", email: "", firstName: "", lastName: "", designation: "", roleIds: [], mobile: "" });
 
 interface EmployeeOption {
   id: number;
@@ -86,7 +86,7 @@ export default function UsersPage() {
   const openEdit = (u: ManagedUser) => {
     setForm({
       username: u.username, email: u.email, firstName: u.firstName, lastName: u.lastName,
-      designation: u.designation ?? "", roleIds: u.roles.map((r) => r.id),
+      designation: u.designation ?? "", roleIds: u.roles.map((r) => r.id), mobile: u.mobile ?? "",
     });
     setEmployeeId(u.employeeId ?? "");
     setEditing(u);
@@ -293,9 +293,15 @@ export default function UsersPage() {
                 <label className={LABEL}>{t("Email *")}</label>
                 <input className={INPUT} type="email" value={form.email} maxLength={150} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
-              <div className="col-span-2">
+              <div>
                 <label className={LABEL}>{t("Designation")}</label>
                 <input className={INPUT} value={form.designation ?? ""} maxLength={100} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+              </div>
+              <div>
+                <label className={LABEL} htmlFor="user-mobile">{t("Mobile")}</label>
+                <input id="user-mobile" className={INPUT} type="tel" value={form.mobile ?? ""} maxLength={24} placeholder="+971 50 123 4567"
+                  onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{t("For SMS and WhatsApp alerts, if the company turns them on.")}</p>
               </div>
               {editing !== "new" && (
                 <div className="col-span-2">

@@ -205,6 +205,7 @@ export const navItems: NavItem[] = [
       { name: "Key Contacts", path: "/contactPerson", icon: Contact, section: "Customers" },
       { name: "Segments", path: "/customer-segment", icon: PieChart, section: "Customers" },
       { name: "CRM Reports", path: "/crm-reports", icon: BarChart3, section: "Insights" },
+      { name: "CRM Settings", path: "/crm-settings", icon: SlidersHorizontal, section: "Set-up" },
     ],
   },
 

@@ -66,6 +66,8 @@ export interface ManagedUser {
   roles: { id: number; roleName: string; systemRole: boolean }[];
   // False when the user holds permissions beyond the signed-in user's authority (no edit/invite/deactivate)
   manageable: boolean;
+  // For SMS and WhatsApp alerts
+  mobile?: string | null;
 }
 
 export interface UserForm {
@@ -75,6 +77,8 @@ export interface UserForm {
   lastName: string;
   designation?: string;
   roleIds?: number[];
+  // Empty string removes it
+  mobile?: string;
 }
 
 export interface TenantProvisionRequest {

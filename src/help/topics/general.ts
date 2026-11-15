@@ -1030,10 +1030,27 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     route: "/notification-settings",
     module: "Settings",
     title: "Notification Settings",
-    summary: "Which alerts are also emailed, and the automatic payment reminders customers get, with their text.",
+    summary: "Which channels carry the company's alerts (bell, email, SMS, WhatsApp, Slack, Teams, webhook), and the automatic payment reminders customers get, with their text.",
     who: TENANT_ADMIN,
     tasks: [
-      { title: "Choose the emails", steps: ["Tick Email approvers, Email low stock and Email overdue invoices. Everyone still sees their alerts under the bell at the top."] },
+      {
+        title: "Switch a channel on",
+        steps: [
+          "Under Alert channels, turn on the channel's switch.",
+          "Choose its Provider (SMS: Twilio, Unifonic, Msegat or Taqnyat; Email: MyTrade's mail server or your own SMTP) and fill in the account details from that provider.",
+          "Tick Which alerts it carries, and choose Send: all alerts, medium and high, or high only (SMS and WhatsApp are charged per message).",
+          "Click Save, then Send test: SMS, WhatsApp and email go to you; Slack, Teams and the webhook post to their place.",
+        ],
+      },
+      {
+        title: "Mobile numbers for SMS and WhatsApp",
+        steps: ["Enter each person's Mobile on Settings → Users. A local number (050…) gets your company's country code; one typed with + is used as it is."],
+      },
+      {
+        title: "WhatsApp template",
+        steps: ["In WhatsApp Manager create a template with two body variables, {{1}} for the title and {{2}} for the details, get it approved, then enter its name and language here."],
+      },
+      { title: "Switch a channel off", steps: ["Turn its switch off and click Save. Its settings stay for when you switch it back on."] },
       {
         title: "Payment reminders",
         steps: [
@@ -1043,7 +1060,13 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
         ],
       },
     ],
-    rules: ["Reminders are emailed in the morning (company time) to the customer email on each unpaid invoice; Send payment reminder on Invoices sends one by hand."],
+    rules: [
+      "Reminders are emailed in the morning (company time) to the customer email on each unpaid invoice; Send payment reminder on Invoices sends one by hand. Tick Also by SMS / Also by WhatsApp to text them too, to the phone on the customer (that channel must be on under Alert channels).",
+      "A send that fails because the provider is down or busy is tried again after 1, 5, 15, 60 and 240 minutes (Retrying in Recent deliveries); a wrong key or number is not retried. Each person can turn SMS and WhatsApp off for themselves on My preferences.",
+      "Keys and passwords are stored encrypted and never shown again; leave a saved one empty to keep it. A channel that fails never stops the others; Recent deliveries shows what went out and why something failed.",
+      "Slack, Teams and the webhook must be https:// addresses on the internet; addresses inside your network are refused.",
+      "The bell shows each alert to the people who can act on it, and it clears once that's done. Approvals: purchase requests and orders, vendor payments over the limit, leave and attendance requests, exit requests, payroll runs, and sales orders on credit hold (go to whoever can release them). Stock: low and out of stock. Invoices: overdue invoices, e-invoices rejected by ZATCA or the UAE network, and till sales whose invoice couldn't be made. Reminders: CRM calls, meetings and tasks 30 minutes before they're due (to the person assigned), and post-dated cheques the day before their date. Deliveries: returned or failed, and still not delivered after their delivery day. System: online store orders that need attention, and store syncs that fail.",
+    ],
     related: [{ route: "/invoices", label: "Invoices" }],
   },
   {

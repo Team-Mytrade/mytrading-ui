@@ -6,7 +6,76 @@ const BASE = "/v1/api/eventnotify";
 // Marking items read is bookkeeping: no "Saved" toast (see AuthContext)
 const QUIET = { quiet: true } as AxiosRequestConfig;
 
-export type NotificationCategory = "APPROVAL" | "STOCK" | "INVOICE" | "PAYMENT" | "SYSTEM";
+export type NotificationCategory = "APPROVAL" | "STOCK" | "INVOICE" | "PAYMENT" | "SYSTEM" | "REMINDER" | "DELIVERY";
+
+// ── Alert channels (Notification Settings → Channels; Tenant Administrators only) ──
+
+export interface ChannelField {
+  key: string;
+  label: string;
+  // text, number, select, url, email
+  kind: string;
+  required: boolean;
+  // Stored encrypted; never sent back (only whether it is set)
+  secret: boolean;
+  hint: string;
+  options: string[];
+}
+
+export interface ChannelProvider {
+  code: string;
+  name: string;
+  hint: string;
+  fields: ChannelField[];
+}
+
+export interface ChannelDefinition {
+  code: string;
+  name: string;
+  description: string;
+  // Sent to each person the alert is for (email, SMS, WhatsApp, bell); otherwise once to a shared place
+  perPerson: boolean;
+  providers: ChannelProvider[];
+}
+
+export interface ChannelState {
+  channel: string;
+  enabled: boolean;
+  provider: string;
+  settings: Record<string, string>;
+  // Names of the secrets already stored
+  secretsSet: string[];
+  categories: string[];
+  minPriority: "LOW" | "MEDIUM" | "HIGH";
+  lastTestAt?: string | null;
+  lastTestResult?: string | null;
+  // False: still the default, never saved
+  saved: boolean;
+}
+
+export interface ChannelOverview {
+  catalog: { channels: ChannelDefinition[]; categories: string[]; priorities: string[]; secretsConfigured: boolean };
+  channels: ChannelState[];
+}
+
+export interface ChannelSave {
+  enabled: boolean;
+  provider: string;
+  settings: Record<string, string>;
+  // New values only; empty keeps the stored one
+  secrets: Record<string, string>;
+  categories: string[];
+  minPriority: string;
+}
+
+export interface ChannelDelivery {
+  at: string;
+  channel: string;
+  recipient: string;
+  // RETRYING: failed for a reason that may pass; tried again after 1, 5, 15, 60 and 240 minutes
+  status: "SENT" | "FAILED" | "RETRYING";
+  detail?: string | null;
+}
 
 export interface InboxItem {
   id: number;
@@ -32,6 +101,9 @@ export interface NotificationSettings {
   dunningRepeatDays: number;
   dunningMaxReminders: number;
   replyTo?: string | null;
+  // Payment reminders also by SMS / WhatsApp to the customer's phone (needs that alert channel on)
+  dunningSms?: boolean;
+  dunningWhatsApp?: boolean;
 }
 
 export interface EmailTemplate {
@@ -66,4 +138,10 @@ export const notificationsApi = {
   saveTemplate: (code: string, subject: string, body: string) =>
     axios.put<EmailTemplate>(`${BASE}/templates/${code}`, { subject, body }).then((r) => r.data),
   resetTemplate: (code: string) => axios.delete<EmailTemplate>(`${BASE}/templates/${code}`).then((r) => r.data),
+  channels: () => axios.get<ChannelOverview>(`${BASE}/channels`).then((r) => r.data),
+  saveChannel: (code: string, body: ChannelSave) => axios.put<ChannelState>(`${BASE}/channels/${code}`, body).then((r) => r.data),
+  // The page shows the outcome itself
+  testChannel: (code: string) =>
+    axios.post<{ sent: boolean; detail?: string | null }>(`${BASE}/channels/${code}/test`, null, QUIET).then((r) => r.data),
+  deliveries: () => axios.get<ChannelDelivery[]>(`${BASE}/channels/deliveries`).then((r) => (Array.isArray(r.data) ? r.data : [])),
 };

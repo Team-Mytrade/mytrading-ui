@@ -31,6 +31,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { useUserDirectory, userOptions } from "../../access/useUserDirectory";
 import { usePermissions } from "../../access/usePermissions";
+import { MineAllToggle, isMine, useMineOnly, useMyUsername } from "./crmOwnership";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import DynamicPopup from "../../components/common/Popup";
@@ -118,6 +119,13 @@ const Tasks: React.FC = () => {
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { users: directoryUsers } = useUserDirectory();
+  const me = useMyUsername();
+  const [mineOnly, setMineOnly] = useMineOnly("tasks");
+  // Mine: the tasks assigned to the signed-in person
+  const shownActivities = useMemo(
+    () => (mineOnly ? activities.filter((a) => isMine(a.assignedTo, me)) : activities),
+    [activities, mineOnly, me]
+  );
 
   useEffect(() => {
     if (showFormModal || showViewModal || showDeleteConfirm) {
@@ -137,7 +145,7 @@ const Tasks: React.FC = () => {
 
   const filteredActivities = useMemo(() => {
     const term = search.toLowerCase();
-    return activities.filter((a) => {
+    return shownActivities.filter((a) => {
       const matchesSearch = [
         a.title,
         a.description,
@@ -157,7 +165,7 @@ const Tasks: React.FC = () => {
       const matchesStatus = selectedStatus ? a.status === selectedStatus : true;
       return matchesSearch && matchesType && matchesStatus;
     });
-  }, [search, activities, selectedType, selectedStatus]);
+  }, [search, shownActivities, selectedType, selectedStatus]);
 
   const fetchAll = async () => {
     try {
@@ -549,14 +557,14 @@ const Tasks: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-[17px]">
             <StatsCard
               label={t("Total Tasks")}
-              value={activities.length}
+              value={shownActivities.length}
               gradient="from-cyan-50 to-blue-50"
               borderColor="border-cyan-100"
               labelColor="text-cyan-600"
             />
             <StatsCard
               label={t("Pending")}
-              value={activities.filter((a) => a.status === "PENDING").length}
+              value={shownActivities.filter((a) => a.status === "PENDING").length}
               gradient="from-green-50 to-emerald-50"
               borderColor="border-green-100"
               labelColor="text-green-600"
@@ -564,7 +572,7 @@ const Tasks: React.FC = () => {
             <StatsCard
               label={t("Completed")}
               value={
-                activities.filter((a) => a.status === "COMPLETED").length
+                shownActivities.filter((a) => a.status === "COMPLETED").length
               }
               gradient="from-purple-50 to-pink-50"
               borderColor="border-purple-100"
@@ -573,7 +581,7 @@ const Tasks: React.FC = () => {
             <StatsCard
               label={t("High Priority")}
               value={
-                activities.filter((a) => a.priority === "HIGH").length
+                shownActivities.filter((a) => a.priority === "HIGH").length
               }
               gradient="from-orange-50 to-yellow-50"
               borderColor="border-orange-100"
@@ -581,7 +589,7 @@ const Tasks: React.FC = () => {
             />
             <StatsCard
               label={t("Overdue")}
-              value={activities.filter((a) => isOverdue(a.scheduledTime, a.status)).length}
+              value={shownActivities.filter((a) => isOverdue(a.scheduledTime, a.status)).length}
               gradient="from-rose-50 to-red-50"
               borderColor="border-rose-100"
               labelColor="text-rose-600"
@@ -594,6 +602,7 @@ const Tasks: React.FC = () => {
             pageSize={PAGE_SIZE}
             defaultSortKey="title"
             defaultSortOrder="asc"
+            toolbar={<MineAllToggle mineOnly={mineOnly} onChange={setMineOnly} mineLabel="My tasks" />}
            loading={false}
            enableRowDetails={true}
            rowDetailsTitle={(row: any) =>

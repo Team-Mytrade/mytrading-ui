@@ -31,7 +31,9 @@ import {
     InformationCircleIcon,
     ArrowDownTrayIcon,
     PhotoIcon,
+    CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
+import { expiryBadge, expiryText } from "./DocumentManagementPage";
 import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -68,6 +70,10 @@ interface EmployeeDocument {
     uploadedAt?: string;
     // HR's reason when rejected
     remarks?: string;
+    // When it stops being valid; reminders go 60, 30 and 7 days before
+    expiryDate?: string | null;
+    documentNumber?: string | null;
+    daysToExpiry?: number | null;
 }
 
 const API_URL = "/v1/api/payroll/empdocuments";
@@ -83,6 +89,8 @@ const DOCUMENT_TYPES: { value: string; label: string }[] = [
     { value: "BIRTH_CERTIFICATE", label: "Birth Certificate" },
     { value: "SOCIAL_SECURITY", label: "Social Security" },
     { value: "TAX_ID", label: "Tax ID" },
+    { value: "VISA", label: "Residence Visa" },
+    { value: "RESIDENCE_ID", label: "Residence ID (Emirates ID / Iqama)" },
 ];
 
 const STATUS_LABEL = { PENDING: "Pending", APPROVED: "Verified", REJECTED: "Rejected" } as const;
@@ -96,6 +104,8 @@ const EmployeeDocumentsPage: React.FC = () => {
     const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
     const [documentType, setDocumentType] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [expiryDate, setExpiryDate] = useState("");
+    const [documentNumber, setDocumentNumber] = useState("");
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewFileType, setPreviewFileType] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -157,16 +167,38 @@ const EmployeeDocumentsPage: React.FC = () => {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("documentType", documentType);
+            if (expiryDate) formData.append("expiryDate", expiryDate);
+            if (documentNumber.trim()) formData.append("documentNumber", documentNumber.trim());
             await axios.post(`${API_URL}/upload/${employeeIdNum}`, formData);
             ToasterService.success("Document uploaded successfully");
             await loadDocs();
             setIsUploadOpen(false);
             setFile(null);
             setDocumentType("");
+            setExpiryDate("");
+            setDocumentNumber("");
         } catch (err: any) {
             ToasterService.error(apiError(err, "Upload failed"));
         } finally {
             setLoading(false);
+        }
+    };
+
+    // The expiry date of a document uploaded without one (or renewed on paper)
+    const setExpiry = async (doc: EmployeeDocument) => {
+        const value = window.prompt(t("Expiry date (YYYY-MM-DD); leave empty to clear it"), doc.expiryDate ?? "");
+        if (value === null) return;
+        const date = value.trim();
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            ToasterService.error("Enter the date as YYYY-MM-DD");
+            return;
+        }
+        try {
+            const response = await axios.put(`${API_URL}/${doc.id}/details`, { expiryDate: date || null, documentNumber: doc.documentNumber ?? null });
+            setDocuments(prev => prev.map(d => (d.id === doc.id ? { ...d, ...response.data } : d)));
+            ToasterService.success(date ? "Expiry date saved" : "Expiry date cleared");
+        } catch (err) {
+            ToasterService.error(apiError(err, "The expiry date could not be saved"));
         }
     };
 
@@ -353,6 +385,18 @@ const EmployeeDocumentsPage: React.FC = () => {
             render: (row) => <span className="text-xs text-gray-700 dark:text-gray-300 font-mono break-all line-clamp-2" title={row.fileName}>{row.fileName}</span>
         },
         {
+            key: "expiryDate",
+            label: "Expires",
+            sortable: true,
+            render: (row) => row.expiryDate ? (
+                <div>
+                    <span className="text-xs text-gray-700 dark:text-gray-300">{formatDate(row.expiryDate)}</span>
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${expiryBadge(row.daysToExpiry)}`}>{expiryText(row.daysToExpiry)}</span>
+                    {row.documentNumber && <p className="text-[11px] text-gray-400">{row.documentNumber}</p>}
+                </div>
+            ) : <span className="text-xs text-gray-400">-</span>
+        },
+        {
             key: "fileSize",
             label: "File Size",
             sortable: true,
@@ -401,6 +445,11 @@ const EmployeeDocumentsPage: React.FC = () => {
                     {canApprove && row.status === "PENDING" && (
                         <button type="button" onClick={() => decide(row, "reject")} className={ROW_ICON_BUTTON_DANGER} title={t("Reject")}>
                             <XCircleIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    {canApprove && (
+                        <button type="button" onClick={() => setExpiry(row)} className={ROW_ICON_BUTTON} title={t("Set expiry date")}>
+                            <CalendarDaysIcon className="h-4 w-4" />
                         </button>
                     )}
                     <button type="button" onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }} className={ROW_ICON_BUTTON} title={t("Details")}>
@@ -530,6 +579,17 @@ const EmployeeDocumentsPage: React.FC = () => {
                                     <option key={type.value} value={type.value} className="dark:bg-[#222222] dark:text-white">{type.label}</option>
                                 ))}
                             </select>
+                        </div>,
+                        <div key="doc-expiry">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="doc-expiry-date">{t("Expiry date")}</label>
+                            <input id="doc-expiry-date" type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 dark:!border-transparent rounded-md shadow-sm p-2 bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-cyan-500 focus:border-cyan-500 outline-none" />
+                            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{t("HR and the employee are reminded 60, 30 and 7 days before it.")}</p>
+                        </div>,
+                        <div key="doc-number">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="doc-number">{t("Document number")}</label>
+                            <input id="doc-number" value={documentNumber} maxLength={50} onChange={e => setDocumentNumber(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 dark:!border-transparent rounded-md shadow-sm p-2 bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-cyan-500 focus:border-cyan-500 outline-none" />
                         </div>,
                         <div key="file-upload">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t("File")}</label>

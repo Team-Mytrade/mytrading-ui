@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowDownTrayIcon,
+    CalendarDaysIcon,
     CheckCircleIcon,
     ClockIcon,
     DocumentTextIcon,
@@ -17,7 +18,7 @@ import { AddButton } from '../../components/common/AddButton';
 import StatsCard from '../../components/common/Statscard';
 import ReusableTable, { ColumnDef } from '../../components/common/Table';
 import PaginatedPopup from '../../components/common/unpopup';
-import { FloatingSelect1 as FloatingSelect } from '../../components/inputfeild/FloatingInput';
+import { FloatingInput, FloatingSelect1 as FloatingSelect } from '../../components/inputfeild/FloatingInput';
 import { formatFileSize } from '../../shared/utils/file';
 import { usePermissions } from "../../access/usePermissions";
 import { ToasterService } from '../../Services/ToasterService';
@@ -39,6 +40,11 @@ interface Document {
     status: DocumentStatus;
     // HR's reason when rejected
     remarks?: string;
+    // When it stops being valid; reminders go 60, 30 and 7 days before
+    expiryDate?: string | null;
+    documentNumber?: string | null;
+    // Negative once expired
+    daysToExpiry?: number | null;
 }
 
 // The document types the payroll service accepts
@@ -52,7 +58,17 @@ const DOCUMENT_TYPES = [
     { id: "BIRTH_CERTIFICATE", name: "Birth Certificate" },
     { id: "SOCIAL_SECURITY", name: "Social Security" },
     { id: "TAX_ID", name: "Tax ID" },
+    { id: "VISA", name: "Residence Visa" },
+    { id: "RESIDENCE_ID", name: "Residence ID (Emirates ID / Iqama)" },
 ];
+
+// Red once expired, amber within 30 days
+export const expiryBadge = (days?: number | null) =>
+    days == null ? "" : days < 0 ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+        : days <= 30 ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+        : "bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-300";
+export const expiryText = (days?: number | null) =>
+    days == null ? "" : days < 0 ? t("Expired") : days === 0 ? t("Expires today") : `${days} ${t(days === 1 ? "day left" : "days left")}`;
 const typeName = (type: string) => DOCUMENT_TYPES.find(t => t.id === type)?.name || type;
 
 const STATUS_STYLE: Record<DocumentStatus, string> = {
@@ -78,6 +94,8 @@ const DocumentManagementPage: React.FC = () => {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [documentType, setDocumentType] = useState('');
     const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [expiryDate, setExpiryDate] = useState('');
+    const [documentNumber, setDocumentNumber] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -123,6 +141,8 @@ const DocumentManagementPage: React.FC = () => {
             const form = new FormData();
             form.append("file", uploadFile);
             form.append("documentType", documentType);
+            if (expiryDate) form.append("expiryDate", expiryDate);
+            if (documentNumber.trim()) form.append("documentNumber", documentNumber.trim());
 
             await axios.post(
                 viewedEmployeeId ? `${BASE_API_URL}/upload/${viewedEmployeeId}` : `${BASE_API_URL}/my/upload`,
@@ -205,6 +225,26 @@ const DocumentManagementPage: React.FC = () => {
         setIsUploadModalOpen(false);
         setUploadFile(null);
         setDocumentType("");
+        setExpiryDate("");
+        setDocumentNumber("");
+    };
+
+    // HR sets the expiry date of a document uploaded without one (or renewed on paper)
+    const setExpiry = async (doc: Document) => {
+        const value = window.prompt(t("Expiry date (YYYY-MM-DD); leave empty to clear it"), doc.expiryDate ?? "");
+        if (value === null) return;
+        const date = value.trim();
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            ToasterService.error("Enter the date as YYYY-MM-DD");
+            return;
+        }
+        try {
+            const res = await axios.put(`${BASE_API_URL}/${doc.id}/details`, { expiryDate: date || null, documentNumber: doc.documentNumber ?? null });
+            setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, ...res.data } : d)));
+            ToasterService.success(date ? "Expiry date saved" : "Expiry date cleared");
+        } catch (error) {
+            ToasterService.error(apiError(error, "The expiry date could not be saved"));
+        }
     };
 
     const count = (status: DocumentStatus) => documents.filter(d => d.status === status).length;
@@ -231,6 +271,18 @@ const DocumentManagementPage: React.FC = () => {
                     </div>
                 );
             },
+        },
+        {
+            key: "expiryDate",
+            label: "Expires",
+            sortable: true,
+            render: (doc) => doc.expiryDate ? (
+                <div>
+                    <span className="text-sm text-slate-700 dark:text-slate-200">{formatDate(doc.expiryDate)}</span>
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${expiryBadge(doc.daysToExpiry)}`}>{expiryText(doc.daysToExpiry)}</span>
+                    {doc.documentNumber && <p className="text-xs text-slate-400">{doc.documentNumber}</p>}
+                </div>
+            ) : <span className="text-sm text-slate-400">-</span>,
         },
         {
             key: "fileSize",
@@ -274,6 +326,11 @@ const DocumentManagementPage: React.FC = () => {
                     {canApprove && doc.status === 'PENDING' && (
                         <button type="button" onClick={() => updateDocumentStatus(doc.id, 'reject')} className={ROW_ICON_BUTTON_DANGER} title={t("Reject")}>
                             <XCircleIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    {canApprove && (
+                        <button type="button" onClick={() => setExpiry(doc)} className={ROW_ICON_BUTTON} title={t("Set expiry date")}>
+                            <CalendarDaysIcon className="h-4 w-4" />
                         </button>
                     )}
                     <button type="button" onClick={() => handleDownload(doc)} disabled={downloadingId === doc.id} className={ROW_ICON_BUTTON} title={t("Download")}>
@@ -358,6 +415,29 @@ const DocumentManagementPage: React.FC = () => {
                                     disabled={isUploading}
                                 />
                             </div>,
+                            <div key="expiry">
+                                <FloatingInput
+                                    label={t("Expiry date")}
+                                    name="expiryDate"
+                                    type="date"
+                                    value={expiryDate}
+                                    onChange={(e) => setExpiryDate(e.target.value)}
+                                    disabled={isUploading}
+                                />
+                            </div>,
+                            <div key="number">
+                                <FloatingInput
+                                    label={t("Document number")}
+                                    name="documentNumber"
+                                    value={documentNumber}
+                                    maxLength={50}
+                                    onChange={(e) => setDocumentNumber(e.target.value)}
+                                    disabled={isUploading}
+                                />
+                            </div>,
+                            <p key="expiry-hint" className="md:col-span-2 -mt-1 text-[11px] text-slate-500 dark:text-gray-400">
+                                {t("With an expiry date, HR and you are reminded 60, 30 and 7 days before it, and when it expires.")}
+                            </p>,
                             <label
                                 key="file"
                                 className="md:col-span-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center transition hover:border-cyan-400 dark:border-gray-700 dark:bg-[#222222]"

@@ -15,12 +15,15 @@ export interface UserPreferences {
   timeFormat: "12h" | "24h" | null;
   theme: "light" | "dark" | null;
   emailNotifications: boolean | null;
+  // SMS and WhatsApp alerts (when the company has them on); null = yes
+  textNotifications?: boolean | null;
   // What "company default" means for each (read only)
   company?: { language: string; timeZone: string; dateFormat: string; timeFormat: string } | null;
 }
 
 export const NO_PREFERENCES: UserPreferences = {
   language: null, timeZone: null, dateFormat: null, timeFormat: null, theme: null, emailNotifications: null,
+  textNotifications: null,
 };
 
 let current: UserPreferences | null = null;

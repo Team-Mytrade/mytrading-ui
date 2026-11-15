@@ -34,6 +34,7 @@ import { SellerProfile } from "../../components/quotation/QuotationPreviewTempla
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
 import { publicAsset } from "../../utils/assets";
 import { usePermissions } from "../../access/usePermissions";
+import { useUserDirectory } from "../../access/useUserDirectory";
 import QuotationItemsEditor, {
   blankLine,
   formatPrice,
@@ -176,6 +177,8 @@ type EnquiryDeal = {
   stage?: string;
   customer?: { id: number } | null;
   items?: { productId?: number | null; productName?: string; quantity?: number; expectedPrice?: number | null; remarks?: string }[];
+  // The login working the deal (username)
+  owner?: string | null;
 };
 
 type QuotationForm = {
@@ -600,7 +603,10 @@ const Quotations: React.FC = () => {
   const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
   const [customersLoaded, setCustomersLoaded] = useState(false);
   const [productsLoaded, setProductsLoaded] = useState(false);
+  const [salesPersonsLoaded, setSalesPersonsLoaded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  // Logins, to find the Sales person of a deal's owner
+  const { users: directoryUsers, loading: directoryLoading } = useUserDirectory();
 
   useEffect(() => {
     fetchQuotations();
@@ -649,6 +655,8 @@ const Quotations: React.FC = () => {
       setSalesPersons(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       ToasterService.error("Failed to load sales persons", getErrorMessage(error, "Please try again."));
+    } finally {
+      setSalesPersonsLoaded(true);
     }
   };
 
@@ -897,19 +905,30 @@ const Quotations: React.FC = () => {
     });
     openCreate();
     setField("customerId", String(deal.customer!.id));
+    // The deal owner's Sales person (so commission follows the deal), else the customer's own
+    const ownerPerson = ownerSalesPerson(deal.owner);
     setForm((current) => ({
       ...current,
       dealId: String(deal.id),
       subject: current.subject || deal.dealName || "",
       quotationType: dealLines.length > 0 && dealLines.every((line) => line.itemType === "SERVICE") ? "SERVICE" : "PRODUCT",
+      salesPersonId: ownerPerson ? String(ownerPerson.id) : current.salesPersonId,
     }));
     if (dealLines.length > 0) setLines(dealLines);
   };
 
-  // Deals → "Create quotation" opens /quotations?dealId=..; runs once customers and products are in
+  /** The active Sales person linked to the login that owns a deal. */
+  const ownerSalesPerson = (owner?: string | null) => {
+    if (!owner) return undefined;
+    const user = directoryUsers.find((u) => u.username.toLowerCase() === owner.toLowerCase());
+    if (!user) return undefined;
+    return salesPersons.find((person) => person.active !== false && String(person.userId ?? "") === String(user.userId));
+  };
+
+  // Deals → "Create quotation" opens /quotations?dealId=..; runs once customers, products, sales persons and logins are in
   const dealParam = searchParams.get("dealId");
   useEffect(() => {
-    if (!dealParam || !customersLoaded || !productsLoaded) return;
+    if (!dealParam || !customersLoaded || !productsLoaded || !salesPersonsLoaded || directoryLoading) return;
     const clearParam = () => {
       const next = new URLSearchParams(searchParams);
       next.delete("dealId");
@@ -932,7 +951,7 @@ const Quotations: React.FC = () => {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealParam, customersLoaded, productsLoaded]);
+  }, [dealParam, customersLoaded, productsLoaded, salesPersonsLoaded, directoryLoading]);
 
   const openEdit = async (quotation: Quotation) => {
     if (getQuotationStatus(quotation.status) !== "DRAFT") {
