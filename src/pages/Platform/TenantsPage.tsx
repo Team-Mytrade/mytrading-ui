@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Activity, Building2, CheckCircle2, CreditCard, LogIn, Mail, PauseCircle, Pencil, Power, PowerOff, Trash2, X } from "lucide-react";
 import TenantPlanDialog from "./TenantPlanDialog";
+import MenuPagePicker from "./MenuPagePicker";
 import { CompanyPlan, Plan, SUBSCRIPTION_TONE, plansApi, subscriptionText } from "../../platform/plansApi";
 import TenantClosureDialog, { TenantClosure, closing, closureApi } from "./TenantClosureDialog";
 import PageMeta from "../../components/common/PageMeta";
@@ -10,7 +11,7 @@ import { AddButton } from "../../components/common/AddButton";
 import StatsCard from "../../components/common/Statscard";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
-import { APP_MODULES, AppModule, MODULE_LABELS, getSelectedTenant, setSelectedTenant } from "../../access/access";
+import { AppModule, MODULE_LABELS, getSelectedTenant, setSelectedTenant } from "../../access/access";
 import { TenantAccess, TenantAdmin, TenantStatus, announceTenantsChanged, platformApi, tenantStatusOf } from "../../access/accessApi";
 import {
   CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
@@ -19,13 +20,12 @@ import { formatDate } from "../../company/format";
 import { grafanaLink, monitoringApi } from "../../monitoring/monitoringApi";
 
 import { t as tr } from "../../i18n/i18n";
-const OPTIONAL_MODULES = APP_MODULES.filter((m) => m !== "USERS");
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
 const LABEL = "mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300";
 const EMAIL = /^[^\s@]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 
-const emptyForm = { tenantName: "", modules: [] as AppModule[], planId: "" as number | "", email: "", firstName: "", lastName: "" };
+const emptyForm = { tenantName: "", modules: [] as AppModule[], hiddenPages: [] as string[], planId: "" as number | "", email: "", firstName: "", lastName: "" };
 
 const message = (e: unknown, fallback: string) => (e as Error)?.message || fallback;
 
@@ -59,6 +59,7 @@ export default function TenantsPage() {
   const [editName, setEditName] = useState("");
   const [editSubdomain, setEditSubdomain] = useState("");
   const [editModules, setEditModules] = useState<AppModule[]>([]);
+  const [editHidden, setEditHidden] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -108,14 +109,12 @@ export default function TenantsPage() {
     inactive: tenants.filter((t) => tenantStatusOf(t) === "INACTIVE").length,
   }), [tenants]);
 
-  const toggle = (list: AppModule[], module: AppModule) =>
-    list.includes(module) ? list.filter((m) => m !== module) : [...list, module];
-
   const openEdit = (t: TenantAccess) => {
     setEditing(t);
     setEditName(t.tenantName);
     setEditSubdomain(t.subdomain ?? "");
     setEditModules(t.modules.filter((m) => m !== "USERS"));
+    setEditHidden(t.hiddenPages ?? []);
   };
 
   const saveEdit = async () => {
@@ -130,6 +129,9 @@ export default function TenantsPage() {
       if (editSubdomain.trim().toLowerCase() !== (editing.subdomain ?? "")) await platformApi.setSubdomain(editing.tenantId, editSubdomain.trim());
       const before = [...editing.modules].filter((m) => m !== "USERS").sort().join(",");
       if ([...editModules].sort().join(",") !== before) await platformApi.setModules(editing.tenantId, editModules);
+      if ([...editHidden].sort().join(",") !== [...(editing.hiddenPages ?? [])].sort().join(",")) {
+        await platformApi.setHiddenPages(editing.tenantId, editHidden);
+      }
       ToasterService.success(`${editName.trim()} saved.`);
       setEditing(null);
       load();
@@ -194,6 +196,7 @@ export default function TenantsPage() {
       const { tenant, inviteSent } = await platformApi.provision({
         tenantName: form.tenantName.trim(),
         modules: form.modules,
+        hiddenPages: form.planId ? [] : form.hiddenPages,
         planId: form.planId || undefined,
         admin: { username: email, email, firstName: form.firstName.trim(), lastName: form.lastName.trim() },
       });
@@ -218,31 +221,6 @@ export default function TenantsPage() {
     navigate("/");
   };
 
-  const moduleChecklist = (value: AppModule[], onChange: (v: AppModule[]) => void) => (
-    <div>
-      <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-gray-300">
-        <input
-          type="checkbox"
-          checked={OPTIONAL_MODULES.every((m) => value.includes(m))}
-          ref={(el) => {
-            if (el) el.indeterminate = value.length > 0 && !OPTIONAL_MODULES.every((m) => value.includes(m));
-          }}
-          onChange={(e) => onChange(e.target.checked ? [...OPTIONAL_MODULES] : [])}
-        />
-        {tr("Select all")}
-      </label>
-      <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 dark:border-gray-700">
-        {OPTIONAL_MODULES.map((m) => (
-          <label key={m} className="flex items-center gap-2 text-xs text-slate-700 dark:text-gray-300">
-            <input type="checkbox" checked={value.includes(m)} onChange={() => onChange(toggle(value, m))} />
-            {MODULE_LABELS[m]}
-          </label>
-        ))}
-      </div>
-      <p className="mt-1 text-[11px] text-slate-500">{tr("Users is a core module and is always on.")}</p>
-    </div>
-  );
-
   const columns: ColumnDef<TenantAccess & { id: string }>[] = [
     {
       key: "tenantName", label: "Company", sortable: true,
@@ -266,6 +244,11 @@ export default function TenantsPage() {
               {MODULE_LABELS[m] ?? m}
             </span>
           ))}
+          {(t.hiddenPages?.length ?? 0) > 0 && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700" title={t.hiddenPages!.join(", ")}>
+              {t.hiddenPages!.length} {tr("sub menus off")}
+            </span>
+          )}
         </div>
       ),
     },
@@ -404,7 +387,7 @@ export default function TenantsPage() {
 
       {editing && (
         <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div data-overlay-panel className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
+          <div data-overlay-panel className={`${CARD} max-h-full w-full max-w-2xl space-y-4 overflow-y-auto p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("Edit")} {editing.tenantName}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -425,8 +408,9 @@ export default function TenantsPage() {
               </p>
             </div>
             <div>
-              <label className={LABEL}>{tr("Modules")}</label>
-              {moduleChecklist(editModules, setEditModules)}
+              <label className={LABEL}>{tr("Main menus and sub menus")}</label>
+              <MenuPagePicker modules={editModules} hiddenPages={editHidden}
+                onChange={(modules, hidden) => { setEditModules(modules); setEditHidden(hidden); }} />
             </div>
             <div className="rounded-lg border border-slate-200 p-3 text-xs dark:border-gray-700">
               <div className="mb-1 font-semibold text-slate-700 dark:text-gray-200">{tr("Tenant admin")}</div>
@@ -520,7 +504,7 @@ export default function TenantsPage() {
 
       {creating && (
         <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form data-overlay-panel onSubmit={provision} className={`${CARD} max-h-full w-full max-w-lg space-y-4 overflow-y-auto p-5`}>
+          <form data-overlay-panel onSubmit={provision} className={`${CARD} max-h-full w-full max-w-2xl space-y-4 overflow-y-auto p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tr("New tenant")}</h3>
               <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -540,8 +524,9 @@ export default function TenantsPage() {
             </div>
             {!form.planId && (
               <div>
-                <label className={LABEL}>{tr("Modules")}</label>
-                {moduleChecklist(form.modules, (modules) => setForm({ ...form, modules }))}
+                <label className={LABEL}>{tr("Main menus and sub menus")}</label>
+                <MenuPagePicker modules={form.modules} hiddenPages={form.hiddenPages}
+                  onChange={(modules, hiddenPages) => setForm({ ...form, modules, hiddenPages })} />
               </div>
             )}
             <div>

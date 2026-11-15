@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { Mail, MailWarning, Pencil, ShieldOff, UserCheck, Users, UserX, X } from "lucide-react";
+import { Eye, Mail, MailWarning, Pencil, ShieldOff, UserCheck, Users, UserX, X } from "lucide-react";
+import { menuForRoles } from "../../access/menuPages";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PlanUsageNotice from "../../components/common/PlanUsageNotice";
@@ -37,7 +38,8 @@ const statusOf = (u: ManagedUser) => (!u.active ? "Inactive" : u.invitePending ?
  * Roles are limited to what the signed-in user may grant (the server checks the same rule).
  */
 export default function UsersPage() {
-  const { user } = useContext(AuthContext);
+  const { user, access } = useContext(AuthContext);
+  const [showMenu, setShowMenu] = useState(false);
   const { canCreate, canUpdate } = usePermissions();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [roles, setRoles] = useState<RoleAccess[]>([]);
@@ -228,6 +230,10 @@ export default function UsersPage() {
   ];
 
   const assignedIds = new Set(form.roleIds ?? []);
+  // What the person will see with the ticked roles: main menus and their sub menus (read only; Roles & Permissions
+  // decides it). Pages the company doesn't have arrive in the signed-in admin's token as "page|*".
+  const companyHidden = (access.pageDenies ?? []).filter((d) => d.endsWith("|*")).map((d) => d.slice(0, -2));
+  const menuPreview = menuForRoles(roles.filter((r) => assignedIds.has(r.id)), companyHidden);
   const toggleRole = (id: number) =>
     setForm((f) => ({ ...f, roleIds: assignedIds.has(id) ? (f.roleIds ?? []).filter((r) => r !== id) : [...(f.roleIds ?? []), id] }));
 
@@ -267,7 +273,7 @@ export default function UsersPage() {
 
       {editing && (
         <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form data-overlay-panel onSubmit={save} className={`${CARD} w-full max-w-lg space-y-4 p-5`}>
+          <form data-overlay-panel onSubmit={save} className={`${CARD} max-h-full w-full max-w-lg space-y-4 overflow-y-auto p-5`}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 {editing === "new" ? t("Add user") : `Edit ${editing.firstName} ${editing.lastName}`}
@@ -351,6 +357,39 @@ export default function UsersPage() {
                 <p className="mt-2 text-[11px] text-slate-500 dark:text-gray-400">
                   {t("No password is set here: the user gets an email to choose their own.")}
                 </p>
+              )}
+            </div>
+
+            <div>
+              <button type="button" onClick={() => setShowMenu((v) => !v)} aria-expanded={showMenu}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium ${showMenu ? "border-cyan-400 bg-cyan-50 text-cyan-800 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-200" : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-[#2a2a2a]"}`}>
+                <Eye className="h-3.5 w-3.5" />{t("What they'll see")}
+                <span className="text-slate-400">· {menuPreview.length} {t("main menus")}</span>
+              </button>
+              {showMenu && (
+                <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-gray-700">
+                  <p className="mb-2 text-[11px] text-slate-500 dark:text-gray-400">
+                    {t("Main menus and sub menus from the ticked roles. Crossed out: hidden by a role's page access. Change it in Roles & Permissions.")}
+                  </p>
+                  {menuPreview.length === 0 ? (
+                    <p className="text-xs text-slate-400">{t("Only self-service: tick a role to give menus.")}</p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {menuPreview.map((g) => (
+                        <div key={g.menu}>
+                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400">{t(g.menu)}</p>
+                          <ul className="space-y-0.5 text-xs">
+                            {g.pages.map((p) => (
+                              <li key={p.key} className={p.hidden ? "text-rose-500 line-through decoration-rose-400 dark:text-rose-400" : "text-slate-700 dark:text-gray-200"}>
+                                {t(p.name)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

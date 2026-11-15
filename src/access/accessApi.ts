@@ -30,6 +30,8 @@ export interface TenantAccess {
   userCount: number;
   /** The company's own address: subdomain.app-domain; null when none. */
   subdomain?: string | null;
+  /** Sub menu pages the company doesn't get (menu routes); empty = every page of its modules. */
+  hiddenPages?: string[];
 }
 
 export interface RoleAccess {
@@ -84,6 +86,8 @@ export interface UserForm {
 export interface TenantProvisionRequest {
   tenantName: string;
   modules: AppModule[];
+  /** Sub menu pages of those modules left off for the company (menu routes). */
+  hiddenPages?: string[];
   /** A plan from the catalogue; its modules replace the ones above. */
   planId?: number;
   admin: {
@@ -134,6 +138,12 @@ export const platformApi = {
     request<TenantAccess>(`/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/modules`, {
       method: "PUT",
       body: JSON.stringify(modules),
+    }),
+  /** The sub menu pages the company doesn't get ([] = every page of its modules). */
+  setHiddenPages: (tenantId: string, hiddenPages: string[]) =>
+    request<TenantAccess>(`/v1/api/user/platform/tenants/${encodeURIComponent(tenantId)}/pages`, {
+      method: "PUT",
+      body: JSON.stringify(hiddenPages),
     }),
   // The reason is required for SUSPENDED and INACTIVE
   /** Sets (or clears with "") the company's own address; returns it with its full URL when the base domain is set. */

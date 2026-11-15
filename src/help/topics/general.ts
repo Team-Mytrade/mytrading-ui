@@ -1330,7 +1330,11 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       { title: "Change one", steps: ["Edit name and modules; Plan, limits and prices; Change status (suspend, close or reactivate). Resend invite for an administrator who hasn't signed in."] },
       { title: "Work inside one", steps: ["Choose it in Working in at the top; Switch to all tenants goes back."] },
     ],
-    rules: ["Users is a core module and is always on."],
+    rules: [
+      "Users is a core module and is always on.",
+      "Under Main menus and sub menus, tick a main menu for all its sub menus, or open it and choose sub menus. A sub menu left unticked is seen by nobody in the company, the Tenant Administrator included, and the services refuse changes on it.",
+      "Common Service is products, categories, vendors and customers.",
+    ],
     related: [{ route: "/platform/plans", label: "Plans" }],
   },
   {
