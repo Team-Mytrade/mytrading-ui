@@ -1,60 +1,44 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Circle, Download, Lock, RefreshCw, Rocket, Upload } from "lucide-react";
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Keyboard, Lock, Rocket, Upload } from "lucide-react";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { ToasterService } from "../../Services/ToasterService";
 import { errorText } from "../../access/accessApi";
 import { formatDateTime } from "../../company/format";
-import { CARD, CARD_TITLE, PAGE_BODY, PRIMARY_BUTTON, SECONDARY_BUTTON, TOOL_BUTTON, TOOL_INPUT } from "../Payroll/hrmsUi";
+import { CARD, CARD_TITLE, PRIMARY_BUTTON, SECONDARY_BUTTON, TOOL_BUTTON, TOOL_INPUT } from "../Payroll/hrmsUi";
+import {
+  ALERT_BAD, ALERT_GOOD, ALERT_WARN, BAD_TEXT, CARD_HEAD, CHIP_BAD, CHIP_GOOD, CHIP_NEUTRAL, CHIP_WARN, EMPTY, GOOD_TEXT, INTRO, KIND_ICON,
+  NOTE, PANEL, TABLE_BOX, TBODY, TD, TH, THEAD, TOOL_SELECT, WARN_TEXT, saveBlob,
+} from "./importUi";
 import {
   GoLiveResult, MappingView, MigrationBatch, MigrationColumn, MigrationProject, MigrationRow, MigrationStage, MissingRecord, ParallelRunReport, RunFigure, UnmatchedValue, migrationApi,
 } from "../../migration/migrationApi";
 import { t } from "../../i18n/i18n";
 
-const TH = "px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400";
-const TD = "px-3 py-2 align-top text-sm text-slate-700 dark:text-gray-200";
 const SOURCES = ["Manual records", "Keka", "greytHR", "Zoho People", "Darwinbox", "Bayzat", "Other"];
 
-const saveBlob = (blob: Blob, name: string) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-
+// The same words as the business-records imports: a file is checked, then imported
 const STATUS_STYLE: Record<string, string> = {
-  COMMITTED: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  STAGED: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-  NOT_STARTED: "bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-300",
-  DISCARDED: "bg-slate-100 text-slate-500 dark:bg-gray-800 dark:text-gray-400",
-  UNDONE: "bg-slate-100 text-slate-500 dark:bg-gray-800 dark:text-gray-400",
-  REFUSED: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  COMMITTED: CHIP_GOOD, STAGED: CHIP_WARN, NOT_STARTED: CHIP_NEUTRAL, DISCARDED: CHIP_NEUTRAL, UNDONE: CHIP_NEUTRAL, REFUSED: CHIP_BAD,
 };
 const STATUS_LABEL: Record<string, string> = {
-  COMMITTED: "Committed", STAGED: "Staged", NOT_STARTED: "Not started", DISCARDED: "Discarded", UNDONE: "Undone", REFUSED: "Refused",
+  COMMITTED: "Imported", STAGED: "Checked, not imported", NOT_STARTED: "Not started", DISCARDED: "Discarded", UNDONE: "Undone", REFUSED: "Refused",
 };
 
 function Chip({ status }: { status: string }) {
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[status] ?? STATUS_STYLE.NOT_STARTED}`}>
-      {t(STATUS_LABEL[status] ?? status)}
-    </span>
-  );
+  return <span className={STATUS_STYLE[status] ?? CHIP_NEUTRAL}>{t(STATUS_LABEL[status] ?? status)}</span>;
 }
 
 const totalsText = (totals: Record<string, number>) =>
   Object.entries(totals).map(([k, v]) => `${t(k)}: ${Number(v).toLocaleString()}`).join(" · ");
 
 /**
- * Go-live: move a company's HR, payroll and leave data into MyTrade stage by stage. Files are staged and checked
- * (nothing reaches live records), problems are fixed in place, each stage is committed in order, and go-live gives
- * the migrated employees their logins.
+ * Data Import → HR, payroll & attendance: bring a company's HR, payroll, leave and attendance records in from its old
+ * system step by step. Files are checked first (nothing reaches live records), problems are fixed in place, each step
+ * is imported in order, and going live gives the migrated employees their logins. {@code refreshKey} changes when the
+ * page's Refresh is clicked.
  */
-export default function GoLivePage() {
+export default function HrDataImport({ refreshKey = 0 }: { refreshKey?: number }) {
   const [project, setProject] = useState<MigrationProject | null>(null);
   const [batches, setBatches] = useState<MigrationBatch[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -97,7 +81,7 @@ export default function GoLivePage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const live = project?.status === "LIVE";
 
@@ -114,10 +98,10 @@ export default function GoLivePage() {
   };
 
   const saveProject = async () => {
-    const saved = await run("project", () => migrationApi.saveProject(goLiveDate || null, source || null), "The go-live details could not be saved");
+    const saved = await run("project", () => migrationApi.saveProject(goLiveDate || null, source || null), "The details could not be saved");
     if (saved) {
       setProject(saved);
-      ToasterService.success("Go-live details saved.");
+      ToasterService.success("Saved.");
     }
   };
 
@@ -156,7 +140,7 @@ export default function GoLivePage() {
     if (result) {
       const waiting = result.created.filter((b) => b.status !== "COMMITTED");
       if (waiting.length > 0) {
-        ToasterService.error(`${t("Staged but not committed")}: ${waiting.map((b) => t(b.title)).join(", ")}`);
+        ToasterService.error(`${t("Checked but not imported")}: ${waiting.map((b) => t(b.title)).join(", ")}`);
       }
       await afterChange(result.batch, `${records.length} ${t(records.length === 1 ? "record created." : "records created.")}`);
       await loadMissing(result.batch);
@@ -203,7 +187,7 @@ export default function GoLivePage() {
   };
 
   const stageFile = async (type: string, picked: File, mapping?: Record<string, string>, remember = false) => {
-    const staged = await run(`upload-${type}`, () => migrationApi.upload(type, picked, mapping, remember), "The file could not be staged");
+    const staged = await run(`upload-${type}`, () => migrationApi.upload(type, picked, mapping, remember), "The file could not be checked");
     if (staged) {
       setMappingFor(null);
       setLastUpload([staged]);
@@ -256,7 +240,7 @@ export default function GoLivePage() {
     <td className={`${TD} whitespace-nowrap text-end`}>
       <div>{money(f.oldSystem)} → {money(f.myTrade)}</div>
       {f.difference != null && Math.abs(f.difference) > 1 && (
-        <div className="text-xs font-medium text-red-600">{f.difference > 0 ? "+" : ""}{money(f.difference)}</div>
+        <div className={`text-xs font-medium ${BAD_TEXT}`}>{f.difference > 0 ? "+" : ""}{money(f.difference)}</div>
       )}
     </td>
   );
@@ -309,7 +293,7 @@ export default function GoLivePage() {
     : [];
 
   const uploadWorkbook = async (picked: File) => {
-    const staged = await run("workbook-up", () => migrationApi.uploadWorkbook(picked), "The workbook could not be staged");
+    const staged = await run("workbook-up", () => migrationApi.uploadWorkbook(picked), "The workbook could not be checked");
     if (workbookInput.current) workbookInput.current.value = "";
     if (staged) {
       setLastUpload(staged);
@@ -318,23 +302,23 @@ export default function GoLivePage() {
   };
 
   const commit = async (batch: MigrationBatch) => {
-    const done = await run(`commit-${batch.id}`, () => migrationApi.commit(batch.id as number), "The batch could not be committed");
+    const done = await run(`commit-${batch.id}`, () => migrationApi.commit(batch.id as number), "The import failed; nothing was saved");
     if (done?.status === "COMMITTED") {
-      afterChange(done, `${t(done.title)}: ${done.newCount} ${t("new")}, ${done.updatedCount} ${t("updated")}.`);
+      afterChange(done, `${t(done.title)}: ${t("Imported")} ${done.newCount} ${t("new")}, ${done.updatedCount} ${t("updated")}.`);
     } else if (done) {
-      ToasterService.error("Nothing was saved: the batch has problems.");
+      ToasterService.error("Nothing was imported: the file has problems.");
       afterChange(done);
     }
   };
 
   const undo = async (batch: MigrationBatch) => {
     const ok = await confirm({
-      title: t("Undo this batch?"),
-      message: t("The records this batch created are removed; records it updated keep their new values."),
+      title: t("Undo this import?"),
+      message: t("The records this import created are removed; records it updated keep their new values."),
       confirmLabel: t("Undo"),
       variant: "danger",
     });
-    if (ok) afterChange(await run(`undo-${batch.id}`, () => migrationApi.undo(batch.id as number), "The batch could not be undone"), t("Undone."));
+    if (ok) afterChange(await run(`undo-${batch.id}`, () => migrationApi.undo(batch.id as number), "The import could not be undone"), t("Undone."));
   };
 
   const saveRow = async (row: MigrationRow) => {
@@ -366,22 +350,10 @@ export default function GoLivePage() {
   };
 
   if (loadError) {
-    return (
-      <>
-        <PageMeta title={t("Go-live")} description="Move your HR, payroll and leave data into MyTrade" />
-        <PageBreadcrumb pageTitle="Go-live" />
-        <div className={`${CARD} p-8 text-center text-sm text-red-600`}>{t("The go-live project could not be loaded.")} {loadError}</div>
-      </>
-    );
+    return <div className={`${CARD} p-8 text-center text-sm ${BAD_TEXT}`}>{t("The HR, payroll and attendance import could not be loaded.")} {loadError}</div>;
   }
   if (!project) {
-    return (
-      <>
-        <PageMeta title={t("Go-live")} description="Move your HR, payroll and leave data into MyTrade" />
-        <PageBreadcrumb pageTitle="Go-live" />
-        <div className={`${CARD} p-8 text-center text-sm text-slate-400`}>{t("Loading...")}</div>
-      </>
-    );
+    return <div className={`${CARD} p-8 text-center ${EMPTY}`}>{t("Loading...")}</div>;
   }
 
   const columnsOf = (batch: MigrationBatch) =>
@@ -390,39 +362,30 @@ export default function GoLivePage() {
 
   return (
     <>
-      <PageMeta title={t("Go-live")} description="Move your HR, payroll and leave data into MyTrade" />
-      <PageBreadcrumb
-        pageTitle="Go-live"
-        actions={(
-          <button type="button" className={TOOL_BUTTON} onClick={load}>
-            <RefreshCw className="h-3.5 w-3.5" /> {t("Refresh")}
-          </button>
-        )}
-      />
-      <div className={`${PAGE_BODY} space-y-4`}>
+      <div className="space-y-4">
         {/* The project */}
-        <div className={`${CARD} space-y-3 p-4`}>
+        <div className={`${INTRO} space-y-3`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="max-w-3xl text-sm text-slate-600 dark:text-gray-300">
-              {t("Bring your HR, payroll and leave data in from your old system, stage by stage. Each file is checked first and nothing reaches live records until you commit it; mistakes are fixed right here. When every stage is in, go live: your employees get their logins.")}
+            <div className="max-w-3xl">
+              {t("Bring your HR, payroll, leave and attendance records in from your old system, step by step: download a template, fill it in and upload it, or type the rows in. Every row is checked first, and nothing is saved until you import it; problems are fixed right here. When every step is in, go live: your employees get their logins.")}
             </div>
             {live ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                <Lock className="h-4 w-4" /> {t("Live since")} {project.signedOffAt ? formatDateTime(project.signedOffAt) : ""}
+              <span className={CHIP_GOOD}>
+                <Lock className="h-3.5 w-3.5" /> {t("Live since")} {project.signedOffAt ? formatDateTime(project.signedOffAt) : ""}
               </span>
             ) : (
-              <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLE.STAGED}`}>{t("In progress")}</span>
+              <span className={CHIP_WARN}>{t("In progress")}</span>
             )}
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-slate-500">
+            <label className={NOTE}>
               {t("Go-live date")}
               <input type="date" className={`${TOOL_INPUT} mt-1 block`} value={goLiveDate} disabled={live}
                 onChange={(e) => setGoLiveDate(e.target.value)} />
             </label>
-            <label className="text-xs text-slate-500">
+            <label className={NOTE}>
               {t("Coming from")}
-              <select className={`${TOOL_INPUT} mt-1 block`} value={source} disabled={live} onChange={(e) => setSource(e.target.value)}>
+              <select className={`${TOOL_SELECT} mt-1 block`} value={source} disabled={live} onChange={(e) => setSource(e.target.value)}>
                 <option value="">{t("Choose...")}</option>
                 {SOURCES.map((s) => <option key={s} value={s}>{t(s)}</option>)}
               </select>
@@ -430,7 +393,7 @@ export default function GoLivePage() {
             {!live && (
               <button type="button" className={SECONDARY_BUTTON} onClick={saveProject} disabled={busy !== null}>{t("Save")}</button>
             )}
-            <p className="text-xs text-slate-500">{t("Best on the 1st of a month, ideally the start of the year: fewer opening balances.")}</p>
+            <p className={NOTE}>{t("Best on the 1st of a month, ideally the start of the year: fewer opening balances.")}</p>
           </div>
         </div>
 
@@ -439,12 +402,12 @@ export default function GoLivePage() {
           <div className={`${CARD} space-y-3 p-4`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className={CARD_TITLE}>{t("Go-live workbook")}</h2>
-                <p className="mt-1 text-xs text-slate-500">{t("One Excel file with a sheet for every kind of record, in order. Fill the sheets you need and upload it: each filled sheet is staged and checked on its own.")}</p>
+                <h2 className={CARD_TITLE}>{t("Everything in one workbook")}</h2>
+                <p className={`mt-1 ${NOTE}`}>{t("One Excel file with a sheet for every kind of record, in order. Fill the sheets you need and upload it: each filled sheet is checked on its own.")}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={SECONDARY_BUTTON} disabled={busy !== null}
-                  onClick={async () => { const b = await run("workbook", () => migrationApi.workbook(), "The workbook could not be downloaded"); if (b) saveBlob(b, "go-live-workbook.xlsx"); }}>
+                  onClick={async () => { const b = await run("workbook", () => migrationApi.workbook(), "The workbook could not be downloaded"); if (b) saveBlob(b, "hr-payroll-attendance-import-workbook.xlsx"); }}>
                   <Download className="h-4 w-4" /> {t("Download workbook")}
                 </button>
                 <label className={`${PRIMARY_BUTTON} cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
@@ -459,11 +422,11 @@ export default function GoLivePage() {
                 {lastUpload.map((b, i) => (
                   <li key={`${b.type}-${i}`} className="flex flex-wrap items-center gap-2">
                     {b.problemCount === 0 && b.status !== "REFUSED"
-                      ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
-                    <span className="font-medium">{t(b.title)}</span>
-                    <span className="text-slate-500">{b.rows} {t(b.rows === 1 ? "row" : "rows")}</span>
-                    {b.problemCount > 0 && <span className="text-red-600">{b.problemCount} {t(b.problemCount === 1 ? "problem" : "problems")}</span>}
-                    {b.status === "REFUSED" && <span className="text-red-600">{b.problems[0]?.message}</span>}
+                      ? <CheckCircle2 className={`h-4 w-4 ${GOOD_TEXT}`} /> : <AlertTriangle className={`h-4 w-4 ${WARN_TEXT}`} />}
+                    <span className="font-medium text-slate-800 dark:text-gray-100">{t(b.title)}</span>
+                    <span className="text-slate-500 dark:text-gray-400">{b.rows} {t(b.rows === 1 ? "row" : "rows")}</span>
+                    {b.problemCount > 0 && <span className={BAD_TEXT}>{b.problemCount} {t(b.problemCount === 1 ? "problem" : "problems")}</span>}
+                    {b.status === "REFUSED" && <span className={BAD_TEXT}>{b.problems[0]?.message}</span>}
                   </li>
                 ))}
               </ul>
@@ -473,55 +436,77 @@ export default function GoLivePage() {
 
         {/* The stages */}
         <div className={`${CARD} overflow-hidden`}>
-          <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800">
-            <h2 className={CARD_TITLE}>{t("Stages")}</h2>
+          <div className={CARD_HEAD}>
+            <h2 className={CARD_TITLE}>{t("What to import, in order")}</h2>
+            <p className={`mt-1 ${NOTE}`}>{t("Each step needs the one before it imported first.")}</p>
           </div>
           <ol className="divide-y divide-slate-100 dark:divide-gray-800">
-            {project.stages.map((stage: MigrationStage) => (
-              <li key={stage.stage} className="flex flex-wrap items-start gap-4 px-4 py-3">
-                <div className="flex w-56 shrink-0 items-start gap-2">
-                  {stage.status === "COMMITTED" ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
-                    : <Circle className="mt-0.5 h-5 w-5 text-slate-300" />}
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">{stage.number}. {t(stage.title)}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      <Chip status={stage.status} />
-                      {!stage.required && <span className="text-xs text-slate-400">{t("optional")}</span>}
-                    </div>
-                    {stage.blockedBy && stage.status !== "COMMITTED" && (
-                      <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{t("Commit first:")} {t(stage.blockedBy)}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-                  {stage.types.length === 0 && (
-                    <span className="text-xs text-slate-400">{stage.number === 7 || stage.number === 8 ? t("Coming later") : t("Nothing to bring in here yet")}</span>
-                  )}
-                  {stage.types.map((x) => (
-                    <div key={x.type} className="w-full rounded-lg border border-slate-100 p-3 sm:w-[300px] dark:border-gray-800">
-                      <div className="text-sm font-medium text-slate-800 dark:text-gray-100">{t(x.title)}</div>
-                      <p className="mt-1 text-xs text-slate-500">{t(x.description)}</p>
-                      {!live && x.columns.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button type="button" className={TOOL_BUTTON} disabled={busy !== null}
-                            onClick={async () => { const b = await run(`tpl-${x.type}`, () => migrationApi.template(x.type), "The template could not be downloaded"); if (b) saveBlob(b, `${x.type}-migration-template.xlsx`); }}>
-                            <Download className="h-3.5 w-3.5" /> {t("Template")}
-                          </button>
-                          <label className={`${TOOL_BUTTON} cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
-                            <Upload className="h-3.5 w-3.5" /> {busy === `upload-${x.type}` ? t("Checking...") : t("Upload")}
-                            <input type="file" className="sr-only" accept=".xlsx,.xls,.csv"
-                              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadOne(x.type, x.title, f); }} />
-                          </label>
-                          <button type="button" className={TOOL_BUTTON} disabled={busy !== null} onClick={() => openGrid(x.type, x.title, x.columns)}>
-                            {t("Type in")}
-                          </button>
-                        </div>
+            {project.stages.map((stage: MigrationStage) => {
+              const done = stage.status === "COMMITTED";
+              const waiting = !!stage.blockedBy && !done;
+              return (
+                <li key={stage.stage} className="grid gap-3 px-4 py-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-5">
+                  {/* The step: its number (a tick once imported), name, status and what it waits for */}
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${done
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                      : waiting ? "bg-slate-100 text-slate-500 dark:bg-gray-800 dark:text-gray-400"
+                        : "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-900"}`}>
+                      {done ? <CheckCircle2 className="h-4 w-4" /> : stage.number}
+                    </span>
+                    <div className="min-w-0">
+                      <div className={CARD_TITLE}>{t(stage.title)}</div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <Chip status={stage.status} />
+                        {!stage.required && <span className={CHIP_NEUTRAL}>{t("Optional")}</span>}
+                      </div>
+                      {waiting && (
+                        <p className={`mt-1.5 flex items-center gap-1 text-xs ${WARN_TEXT}`}>
+                          <Lock className="h-3 w-3 shrink-0" /> {t("Import first:")} {t(stage.blockedBy as string)}
+                        </p>
                       )}
                     </div>
-                  ))}
-                </div>
-              </li>
-            ))}
+                  </div>
+                  {/* What the step brings in: one card each, the same size, actions along the bottom */}
+                  {stage.types.length === 0 ? (
+                    <div className={`flex items-center rounded-lg border border-dashed border-slate-200 px-3 py-3 text-xs dark:border-gray-700 ${EMPTY}`}>
+                      {stage.number === 7 || stage.number === 8 ? t("Coming later") : t("Nothing to bring in here yet")}
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                      {stage.types.map((x) => (
+                        <div key={x.type} className={`${PANEL} flex h-full flex-col`}>
+                          <div className="flex items-center gap-2">
+                            <FileSpreadsheet className={KIND_ICON} />
+                            <span className={CARD_TITLE}>{t(x.title)}</span>
+                          </div>
+                          <p className={`mt-1.5 flex-1 ${NOTE}`}>{t(x.description)}</p>
+                          {!live && x.columns.length > 0 && (
+                            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 dark:border-gray-800">
+                              <button type="button" className={`${TOOL_BUTTON} w-full justify-center`} disabled={busy !== null}
+                                title={t("Download template")} aria-label={`${t("Download template")}: ${t(x.title)}`}
+                                onClick={async () => { const b = await run(`tpl-${x.type}`, () => migrationApi.template(x.type), "The template could not be downloaded"); if (b) saveBlob(b, `${x.type}-migration-template.xlsx`); }}>
+                                <Download className="h-3.5 w-3.5 shrink-0" /> {t("Template")}
+                              </button>
+                              <label className={`${TOOL_BUTTON} w-full cursor-pointer justify-center ${busy ? "pointer-events-none opacity-60" : ""}`}
+                                title={t("Upload filled file")}>
+                                <Upload className="h-3.5 w-3.5 shrink-0" /> {busy === `upload-${x.type}` ? t("Checking...") : t("Upload")}
+                                <input type="file" className="sr-only" accept=".xlsx,.xls,.csv" aria-label={`${t("Upload filled file")}: ${t(x.title)}`}
+                                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadOne(x.type, x.title, f); }} />
+                              </label>
+                              <button type="button" className={`${TOOL_BUTTON} w-full justify-center`} disabled={busy !== null}
+                                title={t("Type the rows in")} aria-label={`${t("Type the rows in")}: ${t(x.title)}`} onClick={() => openGrid(x.type, x.title, x.columns)}>
+                                <Keyboard className="h-3.5 w-3.5 shrink-0" /> {t("Type in")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </div>
 
@@ -531,7 +516,7 @@ export default function GoLivePage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className={CARD_TITLE}>{t("Type in")}: {t(grid.title)}</h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className={`mt-1 ${NOTE}`}>
                   {t("One row per record; columns marked * must be filled. You can paste a block copied from Excel into any cell.")}
                 </p>
               </div>
@@ -542,9 +527,9 @@ export default function GoLivePage() {
                 {col.choices.map((choice) => <option key={choice} value={choice} />)}
               </datalist>
             ))}
-            <div className="max-h-[480px] overflow-auto rounded-lg border border-slate-100 dark:border-gray-800">
+            <div className={`${TABLE_BOX} max-h-[480px]`}>
               <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-                <thead className="sticky top-0 bg-slate-50 dark:bg-[#222222]">
+                <thead className={`sticky top-0 ${THEAD}`}>
                   <tr>
                     <th className={`${TH} w-10`}>#</th>
                     {grid.columns.map((col) => (
@@ -552,10 +537,10 @@ export default function GoLivePage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                <tbody className={TBODY}>
                   {grid.rows.map((row, r) => (
                     <tr key={r}>
-                      <td className={`${TD} text-xs text-slate-400`}>{r + 1}</td>
+                      <td className={`${TD} text-xs text-slate-400 dark:text-gray-500`}>{r + 1}</td>
                       {grid.columns.map((col, c) => (
                         <td key={col.key} className="px-1 py-1">
                           <input aria-label={`${t("Row")} ${r + 1} ${col.header}`} className={`${TOOL_INPUT} w-36`}
@@ -588,7 +573,7 @@ export default function GoLivePage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className={CARD_TITLE}>{t("Match the columns")}: {t(mappingFor.title)} · {mappingFor.file.name}</h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className={`mt-1 ${NOTE}`}>
                   {t("The file's own headers, matched to MyTrade's columns. Check the suggestions, choose a column for the rest or ignore them.")}
                   {mappingFor.view.profileUsed && <> {t("Your saved mapping for")} {mappingFor.view.sourceSystem} {t("was used.")}</>}
                 </p>
@@ -596,18 +581,18 @@ export default function GoLivePage() {
               <button type="button" className={TOOL_BUTTON} onClick={() => setMappingFor(null)}>{t("Cancel")}</button>
             </div>
             {mappingFor.view.problems.length > 0 && (
-              <p className="text-sm text-red-600">{mappingFor.view.problems.map((p) => p.message).join(" ")}</p>
+              <p className={`text-sm ${BAD_TEXT}`}>{mappingFor.view.problems.map((p) => p.message).join(" ")}</p>
             )}
-            <div className="max-h-[420px] overflow-auto rounded-lg border border-slate-100 dark:border-gray-800">
+            <div className={`${TABLE_BOX} max-h-[420px]`}>
               <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-                <thead className="sticky top-0 bg-slate-50 dark:bg-[#222222]">
+                <thead className={`sticky top-0 ${THEAD}`}>
                   <tr>
                     <th className={TH}>{t("In your file")}</th>
                     <th className={TH}>{t("MyTrade column")}</th>
                     <th className={TH}>{t("Found by")}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                <tbody className={TBODY}>
                   {mappingFor.view.headers.filter((h) => h.header.trim()).map((h) => {
                     const how = h.how === "FUZZY" ? "Similar spelling: check it" : h.how === "SYNONYM" ? "Known name"
                       : h.how === "PROFILE" ? "Saved mapping" : h.how === "READY" ? `Built-in for ${mappingFor.view.readyProfile ?? ""}`
@@ -616,7 +601,7 @@ export default function GoLivePage() {
                       <tr key={h.header} className={h.how === "FUZZY" ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}>
                         <td className={`${TD} whitespace-nowrap font-medium`}>{h.header}</td>
                         <td className="px-3 py-1">
-                          <select aria-label={`${t("Column for")} ${h.header}`} className={TOOL_INPUT} value={mappingFor.choice[h.header] ?? ""}
+                          <select aria-label={`${t("Column for")} ${h.header}`} className={TOOL_SELECT} value={mappingFor.choice[h.header] ?? ""}
                             onChange={(e) => setMappingFor((m) => m && ({ ...m, choice: { ...m.choice, [h.header]: e.target.value } }))}>
                             <option value="">{t("Ignore this column")}</option>
                             {mappingFor.view.columns.map((c) => (
@@ -624,7 +609,7 @@ export default function GoLivePage() {
                             ))}
                           </select>
                         </td>
-                        <td className={`${TD} text-xs ${h.how === "FUZZY" ? "text-amber-700 dark:text-amber-300" : "text-slate-500"}`}>{t(how)}</td>
+                        <td className={`${TD} text-xs ${h.how === "FUZZY" ? WARN_TEXT : "text-slate-500 dark:text-gray-400"}`}>{t(how)}</td>
                       </tr>
                     );
                   })}
@@ -632,13 +617,13 @@ export default function GoLivePage() {
               </table>
             </div>
             {mappedMissing.length > 0 && (
-              <p className="text-sm text-amber-700 dark:text-amber-300">{t("Still needed")}: {mappedMissing.join(", ")}</p>
+              <p className={`text-sm ${WARN_TEXT}`}>{t("Still needed")}: {mappedMissing.join(", ")}</p>
             )}
             {mappedTwice.length > 0 && (
-              <p className="text-sm text-red-600">{t("A column is chosen twice")}: {[...new Set(mappedTwice)].join(", ")}</p>
+              <p className={`text-sm ${BAD_TEXT}`}>{t("A column is chosen twice")}: {[...new Set(mappedTwice)].join(", ")}</p>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className={`flex items-center gap-2 text-sm ${mappingFor.view.sourceSystem ? "" : "opacity-60"}`}>
+              <label className={`flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200 ${mappingFor.view.sourceSystem ? "" : "opacity-60"}`}>
                 <input type="checkbox" checked={mappingFor.remember} disabled={!mappingFor.view.sourceSystem}
                   onChange={(e) => setMappingFor((m) => m && ({ ...m, remember: e.target.checked }))} />
                 {mappingFor.view.sourceSystem
@@ -655,25 +640,25 @@ export default function GoLivePage() {
 
         {/* The batches */}
         <div className={`${CARD} overflow-hidden`}>
-          <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800">
-            <h2 className={CARD_TITLE}>{t("Files")}</h2>
+          <div className={CARD_HEAD}>
+            <h2 className={CARD_TITLE}>{t("Files uploaded")}</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-              <thead className="bg-slate-50 dark:bg-[#222222]">
+              <thead className={THEAD}>
                 <tr>
                   <th className={TH}>{t("What")}</th>
                   <th className={TH}>{t("File")}</th>
                   <th className={TH}>{t("Status")}</th>
                   <th className={TH}>{t("Rows")}</th>
-                  <th className={TH}>{t("Preview")}</th>
+                  <th className={TH}>{t("Result")}</th>
                   <th className={TH}>{t("Control totals")}</th>
                   <th className={TH}></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+              <tbody className={TBODY}>
                 {batches.length === 0 ? (
-                  <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-400">{t("No file has been uploaded yet.")}</td></tr>
+                  <tr><td colSpan={7} className={`px-3 py-8 text-center ${EMPTY}`}>{t("No file has been uploaded yet.")}</td></tr>
                 ) : batches.map((b) => (
                   <Fragment key={b.id}>
                     <tr className={openBatch?.id === b.id ? "bg-cyan-50/40 dark:bg-cyan-950/10" : ""}>
@@ -681,13 +666,13 @@ export default function GoLivePage() {
                       <td className={TD}>{b.fileName ?? "—"}</td>
                       <td className={TD}>
                         <Chip status={b.status} />
-                        {b.committedAt && b.status === "COMMITTED" && <div className="mt-1 text-xs text-slate-400">{b.committedBy} · {formatDateTime(b.committedAt)}</div>}
-                        {b.rowsDeletedAt && <div className="mt-1 text-xs text-slate-400">{t("Uploaded values deleted")} {formatDateTime(b.rowsDeletedAt)}</div>}
+                        {b.committedAt && b.status === "COMMITTED" && <div className="mt-1 text-xs text-slate-400 dark:text-gray-500">{b.committedBy} · {formatDateTime(b.committedAt)}</div>}
+                        {b.rowsDeletedAt && <div className="mt-1 text-xs text-slate-400 dark:text-gray-500">{t("Uploaded values deleted")} {formatDateTime(b.rowsDeletedAt)}</div>}
                       </td>
                       <td className={TD}>{b.rows}</td>
                       <td className={`${TD} whitespace-nowrap`}>
                         {b.status === "STAGED" && b.problemCount > 0
-                          ? <span className="text-red-600">{b.problemCount} {t(b.problemCount === 1 ? "problem" : "problems")}</span>
+                          ? <span className={BAD_TEXT}>{b.problemCount} {t(b.problemCount === 1 ? "problem" : "problems")}</span>
                           : <>{b.newCount} {t("new")}, {b.updatedCount} {t("updated")}</>}
                       </td>
                       <td className={`${TD} min-w-[200px] text-xs`}>{totalsText(b.totals)}</td>
@@ -707,7 +692,7 @@ export default function GoLivePage() {
                                 {t("Discard")}
                               </button>
                               <button type="button" className={PRIMARY_BUTTON} disabled={busy !== null || b.problemCount > 0} onClick={() => commit(b)}>
-                                {busy === `commit-${b.id}` ? t("Committing...") : t("Commit")}
+                                {busy === `commit-${b.id}` ? t("Importing...") : t("Import")}
                               </button>
                             </>
                           )}
@@ -721,15 +706,15 @@ export default function GoLivePage() {
                       <tr>
                         <td colSpan={7} className="bg-slate-50/60 px-3 py-3 dark:bg-[#151515]">
                           {rows.length === 0 ? (
-                            <p className="text-sm text-slate-500">{busy?.startsWith("rows-") ? t("Loading...") : t("Every row is correct.")}</p>
+                            <p className="text-sm text-slate-500 dark:text-gray-400">{busy?.startsWith("rows-") ? t("Loading...") : t("Every row is correct.")}</p>
                           ) : (
                             <div className="space-y-2">
                               {missing.length > 0 && (
-                                <div className="space-y-2 rounded-lg border border-slate-100 bg-white p-3 dark:border-gray-800 dark:bg-[#191919]">
-                                  <p className="text-sm font-medium text-slate-800 dark:text-gray-100">
+                                <div className={`${ALERT_WARN} space-y-2`}>
+                                  <p className="font-medium">
                                     {t("Not in MyTrade yet")}: {t("create")} {missing.length}?
                                   </p>
-                                  <p className="text-xs text-slate-500">{t("Each kind is created as its own file in its stage, so it can be undone like any other.")}</p>
+                                  <p className="text-xs">{t("Each kind is created as its own file in its stage, so it can be undone like any other.")}</p>
                                   <ul className="space-y-1">
                                     {missing.map((m) => {
                                       const k = missingKey(m);
@@ -739,8 +724,8 @@ export default function GoLivePage() {
                                           <label className="flex items-center gap-2">
                                             <input type="checkbox" checked={state.on}
                                               onChange={(e) => setToCreate((all) => ({ ...all, [k]: { ...state, on: e.target.checked } }))} />
-                                            <span className="text-slate-500">{t(m.title)}:</span> <strong>{m.name}</strong>
-                                            <span className="text-xs text-slate-400">({m.rows} {t(m.rows === 1 ? "row" : "rows")})</span>
+                                            <span>{t(m.title)}:</span> <strong>{m.name}</strong>
+                                            <span className="text-xs opacity-75">({m.rows} {t(m.rows === 1 ? "row" : "rows")})</span>
                                           </label>
                                           {m.type === "designations" && state.on && (
                                             <>
@@ -758,21 +743,21 @@ export default function GoLivePage() {
                                     disabled={busy !== null || chosenMissing.length === 0 || splitMissing} onClick={createMissing}>
                                     {t("Create")} {chosenMissing.length} {t("and check again")}
                                   </button>
-                                  {splitMissing && <p className="text-xs text-amber-700 dark:text-amber-300">{t("A designation needs its basic % and HRA %.")}</p>}
+                                  {splitMissing && <p className="text-xs font-medium">{t("A designation needs its basic % and HRA %.")}</p>}
                                 </div>
                               )}
                               {unmatched.length > 0 && (
-                                <div className="space-y-2 rounded-lg border border-slate-100 bg-white p-3 dark:border-gray-800 dark:bg-[#191919]">
+                                <div className={`${PANEL} space-y-2`}>
                                   <p className="text-sm font-medium text-slate-800 dark:text-gray-100">{t("Translate values")}</p>
-                                  <p className="text-xs text-slate-500">{t("Say what your old system's values mean once; every row using them is fixed, now and in later files.")}</p>
+                                  <p className={NOTE}>{t("Say what your old system's values mean once; every row using them is fixed, now and in later files.")}</p>
                                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                                     {unmatched.map((u) => (
                                       <label key={valueKey(u)} className="flex flex-wrap items-center gap-2 text-sm">
                                         <span className="min-w-[150px] text-slate-600 dark:text-gray-300">
-                                          {u.column}: <strong>{u.value}</strong> <span className="text-xs text-slate-400">({u.rows} {t(u.rows === 1 ? "row" : "rows")})</span>
+                                          {u.column}: <strong>{u.value}</strong> <span className="text-xs text-slate-400 dark:text-gray-500">({u.rows} {t(u.rows === 1 ? "row" : "rows")})</span>
                                         </span>
                                         {u.choices.length > 0 ? (
-                                          <select aria-label={`${t("Meaning of")} ${u.value}`} className={TOOL_INPUT} value={meanings[valueKey(u)] ?? ""}
+                                          <select aria-label={`${t("Meaning of")} ${u.value}`} className={TOOL_SELECT} value={meanings[valueKey(u)] ?? ""}
                                             onChange={(e) => setMeanings((m) => ({ ...m, [valueKey(u)]: e.target.value }))}>
                                             <option value="">{t("Means...")}</option>
                                             {u.choices.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -791,10 +776,10 @@ export default function GoLivePage() {
                                   </button>
                                 </div>
                               )}
-                              <p className="text-xs text-slate-500">{t("Fix the cells below and save the row; the batch is checked again at once.")}</p>
-                              <div className="max-h-[480px] overflow-auto rounded-lg border border-slate-100 bg-white dark:border-gray-800 dark:bg-[#191919]">
+                              <p className={NOTE}>{t("Fix the cells below and save the row; the file is checked again at once.")}</p>
+                              <div className={`${TABLE_BOX} max-h-[480px] bg-white dark:bg-[#191919]`}>
                                 <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-                                  <thead className="sticky top-0 bg-slate-50 dark:bg-[#222222]">
+                                  <thead className={`sticky top-0 ${THEAD}`}>
                                     <tr>
                                       <th className={`${TH} w-14`}>{t("Row")}</th>
                                       <th className={`${TH} min-w-[220px]`}>{t("Problems")}</th>
@@ -802,20 +787,20 @@ export default function GoLivePage() {
                                       <th className={TH}></th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                                  <tbody className={TBODY}>
                                     {rows.map((r) => {
                                       const bad = new Set(r.problems.map((p) => p.column));
                                       return (
                                         <tr key={r.id}>
                                           <td className={TD}>{r.row}</td>
-                                          <td className={`${TD} text-xs text-red-600`}>
+                                          <td className={`${TD} text-xs ${BAD_TEXT}`}>
                                             {r.problems.map((p, i) => <div key={i}>{p.column ? <strong>{p.column}: </strong> : null}{p.message}</div>)}
                                           </td>
                                           {columnsOf(b).map((c) => (
                                             <td key={c} className="px-2 py-1">
                                               <input
                                                 aria-label={`${t("Row")} ${r.row} ${c}`}
-                                                className={`${TOOL_INPUT} w-36 ${bad.has(c) ? "border-red-400 ring-1 ring-red-300" : ""}`}
+                                                className={`${TOOL_INPUT} w-36 ${bad.has(c) ? "border-red-400 ring-1 ring-red-300 dark:border-red-700 dark:ring-red-800" : ""}`}
                                                 value={edits[r.id]?.[c] ?? r.values[c] ?? ""}
                                                 onChange={(e) => setEdits((all) => ({ ...all, [r.id]: { ...(all[r.id] ?? {}), [c]: e.target.value } }))}
                                               />
@@ -849,14 +834,14 @@ export default function GoLivePage() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className={CARD_TITLE}>{t("Parallel run")}</h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className={`mt-1 ${NOTE}`}>
                   {t("MyTrade works out a month the old system paid, as a dry run (nothing saved, nothing paid), and compares it with the old payroll register. Differences above 1 are flagged with the likely reason.")}
                 </p>
               </div>
               <div className="flex flex-wrap items-end gap-2">
-                <label className="text-xs text-slate-500">
+                <label className={NOTE}>
                   {t("Month")}
-                  <select className={`${TOOL_INPUT} mt-1 block`} value={runMonth} onChange={(e) => { setRunMonth(e.target.value); setRunReport(null); }}>
+                  <select className={`${TOOL_SELECT} mt-1 block`} value={runMonth} onChange={(e) => { setRunMonth(e.target.value); setRunReport(null); }}>
                     {runMonths.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </label>
@@ -867,15 +852,15 @@ export default function GoLivePage() {
             </div>
             {runReport && (
               <>
-                <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex flex-wrap gap-4 text-sm text-slate-700 dark:text-gray-200">
                   <span>{runReport.employees} {t("employees")}</span>
-                  <span className={runReport.flagged > 0 ? "font-medium text-red-600" : "text-emerald-700"}>{runReport.flagged} {t("flagged")}</span>
+                  <span className={runReport.flagged > 0 ? `font-medium ${BAD_TEXT}` : GOOD_TEXT}>{runReport.flagged} {t("flagged")}</span>
                   <span>{t("Net pay")}: {money(runReport.oldNet)} → {money(runReport.myTradeNet)}</span>
                   <span>{t("TDS")}: {money(runReport.oldTds)} → {money(runReport.myTradeTds)}</span>
                 </div>
-                <div className="max-h-[480px] overflow-auto rounded-lg border border-slate-100 dark:border-gray-800">
+                <div className={`${TABLE_BOX} max-h-[480px]`}>
                   <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-                    <thead className="sticky top-0 bg-slate-50 dark:bg-[#222222]">
+                    <thead className={`sticky top-0 ${THEAD}`}>
                       <tr>
                         <th className={TH}>{t("Employee")}</th>
                         <th className={`${TH} text-end`}>{t("Gross")}</th>
@@ -885,12 +870,12 @@ export default function GoLivePage() {
                         <th className={TH}>{t("Why")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                    <tbody className={TBODY}>
                       {runReport.lines.map((line) => (
                         <tr key={line.employeeId} className={line.flagged ? "bg-red-50/40 dark:bg-red-950/10" : ""}>
                           <td className={`${TD} whitespace-nowrap`}>
                             <div className="font-medium">{line.employeeCode ?? line.employeeId}</div>
-                            <div className="text-xs text-slate-400">{line.employeeName}</div>
+                            <div className="text-xs text-slate-400 dark:text-gray-500">{line.employeeName}</div>
                           </td>
                           {diffCell(line.gross)}
                           {diffCell(line.pf)}
@@ -898,7 +883,7 @@ export default function GoLivePage() {
                           {diffCell(line.net)}
                           <td className={`${TD} min-w-[260px] text-xs`}>
                             {line.reasons.length === 0
-                              ? <span className="text-emerald-700 dark:text-emerald-300">{t("Same")}</span>
+                              ? <span className={GOOD_TEXT}>{t("Same")}</span>
                               : line.reasons.map((r, i) => <div key={i}>{t(r)}</div>)}
                           </td>
                         </tr>
@@ -909,14 +894,14 @@ export default function GoLivePage() {
               </>
             )}
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 text-sm dark:border-gray-800">
-              <span className="text-slate-500">{t("Sign-off")}:</span>
+              <span className="text-slate-500 dark:text-gray-400">{t("Sign-off")}:</span>
               {project.hrSignedOffBy ? (
-                <span className="text-emerald-700 dark:text-emerald-300">{t("HR")}: {project.hrSignedOffBy} {project.hrSignedOffAt ? formatDateTime(project.hrSignedOffAt) : ""}</span>
+                <span className={GOOD_TEXT}>{t("HR")}: {project.hrSignedOffBy} {project.hrSignedOffAt ? formatDateTime(project.hrSignedOffAt) : ""}</span>
               ) : (
                 <button type="button" className={SECONDARY_BUTTON} disabled={busy !== null || live} onClick={() => signOff("HR")}>{t("Sign off for HR")}</button>
               )}
               {project.financeSignedOffBy ? (
-                <span className="text-emerald-700 dark:text-emerald-300">{t("Finance")}: {project.financeSignedOffBy} {project.financeSignedOffAt ? formatDateTime(project.financeSignedOffAt) : ""}</span>
+                <span className={GOOD_TEXT}>{t("Finance")}: {project.financeSignedOffBy} {project.financeSignedOffAt ? formatDateTime(project.financeSignedOffAt) : ""}</span>
               ) : (
                 <button type="button" className={SECONDARY_BUTTON} disabled={busy !== null || live} onClick={() => signOff("FINANCE")}>{t("Sign off for finance")}</button>
               )}
@@ -929,7 +914,7 @@ export default function GoLivePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className={CARD_TITLE}>{t("Go live")}</h2>
-              <p className="mt-1 text-xs text-slate-500">{t("Gives every migrated employee a login and an email to set their password, then closes this project.")}</p>
+              <p className={`mt-1 ${NOTE}`}>{t("Gives every migrated employee a login and an email to set their password, then closes this project.")}</p>
             </div>
             {!live && (
               <button type="button" className={PRIMARY_BUTTON} disabled={busy !== null || project.goLiveBlockers.length > 0} onClick={takeLive}>
@@ -938,18 +923,18 @@ export default function GoLivePage() {
             )}
           </div>
           {live ? (
-            <p className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+            <p className={`flex items-center gap-2 text-sm ${GOOD_TEXT}`}>
               <CheckCircle2 className="h-4 w-4" /> {t("Live on MyTrade.")} {t("Signed off by")} {project.signedOffBy} {project.signedOffAt ? formatDateTime(project.signedOffAt) : ""}
             </p>
           ) : project.goLiveBlockers.length > 0 ? (
-            <ul className="list-inside list-disc text-sm text-amber-700 dark:text-amber-300">
+            <ul className={`${ALERT_WARN} list-inside list-disc`}>
               {project.goLiveBlockers.map((x) => <li key={x}>{t(x)}</li>)}
             </ul>
           ) : (
-            <p className="text-sm text-emerald-700 dark:text-emerald-300">{t("Every stage is in: you can go live.")}</p>
+            <p className={ALERT_GOOD}>{t("Every step is in: you can go live.")}</p>
           )}
           {goLive && goLive.failures.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+            <div className={ALERT_BAD}>
               <p className="font-medium">{goLive.loginsCreated} {t("login(s) made;")} {goLive.failures.length} {t("could not be:")}</p>
               <ul className="mt-1 list-inside list-disc">
                 {goLive.failures.map((f) => <li key={f.employeeId}><strong>{f.employeeCode ?? f.employeeId}</strong>: {f.message}</li>)}

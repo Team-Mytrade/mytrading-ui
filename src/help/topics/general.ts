@@ -1278,8 +1278,11 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     route: "/data-import",
     module: "Settings",
     title: "Data Import",
-    summary: "Bring your existing records in from Excel: products, customers and vendors, then opening stock, unpaid invoices and bills, and ledger balances on the go-live date, and CRM leads at any time.",
-    who: [{ role: "Anyone with the right to create the records", can: "Import them; each import shows the permission it needs." }],
+    summary: "Bring your existing records in from Excel. Business records: products, customers and vendors, then opening stock, unpaid invoices and bills, and ledger balances on the go-live date, and CRM leads at any time. HR, payroll & attendance: employees, salaries, leave and attendance from the old HR system, step by step, then go live.",
+    who: [
+      { role: "Anyone with the right to create the records", can: "Use Business records; each import shows the permission it needs." },
+      { role: "HR administrator (HRM admin)", can: "Use HR, payroll & attendance and go live." },
+    ],
     tasks: [
       {
         title: "Import a file",
@@ -1288,6 +1291,16 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
           "Fill it in and upload it. Every row is checked first.",
           "If problems are listed, nothing was saved: fix them in the file (Download list) and upload it again.",
           "Check the First rows, as they will be saved, and click Import.",
+        ],
+      },
+      {
+        title: "Bring in HR, payroll and attendance",
+        steps: [
+          "Open the HR, payroll & attendance tab; set the Go-live date and where the data is Coming from, and Save.",
+          "Work down What to import, in order: Download template, fill it and Upload filled file (or Type in rows); or use Everything in one workbook.",
+          "Fix problems in Files uploaded (Fix): edit the cells, translate the old system's values or create missing records; then Import each file.",
+          "With the payroll register imported, compare a month in Parallel run and sign off for HR and finance.",
+          "Click Go live: every migrated employee gets a login.",
         ],
       },
     ],
