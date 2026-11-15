@@ -15,9 +15,13 @@ interface CompanyMonth {
   awaitingApproval: number;
   pfWage: number;
   employee: number;
+  vpf: number;
   employerEpf: number;
   pension: number;
   total: number;
+  adminCharges: number;
+  edliCharges: number;
+  dueToEpfo: number;
   dueDate: string;
   challan?: Challan | null;
   status: ChallanStatus;
@@ -55,9 +59,13 @@ export interface CompanyPfData {
   departments: string[];
   months: CompanyMonth[];
   employee: number;
+  vpf: number;
   employerEpf: number;
   pension: number;
   total: number;
+  adminCharges: number;
+  edliCharges: number;
+  dueToEpfo: number;
   paid: number;
   outstanding: number;
   monthsOverdue: number;
@@ -73,6 +81,7 @@ interface EmployeeMonth {
   department?: string | null;
   uan?: string | null;
   employee: number;
+  vpf: number;
   employerEpf: number;
   pension: number;
   total: number;
@@ -145,11 +154,25 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
 
   const monthOf = (m: string) => data?.months.find((x) => x.month === m);
 
+  const exportYear = async () => {
+    try {
+      const res = await axios.get<Blob>(`${API}/export`, { params: { fy: data?.financialYear, department: department || undefined }, responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `company-pf-${data?.financialYear ?? "year"}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      ToasterService.error(apiError(err, "The PF statement could not be downloaded"));
+    }
+  };
+
   const startChallan = (m: CompanyMonth) => {
     const c = m.challan;
     setForm({
       trrn: c?.trrn ?? "",
-      amount: String(c?.amount ?? m.total),
+      amount: String(c?.amount ?? m.dueToEpfo),
       paidOn: c?.paidOn ?? new Date().toISOString().slice(0, 10),
       ecrUploadedOn: c?.ecrUploadedOn ?? "",
     });
@@ -186,6 +209,7 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
   if (!data) return <div className={`${CARD} p-8 text-center text-sm text-slate-500`}>{error ?? t("The company's PF could not be loaded.")}</div>;
 
   const months = data.months.filter((m) => m.employees > 0 || m.awaitingApproval > 0);
+  const anyVpf = data.vpf > 0;
   const td = "px-3 py-2 text-right tabular-nums whitespace-nowrap";
   const th = "px-3 py-2 text-right text-[11px] font-semibold text-slate-500 dark:text-gray-400 whitespace-nowrap";
 
@@ -195,7 +219,8 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
         <Metric label={t("Employee PF")} value={money(data.employee)} dot={PF_COLORS.employee} />
         <Metric label={t("Employer EPF")} value={money(data.employerEpf)} dot={PF_COLORS.epf} />
         <Metric label={t("Pension (EPS)")} value={money(data.pension)} dot={PF_COLORS.pension} />
-        <Metric label={t("Due to EPFO")} value={money(data.total)} note={`${data.employeesCovered} ${t(data.employeesCovered === 1 ? "employee" : "employees")} ${t("covered")}`} />
+        <Metric label={t("Due to EPFO")} value={money(data.dueToEpfo)}
+          note={`${t("Charges")} ${money(data.adminCharges + data.edliCharges)} · ${data.employeesCovered} ${t(data.employeesCovered === 1 ? "employee" : "employees")}`} />
         <Metric label={t("Paid to EPFO")} value={money(data.paid)} note={t("Challans recorded")} />
         <Metric label={t("Still to pay")} value={money(data.outstanding)} tone={data.outstanding > 0 ? "red" : undefined}
           note={data.monthsOverdue > 0 ? `${data.monthsOverdue} ${t(data.monthsOverdue === 1 ? "month overdue" : "months overdue")}` : data.employeesWithoutUan > 0 ? `${data.employeesWithoutUan} ${t("without UAN")}` : undefined} />
@@ -211,7 +236,11 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
         <div className={`${CARD} min-w-0 overflow-hidden`}>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-gray-800">
             <div className={CARD_TITLE}>{t("Company PF")} · {data.financialYear}</div>
-            <span className="text-[11px] text-slate-500 dark:text-gray-400">{t("Click a month to see its employees")}</span>
+            <span className="flex items-center gap-3">
+              <span className="text-[11px] text-slate-500 dark:text-gray-400">{t("Click a month to see its employees")}</span>
+              <button type="button" className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300"
+                onClick={exportYear}>{t("Download Excel")}</button>
+            </span>
           </div>
           {months.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-500">{t("No PF in this year yet.")}</div>
@@ -225,8 +254,10 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-slate-500 dark:text-gray-400 whitespace-nowrap">{t("Wage month")}</th>
                       <th className={th}>{t("Employees")}</th>
                       <th className={th}>{t("Employee PF")}</th>
+                      {anyVpf && <th className={th}>{t("Voluntary PF")}</th>}
                       <th className={th}>{t("Employer EPF")}</th>
                       <th className={th}>{t("Pension")}</th>
+                      <th className={th} title={t("EPF administration (0.5% of PF wages, at least ₹500) and EDLI (0.5% of wages up to ₹15,000)")}>{t("Charges")}</th>
                       <th className={th}>{t("Due to EPFO")}</th>
                       <th className={th}>{t("Due by")}</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-slate-500 dark:text-gray-400 whitespace-nowrap">{t("Challan")}</th>
@@ -244,9 +275,11 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
                         </td>
                         <td className={td}>{m.employees}</td>
                         <td className={td}>{money(m.employee)}</td>
+                        {anyVpf && <td className={td}>{money(m.vpf)}</td>}
                         <td className={td}>{money(m.employerEpf)}</td>
                         <td className={td}>{money(m.pension)}</td>
-                        <td className={`${td} font-semibold text-slate-900 dark:text-white`}>{money(m.total)}</td>
+                        <td className={`${td} text-slate-500`} title={`${t("Admin")} ${money(m.adminCharges)} · EDLI ${money(m.edliCharges)}`}>{money(m.adminCharges + m.edliCharges)}</td>
+                        <td className={`${td} font-semibold text-slate-900 dark:text-white`}>{money(m.dueToEpfo)}</td>
                         <td className={`${td} text-slate-500`}>{day(m.dueDate)}</td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <StatusPill status={m.status} />
@@ -258,9 +291,11 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
                       <td className="px-3 py-2 text-left">{t("Total")}</td>
                       <td className={td}>{data.employeesCovered}</td>
                       <td className={td}>{money(data.employee)}</td>
+                      {anyVpf && <td className={td}>{money(data.vpf)}</td>}
                       <td className={td}>{money(data.employerEpf)}</td>
                       <td className={td}>{money(data.pension)}</td>
-                      <td className={`${td} text-cyan-700 dark:text-cyan-300`}>{money(data.total)}</td>
+                      <td className={td}>{money(data.adminCharges + data.edliCharges)}</td>
+                      <td className={`${td} text-cyan-700 dark:text-cyan-300`}>{money(data.dueToEpfo)}</td>
                       <td />
                       <td className="px-3 py-2 text-[11px] font-normal text-slate-500 dark:text-gray-400">{t("Paid")} {money(data.paid)}</td>
                     </tr>
@@ -270,7 +305,7 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
             </>
           )}
           <div className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500 dark:border-gray-800 dark:text-gray-400">
-            {t("Wage months March to February. Each month's ECR and challan are due by the 15th of the next month; the ECR file is on Statutory Compliances. Open a month to record its challan. EPFO admin and EDLI charges are not included.")}
+            {t("Wage months March to February. Due to EPFO is the contributions plus the employer's charges: EPF administration (0.5% of PF wages, at least ₹500 a month) and EDLI insurance (0.5% of each wage up to ₹15,000). Each month's ECR and challan are due by the 15th of the next month; the ECR file is on Statutory Compliances. Open a month to record its challan.")}
           </div>
         </div>
 
@@ -291,7 +326,7 @@ const CompanyPf: React.FC<{ fy: string; department: string; onLoaded?: (d: Compa
             </div>
             {(() => {
               const m = monthOf(open.month);
-              if (!m || m.total <= 0) return null;
+              if (!m || m.dueToEpfo <= 0) return null;
               return (
                 <div className="border-b border-slate-100 px-4 py-3 dark:border-gray-800">
                   <div className="flex items-center justify-between gap-2">

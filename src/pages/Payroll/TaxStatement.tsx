@@ -239,6 +239,10 @@ const TaxStatement: React.FC<{ employeeId: string; fy: string }> = ({ employeeId
             <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("tax", employeeId, data.financialYear)}>
               <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("PDF")}
             </button>
+            <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("form16", employeeId, data.financialYear)}
+              title={t("Form 16: Part A (tax deducted and deposited) and Part B (salary and tax), from the year's payroll")}>
+              <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("Form 16")}
+            </button>
           </span>
         </div>
         <Step index="1" label={t("Salary income for the year")} value={money(data.projectedIncome)} detail={

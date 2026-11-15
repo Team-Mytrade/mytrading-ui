@@ -286,6 +286,8 @@ const AddEmployeePage: React.FC = () => {
     taxRegime: "New Regime",
     esiApplicable: false,
     metroCity: false,
+    // Voluntary PF above the 12%, as a % of basic (blank: none)
+    vpfPercent: "",
     panNumber: "",
     aadhaarNumber: "",
     pfNumber: "",
@@ -552,12 +554,15 @@ const AddEmployeePage: React.FC = () => {
         employeeData.uan = employeeData.salary.countrySpecificData.uan || "";
         employeeData.esiApplicable = !!employeeData.salary.countrySpecificData.esi_applicable;
         employeeData.metroCity = !!employeeData.salary.countrySpecificData.isMetrocity;
+        employeeData.vpfPercent = employeeData.salary.countrySpecificData.vpf_percent != null
+          ? String(employeeData.salary.countrySpecificData.vpf_percent) : "";
         employeeData.taxRegime = employeeData.salary.countrySpecificData.taxRegime === "NEW" ? "New Regime" : "Old Regime";
       } else {
         employeeData.pfNumber = "";
         employeeData.uan = "";
         employeeData.esiApplicable = false;
         employeeData.metroCity = false;
+        employeeData.vpfPercent = "";
         employeeData.taxRegime = "New Regime";
       }
 
@@ -926,6 +931,7 @@ const AddEmployeePage: React.FC = () => {
           uan: form.uan,
           esi_applicable: form.esiApplicable,
           isMetrocity: form.metroCity,
+          ...(form.vpfPercent !== "" && Number(form.vpfPercent) > 0 ? { vpf_percent: Number(form.vpfPercent) } : {}),
           taxRegime: form.taxRegime === "New Regime" ? "NEW" : "OLD"
         } : {},
         earnings: earningsObject,
@@ -2028,6 +2034,20 @@ const AddEmployeePage: React.FC = () => {
                             <div className="text-xs text-gray-500">{t("Applicable for HRA calculations")}</div>
                           </div>
                         </label>
+                      </div>
+                      <div className="max-w-xs">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("Voluntary PF (% of basic)")}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          value={form.vpfPercent}
+                          onChange={(e) => handleChange("vpfPercent", e.target.value)}
+                          placeholder={t("None")}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">{t("Deducted on top of the 12% PF and paid into the employee's PF account; the employer adds nothing to it. Counts under 80C in the old regime.")}</p>
                       </div>
                       <p className="text-xs text-gray-500">
                         {t("Professional tax is deducted by the state in the current address")}

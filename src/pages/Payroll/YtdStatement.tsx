@@ -8,7 +8,7 @@ import { CARD, CARD_TITLE, TOOL_BUTTON } from "./hrmsUi";
 import { money, monthLabel } from "./taxTracker";
 import { downloadStatementPdf } from "./statementPdf";
 
-type MonthStatus = "PAID" | "OLD_SYSTEM" | "AWAITING_APPROVAL" | "NOT_PAID";
+type MonthStatus = "PAID" | "OLD_SYSTEM" | "AWAITING_APPROVAL" | "NOT_PAID" | "FORECAST";
 
 interface Line {
   name: string;
@@ -65,18 +65,20 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ EMPLOYER: true });
+  // The months not paid yet, as payroll would pay them at today's salary
+  const [forecast, setForecast] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    axios.get<YtdStatementData>(`${API}/${employeeId}`, { params: fy ? { fy } : {} })
+    axios.get<YtdStatementData>(`${API}/${employeeId}`, { params: { ...(fy ? { fy } : {}), forecast } })
       .then((res) => setData(res.data && Array.isArray(res.data.months) ? res.data : null))
       .catch((err) => {
         setData(null);
         setError(apiError(err, "The YTD statement could not be loaded"));
       })
       .finally(() => setLoading(false));
-  }, [employeeId, fy]);
+  }, [employeeId, fy, forecast]);
 
   const download = async () => {
     try {
@@ -105,8 +107,44 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
 
   const cell = (line: Line, m: StatementMonth) => {
     const v = line.months?.[m.month];
-    if (!paidLike(m.status)) return <span className="text-slate-300 dark:text-gray-600">—</span>;
-    return v == null ? <span className="text-slate-300 dark:text-gray-600">—</span> : money(v);
+    if (!paidLike(m.status) && m.status !== "FORECAST") return <span className="text-slate-300 dark:text-gray-600">—</span>;
+    if (v == null) return <span className="text-slate-300 dark:text-gray-600">—</span>;
+    return m.status === "FORECAST" ? <span className="italic text-orange-600 dark:text-orange-400">{money(v)}</span> : money(v);
+  };
+  // On a phone: one card per month (paid, from the old system or forecast) with its lines
+  const cardMonths = shown.filter((m) => m.status !== "NOT_PAID");
+  const monthCard = (m: StatementMonth) => {
+    const groups = data.groups.filter((g) => g.lines.some((l) => l.months?.[m.month] != null));
+    const forecastMonth = m.status === "FORECAST";
+    return (
+      <div key={m.month} className={`rounded-lg border p-3 ${forecastMonth ? "border-dashed border-orange-300 dark:border-orange-900" : "border-slate-200 dark:border-gray-700"}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">{monthLabel(m.month)}</span>
+          <span className="flex gap-1 text-[10px] font-medium">
+            {forecastMonth && <span className="rounded bg-orange-50 px-1 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">{t("Forecast")}</span>}
+            {m.status === "OLD_SYSTEM" && <span className="rounded bg-slate-100 px-1 text-slate-600 dark:bg-gray-800 dark:text-gray-300">{t("Old system")}</span>}
+            {m.status === "AWAITING_APPROVAL" && <span className="rounded bg-amber-50 px-1 text-amber-700">{t("Awaiting approval")}</span>}
+          </span>
+        </div>
+        <div className={`mt-1 text-lg font-semibold tabular-nums ${forecastMonth ? "italic text-orange-600 dark:text-orange-400" : "text-cyan-700 dark:text-cyan-300"}`}>
+          {data.netPay.months?.[m.month] == null ? "—" : money(data.netPay.months[m.month])}
+          <span className="ml-1 text-[11px] font-normal not-italic text-slate-500 dark:text-gray-400">{t("net pay")}</span>
+        </div>
+        {groups.map((g) => (
+          <div key={g.key} className="mt-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t(g.title)}</div>
+            {g.lines.filter((l) => l.months?.[m.month] != null).map((l) => (
+              <div key={l.name} className="flex justify-between text-xs text-slate-600 dark:text-gray-300">
+                <span>{l.name}</span><span className="tabular-nums">{money(l.months[m.month])}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        {paidLike(m.status) && onOpenPayslip && (
+          <button type="button" className="mt-2 text-xs font-medium text-cyan-700 hover:underline dark:text-cyan-300" onClick={() => onOpenPayslip(m.month)}>{t("Open the payslip")}</button>
+        )}
+      </div>
+    );
   };
   const laterLabel = later.length === 0 ? null
     : later.length === 1 ? monthLabel(later[0].month, true)
@@ -140,7 +178,13 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
       <div className={`${CARD} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-gray-800">
           <div className={CARD_TITLE}>{t("YTD statement")} · FY {data.financialYear}</div>
-          <span className="flex gap-2"><button type="button" className={TOOL_BUTTON} onClick={download}>
+          <span className="flex flex-wrap items-center gap-2">
+          <label className="mr-1 inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-600 dark:text-gray-300"
+            title={t("Fill the months not paid yet as payroll would pay them at today's salary")}>
+            <input type="checkbox" checked={forecast} onChange={(e) => setForecast(e.target.checked)} />
+            {t("Show forecast")}
+          </label>
+          <button type="button" className={TOOL_BUTTON} onClick={download}>
             <ArrowDownTrayIcon className="h-3.5 w-3.5" />{t("Excel")}
           </button>
           <button type="button" className={TOOL_BUTTON} onClick={() => downloadStatementPdf("ytd", employeeId, data.financialYear)}>
@@ -150,7 +194,9 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
         {data.monthsPaid === 0 && shown.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">{t("No salary paid in this financial year yet.")}</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-2 p-3 sm:hidden">{cardMonths.map(monthCard)}</div>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="min-w-full text-xs">
               <thead className="bg-slate-50 dark:bg-[#222]">
                 <tr>
@@ -163,6 +209,7 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
                           title={t("Open the payslip")}>{monthLabel(m.month, true)}</button>
                       ) : monthLabel(m.month, true)}
                       <div className="mt-0.5 flex justify-end gap-1 text-[10px] font-medium">
+                        {m.status === "FORECAST" && <span className="rounded bg-orange-50 px-1 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">{t("Forecast")}</span>}
                         {m.status === "OLD_SYSTEM" && <span className="rounded bg-slate-100 px-1 text-slate-600 dark:bg-gray-800 dark:text-gray-300">{t("Old system")}</span>}
                         {m.status === "AWAITING_APPROVAL" && <span className="rounded bg-amber-50 px-1 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{t("Awaiting approval")}</span>}
                         {m.lossOfPayDays > 0 && <span className="rounded bg-red-50 px-1 text-red-700 dark:bg-red-950/40 dark:text-red-300">LOP {m.lossOfPayDays}</span>}
@@ -193,9 +240,11 @@ const YtdStatement: React.FC<{ employeeId: string; fy: string; onOpenPayslip?: (
               </tbody>
             </table>
           </div>
+          </>
         )}
         <div className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500 dark:border-gray-800 dark:text-gray-400">
           {t("From processed payslips, months brought in from the old system included; a run waiting for approval shows once approved.")}
+          {forecast && ` ${t("Forecast months (orange, in italics) are worked out at today's salary and are in the totals column; the cards above are what was paid.")}`}
           {onOpenPayslip && ` ${t("Click a month to open its payslip.")}`}
         </div>
       </div>

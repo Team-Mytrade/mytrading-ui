@@ -82,6 +82,30 @@ const IndiaPfSettingsCard: React.FC<{ canUpdate: boolean }> = ({ canUpdate }) =>
             {t("The limit is also the EPS (pension) ceiling: EPS is 8.33% of the basic up to it.")}
           </p>
         </div>
+
+        <div>
+          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("Employer's charges to EPFO")}</div>
+          <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {([
+              ["adminChargePercent", "Admin charges (% of PF wages)", 0.01],
+              ["adminChargeMinimum", "Admin charges, monthly minimum (₹)", 1],
+              ["edliPercent", "EDLI (% of wage up to the limit)", 0.01],
+            ] as const).map(([key, label, step]) => (
+              <label key={key} className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400">
+                {t(label)}
+                <input type="number" min={0} step={step} defaultValue={settings[key]} disabled={disabled} key={`${key}-${settings[key]}`}
+                  onBlur={(e) => {
+                    const value = Number(e.target.value);
+                    if (e.target.value !== "" && !Number.isNaN(value) && value !== settings[key]) save({ [key]: value } as Partial<PfSettings>);
+                  }}
+                  className="w-full rounded border border-gray-300 dark:border-gray-700 bg-transparent px-2 py-1 text-sm" />
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t("Added to each month's PF due to EPFO (Payroll → Statements → PF). The statutory rates are 0.5% with a ₹500 minimum, and 0.5% EDLI.")}
+          </p>
+        </div>
       </div>
     </div>
   );

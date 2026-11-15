@@ -6,14 +6,24 @@ export interface PfSettings {
   employerPfInCtc: boolean;
   pfWageCapped: boolean;
   pfWageLimit: number;
+  // The employer's charges to EPFO, as percentages (0.5 = 0.5%), and the admin charges' monthly minimum
+  adminChargePercent: number;
+  adminChargeMinimum: number;
+  edliPercent: number;
 }
 
-export const DEFAULT_PF_SETTINGS: PfSettings = { employerPfInCtc: true, pfWageCapped: false, pfWageLimit: 15000 };
+export const DEFAULT_PF_SETTINGS: PfSettings = { employerPfInCtc: true, pfWageCapped: false, pfWageLimit: 15000, adminChargePercent: 0.5, adminChargeMinimum: 500, edliPercent: 0.5 };
 
-export const toPfSettings = (data: { employerPfInCtc?: unknown; pfWageCapped?: unknown; pfWageLimit?: unknown } | null | undefined): PfSettings => ({
+const num = (v: unknown, fallback: number) => (v == null || v === "" || Number.isNaN(Number(v)) ? fallback : Number(v));
+
+export const toPfSettings = (data: { employerPfInCtc?: unknown; pfWageCapped?: unknown; pfWageLimit?: unknown; adminChargePercent?: unknown;
+  adminChargeMinimum?: unknown; edliPercent?: unknown } | null | undefined): PfSettings => ({
   employerPfInCtc: data?.employerPfInCtc !== false,
   pfWageCapped: !!data?.pfWageCapped,
   pfWageLimit: Number(data?.pfWageLimit) > 0 ? Number(data?.pfWageLimit) : 15000,
+  adminChargePercent: num(data?.adminChargePercent, 0.5),
+  adminChargeMinimum: num(data?.adminChargeMinimum, 500),
+  edliPercent: num(data?.edliPercent, 0.5),
 });
 
 /** Yearly employer PF on a yearly basic: 12% of the monthly basic (at most the wage limit when capped), × 12. */
