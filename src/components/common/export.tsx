@@ -610,9 +610,9 @@ export function ListingPdfExportButton<T extends object>({
       </button>
 
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-            <div className="flex items-start justify-between border-b border-gray-100 p-5">
+        <div data-overlay data-overlay-dim className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div data-overlay-panel className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+            <div data-overlay-header className="flex items-start justify-between border-b border-gray-100 p-5">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Export {title} PDF</h3>
                 <p className="mt-1 text-xs text-gray-500">

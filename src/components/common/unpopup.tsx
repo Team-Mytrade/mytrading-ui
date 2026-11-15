@@ -107,12 +107,12 @@ const PaginatedPopup: React.FC<PaginatedPopupProps> = ({
   };
 
   return createPortal(
-    <div className="sales-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/45 p-3 backdrop-blur-[3px] sm:items-center">
-      <div
+    <div data-overlay data-overlay-dim className="sales-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/45 p-3 backdrop-blur-[3px] sm:items-center">
+      <div data-overlay-panel
         className={`mx-auto my-3 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:my-6 sm:max-h-[calc(100dvh-3rem)] dark:bg-gray-900 dark:ring-gray-700 ${maxWidthClassName}`}
       >
         {/* Same header as the side drawers: a soft brand tint and a short bar before the title */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-cyan-50 via-white to-white px-4 py-3 sm:px-5 sm:py-4 dark:border-gray-800 dark:from-cyan-950/30 dark:via-gray-900 dark:to-gray-900">
+        <div data-overlay-header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-cyan-50 via-white to-white px-4 py-3 sm:px-5 sm:py-4 dark:border-gray-800 dark:from-cyan-950/30 dark:via-gray-900 dark:to-gray-900">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2.5 text-base font-semibold text-gray-900 dark:text-gray-100">
               <span className="h-5 w-1 shrink-0 rounded-full bg-cyan-500" />

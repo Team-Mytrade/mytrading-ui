@@ -1,58 +1,138 @@
 /*
- * overlay.css: one look for the popups and drawers pages build themselves, matching the shared drawer
- * (Dragger.css) and form popup (unpopup.tsx). Pages mark their overlay's parts with data attributes:
+ * overlay.css: one look for every popup, matching the shared drawer (Dragger.css) and form popup (unpopup.tsx).
+ * Popups mark their parts with data attributes:
  *
  *   data-overlay         the fixed full-screen root
  *   data-overlay-dim     the element that darkens the page (the root, or a separate backdrop)
  *   data-overlay-panel   the box holding the content
  *   data-overlay-header  the panel's title row
  *
- * Only colours, corners, shadows and scrolling change here; the pages' own layout and sizes stay.
+ * The look: a light, airy page behind (soft dim + blur), a white panel with a pale cyan wash at the top, a thin
+ * cyan-to-teal accent line, a soft coloured shadow and a short "pop" when it opens. Only colours, corners, shadows,
+ * motion and scrolling change here; the pages' own layout and sizes stay.
  */
 
-/* ---------- Backdrop: the same soft dim and blur everywhere ---------- */
+:root {
+  --overlay-accent: linear-gradient(90deg, #22d3ee 0%, #38bdf8 50%, #2dd4bf 100%);
+  --overlay-wash: #ecfbfe;
+  --overlay-body: #fafcfe;
+  --overlay-line: #dcebf2;
+}
+
+/* ---------- Backdrop: a light veil with a hint of the brand colour, the page still visible behind ---------- */
 [data-overlay-dim] {
-  background-color: rgb(15 23 42 / .45) !important;
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background-color: rgb(15 23 42 / .30) !important;
+  background-image: radial-gradient(1200px 600px at 50% 0%, rgb(34 211 238 / .10), transparent 70%) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(115%);
+  backdrop-filter: blur(6px) saturate(115%);
+  animation: overlay-dim-in .18s ease-out both;
 }
 
 /* ---------- Fit: a popup taller than the screen scrolls instead of being cut off at the top ---------- */
 [data-overlay] { overflow-y: auto; overscroll-behavior: contain; }
 [data-overlay][class*="items-center"] { align-items: safe center; }
 
-/* ---------- Panel: rounded, lifted, and a light tint so white fields and cards stand out ---------- */
+/* ---------- Panel: white with a pale wash at the top, an accent line, rounded and softly lifted ---------- */
 [data-overlay-panel] {
-  border: 1px solid #e5eaf1 !important;
-  border-radius: 16px !important;
-  background-color: #f8fafc !important;
-  box-shadow: 0 24px 52px rgb(15 23 42 / .26), 0 2px 6px rgb(15 23 42 / .06) !important;
+  border: 1px solid var(--overlay-line) !important;
+  border-radius: 18px !important;
+  background-color: var(--overlay-body) !important;
+  background-image:
+    var(--overlay-accent),
+    linear-gradient(180deg, var(--overlay-wash) 0px, var(--overlay-body) 150px) !important;
+  background-size: 100% 3px, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow:
+    0 32px 64px -16px rgb(8 145 178 / .28),
+    0 14px 28px -10px rgb(15 23 42 / .16),
+    0 0 0 1px rgb(255 255 255 / .6) inset !important;
+  /* backwards: once open, a panel's own transform (if any) applies again */
+  animation: overlay-pop .22s cubic-bezier(.2, .9, .25, 1.05) backwards;
+  scrollbar-width: thin;
+  scrollbar-color: #bfdbe6 transparent;
 }
-/* Inputs and selects inside stay white on the tint */
+[data-overlay-panel]::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-overlay-panel]::-webkit-scrollbar-thumb { background: #cbe3ec; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+
+/* Inputs and selects inside stay white, with a soft cyan focus ring */
 [data-overlay-panel] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):not(:disabled) {
   background-color: #fff;
 }
+[data-overlay-panel] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):not(:disabled):focus {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgb(34 211 238 / .18);
+  outline: none;
+}
 
-/* ---------- Header: a soft brand tint when the row reaches the panel's edges (it has its own side padding)
+/* ---------- Header: a soft brand wash when the row reaches the panel's edges (it has its own side padding)
    and has no colour of its own (a cyan header with white text keeps its look) ---------- */
 [data-overlay-header]:is([class*="px-"], [class^="p-"], [class*=" p-"]):not([class*="bg-"]) {
-  background: linear-gradient(120deg, rgb(var(--brand-50, 236 254 255)) 0%, #ffffff 70%);
-  border-bottom-color: #e2e8f0 !important;
+  background: linear-gradient(120deg, #e3f8fd 0%, #f4fcfe 45%, #ffffff 100%);
+  border-bottom-color: var(--overlay-line) !important;
 }
-/* The first row sits under the panel's rounded top corners */
-[data-overlay-panel] > [data-overlay-header]:first-child { border-top-left-radius: 15px; border-top-right-radius: 15px; }
+/* The first row sits under the panel's rounded top corners and carries the accent line */
+[data-overlay-panel] > [data-overlay-header]:first-child {
+  border-top-left-radius: 17px;
+  border-top-right-radius: 17px;
+}
+[data-overlay-panel] > [data-overlay-header]:first-child:is([class*="px-"], [class^="p-"], [class*=" p-"]):not([class*="bg-"]) {
+  background: var(--overlay-accent) top / 100% 3px no-repeat, linear-gradient(120deg, #e3f8fd 0%, #f4fcfe 45%, #ffffff 100%);
+}
+/* A first row with a colour of its own still shows the accent line along the top */
+[data-overlay-panel] > [data-overlay-header]:first-child[class*="bg-"] { box-shadow: inset 0 3px 0 #22d3ee; }
+/* Close buttons in the header: a round, gentle hover */
+[data-overlay-header] button:is([aria-label*="lose"], [aria-label="Close"]):hover {
+  background-color: rgb(34 211 238 / .12);
+  color: #0e7490;
+  border-radius: 9999px;
+}
+
+/* ---------- Footer: the last row with a top border gets a frosted strip ---------- */
+[data-overlay-panel] > :last-child[class*="border-t"]:not([class*="bg-"]) {
+  background-color: rgb(255 255 255 / .75);
+  border-top-color: var(--overlay-line) !important;
+  border-bottom-left-radius: 17px;
+  border-bottom-right-radius: 17px;
+}
+
+/* ---------- Motion ---------- */
+@keyframes overlay-pop {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes overlay-dim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* Panels that animate themselves (framer-motion) keep their own motion */
+[data-overlay-panel][data-overlay-still] { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  [data-overlay-panel], [data-overlay-dim] { animation: none; }
+}
 
 /* ---------- Dark mode ---------- */
-.dark [data-overlay-dim] { background-color: rgb(2 6 23 / .6) !important; }
-.dark [data-overlay-panel] {
-  border-color: #1e293b !important;
-  background-color: #0f172a !important;
-  box-shadow: 0 24px 52px rgb(0 0 0 / .5) !important;
+.dark {
+  --overlay-wash: #10232b;
+  --overlay-body: #161b22;
+  --overlay-line: #26323d;
 }
+.dark [data-overlay-dim] {
+  background-color: rgb(2 6 23 / .62) !important;
+  background-image: radial-gradient(1200px 600px at 50% 0%, rgb(34 211 238 / .08), transparent 70%) !important;
+}
+.dark [data-overlay-panel] {
+  box-shadow: 0 32px 64px -16px rgb(0 0 0 / .65), 0 0 0 1px rgb(255 255 255 / .03) inset !important;
+  scrollbar-color: #334155 transparent;
+}
+.dark [data-overlay-panel]::-webkit-scrollbar-thumb { background: #334155; background-clip: padding-box; }
 .dark [data-overlay-panel] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):not(:disabled) {
-  background-color: #111827;
+  background-color: #0d1117;
 }
 .dark [data-overlay-header]:is([class*="px-"], [class^="p-"], [class*=" p-"]):not([class*="bg-"]) {
-  background: linear-gradient(120deg, rgb(var(--brand-600, 8 145 178) / .14) 0%, #0f172a 70%);
-  border-bottom-color: #1e293b !important;
+  background: linear-gradient(120deg, rgb(8 145 178 / .20) 0%, #161b22 70%);
 }
+.dark [data-overlay-panel] > [data-overlay-header]:first-child:is([class*="px-"], [class^="p-"], [class*=" p-"]):not([class*="bg-"]) {
+  background: var(--overlay-accent) top / 100% 3px no-repeat, linear-gradient(120deg, rgb(8 145 178 / .20) 0%, #161b22 70%);
+}
+.dark [data-overlay-header] button:is([aria-label*="lose"], [aria-label="Close"]):hover { color: #67e8f9; }
+.dark [data-overlay-panel] > :last-child[class*="border-t"]:not([class*="bg-"]) { background-color: rgb(13 17 23 / .6); }

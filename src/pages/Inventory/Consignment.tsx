@@ -243,8 +243,8 @@ function ActionDialog({ action, busy, customers, vendors, products, product, own
     }
   };
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t(title[action.kind], { party: site?.partyName ?? "" })}>
-      <div className={`${CARD} w-full max-w-md space-y-3 p-4`}>
+    <div data-overlay data-overlay-dim className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t(title[action.kind], { party: site?.partyName ?? "" })}>
+      <div data-overlay-panel className={`${CARD} w-full max-w-md space-y-3 p-4`}>
         <h2 className={CARD_TITLE}>{t(title[action.kind], { party: site?.partyName ?? "" })}</h2>
         {action.kind === "site" ? (
           <>

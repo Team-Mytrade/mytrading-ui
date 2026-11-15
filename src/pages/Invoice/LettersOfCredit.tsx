@@ -597,8 +597,8 @@ function ActionDialog({ action, busy, onCancel, onSubmit }: {
 
   const title = kind === "pay" ? "Record a payment under LC {number}" : kind === "amend" ? "Amend LC {number}" : "Close LC {number}";
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t(title, { number: lc.lcNumber })}>
-      <div className={`${CARD} max-h-[90vh] w-full max-w-2xl space-y-3 overflow-y-auto p-4`}>
+    <div data-overlay data-overlay-dim className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t(title, { number: lc.lcNumber })}>
+      <div data-overlay-panel className={`${CARD} max-h-[90vh] w-full max-w-2xl space-y-3 overflow-y-auto p-4`}>
         <h2 className={CARD_TITLE}>{t(title, { number: lc.lcNumber })}</h2>
         {kind === "pay" && (
           <>

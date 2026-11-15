@@ -99,19 +99,19 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            data-overlay className="fixed inset-0 z-[9999] flex items-center justify-center"
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-dialog-title"
         >
             {/* Backdrop */}
-            <div
+            <div data-overlay-dim
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm"
                 onClick={onCancel}
             />
 
             {/* Dialog Panel */}
-            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-fade-in">
+            <div data-overlay-panel className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-fade-in">
                 {/* Close button */}
                 <button
                     onClick={onCancel}

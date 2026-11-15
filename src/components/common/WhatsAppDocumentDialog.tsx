@@ -66,10 +66,10 @@ export default function WhatsAppDocumentDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-      <div role="dialog" aria-labelledby="wa-doc-title"
+    <div data-overlay data-overlay-dim className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+      <div data-overlay-panel role="dialog" aria-labelledby="wa-doc-title"
         className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-transparent dark:bg-[#191919]">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-gray-800">
+        <div data-overlay-header className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><ChatBubbleLeftRightIcon className="h-4 w-4" /></span>
             <div>

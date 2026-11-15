@@ -67,16 +67,16 @@ const DynamicPopup: React.FC<DynamicPopupProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      data-overlay className="fixed inset-0 z-[9999] flex items-center justify-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="dynamic-popup-title"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
+      <div data-overlay-dim className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
 
       {/* Panel */}
-      <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl animate-fade-in dark:bg-gray-900 dark:ring-1 dark:ring-gray-700">
+      <div data-overlay-panel className="relative mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl animate-fade-in dark:bg-gray-900 dark:ring-1 dark:ring-gray-700">
         {/* Close ✕ */}
         <CloseButton onClick={handleCancel} className="absolute right-3 top-3" />
 
