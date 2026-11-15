@@ -295,8 +295,8 @@ export default function BinsPutaway() {
       </div>
 
       {move && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t(move.fromBinId == null ? "Put away" : "Move stock")}>
-          <div className={`${CARD} w-full max-w-md space-y-3 p-4`}>
+        <div data-overlay data-overlay-dim className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t(move.fromBinId == null ? "Put away" : "Move stock")}>
+          <div data-overlay-panel className={`${CARD} w-full max-w-md space-y-3 p-4`}>
             <h2 className={CARD_TITLE}>{t(move.fromBinId == null ? "Put away" : "Move stock")}: {product(move.productId)}</h2>
             <p className="text-xs text-slate-500">{move.fromBinId == null ? t("{count} unassigned", { count: move.max })
               : t("{count} in bin {bin}", { count: move.max, bin: bins?.find((b) => b.id === move.fromBinId)?.code ?? "" })}</p>

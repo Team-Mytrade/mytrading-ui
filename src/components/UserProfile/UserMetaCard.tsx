@@ -155,8 +155,8 @@ const CropModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-sm">
-            <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-xl shadow-2xl overflow-hidden">
+        <div data-overlay data-overlay-dim className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-sm">
+            <div data-overlay-panel className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-xl shadow-2xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-gray-800 dark:to-gray-800">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">

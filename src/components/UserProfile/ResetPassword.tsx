@@ -460,15 +460,15 @@ export default function ResetPasswordCard() {
         <>
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40 backdrop-blur-sm"
+            data-overlay-dim className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40 backdrop-blur-sm"
             onClick={handleClose}
           />
           
           {/* Modal - Centered properly */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg transform transition-all">
+          <div data-overlay className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div data-overlay-panel className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg transform transition-all">
               {/* Modal Header */}
-              <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div data-overlay-header className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                 <h4 className="text-xl font-semibold text-gray-900 dark:text-white/90">
                   Reset Your Password
                 </h4>

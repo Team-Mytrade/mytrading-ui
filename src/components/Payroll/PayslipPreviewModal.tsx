@@ -45,9 +45,9 @@ const PayslipPreviewModal: React.FC<PayslipPreviewModalProps> = ({
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4"
+            <div data-overlay data-overlay-dim className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4"
                 onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-                <motion.div
+                <motion.div data-overlay-panel data-overlay-still
                     role="dialog"
                     aria-modal="true"
                     aria-label={`Payslip for ${month}`}

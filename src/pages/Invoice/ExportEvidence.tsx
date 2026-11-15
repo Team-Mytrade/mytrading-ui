@@ -160,8 +160,8 @@ export default function ExportEvidence() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t("Proof of exit for {number}", { number: editing.invoiceNumber })}>
-          <div className={`${CARD} w-full max-w-md space-y-3 p-4`}>
+        <div data-overlay data-overlay-dim className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t("Proof of exit for {number}", { number: editing.invoiceNumber })}>
+          <div data-overlay-panel className={`${CARD} w-full max-w-md space-y-3 p-4`}>
             <h2 className={CARD_TITLE}>{t("Proof of exit for {number}", { number: editing.invoiceNumber })}</h2>
             <div>
               <label className={LABEL} htmlFor="ee-type">{t("Document")}</label>

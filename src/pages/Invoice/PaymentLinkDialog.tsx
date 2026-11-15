@@ -86,9 +86,9 @@ export default function PaymentLinkDialog({ invoiceId, invoiceNumber, canCancel,
   const tone = (status: string) => `inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[status] ?? "bg-slate-100 text-slate-600"}`;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-      <div role="dialog" aria-labelledby="pay-link-title" className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-transparent dark:bg-[#191919]">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-gray-800">
+    <div data-overlay data-overlay-dim className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+      <div data-overlay-panel role="dialog" aria-labelledby="pay-link-title" className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-transparent dark:bg-[#191919]">
+        <div data-overlay-header className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-cyan-50 text-cyan-600"><CreditCardIcon className="h-4 w-4" /></span>
             <div>
