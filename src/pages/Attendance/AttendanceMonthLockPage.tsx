@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Lock, LockOpen, RefreshCw } from "lucide-react";
+import { Download, Lock, LockOpen, RefreshCw } from "lucide-react";
+import * as XLSX from "xlsx";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { ToasterService } from "../../Services/ToasterService";
@@ -21,6 +22,69 @@ interface LockView {
   // Payroll was run on this month's attendance (both modules): it stays locked until payroll rolls the month back
   payrollReference?: string | null; payrollProcessedAt?: string | null;
 }
+
+// A locked month's figures for a payroll run in another system (GET month-locks/{month}/payroll-export)
+interface ExportRow {
+  employeeId: number; employeeCode?: string | null; employeeName: string; designation?: string | null;
+  joiningDate?: string | null; exitDate?: string | null; calendarDays: number; workingDays: number; holidays: number;
+  weeklyOffs: number; presentDays: number; paidLeaveDays: number; unpaidLeaveDays: number; absentDays: number;
+  lossOfPayDays: number; paidDays: number; leaveDays: Record<string, number>; overtimeHours: number; lateCount: number;
+  lateMinutes: number; encashmentDays: number;
+}
+
+interface PayrollExport {
+  month: string; monthDays: number; lockedBy?: string | null; lockedAt?: string | null; payrollReference?: string | null;
+  countedFrom?: string | null; leaveTypes: { code: string; name: string; paid: boolean }[]; rows: ExportRow[];
+}
+
+const exportSheet = (data: PayrollExport) => {
+  const rows = data.rows.map((r) => {
+    const row: Record<string, string | number> = {
+      "Employee code": r.employeeCode ?? "",
+      "Employee name": r.employeeName,
+      Designation: r.designation ?? "",
+      "Joining date": r.joiningDate ?? "",
+      "Exit date": r.exitDate ?? "",
+      "Days in month (employed)": r.calendarDays,
+      "Working days": r.workingDays,
+      Holidays: r.holidays,
+      "Weekly offs": r.weeklyOffs,
+      "Present days": r.presentDays,
+      "Paid leave days": r.paidLeaveDays,
+    };
+    data.leaveTypes.forEach((lt) => {
+      row[`${lt.name} (${lt.paid ? "paid" : "unpaid"})`] = r.leaveDays?.[lt.code] ?? 0;
+    });
+    Object.assign(row, {
+      "Unpaid leave days": r.unpaidLeaveDays,
+      "Absent days": r.absentDays,
+      "Loss of pay days": r.lossOfPayDays,
+      "Paid days": r.paidDays,
+      "Overtime hours": r.overtimeHours,
+      "Late arrivals": r.lateCount,
+      "Late minutes": r.lateMinutes,
+      "Leave encashment days": r.encashmentDays,
+    });
+    return row;
+  });
+  const about = [
+    ["Attendance payroll export", data.month],
+    ["Locked by", `${data.lockedBy || "—"} · ${when(data.lockedAt)}`],
+    ...(data.payrollReference ? [["Paid in MyTrade payroll", data.payrollReference]] : []),
+    ...(data.countedFrom ? [["Counted from", `${data.countedFrom} (the first attendance day; earlier days are not absences)`]] : []),
+    [],
+    ["Paid days", "Days in month (employed) − Loss of pay days"],
+    ["Loss of pay days", "Absent days + Unpaid leave days (half days count 0.5)"],
+    ["Absent days", "Working days with no attendance, or marked absent (half for a half day)"],
+    ["Working days", "Days in employment less holidays and weekly offs; Present + Absent + leave days = Working days"],
+    ["Leave encashment days", "Days the year-end leave close marked for encashment during this month"],
+    ["Overtime hours", "Overtime recorded on the month's attendance days"],
+  ];
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(rows), "Attendance");
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(about), "About");
+  XLSX.writeFile(book, `Attendance_Payroll_Export_${data.month}.xlsx`);
+};
 
 const card = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-transparent dark:bg-[#191919]";
 const when = (iso?: string | null) => (iso ? iso.replace("T", " ").slice(0, 16) : "—");
@@ -78,6 +142,23 @@ const AttendanceMonthLockPage: React.FC = () => {
       await load();
     } catch (err) {
       ToasterService.error(apiError(err, "The month was not unlocked."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadExport = async (m: string) => {
+    setBusy(true);
+    try {
+      const { data } = await axios.get<PayrollExport>(`${API}/${m}/payroll-export`);
+      if (!data.rows?.length) {
+        ToasterService.warning(`No employees on the roll in ${m}`);
+        return;
+      }
+      exportSheet(data);
+      ToasterService.success(`Payroll export for ${m} downloaded`, `${data.rows.length} employee(s)`);
+    } catch (err) {
+      ToasterService.error(apiError(err, "The payroll export could not be made."));
     } finally {
       setBusy(false);
     }
@@ -156,11 +237,18 @@ const AttendanceMonthLockPage: React.FC = () => {
                     <td>{l.status === "LOCKED" ? `${l.lockedBy || "—"} · ${when(l.lockedAt)}` : `${l.unlockedBy || "—"} · ${when(l.unlockedAt)}`}</td>
                     <td className="text-right">
                       {l.status === "LOCKED" && (
-                        <button type="button" disabled={busy || !!l.payrollProcessedAt} onClick={() => unlock(l.month)}
-                          title={l.payrollProcessedAt ? t("Roll the month's payroll back first") : undefined}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                          <LockOpen className="h-3 w-3" /> {t("Unlock")}
-                        </button>
+                        <div className="inline-flex flex-wrap justify-end gap-1">
+                          <button type="button" disabled={busy} onClick={() => downloadExport(l.month)}
+                            title={t("Excel file of the month's paid days, loss of pay, leave and overtime, for a payroll run elsewhere")}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                            <Download className="h-3 w-3" /> {t("Payroll export")}
+                          </button>
+                          <button type="button" disabled={busy || !!l.payrollProcessedAt} onClick={() => unlock(l.month)}
+                            title={l.payrollProcessedAt ? t("Roll the month's payroll back first") : undefined}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                            <LockOpen className="h-3 w-3" /> {t("Unlock")}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
