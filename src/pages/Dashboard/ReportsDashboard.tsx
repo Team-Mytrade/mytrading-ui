@@ -1,7 +1,7 @@
 import { useContext, useMemo } from "react";
 import axios from "axios";
 import {
-  BarChart3, Boxes, Briefcase, ClipboardList, HandCoins, IndianRupee, Landmark, Percent, ShoppingBag, ShoppingCart,
+  Banknote, BarChart3, Boxes, Briefcase, ClipboardList, HandCoins, IndianRupee, Landmark, Percent, ShoppingBag, ShoppingCart,
   TrendingUp, Users,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -114,7 +114,7 @@ export default function ReportsDashboard() {
           <KpiCard label={t("Purchases")} value={data.orders ? money(purchaseTotal) : "—"}
             hint={data.orders ? t("{count} purchase orders", { count: formatNumber(orders.length) }) : undefined} icon={ShoppingBag} tone="indigo" loading={loading} />
           <KpiCard label={t("Stock Value")} value={data.stock && data.products ? money(stockValue) : "—"}
-            hint={data.stock ? t("{count} record(s) at or below reorder level", { count: formatNumber(lowStock) }) : undefined} icon={IndianRupee} tone="amber" loading={loading} />
+            hint={data.stock ? t("{count} record(s) at or below reorder level", { count: formatNumber(lowStock) }) : undefined} icon={companyCurrency() === "INR" ? IndianRupee : Banknote} tone="amber" loading={loading} />
           <KpiCard label={t("Receivables")} value={finance ? money(finance.outstandingAmount) : "—"}
             hint={finance ? t("{count} overdue invoice(s)", { count: formatNumber(finance.overdueInvoices?.length ?? 0) }) : undefined} icon={HandCoins} tone="red" loading={loading} />
         </>

@@ -11,7 +11,7 @@ import { apiError } from "../../utils/apiError";
 import { todayIso } from "../../utils/localDate";
 import { CARD, CARD_TITLE, PAGE_BODY, TOOL_BUTTON } from "./hrmsUi";
 import { t } from "../../i18n/i18n";
-import { money, monthLabel } from "./taxTracker";
+import { money, monthLabel, shortMoney } from "./taxTracker";
 import DepartmentDonut from "./DepartmentDonut";
 
 interface Amounts {
@@ -50,13 +50,8 @@ interface Report {
   allDepartments: string[];
 }
 
-/** Compact rupees for headline figures: ₹16.8 L, ₹1.2 Cr. */
-const lakhs = (value: number) => {
-  const n = Number(value) || 0;
-  if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
-  if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`;
-  return money(n);
-};
+// Headline figures: ₹16.8 L / ₹1.2 Cr in an Indian company, AED 168K / SAR 1.2M elsewhere
+const lakhs = shortMoney;
 
 const Metric: React.FC<{ label: string; value: string; note: string }> = ({ label, value, note }) => (
   <div className={`${CARD} p-3`}>

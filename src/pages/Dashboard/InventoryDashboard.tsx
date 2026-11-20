@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeftRight, BookmarkCheck, Boxes, Gauge, IndianRupee, Layers, PackageX, ShieldCheck,
+  AlertTriangle, ArrowLeftRight, Banknote, BookmarkCheck, Boxes, Gauge, IndianRupee, Layers, PackageX, ShieldCheck,
   SlidersHorizontal, Warehouse,
 } from "lucide-react";
+import { companyCurrency } from "../../company/format";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   CHART_GRID, CHART_GRID_V, CHART_AXIS, CHART_LEGEND, CHART_HOVER, CHART_COLORS, ChartBox, DashboardLayout, EmptyState, KpiCard, ModuleTiles, Panel, TABLE_CELL, TABLE_HEAD,
@@ -134,7 +135,7 @@ export default function InventoryDashboard() {
       kpis={
         <>
         <KpiCard label={t("Stock Value")} value={data.stock && data.products ? formatMoney(totals.value, null, true) : "—"}
-          hint={totals.unpriced ? t("{count} record(s) have no standard cost", { count: totals.unpriced }) : t("On hand × standard cost")} icon={IndianRupee} tone="emerald" loading={loading} />
+          hint={totals.unpriced ? t("{count} record(s) have no standard cost", { count: totals.unpriced }) : t("On hand × standard cost")} icon={companyCurrency() === "INR" ? IndianRupee : Banknote} tone="emerald" loading={loading} />
         <KpiCard label={t("Units on Hand")} value={data.stock ? formatNumber(totals.onHand) : "—"}
           hint={`${formatNumber(totals.reserved)} reserved · ${formatNumber(totals.products)} products`} icon={Boxes} tone="blue" loading={loading} />
         <KpiCard label={t("Low Stock")} value={data.stock ? formatNumber(lowStock.length) : "—"} hint={t("At or below reorder level")} icon={AlertTriangle} tone="amber" loading={loading} />
