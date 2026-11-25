@@ -301,7 +301,9 @@ export default function CompanySettingsPage() {
               </p>
             )}
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
+            {/* One column: company details, address, contact and regional settings first, then logo, branding,
+                sign-in security and the other company options */}
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-4">
                 <section className={`${CARD} p-4`}>
                   {sectionTitle(Building2, "Company")}
