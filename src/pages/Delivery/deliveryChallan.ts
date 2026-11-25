@@ -49,6 +49,7 @@ export async function printDeliveryChallan(data: ChallanData): Promise<void> {
   const sellerName = company?.legalName || company?.companyName || "My Trading";
   // VAT companies show their TRN, GST companies their GSTIN
   const taxLine = company?.taxRegime === "VAT" && company.taxNumber ? `TRN: ${company.taxNumber}`
+    : company?.taxRegime === "TIN" && company.taxNumber ? `TIN: ${company.taxNumber}`
     : company?.taxRegime !== "NONE" && company?.gstin ? `GSTIN: ${company.gstin}` : "";
 
   const header = () => {

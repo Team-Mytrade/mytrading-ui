@@ -437,14 +437,14 @@ export default function PointOfSale() {
     const company = await loadCompany().catch(() => null);
     const line = (label: string, value: string, strong = false) => `<tr${strong ? ' class="b"' : ""}><td>${escapeHtml(label)}</td><td class="r">${escapeHtml(value)}</td></tr>`;
     const amount = (value: number | null) => formatMoney(value ?? 0, { currency: sale.currencyCode });
-    const taxNumber = company?.taxRegime === "VAT" ? company?.taxNumber : company?.gstin;
+    const taxNumber = company?.taxRegime === "VAT" || company?.taxRegime === "TIN" ? company?.taxNumber : company?.gstin;
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sale.saleNumber)}</title><style>
       body{font:12px monospace;width:72mm;margin:0 auto;padding:4mm}h1{font-size:14px;text-align:center;margin:0}p{margin:2px 0;text-align:center}
       table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:1px 0;vertical-align:top}.r{text-align:right;white-space:nowrap}.b td{font-weight:bold;border-top:1px dashed #000}
       @media print{@page{margin:0;size:80mm auto}}</style></head><body>
       <h1>${escapeHtml(company?.legalName || company?.companyName || "")}</h1>
       <p>${escapeHtml(company ? companyAddressLines(company).join(", ") : "")}</p>
-      ${taxNumber ? `<p>${company?.taxRegime === "VAT" ? "TRN" : "GSTIN"}: ${escapeHtml(taxNumber)}</p>` : ""}
+      ${taxNumber ? `<p>${company?.taxRegime === "VAT" ? "TRN" : company?.taxRegime === "TIN" ? "TIN" : "GSTIN"}: ${escapeHtml(taxNumber)}</p>` : ""}
       <p><b>${company?.taxRegime === "VAT" ? "SIMPLIFIED TAX INVOICE" : "RECEIPT"}</b></p>
       <p>${escapeHtml(sale.invoiceNumber ?? sale.saleNumber)} · ${escapeHtml(formatDateTime(sale.soldAt))}</p>
       <p>${escapeHtml(sale.saleNumber)}${sale.soldBy ? ` · ${escapeHtml(sale.soldBy)}` : ""}</p>

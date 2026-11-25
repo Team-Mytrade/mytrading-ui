@@ -82,7 +82,7 @@ export const stepAvailable = (access: AccessInfo, step: StepDefinition) =>
 const companyComplete = (c: CompanyProfile | null | undefined) => {
   if (!c || !c.updatedDate) return false;
   if (!c.companyName?.trim() || !c.country?.trim() || !c.currency?.trim()) return false;
-  if (c.taxRegime === "VAT") return !!c.taxNumber?.trim();
+  if (c.taxRegime === "VAT" || c.taxRegime === "TIN") return !!c.taxNumber?.trim();
   if (c.taxRegime === "GST") return !!c.gstin?.trim();
   return true;
 };

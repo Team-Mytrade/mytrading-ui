@@ -101,6 +101,11 @@ export interface ReusableTableProps<T extends { id?: number | string }> {
   className?: string;
   align?: "left" | "center" | "right";
   showColumnFiltersInitially?: boolean;
+  /**
+   * The page's own share dialog (e.g. pick several quotations). When set, the toolbar
+   * Share button opens it instead of the generic time-period share.
+   */
+  onShare?: () => void;
 }
 
 type SortOrder = "asc" | "desc";
@@ -615,7 +620,11 @@ export function ReusableTable<T extends { id?: number | string }>({
   className = "",
   align = "left",
   showColumnFiltersInitially = false,
+  onShare,
 }: ReusableTableProps<T>) {
+  // Read from the toolbar listener, which is registered once
+  const onShareRef = useRef(onShare);
+  onShareRef.current = onShare;
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortOrder, setSortOrder] = useState<SortOrder>(defaultSortOrder);
@@ -785,6 +794,18 @@ export function ReusableTable<T extends { id?: number | string }>({
     return () => window.removeEventListener("reusable-table:toggle-columns", toggleColumnPicker);
   }, []);
 
+  // Escape closes the Columns menu (and only the menu, not a dialog or fullscreen behind it)
+  useEffect(() => {
+    if (!showColumnPicker) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setShowColumnPicker(false);
+    };
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => window.removeEventListener("keydown", closeOnEscape, true);
+  }, [showColumnPicker]);
+
   useEffect(() => {
     const toggleColumnFilters = () => setShowColumnFilters((current) => !current);
     window.addEventListener("reusable-table:toggle-column-filters", toggleColumnFilters);
@@ -813,6 +834,10 @@ export function ReusableTable<T extends { id?: number | string }>({
     const openShare = (event: Event) => {
       const source = (event as CustomEvent<{ source?: HTMLElement }>).detail?.source;
       if (source && isAssociatedToolbar(source)) {
+        if (onShareRef.current) {
+          onShareRef.current();
+          return;
+        }
         setExportMode("share");
         setShowExportModal(true);
       }
@@ -876,6 +901,7 @@ export function ReusableTable<T extends { id?: number | string }>({
     ?? (isActionsColumn(column) ? 132
       : /(name|employee|customer|vendor|supplier|description|remarks|reason|email|contact|address|title|subject|product|item|note)/i.test(column.key) ? 190
         : 140);
+  const actionsColumn = visibleColumns.find(isActionsColumn);
   const shownColumns = visibleColumns.filter((column) => !(hidesActions && isActionsColumn(column)));
   const tableMinWidth = Math.max(360, shownColumns.reduce((total, column) => total + columnMinWidth(column), 0));
   const actionsHeaderClass = (column: ColumnDef<T>) =>
@@ -1146,7 +1172,7 @@ export function ReusableTable<T extends { id?: number | string }>({
           {moreColumns.right && (
             <button type="button" onClick={() => scrollColumns(1)} aria-label={t("Show more columns")} title={t("More columns")}
               className="common-data-table__more common-data-table__more--right"
-              style={{ right: !hidesActions && visibleColumns.some(isActionsColumn) ? 132 : 0 }}>
+              style={{ right: !hidesActions && actionsColumn ? columnMinWidth(actionsColumn) : 0 }}>
               <ChevronRightIcon style={{ fontSize: 18 }} />
             </button>
           )}
