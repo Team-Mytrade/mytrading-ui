@@ -14,7 +14,7 @@ import {
 } from "../../utils/indiaValidators";
 import {
   DATE_FORMATS, DEFAULT_REGIONAL, LANGUAGES, NUMBER_LOCALES, WEEK_DAYS, WEEK_STARTS, countries, currencies, currencyDigits,
-  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, vatNumberError, countryLabel } from "../../company/regional";
+  dayLabel, findCountry, formatDateIn, formatMoneyIn, formatTimeIn, presetForCountry, taxRegimeForCountry, timeZones, tinError, vatNumberError, countryLabel } from "../../company/regional";
 import { ADD_BUTTON_COLORS } from "../../components/common/AddButton";
 import { CARD, CARD_TITLE, PAGE_BODY, SECONDARY_BUTTON, TOOL_BUTTON } from "../Payroll/hrmsUi";
 import { formatDate, formatDateTime, formatHijri, liveMonthNames } from "../../company/format";
@@ -63,8 +63,11 @@ const toForm = (p: CompanyProfile): Form => ({
   taxNumber: p.taxNumber ?? "",
   tradeLicenseNumber: p.tradeLicenseNumber ?? "",
   licenseAuthority: p.licenseAuthority ?? "",
+  establishmentCardNumber: p.establishmentCardNumber ?? "",
   brandColor: p.brandColor ?? "",
 });
+
+const isQatar = (country?: string | null) => findCountry(country)?.isoCode === "QA";
 
 const validate = (f: Form): Record<string, string> => {
   const errors: Record<string, string | null> = {};
@@ -76,12 +79,32 @@ const validate = (f: Form): Record<string, string> => {
   }
   // Tax invoices of a VAT-registered company must show its TRN
   if (f.taxRegime === "VAT") errors.taxNumber = vatNumberError(f.taxNumber, f.country);
-  if (f.tradeLicenseNumber?.trim() && !f.licenseAuthority?.trim()) errors.licenseAuthority = "Enter the authority that issued the trade licence";
-  errors.email = validateEmail(f.email);
+  // TIN companies (no VAT, e.g. Qatar) print their tax identification number
+  if (f.taxRegime === "TIN") errors.taxNumber = tinError(f.taxNumber);
+  if (f.tradeLicenseNumber?.trim() && !f.licenseAuthority?.trim()) {
+    errors.licenseAuthority = isQatar(f.country) ? "Enter the authority that issued the CR" : "Enter the authority that issued the trade licence";
+  }
+  // Registered address, phone, email and the regional settings are required: they go on every document
+  if (addressStyle(f.country) === "OTHER") {
+    if (!f.addressLine1?.trim()) errors.addressLine1 = "Enter the address";
+    if (!f.city?.trim()) errors.city = "Enter the city";
+    if (india && !f.state?.trim()) errors.state = "Choose the state";
+    if (india && !f.postalCode?.trim()) errors.postalCode = "Enter the PIN code";
+  }
+  if (!f.country?.trim()) errors.country = "Choose the country";
+  errors.phone = f.phone?.trim() ? null : "Enter the phone number";
+  errors.email = f.email?.trim() ? validateEmail(f.email) : "Enter the email address";
+  if (!f.language) errors.language = "Choose the language";
+  if (!f.timeZone) errors.timeZone = "Choose the time zone";
+  if (!f.dateFormat) errors.dateFormat = "Choose the date format";
+  if (!f.timeFormat) errors.timeFormat = "Choose the time format";
+  if (!f.numberLocale) errors.numberLocale = "Choose the number format";
+  if (!f.weekStart) errors.weekStart = "Choose the first day of the week";
+  if (!f.financialYearStartMonth) errors.financialYearStartMonth = "Choose the month the financial year starts";
   errors.website = validateWebsite(f.website);
   if (india) {
-    errors.phone = validatePhone(f.phone);
-    errors.postalCode = validatePinCode(f.postalCode) ?? validatePinState(f.postalCode, f.state);
+    errors.phone = errors.phone ?? validatePhone(f.phone);
+    errors.postalCode = errors.postalCode ?? validatePinCode(f.postalCode) ?? validatePinState(f.postalCode, f.state);
     const state = findIndianState(f.state);
     const gstin = (f.gstin ?? "").trim().toUpperCase();
     if (!errors.gstin && gstin && state && !state.gstCodes.includes(gstin.slice(0, 2))) {
@@ -193,7 +216,7 @@ export default function CompanySettingsPage() {
     setSaving(true);
     try {
       await companyApi.update({ ...form, gstin: form.gstin?.toUpperCase(), pan: form.pan?.toUpperCase(), currency: form.currency.toUpperCase(),
-        taxNumber: form.taxRegime === "VAT" ? form.taxNumber?.replace(/\s+/g, "").toUpperCase() : null });
+        taxNumber: form.taxRegime === "VAT" || form.taxRegime === "TIN" ? form.taxNumber?.replace(/\s+/g, "").toUpperCase() : null });
       ToasterService.success("Company details saved.");
     } catch (err) {
       const message = errorText(err, "Could not save the company details.");
@@ -237,6 +260,8 @@ export default function CompanySettingsPage() {
       ToasterService.error(errorText(err, "Could not remove the logo."));
     }
   };
+
+  const fieldError = (key: string) => errors[key] && <p className={ERROR}>{t(String(errors[key]))}</p>;
 
   const field = (key: keyof Form, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
@@ -290,6 +315,7 @@ export default function CompanySettingsPage() {
                         onChange={(e) => set("taxRegime", e.target.value)}>
                         <option value="VAT">{t("VAT registered")}</option>
                         <option value="GST">{t("GST registered (India)")}</option>
+                        <option value="TIN">{t("TIN registered (no VAT, e.g. Qatar)")}</option>
                         <option value="NONE">{t("Not registered for tax")}</option>
                       </select>
                     </div>
@@ -298,14 +324,22 @@ export default function CompanySettingsPage() {
                       placeholder: findCountry(form.country)?.isoCode === "AE" ? "15 digits, e.g. 100123456700003"
                         : findCountry(form.country)?.isoCode === "SA" ? "15 digits starting and ending with 3" : "As on the VAT certificate",
                     })}
+                    {form.taxRegime === "TIN" && field("taxNumber", "Tax identification number (TIN) *", {
+                      maxLength: 20, style: { textTransform: "uppercase" },
+                      placeholder: isQatar(form.country) ? "As issued by the General Tax Authority" : "As on the tax registration",
+                    })}
                     {form.taxRegime === "GST" && field("gstin", "GSTIN", { maxLength: 15, placeholder: "e.g. 29ABCDE1234F1ZW", style: { textTransform: "uppercase" } })}
                     {form.taxRegime === "GST" && field("pan", "PAN", { maxLength: 10, placeholder: "Filled from the GSTIN if left empty", style: { textTransform: "uppercase" } })}
-                    {/* UAE e-invoices identify the seller by its trade licence and the authority that issued it */}
-                    {!india && field("tradeLicenseNumber", "Trade licence number", { maxLength: 50 })}
+                    {/* UAE e-invoices identify the seller by its trade licence and the authority that issued it; Qatar calls it
+                        the Commercial Registration (CR) */}
+                    {!india && field("tradeLicenseNumber", isQatar(form.country) ? "Commercial Registration (CR) number" : "Trade licence number", { maxLength: 50 })}
                     {!india && field("licenseAuthority", "Issued by", {
                       maxLength: 150,
-                      placeholder: findCountry(form.country)?.isoCode === "AE" ? "e.g. Dubai Department of Economy and Tourism" : "Licensing authority",
+                      placeholder: findCountry(form.country)?.isoCode === "AE" ? "e.g. Dubai Department of Economy and Tourism"
+                        : isQatar(form.country) ? "e.g. Ministry of Commerce and Industry" : "Licensing authority",
                     })}
+                    {/* Qatar: the company's establishment card from the Ministry of Interior */}
+                    {isQatar(form.country) && field("establishmentCardNumber", "Establishment card number", { maxLength: 50 })}
                   </div>
                 </section>
 
@@ -322,21 +356,22 @@ export default function CompanySettingsPage() {
                           setErrors({});
                         }} />
                       <div>
-                        <label className={LABEL} htmlFor="company-country">{t("Country")}</label>
+                        <label className={LABEL} htmlFor="company-country">{t("Country *")}</label>
                         <select id="company-country" className={INPUT} disabled={!editable} value={form.country ?? ""}
                           onChange={(e) => changeCountry(e.target.value)}>
                           {form.country && !findCountry(form.country) && <option value={form.country}>{form.country}</option>}
                           {countryList.map((c) => <option key={c.isoCode} value={c.name}>{countryLabel(c.isoCode, c.name)}</option>)}
                         </select>
+                        {fieldError("country")}
                       </div>
                     </div>
                   ) : (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {field("addressLine1", "Address line 1", { maxLength: 200 })}
+                    {field("addressLine1", "Address line 1 *", { maxLength: 200 })}
                     {field("addressLine2", "Address line 2", { maxLength: 200 })}
-                    {field("city", "City", { maxLength: 100 })}
+                    {field("city", "City *", { maxLength: 100 })}
                     <div>
-                      <label className={LABEL} htmlFor="company-state">{t("State")}</label>
+                      <label className={LABEL} htmlFor="company-state">{t(india ? "State *" : "State")}</label>
                       {india ? (
                         <select id="company-state" className={INPUT} disabled={!editable} value={form.state ?? ""}
                           onChange={(e) => set("state", e.target.value)}>
@@ -348,15 +383,17 @@ export default function CompanySettingsPage() {
                         <input id="company-state" className={INPUT} disabled={!editable} value={form.state ?? ""} maxLength={100}
                           onChange={(e) => set("state", e.target.value)} />
                       )}
+                      {fieldError("state")}
                     </div>
-                    {field("postalCode", india ? "PIN code" : "Postal code / PO Box", { maxLength: 20 })}
+                    {field("postalCode", india ? "PIN code *" : "Postal code / PO Box", { maxLength: 20 })}
                     <div>
-                      <label className={LABEL} htmlFor="company-country">{t("Country")}</label>
+                      <label className={LABEL} htmlFor="company-country">{t("Country *")}</label>
                       <select id="company-country" className={INPUT} disabled={!editable} value={form.country ?? ""}
                         onChange={(e) => changeCountry(e.target.value)}>
                         {form.country && !findCountry(form.country) && <option value={form.country}>{form.country}</option>}
                         {countryList.map((c) => <option key={c.isoCode} value={c.name}>{countryLabel(c.isoCode, c.name)}</option>)}
                       </select>
+                      {fieldError("country")}
                     </div>
                   </div>
                   )}
@@ -365,8 +402,8 @@ export default function CompanySettingsPage() {
                 <section className={`${CARD} p-4`}>
                   {sectionTitle(Phone, "Contact")}
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    {field("phone", "Phone", { maxLength: 30 })}
-                    {field("email", "Email", { maxLength: 150, type: "email" })}
+                    {field("phone", "Phone *", { maxLength: 30 })}
+                    {field("email", "Email *", { maxLength: 150, type: "email" })}
                     {field("website", "Website", { maxLength: 200, placeholder: "www.example.com" })}
                   </div>
                 </section>
@@ -382,7 +419,7 @@ export default function CompanySettingsPage() {
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div>
                       <label className={LABEL} htmlFor="company-currency">
-                        {t("Currency")}
+                        {t("Currency *")}
                         {currencyLocked && <Lock className="ml-1 inline h-3 w-3 text-slate-400" aria-label={t("Locked")} />}
                       </label>
                       <select id="company-currency" className={INPUT} disabled={!editable || currencyLocked} value={form.currency}
@@ -399,62 +436,69 @@ export default function CompanySettingsPage() {
                       )}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-decimals">{t("Decimal places for amounts")}</label>
+                      <label className={LABEL} htmlFor="company-decimals">{t("Decimal places for amounts *")}</label>
                       <select id="company-decimals" className={INPUT} disabled={!editable} value={form.currencyDecimals}
                         onChange={(e) => set("currencyDecimals", Number(e.target.value))}>
                         {[0, 1, 2, 3].map((d) => <option key={d} value={d}>{d}{d === currencyDigits(form.currency) ? ` ${t("(usual for {currency})", { currency: form.currency })}` : ""}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-language">{t("Language")}</label>
+                      <label className={LABEL} htmlFor="company-language">{t("Language *")}</label>
                       <select id="company-language" className={INPUT} disabled={!editable} value={form.language}
                         onChange={(e) => set("language", e.target.value)}>
                         {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                       </select>
+                      {fieldError("language")}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-zone">{t("Time zone")}</label>
+                      <label className={LABEL} htmlFor="company-zone">{t("Time zone *")}</label>
                       <select id="company-zone" className={INPUT} disabled={!editable} value={form.timeZone}
                         onChange={(e) => set("timeZone", e.target.value)}>
                         {!zoneList.includes(form.timeZone) && <option value={form.timeZone}>{form.timeZone}</option>}
                         {zoneList.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
                       </select>
+                      {fieldError("timeZone")}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-date-format">{t("Date format")}</label>
+                      <label className={LABEL} htmlFor="company-date-format">{t("Date format *")}</label>
                       <select id="company-date-format" className={INPUT} disabled={!editable} value={form.dateFormat}
                         onChange={(e) => set("dateFormat", e.target.value)}>
                         {DATE_FORMATS.map((f) => <option key={f} value={f}>{f.replace("yyyy", "YYYY").replace("dd", "DD")}</option>)}
                       </select>
+                      {fieldError("dateFormat")}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-time-format">{t("Time format")}</label>
+                      <label className={LABEL} htmlFor="company-time-format">{t("Time format *")}</label>
                       <select id="company-time-format" className={INPUT} disabled={!editable} value={form.timeFormat}
                         onChange={(e) => set("timeFormat", e.target.value)}>
                         <option value="12h">12-hour (2:30 PM)</option>
                         <option value="24h">24-hour (14:30)</option>
                       </select>
+                      {fieldError("timeFormat")}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-number-format">{t("Number format")}</label>
+                      <label className={LABEL} htmlFor="company-number-format">{t("Number format *")}</label>
                       <select id="company-number-format" className={INPUT} disabled={!editable} value={form.numberLocale}
                         onChange={(e) => set("numberLocale", e.target.value)}>
                         {NUMBER_LOCALES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
                       </select>
+                      {fieldError("numberLocale")}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-week-start">{t("Week starts on")}</label>
+                      <label className={LABEL} htmlFor="company-week-start">{t("Week starts on *")}</label>
                       <select id="company-week-start" className={INPUT} disabled={!editable} value={form.weekStart}
                         onChange={(e) => set("weekStart", e.target.value)}>
                         {WEEK_STARTS.map((d) => <option key={d} value={d}>{dayLabel(d)}</option>)}
                       </select>
+                      {fieldError("weekStart")}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="company-fy">{t("Financial year starts in")}</label>
+                      <label className={LABEL} htmlFor="company-fy">{t("Financial year starts in *")}</label>
                       <select id="company-fy" className={INPUT} disabled={!editable} value={form.financialYearStartMonth}
                         onChange={(e) => set("financialYearStartMonth", Number(e.target.value))}>
                         {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                       </select>
+                      {fieldError("financialYearStartMonth")}
                     </div>
                     <div className="md:col-span-3">
                       <span className={LABEL}>{t("Weekend days")}</span>

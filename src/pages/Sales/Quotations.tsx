@@ -1,7 +1,7 @@
 import React, { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
-import { createPdf } from "../../utils/pdfDocument";
+import { createPdf, printPdfBlob } from "../../utils/pdfDocument";
 import autoTable from "jspdf-autotable";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -12,9 +12,11 @@ import {
   TrashIcon,
   EnvelopeIcon,
   ChatBubbleLeftRightIcon,
+  PrinterIcon,
 } from "@heroicons/react/24/outline";
 import QuotationEmailDialog from "../../components/quotation/QuotationEmailDialog";
 import WhatsAppDocumentDialog from "../../components/common/WhatsAppDocumentDialog";
+import QuotationShareDialog from "../../components/quotation/QuotationShareDialog";
 import { AddButton } from "../../components/common/AddButton";
 import DynamicPopup from "../../components/common/Popup";
 import Dragger from "../../components/common/Dragger";
@@ -30,7 +32,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import SearchableSelect from "../../components/inputfeild/SearchableSelect";
 import { fitLogo, loadImageAsDataUrl } from "../../components/common/export";
-import { CompanyProfile, companyAddressLines, loadCompanyLogo, useCompany } from "../../company/companyApi";
+import { CompanyLogo, CompanyProfile, companyAddressLines, companyTaxLine, loadCompanyLogo, useCompany } from "../../company/companyApi";
 import { ToasterService } from "../../Services/ToasterService";
 import { SellerProfile } from "../../components/quotation/QuotationPreviewTemplate";
 import { toLocalIsoDate, todayIso } from "../../utils/localDate";
@@ -268,6 +270,7 @@ function sellerFromCompany(company: CompanyProfile | null): SellerProfile {
     contactEmail: company?.email || "",
     contactPhone: company?.phone || "",
     gstin: company?.gstin || "",
+    taxLine: companyTaxLine(company),
     addressLines: addressLines.length > 0 ? addressLines : ["Address not set (Company Settings)"],
   };
 }
@@ -360,18 +363,26 @@ const quotationItemAmount = (item: QuotationItemPayload) => {
   return taxable + (taxable * Number(item.taxRate || 0)) / 100;
 };
 
-/** Builds a client-side PDF for downloading an individual quotation. */
-const createQuotationPdfUrl = async (
+type QuotationPdfLogo = { dataUrl: string | null; format: CompanyLogo["format"]; width: number; height: number };
+
+/** The company's logo when it has one, else the app logo, sized for the PDF header. */
+const loadQuotationPdfLogo = async (): Promise<QuotationPdfLogo> => {
+  const companyLogo = await loadCompanyLogo();
+  if (companyLogo) return { dataUrl: companyLogo.dataUrl, format: companyLogo.format, ...fitLogo(companyLogo, 38, 9) };
+  return { dataUrl: await loadImageAsDataUrl(publicAsset("images/logo/logo.png")), format: "PNG", width: 38, height: 9 };
+};
+
+/** Draws one quotation from the document's current page on; its pages are numbered on their own. */
+const drawQuotationPdf = (
+  doc: jsPDF,
   quotation: Quotation,
   sellerProfile: SellerProfile,
-  customer?: Customer | null
+  customer: Customer | null | undefined,
+  logo: QuotationPdfLogo
 ) => {
-  // The company's logo when it has one, else the app logo
-  const companyLogo = await loadCompanyLogo();
-  const logo = companyLogo ?? { dataUrl: await loadImageAsDataUrl(publicAsset("images/logo/logo.png")), format: "PNG" as const };
+  const firstPage = doc.getNumberOfPages();
   const logoDataUrl = logo.dataUrl;
-  const logoSize = companyLogo ? fitLogo(companyLogo, 38, 9) : { width: 38, height: 9 };
-  const doc = await createPdf({ unit: "mm", format: "a4" });
+  const logoSize = { width: logo.width, height: logo.height };
   const reportWidth = doc.internal.pageSize.getWidth();
   const reportHeight = doc.internal.pageSize.getHeight();
   const reportMargin = 14;
@@ -421,7 +432,7 @@ const createQuotationPdfUrl = async (
   };
 
   drawReportHeader();
-  autoTable(doc, { ...reportTableOptions, startY: 39, tableWidth: 87, head: [["SELLER"]], body: [[sellerProfile.legalName || sellerProfile.companyName || "My Trading"], [sellerProfile.addressLines.join(", ")], [`Email: ${sellerProfile.contactEmail || "-"}`], [`Phone: ${sellerProfile.contactPhone || "-"}   GSTIN: ${sellerProfile.gstin || "-"}`]] });
+  autoTable(doc, { ...reportTableOptions, startY: 39, tableWidth: 87, head: [["SELLER"]], body: [[sellerProfile.legalName || sellerProfile.companyName || "My Trading"], [sellerProfile.addressLines.join(", ")], [`Email: ${sellerProfile.contactEmail || "-"}`], [[`Phone: ${sellerProfile.contactPhone || "-"}`, sellerProfile.taxLine].filter(Boolean).join("   ")]] });
   const sellerTableEnd = tableEnd();
   autoTable(doc, { ...reportTableOptions, startY: 39, margin: { ...reportTableOptions.margin, left: 109 }, tableWidth: 87, head: [["CUSTOMER"]], body: [[reportCustomerName], [`Code: ${customer?.customerCode || quotation.billingAddress?.customerCode || "-"}   Type: ${customer?.customerType || "-"}`], [`Email: ${quotation.email || customer?.email || "-"}`], [`Phone: ${customer?.phone || "-"}`]] });
   let reportY = Math.max(sellerTableEnd, tableEnd(), 79) + 5;
@@ -453,7 +464,8 @@ const createQuotationPdfUrl = async (
     if (reportY > reportHeight - 50) { doc.addPage(); drawReportHeader(); reportY = 40; }
     autoTable(doc, { ...reportTableOptions, startY: reportY, head: [["NOTES AND TERMS", ""]], body: noteRows, columnStyles: { 0: { cellWidth: 36, fontStyle: "bold", textColor: [71, 85, 105] }, 1: { cellWidth: 146 } } });
   }
-  for (let page = 1; page <= doc.getNumberOfPages(); page += 1) {
+  const lastPage = doc.getNumberOfPages();
+  for (let page = firstPage; page <= lastPage; page += 1) {
     doc.setPage(page);
     doc.setDrawColor(226, 232, 240);
     doc.line(reportMargin, reportHeight - 13, reportWidth - reportMargin, reportHeight - 13);
@@ -461,10 +473,27 @@ const createQuotationPdfUrl = async (
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.text("System generated quotation", reportMargin, reportHeight - 8);
-    doc.text(`Page ${page} of ${doc.getNumberOfPages()}`, reportWidth - reportMargin, reportHeight - 8, { align: "right" });
+    doc.text(`Page ${page - firstPage + 1} of ${lastPage - firstPage + 1}`, reportWidth - reportMargin, reportHeight - 8, { align: "right" });
   }
-  return URL.createObjectURL(doc.output("blob"));
 };
+
+/** One PDF holding the given quotations, each starting on a new page (print or download several together). */
+const createQuotationsPdfBlob = async (
+  entries: { quotation: Quotation; customer?: Customer | null }[],
+  sellerProfile: SellerProfile
+): Promise<Blob> => {
+  const logo = await loadQuotationPdfLogo();
+  const doc = await createPdf({ unit: "mm", format: "a4" });
+  entries.forEach(({ quotation, customer }, index) => {
+    if (index > 0) doc.addPage();
+    drawQuotationPdf(doc, quotation, sellerProfile, customer, logo);
+  });
+  return doc.output("blob");
+};
+
+/** Builds a client-side PDF for downloading an individual quotation. */
+const createQuotationPdfUrl = async (quotation: Quotation, sellerProfile: SellerProfile, customer?: Customer | null) =>
+  URL.createObjectURL(await createQuotationsPdfBlob([{ quotation, customer }], sellerProfile));
 
 function customerOptionLabel(customer: Customer) {
   const name = customer.customerName || customer.tradeName || "Unnamed Customer";
@@ -604,6 +633,8 @@ const Quotations: React.FC = () => {
   const [emailing, setEmailing] = useState<{ quotation: Quotation; markSent: boolean } | null>(null);
   // Sending the PDF by WhatsApp (7.1.4)
   const [whatsApping, setWhatsApping] = useState<Quotation | null>(null);
+  // Picking several quotations to print or send together
+  const [sharing, setSharing] = useState(false);
   const [quotationApiErrors, setQuotationApiErrors] = useState<Record<number, string>>({});
   const [customersLoaded, setCustomersLoaded] = useState(false);
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -1045,7 +1076,8 @@ const Quotations: React.FC = () => {
         )
       );
       setQuotationApiErrors((current) => {
-        const { [quotation.id]: _cleared, ...remaining } = current;
+        const remaining = { ...current };
+        delete remaining[quotation.id];
         return remaining;
       });
       ToasterService.success("Quotation status updated");
@@ -1074,7 +1106,8 @@ const Quotations: React.FC = () => {
         current.map((item) => (item.id === quotation.id ? refreshed.data : item))
       );
       setQuotationApiErrors((current) => {
-        const { [quotation.id]: _cleared, ...remaining } = current;
+        const remaining = { ...current };
+        delete remaining[quotation.id];
         return remaining;
       });
       ToasterService.success("Quotation converted to sales order");
@@ -1093,17 +1126,47 @@ const Quotations: React.FC = () => {
     }
   };
 
+  /** One PDF with the given quotations (each fetched with its lines), built the same way as the download. */
+  const quotationsPdfBlob = async (ids: number[]): Promise<Blob> => {
+    const loaded = await Promise.all(ids.map((id) => axios.get<Quotation>(`${API_URL}/${id}`, { headers }).then((res) => res.data)));
+    return createQuotationsPdfBlob(
+      loaded.map((quotation) => ({
+        quotation,
+        customer: customers.find((item) => Number(item.id) === Number(quotation.customerId)),
+      })),
+      sellerProfile
+    );
+  };
+
   /** The quotation's PDF as a file, built the same way as the download. */
-  const quotationPdfBlob = async (quotation: Quotation): Promise<Blob> => {
-    const res = await axios.get<Quotation>(`${API_URL}/${quotation.id}`, { headers });
-    const customer = customers.find((item) => Number(item.id) === Number(res.data.customerId));
-    const pdfUrl = await createQuotationPdfUrl(res.data, sellerProfile, customer);
+  const quotationPdfBlob = (quotation: Quotation): Promise<Blob> => quotationsPdfBlob([quotation.id]);
+
+  const printQuotation = async (quotation: Quotation) => {
     try {
-      return await (await fetch(pdfUrl)).blob();
-    } finally {
-      URL.revokeObjectURL(pdfUrl);
+      printPdfBlob(await quotationPdfBlob(quotation));
+    } catch (error) {
+      ToasterService.error("Failed to print quotation", getErrorMessage(error, "Please try again."));
     }
   };
+
+  const shareableQuotations = useMemo(
+    () =>
+      quotations.map((quotation) => {
+        const customer = customers.find((item) => Number(item.id) === Number(quotation.customerId));
+        return {
+          id: quotation.id,
+          quoteNumber: quotation.quoteNumber,
+          customerName: getQuotationCustomerName(quotation, customers),
+          status: getQuotationStatus(quotation.status) || "DRAFT",
+          quoteDate: quotation.quoteDate,
+          grandTotal: quotation.grandTotal,
+          currencyCode: quotation.currencyCode,
+          email: quotation.email || customer?.email || "",
+          phone: customer?.phone,
+        };
+      }),
+    [quotations, customers]
+  );
 
   const customerEmailFor = (quotation: Quotation) =>
     quotation.email || customers.find((item) => Number(item.id) === Number(quotation.customerId))?.email || "";
@@ -1143,7 +1206,7 @@ const Quotations: React.FC = () => {
       await axios.delete(`${API_URL}/${deleteQuotation.id}`, {
         headers,
         skipSessionExpiredHandling: true,
-      } as any);
+      } as object);
       setQuotations((current) => current.filter((item) => item.id !== deleteQuotation.id));
       ToasterService.success("Quotation deleted");
     } catch (error) {
@@ -1312,7 +1375,9 @@ const Quotations: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "text-right",
+      // Up to six icons (export, print, email, WhatsApp, edit/convert, delete) on one line
+      minWidth: 216,
+      headerClassName: "text-right w-[216px]",
       className: "text-right",
       render: (quotation) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -1323,6 +1388,14 @@ const Quotations: React.FC = () => {
             title={t("Export quotation as PDF")}
           >
             <ArrowDownTrayIcon className="h-4 w-4" />
+          </button>)}
+          {canExport && (<button
+            type="button"
+            onClick={() => printQuotation(quotation)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-400"
+            title={t("Print quotation")}
+          >
+            <PrinterIcon className="h-4 w-4" />
           </button>)}
           {canCreate && ["DRAFT", "SENT", "VIEWED", "ACCEPTED"].includes(getQuotationStatus(quotation.status) || "DRAFT") && (
             <button
@@ -1416,7 +1489,9 @@ const Quotations: React.FC = () => {
       <PageBreadcrumb
         className="mr-4"
         pageTitle="Quotations"
-        actions={canCreate ? <AddButton className="-mr-5" onClick={openCreate} label={t("Add Quotation")} /> : undefined}
+        actions={
+          canCreate ? <AddButton className="-mr-5" onClick={openCreate} label={t("Add Quotation")} /> : undefined
+        }
       />
 
       <div className="w-full max-w-none px-0 py-8">
@@ -1426,6 +1501,8 @@ const Quotations: React.FC = () => {
           <ReusableTable
             data={filteredRows}
             columns={columns}
+            // Toolbar Share: pick one or more quotations to print, download, email or WhatsApp
+            onShare={canCreate || canExport ? () => setSharing(true) : undefined}
             loading={loading}
             pageSize={PAGE_SIZE}
             defaultSortKey="quoteDate"
@@ -1622,6 +1699,23 @@ const Quotations: React.FC = () => {
             setEmailing(null);
             updateQuotationStatus(target, "SENT", true);
           }}
+        />
+      )}
+
+      {sharing && (
+        <QuotationShareDialog
+          quotations={shareableQuotations}
+          companyName={company?.companyName || "My Trading"}
+          canPrint={canExport}
+          canSend={canCreate}
+          combinedPdf={quotationsPdfBlob}
+          singlePdf={(id) => quotationsPdfBlob([id])}
+          print={printPdfBlob}
+          onUpdated={(updated) => {
+            const byId = new Map(updated.map((item) => [Number(item.id), item]));
+            setQuotations((current) => current.map((item) => (byId.has(item.id) ? { ...item, ...byId.get(item.id) } as Quotation : item)));
+          }}
+          onClose={() => setSharing(false)}
         />
       )}
 

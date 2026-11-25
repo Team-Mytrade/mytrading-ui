@@ -80,6 +80,8 @@ type SellerProfile = {
   contactEmail: string;
   contactPhone: string;
   gstin: string;
+  // "TRN: …", "TIN: …" or "GSTIN: …" by the company's tax regime (empty when none)
+  taxLine?: string;
   addressLines: string[];
 };
 
@@ -155,7 +157,7 @@ const QuotationPreviewTemplate: React.FC<QuotationPreviewTemplateProps> = ({
           <div className="quotation-preview-meta-stack">
             <span>Email: {sellerProfile.contactEmail || "--"}</span>
             <span>Phone: {sellerProfile.contactPhone || "--"}</span>
-            <span>GSTIN: {sellerProfile.gstin || "--"}</span>
+            {sellerProfile.taxLine ? <span>{sellerProfile.taxLine}</span> : null}
           </div>
         </div>
 

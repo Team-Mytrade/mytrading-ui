@@ -28,6 +28,7 @@ import { COMMUNICATION_TYPE_OPTIONS, apiError, toDateTimeInput, toLocalDateTime 
 import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
+import { PAYMENT_MODE_OPTIONS } from "./customerProfile";
 // Enums
 enum CustomerStatus {
   LEAD = "LEAD",
@@ -63,9 +64,12 @@ interface Customer {
   taxNumber?: string;
   registrationNumber?: string;
   customerType: string;
+  paymentMode?: "CASH" | "CREDIT";
   status: CustomerStatus;
   phone: string;
   email: string;
+  emails?: { value: string }[];
+  phones?: { value: string }[];
   website?: string;
   creditLimit?: number;
   currentCredit?: number;
@@ -109,6 +113,8 @@ const Customers: React.FC = () => {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  // "+2" after the primary email / phone when there are more
+  const more = (list?: { value: string }[]) => (list && list.length > 1 ? ` +${list.length - 1}` : "");
 
   const [commForm, setCommForm] = useState({
     type: "EMAIL",
@@ -148,7 +154,9 @@ const Customers: React.FC = () => {
         c.customerName?.toLowerCase().includes(term) ||
         c.tradeName?.toLowerCase().includes(term) ||
         c.email?.toLowerCase().includes(term) ||
-        c.phone?.toLowerCase().includes(term);
+        c.phone?.toLowerCase().includes(term) ||
+        c.emails?.some((e) => e.value.toLowerCase().includes(term)) ||
+        c.phones?.some((p) => p.value.toLowerCase().includes(term));
 
       let matchesFilter = true;
       if (activeFilter === "ACTIVE") {
@@ -314,8 +322,8 @@ const Customers: React.FC = () => {
       key: "customerName",
       label: "Company",
       sortable: true,
-      headerClassName: "w-[25%] text-left",
-      className: "w-[25%]",
+      headerClassName: "w-[20%] text-left",
+      className: "w-[20%]",
       render: (customer) => (
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -338,14 +346,15 @@ const Customers: React.FC = () => {
       key: "email",
       label: "Email",
       sortable: true,
-      headerClassName: "w-[20%] text-left",
-      className: "w-[20%]",
+      headerClassName: "w-[17%] text-left",
+      className: "w-[17%]",
       render: (customer) => (
         <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0">
           <EnvelopeIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="truncate max-w-[140px] font-medium text-slate-600" title={customer.email}>
+          <span className="truncate max-w-[140px] font-medium text-slate-600" title={(customer.emails ?? []).map((e) => e.value).join(", ") || customer.email}>
             {customer.email || "—"}
           </span>
+          {more(customer.emails) && <span className="shrink-0 text-xs text-slate-400">{more(customer.emails)}</span>}
         </div>
       ),
     },
@@ -353,21 +362,44 @@ const Customers: React.FC = () => {
       key: "phone",
       label: "Phone",
       sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
+      headerClassName: "w-[12%] text-left",
+      className: "w-[12%]",
       render: (customer) => (
         <div className="flex items-center text-sm text-slate-600 gap-1.5 min-w-0">
           <PhoneIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-          <span className="truncate font-medium text-slate-600">{customer.phone || "—"}</span>
+          <span className="truncate font-medium text-slate-600" dir="ltr" title={(customer.phones ?? []).map((p) => p.value).join(", ") || customer.phone}>
+            {customer.phone || "—"}
+          </span>
+          {more(customer.phones) && <span className="shrink-0 text-xs text-slate-400">{more(customer.phones)}</span>}
         </div>
+      ),
+    },
+    {
+      key: "paymentMode",
+      label: "Classification",
+      sortable: true,
+      headerClassName: "w-[11%] text-left",
+      className: "w-[11%]",
+      filterOptions: PAYMENT_MODE_OPTIONS.map((o) => ({ label: t(o.name), value: o.id })),
+      filterValueGetter: (customer) => customer.paymentMode ?? "CREDIT",
+      exportValueGetter: (customer) => (customer.paymentMode === "CASH" ? "Cash" : "Credit"),
+      detailFormatter: (customer) => t(customer.paymentMode === "CASH" ? "Cash" : "Credit"),
+      render: (customer) => (
+        <span
+          className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${
+            customer.paymentMode === "CASH" ? "bg-emerald-50 text-emerald-700" : "bg-indigo-50 text-indigo-700"
+          }`}
+        >
+          {t(customer.paymentMode === "CASH" ? "Cash" : "Credit")}
+        </span>
       ),
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
-      headerClassName: "w-[15%] text-left",
-      className: "w-[15%]",
+      headerClassName: "w-[13%] text-left",
+      className: "w-[13%]",
       render: (customer) => {
         const statusColors = {
           [CustomerStatus.ACTIVE]: "border-green-200 bg-green-50 text-green-700",
@@ -408,8 +440,8 @@ const Customers: React.FC = () => {
       key: "addresses",
       label: "Addresses",
       sortable: false,
-      headerClassName: "w-[13%] text-left",
-      className: "w-[13%]",
+      headerClassName: "w-[9%] text-left",
+      className: "w-[9%]",
       render: (customer) => (
         <div className="flex items-center gap-1">
           <MapPinIcon className="h-3.5 w-3.5 text-slate-400" />
@@ -423,8 +455,8 @@ const Customers: React.FC = () => {
       key: "actions",
       label: "Actions",
       sortable: false,
-      headerClassName: "w-[10%] md:w-[12%] lg:w-[12%] text-right pr-4",
-       className: "w-[12%] text-right",
+      headerClassName: "w-[10%] text-right pr-4",
+      className: "w-[10%] text-right",
       render: (customer) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button

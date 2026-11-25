@@ -54,6 +54,29 @@ export const phoneProblem = (value: string | null | undefined): string | null =>
   return null;
 };
 
+/** Most digits a phone number can have (the international maximum); an international 00 prefix comes on top. */
+export const PHONE_MAX_DIGITS = 15;
+
+/**
+ * What a phone box keeps while typing: digits, spaces, dashes, dots, brackets and one leading +, at most 15 digits
+ * (17 when the number starts with the 00 international prefix). Pasted text is trimmed the same way.
+ */
+export const limitPhoneInput = (raw: string): string => {
+  const plus = raw.trimStart().startsWith("+");
+  const kept = raw.replace(/[^\d\s().-]/g, "");
+  const maxDigits = kept.replace(/\D/g, "").startsWith("00") ? PHONE_MAX_DIGITS + 2 : PHONE_MAX_DIGITS;
+  let digits = 0;
+  let out = "";
+  for (const ch of kept) {
+    if (/\d/.test(ch)) {
+      if (digits === maxDigits) break;
+      digits++;
+    }
+    out += ch;
+  }
+  return (plus ? "+" : "") + out.trimStart();
+};
+
 /** A number from a digits-only phone box ("971501234567") with its "+" ("+971501234567"); others unchanged. */
 export const withPlus = (value: string | null | undefined): string => {
   const v = (value ?? "").trim();

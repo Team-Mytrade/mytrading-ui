@@ -8,6 +8,7 @@ import {
   CheckIcon,
   EnvelopeIcon,
   HomeIcon,
+  IdentificationIcon,
   MapPinIcon,
   PencilSquareIcon,
   PlusIcon,
@@ -29,8 +30,24 @@ import { addressStyle, regionalAddressErrors, regionalAddressLines } from "../..
 import RegionalAddressFields from "../../components/common/RegionalAddressFields";
 
 import { language, t } from "../../i18n/i18n";
-import { phoneProblem } from "../../utils/phone";
-import { usePaymentTermOptions, withStoredTerm } from "../../utils/paymentTerms";
+import { limitPhoneInput, phoneProblem } from "../../utils/phone";
+import {
+  CUSTOM_PAYMENT_TERM,
+  PAYMENT_TERM_MAX_LENGTH,
+  usePaymentTermOptions,
+  withAdvanceTerms,
+} from "../../utils/paymentTerms";
+import {
+  ContactRow,
+  PAYMENT_MODE_OPTIONS,
+  PaymentMode,
+  cleanRegistration,
+  contactRowsOf,
+  countryDefinition,
+  countryFieldProblem,
+  useCustomerFormOptions,
+  type CustomerFormOptions,
+} from "./customerProfile";
 // Create and edit one customer. Field rules follow the CRM service (Customer entity / CustomerService).
 
 const API_URL = "/v1/api/common/customers";
@@ -88,11 +105,17 @@ interface CustomerForm {
   tradeName: string;
   customerType: string;
   status: string;
+  // The country whose tax / registration fields the customer has; "" = from the default address or the company
+  taxCountry: string;
   taxNumber: string;
   registrationNumber: string;
-  email: string;
-  phone: string;
+  // The country's other values by field key (an Indian PAN as "pan")
+  registrationDetails: Record<string, string>;
+  // One of each is primary; it is also sent as email / phone, which quotations, orders and messaging read
+  emails: ContactRow[];
+  phones: ContactRow[];
   website: string;
+  paymentMode: PaymentMode;
   salesPersonId: string;
   paymentTerms: string;
   currencyCode: string;
@@ -115,18 +138,22 @@ interface SalesPerson {
   active?: boolean;
 }
 
-type Errors = Partial<Record<keyof CustomerForm | "addresses", string>>;
+// Field name, or "emails.1", "registrationDetails.pan"...
+type Errors = Record<string, string>;
 
 const EMPTY_FORM: CustomerForm = {
   customerName: "",
   tradeName: "",
   customerType: "WHOLESALE",
   status: "ACTIVE",
+  taxCountry: "",
   taxNumber: "",
   registrationNumber: "",
-  email: "",
-  phone: "",
+  registrationDetails: {},
+  emails: [{ value: "", label: "", primary: true }],
+  phones: [{ value: "", label: "", primary: true }],
   website: "",
+  paymentMode: "CREDIT",
   salesPersonId: "",
   paymentTerms: "NET30",
   get currencyCode() {
@@ -149,46 +176,60 @@ const EMPTY_ADDRESS: Address = {
 
 const text = (value: unknown) => (value === null || value === undefined ? "" : String(value));
 
-/** The country the customer's tax number belongs to: the default address's, else the first one's, else the company's. */
-const taxCountryOf = (form: CustomerForm, companyCountry?: string | null) => {
+/** The tax country: the one chosen, else the default address's (or first address's), else the company's. */
+const taxCountryOf = (form: CustomerForm, options: CustomerFormOptions, companyCountry?: string | null) => {
+  if (form.taxCountry) return countryDefinition(options, form.taxCountry);
   const address = form.addresses.find((a) => a.defaultAddress) ?? form.addresses[0];
-  return (address?.country || companyCountry || "").trim();
+  return countryDefinition(options, (address?.country || companyCountry || "").trim());
 };
 
-/** "GSTIN" in India, "TRN" in the UAE (and Bahrain, Oman), "VAT number" in Saudi Arabia; elsewhere "Tax number". */
-const taxLabelFor = (country: string) => {
-  const style = addressStyle(country);
-  const lower = country.toLowerCase();
-  if (lower === "india" || lower === "in") return "GSTIN";
-  if (style === "AE" || ["bahrain", "oman"].includes(lower)) return "TRN";
-  if (style === "SA") return "VAT number";
-  return "Tax number";
-};
+const fieldValue = (form: CustomerForm, key: string, target: string) =>
+  target === "TAX_NUMBER" ? form.taxNumber : target === "REGISTRATION_NUMBER" ? form.registrationNumber : form.registrationDetails[key] ?? "";
 
-/** The same format rules the service applies. */
-const taxNumberProblem = (value: string, country: string): string | null => {
-  const number = value.replace(/\s+/g, "").toUpperCase();
-  if (!number) return null;
-  const style = addressStyle(country);
-  const lower = country.toLowerCase();
-  if (style === "AE" && !/^100\d{12}$/.test(number)) return "A UAE TRN is 15 digits starting with 100";
-  if (style === "SA" && !/^3\d{13}3$/.test(number)) return "A Saudi VAT number is 15 digits that start and end with 3";
-  if ((lower === "india" || lower === "in") && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(number)) return "A GSTIN is 15 characters, like 29ABCDE1234F1Z5";
-  if (style === "OTHER" && !(lower === "india" || lower === "in") && !/^[A-Z0-9-]{5,20}$/.test(number)) return "Use 5 to 20 letters, digits or hyphens";
-  return null;
-};
+const fieldErrorKey = (key: string, target: string) => (target === "DETAIL" ? `registrationDetails.${key}` : key);
 
-const validate = (form: CustomerForm, companyCountry?: string | null): Errors => {
+const filled = (rows: ContactRow[]) => rows.filter((r) => r.value.trim());
+
+// The form always shows at least one row to type into
+const withOneRow = (rows: ContactRow[]): ContactRow[] => (rows.length ? rows : [{ value: "", label: "", primary: true }]);
+
+/** Each row valid and listed once; at least one (the service applies the same rules). */
+const contactErrors = (
+  rows: ContactRow[],
+  field: "emails" | "phones",
+  problemOf: (value: string) => string | null
+): Errors => {
   const errors: Errors = {};
-  const taxProblem = taxNumberProblem(form.taxNumber, taxCountryOf(form, companyCountry));
-  if (taxProblem) errors.taxNumber = taxProblem;
+  const seen = new Set<string>();
+  rows.forEach((row, index) => {
+    const value = row.value.trim();
+    if (!value) return;
+    const problem = problemOf(value);
+    const key = value.replace(/\s+/g, "").toLowerCase();
+    if (problem) errors[`${field}.${index}`] = problem;
+    else if (seen.has(key)) errors[`${field}.${index}`] = "Listed twice";
+    seen.add(key);
+  });
+  if (!filled(rows).length) errors[`${field}.0`] = field === "emails" ? "Email is required" : "Phone is required";
+  return errors;
+};
+
+const validate = (form: CustomerForm, options: CustomerFormOptions, companyCountry?: string | null): Errors => {
+  const errors: Errors = {};
+  for (const field of taxCountryOf(form, options, companyCountry).fields) {
+    const problem = countryFieldProblem(field, fieldValue(form, field.key, field.target));
+    if (problem) errors[fieldErrorKey(field.key, field.target)] = problem;
+  }
   if (!form.customerName.trim()) errors.customerName = "Customer name is required";
   if (!form.customerType) errors.customerType = "Choose the customer type";
-  if (!form.email.trim()) errors.email = "Email is required";
-  else if (!EMAIL_PATTERN.test(form.email.trim())) errors.email = "Enter a valid email address";
-  if (!form.phone.trim()) errors.phone = "Phone is required";
-  else if (phoneProblem(form.phone)) errors.phone = phoneProblem(form.phone) as string;
-  if (form.creditLimit !== "" && (Number.isNaN(Number(form.creditLimit)) || Number(form.creditLimit) < 0))
+  Object.assign(
+    errors,
+    contactErrors(form.emails, "emails", (v) => (EMAIL_PATTERN.test(v) ? null : "Enter a valid email address")),
+    contactErrors(form.phones, "phones", (v) => phoneProblem(v) || null)
+  );
+  if (form.paymentTerms.trim().length > PAYMENT_TERM_MAX_LENGTH)
+    errors.paymentTerms = `Keep the payment terms to ${PAYMENT_TERM_MAX_LENGTH} characters`;
+  if (form.paymentMode === "CREDIT" && form.creditLimit !== "" && (Number.isNaN(Number(form.creditLimit)) || Number(form.creditLimit) < 0))
     errors.creditLimit = "Credit limit can't be negative";
   return errors;
 };
@@ -236,6 +277,90 @@ const Hint: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <p className="-mt-3 mb-4 text-xs text-gray-500 dark:text-gray-400">{children}</p>
 );
 
+/** Email addresses or phone numbers: one row each, with an optional label; the starred one is primary. */
+const ContactList: React.FC<{
+  field: "emails" | "phones";
+  rows: ContactRow[];
+  errors: Errors;
+  onChange: (rows: ContactRow[]) => void;
+}> = ({ field, rows, errors, onChange }) => {
+  const isEmail = field === "emails";
+  // Rows the user has left: their format problem shows straight away instead of waiting for Save
+  const [left, setLeft] = useState<Set<number>>(new Set());
+  const liveProblem = (row: ContactRow, index: number) => {
+    const value = row.value.trim();
+    if (!value || !left.has(index)) return undefined;
+    return (isEmail ? (EMAIL_PATTERN.test(value) ? null : "Enter a valid email address") : phoneProblem(value)) ?? undefined;
+  };
+  const setRow = (index: number, patch: Partial<ContactRow>) => onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  const makePrimary = (index: number) => onChange(rows.map((r, i) => ({ ...r, primary: i === index })));
+  const remove = (index: number) => {
+    setLeft(new Set());
+    const next = rows.filter((_, i) => i !== index);
+    if (next.length && !next.some((r) => r.primary)) next[0] = { ...next[0], primary: true };
+    onChange(next.length ? next : [{ value: "", label: "", primary: true }]);
+  };
+  return (
+    <div className="mb-2">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        {t(isEmail ? "Email addresses" : "Phone numbers")}
+      </p>
+      {rows.map((row, index) => (
+        <div key={index} className="grid grid-cols-[minmax(0,1fr)_minmax(0,9rem)_auto] items-start gap-x-2">
+          <FloatingInput
+            label={t(isEmail ? (row.primary ? "Email (primary)" : "Email") : row.primary ? "Phone (primary)" : "Phone")}
+            name={`${field}-${index}`}
+            type={isEmail ? "email" : "tel"}
+            required={row.primary}
+            value={row.value}
+            error={errors[`${field}.${index}`] ?? liveProblem(row, index)}
+            onChange={(e) => setRow(index, { value: isEmail ? e.target.value : limitPhoneInput(e.target.value) })}
+            onBlur={() => setLeft((current) => new Set(current).add(index))}
+            inputMode={isEmail ? "email" : "tel"}
+            maxLength={isEmail ? 120 : 25}
+          />
+          <FloatingInput
+            label={t("Label")}
+            name={`${field}-${index}-label`}
+            example={t(isEmail ? "Accounts" : "Mobile")}
+            value={row.label ?? ""}
+            onChange={(e) => setRow(index, { label: e.target.value })}
+            maxLength={50}
+          />
+          <div className="flex h-11 items-center gap-0.5">
+            <button
+              type="button"
+              title={t(row.primary ? "Primary" : "Make primary")}
+              aria-pressed={row.primary}
+              onClick={() => makePrimary(index)}
+              className={`rounded-md p-1.5 ${row.primary ? "text-amber-500" : "text-gray-400 hover:bg-cyan-50 hover:text-cyan-700"}`}
+            >
+              <StarIcon className={`h-4 w-4 ${row.primary ? "fill-current" : ""}`} />
+            </button>
+            <button
+              type="button"
+              title={t(isEmail ? "Remove email" : "Remove phone")}
+              onClick={() => remove(index)}
+              disabled={rows.length === 1 && !row.value}
+              className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...rows, { value: "", label: "", primary: rows.length === 0 }])}
+        className="mb-4 inline-flex items-center gap-1 text-xs font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400"
+      >
+        <PlusIcon className="h-4 w-4" />
+        {t(isEmail ? "Add email" : "Add phone")}
+      </button>
+    </div>
+  );
+};
+
 /* ---------------------------------------------------------------- page */
 
 const CustomerFormPage: React.FC = () => {
@@ -258,6 +383,7 @@ const CustomerFormPage: React.FC = () => {
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
   // New addresses start in the company's own country
   const { company } = useCompany();
+  const formOptions = useCustomerFormOptions();
 
   const isDirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(initialForm), [form, initialForm]);
 
@@ -280,11 +406,15 @@ const CustomerFormPage: React.FC = () => {
           tradeName: text(data.tradeName),
           customerType: text(data.customerType) || "OTHER",
           status: text(data.status) || "ACTIVE",
+          taxCountry: text(data.taxCountry),
           taxNumber: text(data.taxNumber),
           registrationNumber: text(data.registrationNumber),
-          email: text(data.email),
-          phone: text(data.phone),
+          registrationDetails: { ...(data.registrationDetails ?? {}) },
+          // Customers saved before the lists come back with their single email / phone
+          emails: withOneRow(contactRowsOf(data.emails, data.email)),
+          phones: withOneRow(contactRowsOf(data.phones, data.phone)),
           website: text(data.website),
+          paymentMode: data.paymentMode === "CASH" ? "CASH" : "CREDIT",
           salesPersonId: text(data.salesPersonId),
           paymentTerms: text(data.paymentTerms),
           currencyCode: text(data.currencyCode) || companyCurrency(),
@@ -316,7 +446,7 @@ const CustomerFormPage: React.FC = () => {
     setForm((current) => {
       const next = { ...current, [field]: value };
       // After a failed save, errors clear as fields are fixed
-      if (submitted) setErrors(validate(next, company?.country));
+      if (submitted) setErrors(validate(next, formOptions, company?.country));
       return next;
     });
   };
@@ -366,7 +496,7 @@ const CustomerFormPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    const problems = validate(form, company?.country);
+    const problems = validate(form, formOptions, company?.country);
     setErrors(problems);
     if (Object.keys(problems).length) {
       ToasterService.error("Please fix the highlighted fields");
@@ -378,6 +508,22 @@ const CustomerFormPage: React.FC = () => {
     }
 
     const salesPerson = salesPersons?.find((p) => String(p.id) === form.salesPersonId);
+    const country = taxCountryOf(form, formOptions, company?.country);
+    const contacts = (rows: ContactRow[]) => {
+      const list = filled(rows).map((r) => ({ value: r.value.trim(), label: r.label?.trim() || null, primary: r.primary }));
+      if (list.length && !list.some((r) => r.primary)) list[0].primary = true;
+      return list;
+    };
+    const emails = contacts(form.emails);
+    const phones = contacts(form.phones);
+    // Only the chosen country's fields are sent; the tax and registration numbers keep their own columns
+    const has = (target: string) => country.fields.some((f) => f.target === target);
+    const registrationDetails = Object.fromEntries(
+      country.fields
+        .filter((f) => f.target === "DETAIL")
+        .map((f) => [f.key, cleanRegistration(form.registrationDetails[f.key] ?? "")])
+        .filter(([, value]) => value)
+    );
     const payload = {
       customerName: form.customerName.trim(),
       tradeName: form.tradeName.trim() || null,
@@ -385,16 +531,22 @@ const CustomerFormPage: React.FC = () => {
       status: form.status,
       // Same rule as the status dropdown on the customer list
       active: form.status === "ACTIVE",
-      taxNumber: form.taxNumber.trim() || null,
-      registrationNumber: form.registrationNumber.trim() || null,
-      email: form.email.trim(),
-      phone: form.phone.trim(),
+      taxCountry: country.code,
+      taxNumber: has("TAX_NUMBER") ? cleanRegistration(form.taxNumber) || null : null,
+      registrationNumber: has("REGISTRATION_NUMBER") ? cleanRegistration(form.registrationNumber) || null : null,
+      registrationDetails,
+      emails,
+      phones,
+      email: emails.find((r) => r.primary)?.value ?? null,
+      phone: phones.find((r) => r.primary)?.value ?? null,
       website: form.website.trim() || null,
+      paymentMode: form.paymentMode,
       salesPersonId: form.salesPersonId ? Number(form.salesPersonId) : null,
       salesPersonName: salesPerson?.name ?? null,
-      paymentTerms: form.paymentTerms || null,
+      paymentTerms: form.paymentTerms.trim() || null,
       currencyCode: form.currencyCode || companyCurrency(),
-      creditLimit: form.creditLimit === "" ? null : Number(form.creditLimit),
+      // Cash customers don't buy on account
+      creditLimit: form.paymentMode === "CASH" || form.creditLimit === "" ? null : Number(form.creditLimit),
       currentCredit: salesFigures.currentCredit,
       outstandingBalance: salesFigures.outstandingBalance,
       addresses: form.addresses,
@@ -425,10 +577,36 @@ const CustomerFormPage: React.FC = () => {
 
   // The company's terms (Invoice → Payment Terms), plus a stored value that isn't in them (older records used free text)
   const companyPaymentTerms = usePaymentTermOptions();
-  const paymentTermOptions = useMemo(
-    () => withStoredTerm(companyPaymentTerms, form.paymentTerms),
-    [companyPaymentTerms, form.paymentTerms]
+  // The company's terms, then the advance-payment ones; anything else is a custom term typed by the user
+  const paymentTermOptions = useMemo(() => withAdvanceTerms(companyPaymentTerms), [companyPaymentTerms]);
+  const [customTermChosen, setCustomTermChosen] = useState(false);
+  const isCustomTerm =
+    customTermChosen || (form.paymentTerms.trim() !== "" && !paymentTermOptions.some((o) => o.id === form.paymentTerms));
+  const paymentTermSelectOptions = useMemo(
+    () => [...paymentTermOptions, { id: CUSTOM_PAYMENT_TERM, name: "Custom…" }],
+    [paymentTermOptions]
   );
+  const choosePaymentTerm = (value: string) => {
+    if (value === CUSTOM_PAYMENT_TERM) {
+      setCustomTermChosen(true);
+      // Start from a blank box rather than a code from the list
+      if (paymentTermOptions.some((o) => o.id === form.paymentTerms)) update("paymentTerms", "");
+      return;
+    }
+    setCustomTermChosen(false);
+    update("paymentTerms", value);
+  };
+  // Cash customers pay on receipt: the company's due-on-receipt term when it has one
+  const cashTerm = paymentTermOptions.find((o) => o.id === "IMMEDIATE" || /receipt|immediate|cash/i.test(o.name))?.id;
+  const setPaymentMode = (mode: PaymentMode) => {
+    update("paymentMode", mode);
+    if (mode === "CASH" && cashTerm) {
+      setCustomTermChosen(false);
+      update("paymentTerms", cashTerm);
+    }
+  };
+  const taxCountry = taxCountryOf(form, formOptions, company?.country);
+  const countryOptions = formOptions.countries.map((c) => ({ id: c.code, name: c.code === "OTHER" ? "Other country" : c.name }));
   const currencySelectOptions = useMemo(() => currencyOptions(form.currencyCode), [form.currencyCode]);
   const salesPersonOptions = (salesPersons ?? [])
     .filter((p) => p.active !== false || String(p.id) === form.salesPersonId)
@@ -477,7 +655,7 @@ const CustomerFormPage: React.FC = () => {
           <div className="grid gap-4 xl:grid-cols-3">
             {/* ---------------- left: who they are ---------------- */}
             <div className="space-y-4 xl:col-span-2">
-              <Section icon={BuildingOfficeIcon} title={t("Company")} description="Legal name, type and registration details">
+              <Section icon={BuildingOfficeIcon} title={t("Company")} description="Legal name, type, classification and status">
                 <div className="grid gap-x-4 md:grid-cols-2">
                   <FloatingInput
                     label={t("Customer name")}
@@ -504,6 +682,14 @@ const CustomerFormPage: React.FC = () => {
                     includeEmptyOption={false}
                   />
                   <FloatingSelect
+                    label={t("Classification *")}
+                    name="paymentMode"
+                    value={form.paymentMode}
+                    onChange={(e) => setPaymentMode(e.target.value as PaymentMode)}
+                    options={PAYMENT_MODE_OPTIONS}
+                    includeEmptyOption={false}
+                  />
+                  <FloatingSelect
                     label={t("Status *")}
                     name="status"
                     value={form.status}
@@ -511,46 +697,54 @@ const CustomerFormPage: React.FC = () => {
                     options={STATUS_OPTIONS}
                     includeEmptyOption={false}
                   />
-                  <FloatingInput
-                    label={t(taxLabelFor(taxCountryOf(form, company?.country)))}
-                    name="taxNumber"
-                    error={errors.taxNumber}
-                    value={form.taxNumber}
-                    onChange={(e) => update("taxNumber", e.target.value.toUpperCase())}
-                    maxLength={50}
-                  />
-                  <FloatingInput
-                    label={t("Registration number")}
-                    name="registrationNumber"
-                    value={form.registrationNumber}
-                    onChange={(e) => update("registrationNumber", e.target.value)}
-                    maxLength={50}
-                  />
                 </div>
               </Section>
 
-              <Section icon={EnvelopeIcon} title={t("Contact details")} description="Main email and phone for the company; people go under Key Contacts">
+              <Section
+                icon={IdentificationIcon}
+                title={t("Tax & registration")}
+                description="The fields the customer's tax country needs"
+              >
                 <div className="grid gap-x-4 md:grid-cols-2">
-                  <FloatingInput
-                    label={t("Email")}
-                    name="email"
-                    type="email"
-                    required
-                    value={form.email}
-                    error={errors.email}
-                    onChange={(e) => update("email", e.target.value)}
-                    maxLength={120}
+                  <FloatingSelect
+                    label={t("Tax country")}
+                    name="taxCountry"
+                    value={taxCountry.code}
+                    onChange={(e) => update("taxCountry", e.target.value)}
+                    options={countryOptions}
+                    includeEmptyOption={false}
                   />
-                  <FloatingInput
-                    label={t("Phone")}
-                    name="phone"
-                    type="tel"
-                    required
-                    value={form.phone}
-                    error={errors.phone}
-                    onChange={(e) => update("phone", e.target.value)}
-                    maxLength={50}
-                  />
+                  {taxCountry.fields.map((field) => {
+                    const value = fieldValue(form, field.key, field.target);
+                    const onChange = (raw: string) => {
+                      const next = raw.toUpperCase();
+                      if (field.target === "TAX_NUMBER") update("taxNumber", next);
+                      else if (field.target === "REGISTRATION_NUMBER") update("registrationNumber", next);
+                      else update("registrationDetails", { ...form.registrationDetails, [field.key]: next });
+                    };
+                    return (
+                      <FloatingInput
+                        key={`${taxCountry.code}-${field.key}`}
+                        label={t(field.label)}
+                        name={field.key}
+                        required={field.required}
+                        example={field.example ?? undefined}
+                        value={value}
+                        error={errors[fieldErrorKey(field.key, field.target)]}
+                        onChange={(e) => onChange(e.target.value)}
+                        maxLength={50}
+                      />
+                    );
+                  })}
+                </div>
+              </Section>
+
+              <Section icon={EnvelopeIcon} title={t("Contact details")} description="The company's email addresses and phone numbers; the starred one is used on quotations, orders, invoices and messages. People go under Key Contacts">
+                <div className="grid gap-x-6 lg:grid-cols-2">
+                  <ContactList field="emails" rows={form.emails} errors={errors} onChange={(rows) => update("emails", rows)} />
+                  <ContactList field="phones" rows={form.phones} errors={errors} onChange={(rows) => update("phones", rows)} />
+                </div>
+                <div className="grid gap-x-4 md:grid-cols-2">
                   <div>
                     <FloatingInput
                       label={t("Website")}
@@ -774,7 +968,13 @@ const CustomerFormPage: React.FC = () => {
 
             {/* ---------------- right: how we sell to them ---------------- */}
             <div className="space-y-4">
-              <Section icon={WalletIcon} title={t("Sales & billing")} description="Sales person, payment terms, currency and credit">
+              <Section icon={WalletIcon} title={t("Sales & billing")} description="Cash or credit, sales person, payment terms and currency">
+                {/* Cash / Credit is the customer's classification, chosen in the Company section */}
+                <p className="mb-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  <span className="font-semibold">{t(form.paymentMode === "CASH" ? "Cash customer" : "Credit customer")}</span>
+                  {" — "}
+                  {t(form.paymentMode === "CASH" ? "Pays on the spot; no credit limit." : "Buys on account within the credit limit and credit days.")}
+                </p>
                 {salesPersons !== null && (
                   <>
                     <FloatingSelect
@@ -788,12 +988,23 @@ const CustomerFormPage: React.FC = () => {
                   </>
                 )}
                 <FloatingSelect
-                  label={t("Payment terms")}
+                  label={t(form.paymentMode === "CREDIT" ? "Credit days (payment terms)" : "Payment terms")}
                   name="paymentTerms"
-                  value={form.paymentTerms}
-                  onChange={(e) => update("paymentTerms", e.target.value)}
-                  options={paymentTermOptions}
+                  value={isCustomTerm ? CUSTOM_PAYMENT_TERM : form.paymentTerms}
+                  onChange={(e) => choosePaymentTerm(e.target.value)}
+                  options={paymentTermSelectOptions}
                 />
+                {isCustomTerm && (
+                  <FloatingInput
+                    label={t("Custom payment terms")}
+                    name="customPaymentTerms"
+                    example={t("e.g. 30% advance, 70% on delivery")}
+                    value={form.paymentTerms}
+                    error={errors.paymentTerms}
+                    onChange={(e) => update("paymentTerms", e.target.value)}
+                    maxLength={PAYMENT_TERM_MAX_LENGTH}
+                  />
+                )}
                 <FloatingSelect
                   label={t("Currency")}
                   name="currencyCode"
@@ -802,18 +1013,22 @@ const CustomerFormPage: React.FC = () => {
                   options={currencySelectOptions}
                   includeEmptyOption={false}
                 />
-                <FloatingInput
-                  label={t("Credit limit")}
-                  name="creditLimit"
-                  type="number"
-                  min={0}
-                  value={form.creditLimit}
-                  error={errors.creditLimit}
-                  onChange={(e) => update("creditLimit", e.target.value)}
-                />
-                <Hint>
-                  {form.creditLimit === "" ? t("Leave blank for no limit — orders aren't checked against credit.") : Number(form.creditLimit) === 0 ? t("A limit of 0 blocks every order on credit.") : t("Orders are checked against {amount}.", { amount: formatMoney(Number(form.creditLimit), form.currencyCode || companyCurrency()) })}
-                </Hint>
+                {form.paymentMode === "CREDIT" && (
+                  <>
+                    <FloatingInput
+                      label={t("Credit limit")}
+                      name="creditLimit"
+                      type="number"
+                      min={0}
+                      value={form.creditLimit}
+                      error={errors.creditLimit}
+                      onChange={(e) => update("creditLimit", e.target.value)}
+                    />
+                    <Hint>
+                      {form.creditLimit === "" ? t("Leave blank for no limit — orders aren't checked against credit.") : Number(form.creditLimit) === 0 ? t("A limit of 0 blocks every order on credit.") : t("Orders are checked against {amount}.", { amount: formatMoney(Number(form.creditLimit), form.currencyCode || companyCurrency()) })}
+                    </Hint>
+                  </>
+                )}
               </Section>
 
               {isEditing ? (

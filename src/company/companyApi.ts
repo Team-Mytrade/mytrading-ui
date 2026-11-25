@@ -35,13 +35,15 @@ export interface CompanyProfile {
   weekendDays: string[];
   // Hijri dates beside the Gregorian ones (Saudi companies by default)
   hijriDates: boolean;
-  // VAT (Gulf: TRN on tax invoices, VAT return), GST (India: GSTIN) or NONE (not registered)
+  // VAT (Gulf: TRN on tax invoices, VAT return), GST (India: GSTIN), TIN (income tax only, e.g. Qatar) or NONE
   taxRegime?: TaxRegime;
-  // VAT registration number (TRN); GST companies use gstin
+  // VAT registration number (TRN) or TIN; GST companies use gstin
   taxNumber?: string | null;
   // Commercial / trade licence and who issued it (UAE e-invoices identify the seller by them)
   tradeLicenseNumber?: string | null;
   licenseAuthority?: string | null;
+  // Establishment card number (Qatar)
+  establishmentCardNumber?: string | null;
   hasLogo: boolean;
   // The company's colour (#RRGGBB) and browser-tab icon
   brandColor?: string | null;
@@ -51,7 +53,7 @@ export interface CompanyProfile {
   editable: boolean;
 }
 
-export type TaxRegime = "VAT" | "GST" | "NONE";
+export type TaxRegime = "VAT" | "GST" | "TIN" | "NONE";
 
 export interface CompanyLogo {
   dataUrl: string;
@@ -204,6 +206,15 @@ export const companyAddressLines = (p?: CompanyProfile | null): string[] =>
       ]
         .map((line) => String(line ?? "").trim().replace(/^- /, ""))
         .filter(Boolean);
+
+/** The tax number line printed on documents: TRN for VAT, TIN for TIN, GSTIN for GST; empty when there is none. */
+export const companyTaxLine = (p?: CompanyProfile | null): string => {
+  if (!p || p.taxRegime === "NONE") return "";
+  if (p.taxRegime === "VAT" || p.taxRegime === "TIN") {
+    return p.taxNumber?.trim() ? `${p.taxRegime === "VAT" ? "TRN" : "TIN"}: ${p.taxNumber.trim()}` : "";
+  }
+  return p.gstin?.trim() ? `GSTIN: ${p.gstin.trim()}` : "";
+};
 
 /** The company profile for a page; refreshes when it is saved or the company changes. */
 export const useCompany = () => {
