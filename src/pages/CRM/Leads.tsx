@@ -45,7 +45,7 @@ import { useUserDirectory, userOptions } from "../../access/useUserDirectory";
 import { MineAllToggle, OwnRecordsNote, OwnerCell, isMine, useCrmSettings, useMineOnly, useMyUsername } from "./crmOwnership";
 import { countries } from "../../company/regional";
 import { addressStyle } from "../../company/regionalAddress";
-import { companyCurrency, currencyChoices } from "../../company/format";
+import { companyCurrency, currencyChoices, formatDateTime } from "../../company/format";
 import { t } from "../../i18n/i18n";
 const API_URL = "/v1/api/crm/leads";
 const CUSTOMER_API = "/v1/api/common/customers";
@@ -77,10 +77,14 @@ interface Lead {
   notes: string;
   // Why a Lost lead was lost (from CRM Settings)
   lostReason: string;
+  // 8.4.15: the person's consent as captured (the website form's tick): when and where, and the notice word for
+  // word. Read-only; shown in the lead's details
+  consent: string;
+  consentNotice: string;
 }
 
-// The form keeps text as typed (the expected value too)
-type LeadForm = Omit<Lead, "id" | "ownerName" | "expectedValue"> & { expectedValue: string };
+// The form keeps text as typed (the expected value too); consent is never edited
+type LeadForm = Omit<Lead, "id" | "ownerName" | "expectedValue" | "consent" | "consentNotice"> & { expectedValue: string };
 
 interface Customer {
   id: number;
@@ -165,6 +169,11 @@ const normalizeLead = (
     currencyCode: text(lead.currencyCode),
     notes: text(lead.notes),
     lostReason: text(lead.lostReason),
+    // Kept in UTC by the service
+    consent: lead.consentAt
+      ? `${t("Given")} ${formatDateTime(`${String(lead.consentAt)}Z`)}${lead.consentSource ? ` · ${t(String(lead.consentSource))}` : ""}`
+      : "",
+    consentNotice: text(lead.consentNotice),
   };
 };
 
@@ -916,6 +925,7 @@ const Leads: React.FC = () => {
             defaultSortOrder="asc"
             toolbar={<MineAllToggle mineOnly={mineOnly} onChange={setMineOnly} mineLabel="My leads" />}
             enableRowDetails={true}
+            detailLabels={{ consent: t("Consent"), consentNotice: t("What they agreed to") }}
            hiddenDetailKeys={[
               "id",
               "owner",

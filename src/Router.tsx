@@ -183,6 +183,7 @@ const NotificationSettingsPage = lazy(() => import("./pages/company/Notification
 const AuditLogPage = lazy(() => import("./pages/company/AuditLogPage"));
 const DataImportPage = lazy(() => import("./pages/company/DataImportPage"));
 const GettingStartedPage = lazy(() => import("./pages/company/GettingStartedPage"));
+const GoLiveCheckPage = lazy(() => import("./pages/company/GoLiveCheckPage"));
 const HelpCenterPage = lazy(() => import("./pages/Help/HelpCenterPage"));
 const ApiKeysPage = lazy(() => import("./pages/company/ApiKeysPage"));
 const WebhooksPage = lazy(() => import("./pages/company/WebhooksPage"));
@@ -321,6 +322,8 @@ export default function AppRouter() {
           {/* Go-live is now the HR, payroll & attendance tab of Data Import */}
           <Route path="/go-live" element={<Navigate to="/data-import?tab=hr" replace />} />
           <Route path="/getting-started" element={<GettingStartedPage />} />
+          {/* The opening data checked before the first transaction (ADO-2) */}
+          <Route path="/go-live-check" element={<GoLiveCheckPage />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/help/flow/:flowId" element={<HelpCenterPage />} />
           <Route path="/help/:topicId" element={<HelpCenterPage />} />
