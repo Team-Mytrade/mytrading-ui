@@ -332,6 +332,7 @@ export const navItems: NavItem[] = [
       // Everyone's pay and HR records need HRM:APPROVE (HR, managers): the payroll service refuses them to plain
       // HRM:VIEW. Payslips, IT Declaration and Exit Management stay: they show the user's own records.
       { name: "Documents", path: "/employeeDocuments", permission: "HRM:APPROVE", icon: FolderOpen, section: "People" },
+      { name: "Expiring Documents", path: "/expiring-documents", permission: "HRM:APPROVE", icon: CalendarClock, section: "People" },
       // Pay components → structures → salaries → declarations → run → payslips
       { name: "Compensation", path: "/employeeCompensation", permission: "HRM:APPROVE", icon: Coins, section: "Payroll" },
       { name: "Salary Structure", path: "/salaryStructure", permission: "HRM:APPROVE", icon: Layers, section: "Payroll" },

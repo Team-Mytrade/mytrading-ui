@@ -21,6 +21,8 @@ import { AuthContext } from "../../context/AuthContext";
 import { DeliveryOrder, DeliveryStatus, StatusBadge, apiError, formatDateTime } from "./deliveryShared";
 import { DRIVER_API, DriverVehicle, LocationPoint, Trip, directionsUrl, timeAgo } from "./trackingApi";
 import { formatTime, formatDateTime as companyFormatDateTime } from "../../company/format";
+import { currentCompanyCountry } from "../../company/companyApi";
+import { PhotoPicker, ProofBadge, SignaturePad, SignaturePadHandle, shrinkPhoto, tp } from "./proofOfDelivery";
 
 import { t } from "../../i18n/i18n";
 // Driver Mode: the driver's phone shares the vehicle's location during a trip and updates deliveries.
@@ -98,6 +100,17 @@ const DriverMode: React.FC = () => {
   const [action, setAction] = useState<StatusAction | null>(null);
   const [remarks, setRemarks] = useState("");
   const [reason, setReason] = useState("");
+  // Proof of delivery (Delivered / Partly delivered)
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverMobile, setReceiverMobile] = useState("");
+  const [signed, setSigned] = useState(false);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState<{ sentTo: string; channels: string[]; code?: string | null } | null>(null);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [doorFix, setDoorFix] = useState<LocationPoint | null>(null);
+  const [locating, setLocating] = useState(false);
+  const signatureRef = useRef<SignaturePadHandle>(null);
   const [, setTick] = useState(0);
 
   const watchIdRef = useRef<number | null>(null);
@@ -338,14 +351,100 @@ const DriverMode: React.FC = () => {
     }
   };
 
+  const needsProof = (status?: DeliveryStatus) => status === "DELIVERED" || status === "PARTIAL";
+
   const openAction = (order: DeliveryOrder, status: DeliveryStatus) => {
     setAction({ order, status });
     setRemarks("");
     setReason("");
+    setReceiverName(order.proofs?.[0]?.receiverName ?? "");
+    setReceiverMobile(order.proofs?.[0]?.receiverMobile ?? "");
+    setSigned(false);
+    setPhotos([]);
+    setCode("");
+    setCodeSent(null);
+    setDoorFix(null);
+    // A fresh position at the door (HTTPS only); otherwise the last trip fix is used
+    if (needsProof(status) && secure && hasGps) {
+      setLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          setDoorFix({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: Math.round(p.coords.accuracy), timestamp: p.timestamp || Date.now() });
+          setLocating(false);
+        },
+        () => setLocating(false),
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 }
+      );
+    }
+  };
+
+  const sendCode = async () => {
+    if (!action) return;
+    if (!receiverMobile.trim()) {
+      setError(tp("Enter the customer's mobile number"));
+      return;
+    }
+    setSendingCode(true);
+    setError(null);
+    try {
+      const { data } = await axios.post(`${DRIVER_API}/deliveries/${action.order.id}/code`, {
+        mobile: receiverMobile.trim(),
+        country: currentCompanyCountry(),
+      });
+      setCodeSent(data);
+    } catch (err) {
+      setError(apiError(err, "Could not send the code"));
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  // Delivered / partly delivered: one request with the receiver, signature, photos, position and code
+  const submitProof = async () => {
+    if (!action) return;
+    if (receiverName.trim().length < 2) {
+      setError(tp("Enter the receiver's name"));
+      return;
+    }
+    const signature = await signatureRef.current?.toBlob();
+    if (!signature && !code.trim()) {
+      setError(tp("Ask the receiver to sign, or to read back the code"));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      const fix = doorFix ?? lastFix;
+      form.append("status", action.status);
+      form.append("receiverName", receiverName.trim());
+      if (receiverMobile.trim()) form.append("receiverMobile", receiverMobile.trim());
+      if (remarks.trim()) form.append("remarks", remarks.trim());
+      if (code.trim()) form.append("code", code.trim());
+      if (fix) {
+        form.append("latitude", String(fix.latitude));
+        form.append("longitude", String(fix.longitude));
+        if (fix.accuracy != null) form.append("accuracy", String(fix.accuracy));
+      }
+      if (signature) form.append("signature", signature, "signature.png");
+      for (const [i, photo] of photos.entries()) {
+        const small = await shrinkPhoto(photo);
+        form.append("photos", small, `photo-${i + 1}.${small.type === "image/png" ? "png" : "jpg"}`);
+      }
+      await axios.post(`${DRIVER_API}/deliveries/${action.order.id}/proof`, form);
+      setNotice(`${action.order.deliveryOrderNumber}: ${tp("Proof of delivery saved")}`);
+      setAction(null);
+      loadDeliveries();
+    } catch (err) {
+      setError(apiError(err, "Could not update the delivery"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submitAction = async () => {
     if (!action) return;
+    if (needsProof(action.status)) return submitProof();
     if (action.status === "RETURNED" && !reason.trim()) {
       setError("Say why the delivery did not go through");
       return;
@@ -575,6 +674,60 @@ const DriverMode: React.FC = () => {
               />
             </>
           )}
+          {needsProof(action.status) && (
+            <div className="mt-3 space-y-3" data-testid="proof-capture">
+              {!secure && (
+                <Banner tone="amber" icon={<AlertTriangleIcon className="h-5 w-5" />}>
+                  {tp("Camera and location need HTTPS. Signature and receiver name still work; photos can be chosen from the gallery.")}
+                </Banner>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-slate-500" htmlFor="pod-receiver">{tp("Receiver's name *")}</label>
+                <input id="pod-receiver" value={receiverName} onChange={(e) => setReceiverName(e.target.value)} maxLength={100}
+                  placeholder={tp("e.g. Ahmed Ali, store keeper")} autoComplete="off"
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base dark:border-gray-700 dark:bg-gray-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500" htmlFor="pod-mobile">{tp("Receiver's mobile")}</label>
+                <input id="pod-mobile" value={receiverMobile} onChange={(e) => setReceiverMobile(e.target.value)} maxLength={30}
+                  type="tel" inputMode="tel" placeholder="05x xxx xxxx" dir="ltr"
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base dark:border-gray-700 dark:bg-gray-800" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500">{tp(code.trim() ? "Signature" : "Signature *")}</p>
+                <div className="mt-1"><SignaturePad ref={signatureRef} onChange={setSigned} /></div>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-slate-500">{tp("Photos")}</p>
+                <PhotoPicker photos={photos} onChange={setPhotos} />
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 dark:bg-gray-800">
+                <p className="text-xs font-medium text-slate-500">{tp("One-time code (optional)")}</p>
+                <div className="mt-1 grid grid-cols-[1fr_auto] gap-2">
+                  <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric"
+                    placeholder={tp("6-digit code")} aria-label={tp("6-digit code")} dir="ltr"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base tracking-widest dark:border-gray-700 dark:bg-gray-900" />
+                  <button type="button" onClick={sendCode} disabled={sendingCode || busy}
+                    className="rounded-xl bg-slate-800 px-3 text-sm font-semibold text-white disabled:opacity-40">
+                    {tp(sendingCode ? "Sending…" : "Send code")}
+                  </button>
+                </div>
+                {codeSent && (
+                  <p className="mt-1 text-xs text-green-700">
+                    {tp("Code sent to {to} by {channels}. Ask the receiver to read it out.", { to: codeSent.sentTo, channels: codeSent.channels.join(" + ") })}
+                    {codeSent.code ? ` (${codeSent.code})` : ""}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-slate-400">{tp("With a confirmed code, the signature is optional.")}</p>
+              </div>
+              <p className="text-xs text-slate-400">
+                {locating ? tp("Getting your location…")
+                  : (doorFix ?? lastFix) ? tp("Location: phone GPS (±{m} m)", { m: (doorFix ?? lastFix)?.accuracy ?? "?" })
+                  : tp("No GPS: the trip's last position is used.")}
+              </p>
+              {error && <Banner tone="red" icon={<AlertTriangleIcon className="h-5 w-5" />} onClose={() => setError(null)}>{error}</Banner>}
+            </div>
+          )}
           <label className="mt-4 block text-xs font-medium text-slate-500" htmlFor="driver-remarks">{t("Note (optional)")}</label>
           <textarea
             id="driver-remarks"
@@ -584,15 +737,17 @@ const DriverMode: React.FC = () => {
             placeholder={action.status === "DELIVERED" ? "e.g. Signed by store manager" : ""}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-base dark:border-gray-700 dark:bg-gray-800"
           />
-          <p className="mt-2 text-xs text-slate-400">
-            {t(lastFix ? "Your current location is saved with this update." : "No GPS fix yet; the trip's last position is used.")}
-          </p>
+          {!needsProof(action.status) && (
+            <p className="mt-2 text-xs text-slate-400">
+              {t(lastFix ? "Your current location is saved with this update." : "No GPS fix yet; the trip's last position is used.")}
+            </p>
+          )}
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button type="button" onClick={() => setAction(null)} className="rounded-xl border border-slate-300 py-3 font-medium dark:border-gray-700">{t("Cancel")}</button>
             <button
               type="button"
               onClick={submitAction}
-              disabled={busy}
+              disabled={busy || (needsProof(action.status) && (receiverName.trim().length < 2 || (!signed && code.length !== 6)))}
               className={`rounded-xl py-3 font-semibold text-white disabled:opacity-50 ${action.status === "RETURNED" ? "bg-orange-600" : "bg-green-600"}`}
             >
               {t(busy ? "Saving…" : "Confirm")}
@@ -645,11 +800,14 @@ const DeliveryCard: React.FC<{
       {order.remarks && <p className="mt-1 text-xs text-slate-500">{t("Note:")} {order.remarks}</p>}
 
       {done ? (
-        order.tracking && (
-          <p className="mt-3 text-xs text-slate-500">
-            {order.tracking.remarks || order.tracking.failureReason || "Done"} · {formatDateTime(order.tracking.statusUpdatedAt)}
-          </p>
-        )
+        <>
+          {order.tracking && (
+            <p className="mt-3 text-xs text-slate-500">
+              {order.tracking.remarks || order.tracking.failureReason || "Done"} · {formatDateTime(order.tracking.statusUpdatedAt)}
+            </p>
+          )}
+          {order.proofs?.[0] && <p className="mt-1"><ProofBadge proof={order.proofs[0]} /></p>}
+        </>
       ) : order.status === "PENDING" || order.status === "CONFIRMED" ? (
         <button type="button" disabled={!canAct} onClick={() => onAction(order, "IN_TRANSIT")} className={`${button} mt-3 w-full bg-cyan-600 text-white`}>
           {t("Start delivery")}
@@ -699,7 +857,7 @@ const Banner: React.FC<{ tone: "red" | "amber" | "green"; icon: React.ReactNode;
 const Sheet: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
   <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
     <div data-overlay-panel
-      className="w-full max-w-xl rounded-t-2xl bg-white p-5 pb-8 shadow-xl dark:bg-gray-900 sm:rounded-2xl sm:pb-5"
+      className="max-h-[94vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-5 pb-8 shadow-xl dark:bg-gray-900 sm:rounded-2xl sm:pb-5"
       onClick={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"

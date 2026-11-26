@@ -44,9 +44,56 @@ export const HR_TOPICS: HelpTopic[] = [
     ],
     rules: [
       "Exporting the list (PDF, Excel, print) needs the export right; deleting needs the delete right.",
-      "HR (update right) and the employee get a reminder under the bell 60, 30 and 7 days before a document expires, and when it has expired. Uploading the renewed document with its new date, changing the date, or deleting the document clears it.",
+      "A document can be recorded without its file (the number, issue and expiry dates only); add the scan later as a new upload.",
+      "HR (update right), the employee's manager and the employee get a reminder under the bell (and the company's alert channels) at the company's lead times, 60, 30 and 7 days before by default, and when it has expired. Uploading the renewed document with its new date, changing the date, or deleting the document clears it.",
     ],
-    related: [{ route: "/employeeRecords", label: "Employees" }],
+    related: [{ route: "/employeeRecords", label: "Employees" }, { route: "/expiring-documents", label: "Expiring Documents" }],
+  },
+  {
+    id: "expiring-documents",
+    route: "/expiring-documents",
+    module: "HRMS",
+    title: "Expiring Documents",
+    summary: "Employee visas, Emirates IDs, iqamas, labour cards, passports and other documents that have expired or expire soon, with a renewal task for each.",
+    who: HR_ONLY,
+    tasks: [
+      {
+        title: "See what needs renewing",
+        steps: [
+          "Pick a Document Type, a Department or a Days left window (Expired, within 7, 30, 60 or 90 days).",
+          "Expired documents show their date in red; the cards count expired, within 7 days, within 30 days and open renewal tasks.",
+          "Export Excel downloads the filtered list.",
+        ],
+      },
+      {
+        title: "Work a renewal",
+        steps: [
+          "The daily reminder opens a renewal task with the first reminder.",
+          "Click Start renewal (play icon) when it is in hand, and the pencil to note who handles it (PRO, typing centre) and where it stands.",
+          "Upload the renewed document with its new expiry date on the employee's documents (folder icon): the task is done and the old copy leaves the list. Mark renewed closes it by hand.",
+        ],
+      },
+      {
+        title: "Set the reminders",
+        steps: [
+          "Click Reminder settings.",
+          "Enter the days before expiry, e.g. 90, 60, 30, 7 (up to 6; one more goes on the day it expires).",
+          "Choose whether the employee's manager and the employee are reminded too, and whether a renewal task is opened.",
+        ],
+      },
+    ],
+    statuses: [
+      { name: "Open", meaning: "Reminder sent; renewal not started." },
+      { name: "In progress", meaning: "Renewal under way." },
+      { name: "Done", meaning: "Renewed (a new copy was uploaded, the date moved later, or marked by hand)." },
+      { name: "Cancelled", meaning: "The document was deleted." },
+    ],
+    rules: [
+      "Only documents with an expiry date show here; add the date on HRMS → Documents.",
+      "Each reminder goes once; reminders follow the company's own calendar.",
+      "An older copy of a document that has a later renewed copy is not reminded again.",
+    ],
+    related: [{ route: "/employeeDocuments", label: "Documents" }, { route: "/employeeRecords", label: "Employees" }],
   },
   {
     id: "employee-compensation",

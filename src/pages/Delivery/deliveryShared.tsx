@@ -104,6 +104,8 @@ export interface DeliveryOrder {
   createdDate?: string;
   items: DeliveryOrderItem[];
   tracking?: DeliveryTracking | null;
+  // Proof of delivery from Driver Mode (latest first), on the order reads
+  proofs?: import("./proofOfDelivery").DeliveryProof[];
 }
 
 export const EDITABLE_ORDER_STATUSES: DeliveryStatus[] = ["PENDING", "CONFIRMED"];

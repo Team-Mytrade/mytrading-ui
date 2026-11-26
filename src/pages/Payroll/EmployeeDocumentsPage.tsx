@@ -34,6 +34,7 @@ import {
     CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import { expiryBadge, expiryText } from "./DocumentManagementPage";
+import { EMPLOYEE_DOCUMENT_TYPES, documentTypeLabel } from "./documentTypes";
 import { Menu } from "@headlessui/react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -74,24 +75,15 @@ interface EmployeeDocument {
     expiryDate?: string | null;
     documentNumber?: string | null;
     daysToExpiry?: number | null;
+    issueDate?: string | null;
+    // False when only the number and dates were recorded
+    hasFile?: boolean;
 }
 
 const API_URL = "/v1/api/payroll/empdocuments";
 
 // The document types the payroll service accepts
-const DOCUMENT_TYPES: { value: string; label: string }[] = [
-    { value: "PAN", label: "PAN Card" },
-    { value: "AADHAAR", label: "Aadhaar Card" },
-    { value: "PASSPORT", label: "Passport" },
-    { value: "NATIONAL_ID", label: "National ID" },
-    { value: "DRIVER_LICENSE", label: "Driving Licence" },
-    { value: "WORK_PERMIT", label: "Work Permit" },
-    { value: "BIRTH_CERTIFICATE", label: "Birth Certificate" },
-    { value: "SOCIAL_SECURITY", label: "Social Security" },
-    { value: "TAX_ID", label: "Tax ID" },
-    { value: "VISA", label: "Residence Visa" },
-    { value: "RESIDENCE_ID", label: "Residence ID (Emirates ID / Iqama)" },
-];
+const DOCUMENT_TYPES = EMPLOYEE_DOCUMENT_TYPES;
 
 const STATUS_LABEL = { PENDING: "Pending", APPROVED: "Verified", REJECTED: "Rejected" } as const;
 
@@ -106,6 +98,7 @@ const EmployeeDocumentsPage: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
     const [expiryDate, setExpiryDate] = useState("");
     const [documentNumber, setDocumentNumber] = useState("");
+    const [issueDate, setIssueDate] = useState("");
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewFileType, setPreviewFileType] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -157,18 +150,20 @@ const EmployeeDocumentsPage: React.FC = () => {
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file || !documentType) {
-            ToasterService.warning("Please select a document type and file");
+        // The file is optional: a visa or ID can be recorded by its number and dates before the scan arrives
+        if (!documentType || (!file && !expiryDate && !documentNumber.trim())) {
+            ToasterService.warning(t("Choose the document type, and a file or its number or expiry date"));
             return;
         }
 
         setLoading(true);
         try {
             const formData = new FormData();
-            formData.append("file", file);
+            if (file) formData.append("file", file);
             formData.append("documentType", documentType);
             if (expiryDate) formData.append("expiryDate", expiryDate);
             if (documentNumber.trim()) formData.append("documentNumber", documentNumber.trim());
+            if (issueDate) formData.append("issueDate", issueDate);
             await axios.post(`${API_URL}/upload/${employeeIdNum}`, formData);
             ToasterService.success("Document uploaded successfully");
             await loadDocs();
@@ -177,6 +172,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             setDocumentType("");
             setExpiryDate("");
             setDocumentNumber("");
+            setIssueDate("");
         } catch (err: any) {
             ToasterService.error(apiError(err, "Upload failed"));
         } finally {
@@ -194,7 +190,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             return;
         }
         try {
-            const response = await axios.put(`${API_URL}/${doc.id}/details`, { expiryDate: date || null, documentNumber: doc.documentNumber ?? null });
+            const response = await axios.put(`${API_URL}/${doc.id}/details`, { expiryDate: date || null, documentNumber: doc.documentNumber ?? null, issueDate: doc.issueDate ?? null });
             setDocuments(prev => prev.map(d => (d.id === doc.id ? { ...d, ...response.data } : d)));
             ToasterService.success(date ? "Expiry date saved" : "Expiry date cleared");
         } catch (err) {
@@ -374,7 +370,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             render: (row) => (
                 <div className="flex items-center gap-3">
                     {getFileIcon(row.fileType)}
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{row.documentType}</span>
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{documentTypeLabel(row.documentType)}</span>
                 </div>
             )
         },
@@ -382,7 +378,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             key: "fileName",
             label: "File Name",
             sortable: true,
-            render: (row) => <span className="text-xs text-gray-700 dark:text-gray-300 font-mono break-all line-clamp-2" title={row.fileName}>{row.fileName}</span>
+            render: (row) => row.hasFile === false ? <span className="text-xs italic text-gray-400">{t("No file yet")}</span> : <span className="text-xs text-gray-700 dark:text-gray-300 font-mono break-all line-clamp-2" title={row.fileName}>{row.fileName}</span>
         },
         {
             key: "expiryDate",
@@ -390,7 +386,7 @@ const EmployeeDocumentsPage: React.FC = () => {
             sortable: true,
             render: (row) => row.expiryDate ? (
                 <div>
-                    <span className="text-xs text-gray-700 dark:text-gray-300">{formatDate(row.expiryDate)}</span>
+                    <span className={`text-xs ${(row.daysToExpiry ?? 0) < 0 ? "font-semibold text-red-700 dark:text-red-400" : "text-gray-700 dark:text-gray-300"}`}>{formatDate(row.expiryDate)}</span>
                     <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${expiryBadge(row.daysToExpiry)}`}>{expiryText(row.daysToExpiry)}</span>
                     {row.documentNumber && <p className="text-[11px] text-gray-400">{row.documentNumber}</p>}
                 </div>
@@ -455,12 +451,16 @@ const EmployeeDocumentsPage: React.FC = () => {
                     <button type="button" onClick={() => { setSelectedDocument(row); setViewModalOpen(true); }} className={ROW_ICON_BUTTON} title={t("Details")}>
                         <InformationCircleIcon className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => handlePreview(row)} className={ROW_ICON_BUTTON} title={t("Preview")}>
-                        <EyeIcon className="h-4 w-4" />
-                    </button>
-                    <button type="button" onClick={() => handleDownload(row)} className={ROW_ICON_BUTTON} title={t("Download")}>
-                        <ArrowDownTrayIcon className="h-4 w-4" />
-                    </button>
+                    {row.hasFile !== false && (
+                        <button type="button" onClick={() => handlePreview(row)} className={ROW_ICON_BUTTON} title={t("Preview")}>
+                            <EyeIcon className="h-4 w-4" />
+                        </button>
+                    )}
+                    {row.hasFile !== false && (
+                        <button type="button" onClick={() => handleDownload(row)} className={ROW_ICON_BUTTON} title={t("Download")}>
+                            <ArrowDownTrayIcon className="h-4 w-4" />
+                        </button>
+                    )}
                     {canDelete && (
                         <button type="button" onClick={() => handleDelete(row.id, row.fileName)} className={ROW_ICON_BUTTON_DANGER} title={t("Delete")}>
                             <TrashIcon className="h-4 w-4" />
@@ -584,7 +584,12 @@ const EmployeeDocumentsPage: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="doc-expiry-date">{t("Expiry date")}</label>
                             <input id="doc-expiry-date" type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}
                                 className="mt-1 block w-full border border-gray-300 dark:!border-transparent rounded-md shadow-sm p-2 bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-cyan-500 focus:border-cyan-500 outline-none" />
-                            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{t("HR and the employee are reminded 60, 30 and 7 days before it.")}</p>
+                            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{t("HR, the manager and the employee are reminded before it (Expiring Documents → Reminder settings).")}</p>
+                        </div>,
+                        <div key="doc-issue">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="doc-issue-date">{t("Issue date")}</label>
+                            <input id="doc-issue-date" type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 dark:!border-transparent rounded-md shadow-sm p-2 bg-white dark:bg-[#222222] text-gray-900 dark:text-white focus:ring-cyan-500 focus:border-cyan-500 outline-none" />
                         </div>,
                         <div key="doc-number">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="doc-number">{t("Document number")}</label>
@@ -604,13 +609,12 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                 accept=".pdf,.jpg,.jpeg,.png"
                                                 className="sr-only"
                                                 onChange={e => setFile(e.target.files?.[0] || null)}
-                                                required
                                             />
                                         </label>
                                         <p className="pl-1">{t("or drag and drop")}</p>
                                     </div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {t("PDF, JPG or PNG up to 5 MB")}
+                                        {t("PDF, JPG or PNG up to 5 MB (optional: add it later)")}
                                     </p>
                                     {file && (
                                         <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 font-medium">
@@ -654,7 +658,7 @@ const EmployeeDocumentsPage: React.FC = () => {
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400">{t("Document Type")}</p>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedDocument.documentType}</p>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{documentTypeLabel(selectedDocument.documentType)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400">{t("Status")}</p>

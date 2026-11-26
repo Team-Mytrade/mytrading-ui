@@ -26,6 +26,7 @@ import { apiError } from '../../utils/apiError';
 import { PAGE_BODY, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, STATS_ROW } from './hrmsUi';
 import { formatDate } from "../../company/format";
 
+import { EMPLOYEE_DOCUMENT_TYPES } from "./documentTypes";
 import { t } from "../../i18n/i18n";
 type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -48,19 +49,7 @@ interface Document {
 }
 
 // The document types the payroll service accepts
-const DOCUMENT_TYPES = [
-    { id: "PAN", name: "PAN Card" },
-    { id: "AADHAAR", name: "Aadhaar Card" },
-    { id: "PASSPORT", name: "Passport" },
-    { id: "NATIONAL_ID", name: "National ID" },
-    { id: "DRIVER_LICENSE", name: "Driving Licence" },
-    { id: "WORK_PERMIT", name: "Work Permit" },
-    { id: "BIRTH_CERTIFICATE", name: "Birth Certificate" },
-    { id: "SOCIAL_SECURITY", name: "Social Security" },
-    { id: "TAX_ID", name: "Tax ID" },
-    { id: "VISA", name: "Residence Visa" },
-    { id: "RESIDENCE_ID", name: "Residence ID (Emirates ID / Iqama)" },
-];
+const DOCUMENT_TYPES = EMPLOYEE_DOCUMENT_TYPES.map((d) => ({ id: d.value, name: t(d.label) }));
 
 // Red once expired, amber within 30 days
 export const expiryBadge = (days?: number | null) =>

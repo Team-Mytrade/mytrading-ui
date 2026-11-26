@@ -43,6 +43,7 @@ import {
 import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
+import { ProofOfDelivery } from "./proofOfDelivery";
 // ================= API CONFIGURATION =================
 
 const API = {
@@ -869,6 +870,9 @@ const DeliveryOrderPage: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              <ProofOfDelivery className="mt-4 border-t pt-4" query={{ deliveryOrderId: selected.id }}
+                showEmpty={["DELIVERED", "PARTIAL"].includes(selected.status)} />
 
               <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
                 {EDITABLE_ORDER_STATUSES.includes(selected.status) && (

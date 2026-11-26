@@ -22,7 +22,8 @@ import {
   PackageMinusIcon,
   BadgeCheckIcon,
   PrinterIcon } from "lucide-react";
-import { printDeliveryChallan } from "./deliveryChallan";
+import { challanProof, printDeliveryChallan } from "./deliveryChallan";
+import { ProofOfDelivery } from "./proofOfDelivery";
 import { todayIso } from "../../utils/localDate";
 import {
   DELIVERY_API,
@@ -326,7 +327,9 @@ const DeliveryNote: React.FC = () => {
   const printChallan = async (note: DeliveryNoteRecord) => {
     const order = orders.find((o) => o.id === note.deliveryOrderId);
     try {
+      const proof = note.deliveryOrderId ? await challanProof({ deliveryNoteId: note.id }) : null;
       await printDeliveryChallan({
+        proof,
         deliveryNo: note.deliveryNo,
         deliveryDate: note.deliveryDate,
         status: statusConfig(note.status).label,
@@ -736,6 +739,8 @@ const DeliveryNote: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              <ProofOfDelivery className="mt-4 border-t pt-4" query={{ deliveryNoteId: selected.id }} showEmpty={!!selected.deliveryOrderId} />
 
               <div className="mt-4 border-t pt-4 flex flex-wrap justify-end gap-2">
                 <button onClick={() => printChallan(selected)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-medium">

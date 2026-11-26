@@ -13,6 +13,16 @@ export const HR_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "The visa shows as expiring soon so renewal can start in time.",
   },
+  "expiring-documents": {
+    story: "HR starts the visa renewals due this month.",
+    data: [
+      { label: "Days left", value: "Within 30 days" },
+      { label: "Residence visa", value: "Joseph D'Souza · expires in 21 days" },
+      { label: "Emirates ID", value: "Expired 3 days ago" },
+      { label: "Renewal task", value: "In progress · PRO Ali" },
+    ],
+    result: "Both renewals are tracked; uploading the new visa closes its task and clears the reminder.",
+  },
   "employee-compensation": {
     story: "HR sets how an Inventory Executive's pay is split.",
     data: [

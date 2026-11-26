@@ -52,6 +52,7 @@ import { GULF_LABELS, PAYROLL_COUNTRIES, contributionSummary, gulfFromCountryDat
 
 import { t } from "../../i18n/i18n";
 import { AuthContext } from "../../context/AuthContext";
+import { documentTypeLabel } from "./documentTypes";
 const EMPLOYEE_API_URL = "/v1/api/common/employee";
 
 interface EmployeeData {
@@ -154,9 +155,25 @@ const EmployeeViewPage: React.FC = () => {
     benefits: false,
   });
 
+  // Expired documents, and those expiring within 30 days, highlighted at the top (HR-1)
+  const [expiringDocs, setExpiringDocs] = useState<{ id: number; documentType: string; documentNumber?: string | null; expiryDate: string; daysToExpiry: number }[]>([]);
+
   useEffect(() => {
     if (id) {
       fetchEmployeeDetails();
+      axios.get(`/v1/api/payroll/empdocuments/employee/${id}`)
+        .then((r) => {
+          const docs = Array.isArray(r.data) ? r.data : [];
+          // The latest copy of each kind: an older renewed one is no longer a concern
+          const latest = new Map<string, any>();
+          docs.filter((d: any) => d.expiryDate).forEach((d: any) => {
+            const seen = latest.get(d.documentType);
+            if (!seen || d.expiryDate > seen.expiryDate) latest.set(d.documentType, d);
+          });
+          setExpiringDocs([...latest.values()].filter((d) => d.daysToExpiry != null && d.daysToExpiry <= 30)
+            .sort((a, b) => a.daysToExpiry - b.daysToExpiry));
+        })
+        .catch(() => setExpiringDocs([]));
     }
   }, [id]);
 
@@ -348,6 +365,24 @@ const EmployeeViewPage: React.FC = () => {
       <PageBreadcrumb pageTitle={`Employee Profile`} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        {expiringDocs.length > 0 && (
+          <div role="alert" className={`mb-4 rounded-xl border p-3 text-sm ${expiringDocs.some((d) => d.daysToExpiry < 0)
+            ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"}`}>
+            <p className="font-semibold">{t(expiringDocs.some((d) => d.daysToExpiry < 0) ? "Expired documents" : "Documents expiring soon")}</p>
+            <ul className="mt-1 space-y-0.5">
+              {expiringDocs.map((d) => (
+                <li key={d.id}>
+                  {documentTypeLabel(d.documentType)}{d.documentNumber ? ` ${d.documentNumber}` : ""}:{" "}
+                  {d.daysToExpiry < 0 ? `${t("expired on")} ${companyFormatDate(d.expiryDate)}` : `${t("expires on")} ${companyFormatDate(d.expiryDate)} (${d.daysToExpiry} ${t(d.daysToExpiry === 1 ? "day left" : "days left")})`}
+                </li>
+              ))}
+            </ul>
+            <button type="button" onClick={() => navigate(`/employees/${id}/documents`)} className="mt-2 text-xs font-semibold underline">
+              {t("Open the employee's documents")}
+            </button>
+          </div>
+        )}
         {/* Header Section */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

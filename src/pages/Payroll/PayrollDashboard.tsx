@@ -17,6 +17,7 @@ import {
   BarChart3,
   UserPlus,
   UserMinus,
+  ShieldAlert,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -99,6 +100,8 @@ const SOURCES = {
   },
   structures: () => countOf(`${PAYROLL}/salary-structures`),
   documents: () => countOf(`${PAYROLL}/empdocuments/getAllEmployeeDocs`),
+  // Expired or expiring within 30 days (HR-1)
+  expiring: () => countOf(`${PAYROLL}/empdocuments/expiring?withinDays=30`),
 };
 const LABELS: Record<keyof typeof SOURCES, string> = {
   employees: "employees",
@@ -106,6 +109,7 @@ const LABELS: Record<keyof typeof SOURCES, string> = {
   payroll: "payroll runs",
   structures: "salary structures",
   documents: "employee documents",
+  expiring: "expiring documents",
 };
 
 const isActive = (e: Employee) => (e.active ?? e.isActive) !== false;
@@ -165,6 +169,7 @@ const PayrollHrmsDashboard: React.FC = () => {
       }).length,
       icon: UserMinus, tone: "text-purple-600 bg-purple-50", route: "/exit-management",
     },
+    { title: "Documents expiring in 30 days", count: typeof data.expiring === "number" ? (data.expiring as number) : 0, icon: ShieldAlert, tone: "text-red-600 bg-red-50", route: "/expiring-documents" },
   ];
 
   const count = (key: "structures" | "documents") => (typeof data[key] === "number" ? (data[key] as number) : null);

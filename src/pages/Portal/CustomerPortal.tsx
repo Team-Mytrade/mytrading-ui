@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import axios from "axios";
-import { CreditCard, Download, LogOut } from "lucide-react";
+import { CreditCard, Download, LogOut, ShieldCheck } from "lucide-react";
+import { ProofOfDelivery, tp } from "../Delivery/proofOfDelivery";
 import { AuthContext } from "../../context/AuthContext";
 import SignIn from "../AuthPages/SignIn";
 import PageLoading from "../../components/common/PageLoading";
@@ -51,6 +52,8 @@ export default function CustomerPortal() {
   // The company takes payments online (7.1.3): open invoices get Pay now
   const [canPay, setCanPay] = useState(false);
   const [paying, setPaying] = useState<number | null>(null);
+  // Proof of delivery of an invoice's goods (DEL-1)
+  const [proofInvoice, setProofInvoice] = useState<InvoiceRow | null>(null);
   const portalUser = access.portalCustomerId != null;
 
   const payNow = async (invoiceId: number) => {
@@ -168,6 +171,8 @@ export default function CustomerPortal() {
                           {paying === i.id ? t("Opening…") : t("Pay now")}
                         </button>
                       )}
+                      <button type="button" className={ROW_ICON_BUTTON} title={tp("Proof of delivery")} aria-label={tp("Proof of delivery")}
+                        onClick={() => setProofInvoice(i)}><ShieldCheck className="h-4 w-4" /></button>
                       {i.downloadable && <button type="button" className={ROW_ICON_BUTTON} title={t("Download PDF")} aria-label={t("Download PDF")} onClick={() => void download(`${PORTAL}/invoices/${i.id}/pdf`, i.invoiceNumber)}><Download className="h-4 w-4" /></button>}
                     </td>
                   </tr>
@@ -237,6 +242,22 @@ export default function CustomerPortal() {
             </div>
           )}
         </div>
+        {proofInvoice && (
+          <div data-overlay className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setProofInvoice(null)}>
+            <div role="dialog" aria-modal="true" aria-label={tp("Proof of delivery")} onClick={(e) => e.stopPropagation()}
+              className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 dark:bg-[#181818] sm:rounded-2xl">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <h2 className={CARD_TITLE}>{tp("Proof of delivery")}</h2>
+                  <p className="text-sm text-slate-500">{proofInvoice.invoiceNumber}</p>
+                </div>
+                <button type="button" className={SECONDARY_BUTTON} onClick={() => setProofInvoice(null)}>{tp("Close")}</button>
+              </div>
+              <ProofOfDelivery showEmpty listUrl={`${PORTAL}/invoices/${proofInvoice.id}/delivery-proofs`}
+                fileUrl={(p, f) => `${PORTAL}/invoices/${proofInvoice.id}/delivery-proofs/${p.id}/files/${f.id}`} />
+            </div>
+          </div>
+        )}
         <p className="text-center text-xs text-slate-500">{t("Questions about your account? Please contact {company}.", { company: company?.companyName ?? "" })}{company?.email ? ` ${company.email}` : ""}{company?.phone ? ` · ${company.phone}` : ""}</p>
       </main>
     </div>
