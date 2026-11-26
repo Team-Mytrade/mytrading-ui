@@ -1115,6 +1115,53 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
     flows: ["company-setup"],
   },
   {
+    id: "go-live-check",
+    route: "/go-live-check",
+    module: "Settings",
+    title: "Go-live check",
+    summary: "Checks the opening data before the first real transaction: products, customers and vendors, stock and the books. It only reads; nothing is changed.",
+    who: [{ role: "Tenant Administrator", can: "Run the check and see every part of it." }],
+    tasks: [
+      {
+        title: "Check the data before going live",
+        steps: [
+          "Import the opening data first (Data Import), then open the go-live check; it runs by itself.",
+          "Fix every line marked Must fix: its button opens the page to fix it, and Show the list names the first 20 records.",
+          "Look at each line marked Look at: it may be right for your company (a customer with no tax number because it isn't registered, for example).",
+          "Click Check again after each fix, until the top says Ready to go live.",
+        ],
+      },
+    ],
+    fields: [
+      { name: "Products", meaning: "Without a tax code, without a standard cost (stock items), without a selling price, and the same name or barcode twice." },
+      { name: "Customers", meaning: "Businesses without a tax number, customers without an address, credit customers without a credit limit, and the same tax number, name, phone or e-mail twice." },
+      { name: "Vendors", meaning: "Without a tax number, and the same tax number, name, phone or e-mail twice." },
+      { name: "Stock", meaning: "Stock on hand without a cost, stock below zero, expired batches still in stock, movements not yet in the books, and the stock value against the stock account." },
+      { name: "Books", meaning: "The ledger balances, opening balance equity is empty, and the receivables and payables accounts equal the unpaid invoices and bills." },
+    ],
+    statuses: [
+      { name: "Passed", meaning: "Nothing found." },
+      { name: "Must fix", meaning: "Documents, stock or the books will be wrong until it is fixed." },
+      { name: "Look at", meaning: "Worth a look; it may be right for your company." },
+      { name: "Not checked", meaning: "Not in your plan, not in your rights, or the service didn't answer." },
+      { name: "Not needed", meaning: "Tax checks for a company not registered for VAT or GST." },
+    ],
+    rules: [
+      "Only active records are checked; customers marked inactive and prospects (Lead) are left out of the missing-details checks.",
+      "Retail customers need no tax number, and cash customers no credit limit. A credit limit of 0 counts as a limit.",
+      "Names are compared without case, punctuation or legal forms (LLC, FZE, W.L.L., ذ.م.م), and Arabic letter forms are folded (أ إ آ as ا, ة as ه); phones by their last eight digits.",
+      "A vendor's consignment stock is not yours, so it needs no cost and is not in the stock value.",
+      "Stock movements get 30 minutes to reach the books before they are reported.",
+      "Amounts are compared in the company's currency at each document's rate; up to 1 unit (or 0.1 %) of rounding is allowed.",
+    ],
+    related: [
+      { route: "/getting-started", label: "Getting started" },
+      { route: "/data-import", label: "Data Import" },
+      { route: "/financialStatements", label: "Financial Statements" },
+    ],
+    flows: ["company-setup"],
+  },
+  {
     id: "company-settings",
     route: "/company-settings",
     module: "Settings",

@@ -62,6 +62,16 @@ export const GENERAL_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "Each step ticks itself when it's done; the banner disappears once all are complete.",
   },
+  "go-live-check": {
+    story: "After importing the opening data, the admin runs the go-live check before the first sale.",
+    data: [
+      { label: "Stock on hand without a cost", value: "Must fix · Anker 65W USB-C Charger (ANK-65W) · Jebel Ali Main Warehouse: 40 on hand" },
+      { label: "Stock below zero", value: "Must fix · HDMI cable 2 m (HDM-2M) · Deira Showroom Store: −4" },
+      { label: "Credit customers without a credit limit", value: "Look at · 1 of 5 (Smart Office Solutions FZE)" },
+      { label: "Receivables account differs from the unpaid invoices", value: "Passed · AED 184,250.00 both" },
+    ],
+    result: "The storekeeper adjusts the two stock lines, finance sets the limit, Check again shows Ready to go live.",
+  },
   "company-settings": {
     story: "The admin fills in the company profile that prints on every invoice.",
     data: [

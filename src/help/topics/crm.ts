@@ -357,6 +357,7 @@ export const CRM_TOPICS: HelpTopic[] = [
           "Under Website form, choose who the leads go to (or Unassigned) and click Switch on.",
           "Copy the HTML to paste on your website and give it to whoever looks after the site (or use the Form address in your own form).",
           "Each enquiry becomes a New lead with source Website; its owner gets a bell alert.",
+          "Under Privacy notice and consent, write the text by the tick box and your privacy policy's address; the lead keeps what the person agreed to and when.",
           "Make a new key if the address is being misused; Switch off stops the form.",
         ],
         who: "CRM admin",

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Circle, HelpCircle, MinusCircle, RefreshCw, Rocket, RotateCcw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, ClipboardCheck, HelpCircle, MinusCircle, RefreshCw, Rocket, RotateCcw } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -163,6 +163,22 @@ export default function GettingStartedPage() {
           </section>
 
           <ol className="space-y-3">{SETUP_STEPS.map(stepCard)}</ol>
+
+          {/* After the opening data: the go-live check (ADO-2) */}
+          <section className={`${CARD} flex flex-wrap items-center justify-between gap-3 p-4`}>
+            <div className="flex min-w-0 items-start gap-3">
+              <ClipboardCheck className="mt-0.5 h-5 w-5 flex-none text-[rgb(var(--brand-600,0_151_167))]" />
+              <div className="min-w-0">
+                <h3 className={CARD_TITLE}>{t("Before you go live")}</h3>
+                <p className="mt-1 text-sm text-slate-600 dark:text-gray-300">
+                  {t("Check the opening data for stock without cost, stock below zero, missing tax codes and tax numbers, duplicates and opening balances that don't match.")}
+                </p>
+              </div>
+            </div>
+            <button type="button" className={SECONDARY_BUTTON} onClick={() => navigate("/go-live-check")}>
+              {t("Open the go-live check")} <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+            </button>
+          </section>
         </div>
       </div>
     </>

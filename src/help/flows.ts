@@ -112,6 +112,7 @@ export const HELP_FLOWS: HelpFlow[] = [
       { title: "Accounts", route: "/postingAccounts", who: "Finance Manager", detail: "Look over the standard accounts and point any automatic posting at your own." },
       { title: "Bank and cash", route: "/bankAccounts", who: "Finance Manager", detail: "Add the bank accounts and cash boxes with their opening balances." },
       { title: "Opening data", route: "/data-import", who: "Tenant Administrator", detail: "Import products, customers and vendors, then opening stock, unpaid invoices and bills and ledger balances." },
+      { title: "Go-live check", route: "/go-live-check", who: "Tenant Administrator", detail: "Check the opening data: stock without cost or below zero, missing tax codes and tax numbers, duplicates, and opening balances against the books. Fix every Must fix line." },
       { title: "Roles", route: "/rolesPermissions", who: "Tenant Administrator", detail: "Use the system roles or make your own." },
       { title: "Users", route: "/role_config", who: "Tenant Administrator", detail: "Invite the people, give them roles and link them to their employee records." },
     ],

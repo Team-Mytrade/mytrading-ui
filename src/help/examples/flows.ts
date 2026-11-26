@@ -95,6 +95,7 @@ export const FLOW_EXAMPLES: Record<string, HelpFlowExample> = {
       "Chart of accounts started from the standard list; 6450 Marketplace fees added.",
       "Emirates NBD current account and a petty cash box are added.",
       "8 products, 5 customers, 5 vendors and opening stock (AED 106,660) are imported.",
+      "Go-live check: 2 must fix (a charger with no cost, a cable at −4), 1 to look at (a customer with no credit limit); fixed, then Ready to go live.",
       "Roles: a Manager and an Executive role for each module.",
       "Users are invited: sales.manager@gulf-electronics.test and others.",
     ],
