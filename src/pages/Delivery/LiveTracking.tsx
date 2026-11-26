@@ -20,14 +20,24 @@ import { todayIso } from "../../utils/localDate";
 import { DELIVERY_API, apiError } from "./deliveryShared";
 import { RoutePoint, TRACKING_API, TRIP_STATE_STYLE, Trip, mapUrl, timeAgo, tripState } from "./trackingApi";
 import { usePermissions } from "../../access/usePermissions";
-import { formatDate, formatTime, formatDateTime } from "../../company/format";
+import { companyCurrency, formatDate, formatTime, formatDateTime } from "../../company/format";
 
 import { t as tr } from "../../i18n/i18n";
 // Live map of vehicles whose drivers are on a trip (Driver Mode on their phone), plus past trips' routes.
 // Map tiles: OpenStreetMap (free; for heavy use switch to a commercial tile provider).
 
 const REFRESH_MS = 15_000;
-const DEFAULT_VIEW: L.LatLngTuple = [20.59, 78.96]; // India
+// Where the map opens before a vehicle is on it: the company's own country (by its currency), else India
+const HOME_VIEWS: Record<string, [L.LatLngTuple, number]> = {
+  AED: [[24.6, 54.9], 8], // UAE: Dubai to Abu Dhabi
+  SAR: [[24.0, 45.0], 6], // Saudi Arabia
+  QAR: [[25.3, 51.2], 9], // Qatar
+  KWD: [[29.3, 47.7], 9], // Kuwait
+  BHD: [[26.07, 50.55], 10], // Bahrain
+  OMR: [[21.5, 56.0], 6], // Oman
+  INR: [[20.59, 78.96], 5], // India
+};
+const homeView = () => HOME_VIEWS[companyCurrency()] ?? HOME_VIEWS.INR;
 
 const escapeHtml = (value: unknown) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -81,7 +91,7 @@ const LiveTracking: React.FC = () => {
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
-    const map = L.map(mapEl.current).setView(DEFAULT_VIEW, 5);
+    const map = L.map(mapEl.current).setView(...homeView());
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

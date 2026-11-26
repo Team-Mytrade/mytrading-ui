@@ -1,5 +1,5 @@
 // Tax tracker: income tax (TDS) over the Indian financial year, deducted so far and forecast for the months left
-import { formatMoney } from "../../company/format";
+import { companyCurrency, formatMoney } from "../../company/format";
 
 export const TAX_TRACKER_API = "/v1/api/payroll/tax-tracker";
 
@@ -101,6 +101,17 @@ export const monthLabel = (month: string, short = false) => {
 };
 
 export const money = (value: number | null | undefined) => formatMoney(Number(value) || 0, { whole: true });
+
+/**
+ * Headline amounts: rupees in lakh / crore (₹16.8 L, ₹1.2 Cr) for an Indian company, other currencies compact
+ * (AED 168K, SAR 1.2M); under a lakh, the full amount.
+ */
+export const shortMoney = (value: number | null | undefined) => {
+  const n = Number(value) || 0;
+  if (Math.abs(n) < 1e5) return money(n);
+  if (companyCurrency() !== "INR") return formatMoney(n, { compact: true });
+  return Math.abs(n) >= 1e7 ? `₹${(n / 1e7).toFixed(2)} Cr` : `₹${(n / 1e5).toFixed(1)} L`;
+};
 
 /** Share of the year's projected tax already deducted, 0–100. */
 export const paidShare = (paid: number, projected: number) =>

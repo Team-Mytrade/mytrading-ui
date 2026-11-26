@@ -106,6 +106,7 @@ import { PayrollRegion, usePayrollRegion } from "../company/payrollRegion";
 import { useSidebar } from "../context/SidebarContext";
 import { AuthContext } from "../context/AuthContext";
 import { AccessInfo, canAccessPath, hasPermission } from "../access/access";
+import { isComingSoon } from "../access/comingSoon";
 import { REPORTS, reportModuleFor } from "../pages/reports/center/reportCatalogue";
 import "../styles/AppSidebar.css";
 import { publicAsset } from "../utils/assets";
@@ -137,8 +138,9 @@ type NavItem = {
 
 /** The menu a user may see; the header search uses the same filter so it never offers a hidden page. */
 export const filterNavItems = (items: NavItem[], access: AccessInfo, region: PayrollRegion = "IN"): NavItem[] => {
-  // "A|B": any one of the permissions
+  // "A|B": any one of the permissions; demo-only pages (access/comingSoon.ts) never show
   const visible = (path?: string, permission?: string) =>
+    !isComingSoon(path) &&
     (!path || canAccessPath(access, path)) && (!permission || permission.split("|").some((p) => hasPermission(access, p)));
 
   return items.flatMap((nav) => {

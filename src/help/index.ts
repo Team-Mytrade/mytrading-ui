@@ -11,11 +11,14 @@ import { ATTENDANCE_TOPICS } from "./topics/attendance";
 import { HOME_TOPICS, REPORT_TOPICS, SETTINGS_TOPICS } from "./topics/general";
 import { HELP_FLOWS } from "./flows";
 import { localizeFlow, localizeTopic, type HelpTranslation } from "./translations";
+import { isComingSoon } from "../access/comingSoon";
 
 export type { HelpFlow, HelpTopic } from "./types";
 
-/** Every page's help, in menu order. Modules are added one by one (backlog 8.1). */
-export const HELP_TOPICS: HelpTopic[] = [...HOME_TOPICS, ...COMMON_TOPICS, ...CRM_TOPICS, ...SALES_TOPICS, ...PURCHASE_TOPICS, ...INVENTORY_TOPICS, ...DELIVERY_TOPICS, ...INVOICE_TOPICS, ...HR_TOPICS, ...ATTENDANCE_TOPICS, ...REPORT_TOPICS, ...SETTINGS_TOPICS];
+/** Every page's help, in menu order. Modules are added one by one (backlog 8.1). Demo-only pages
+ *  (access/comingSoon.ts) are left out, so the Help Center, F1 and help search never offer them. */
+export const HELP_TOPICS: HelpTopic[] = [...HOME_TOPICS, ...COMMON_TOPICS, ...CRM_TOPICS, ...SALES_TOPICS, ...PURCHASE_TOPICS, ...INVENTORY_TOPICS, ...DELIVERY_TOPICS, ...INVOICE_TOPICS, ...HR_TOPICS, ...ATTENDANCE_TOPICS, ...REPORT_TOPICS, ...SETTINGS_TOPICS]
+  .filter((topic) => !isComingSoon(topic.route));
 
 export { HELP_FLOWS };
 

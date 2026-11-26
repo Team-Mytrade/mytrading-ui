@@ -6,7 +6,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
 import { errorText } from "../../access/accessApi";
 import { AuditFilters, AuditQuery, AuditRow, actionLabel, auditApi, fieldLabel, moduleLabel } from "../../audit/auditApi";
-import { formatDateTime, todayIso } from "../../company/format";
+import { formatAmountsInText, formatDateTime, todayIso } from "../../company/format";
 import { CARD, PAGE_BODY, TOOL_BUTTON } from "../Payroll/hrmsUi";
 
 import { t } from "../../i18n/i18n";
@@ -104,7 +104,7 @@ export default function AuditLogPage() {
       const lines = all.flatMap((r) => {
         const base = {
           [t("Time")]: when(r), [t("User")]: who(r), [t("Module")]: moduleLabel(r.module), [t("Action")]: actionLabel(r.action),
-          [t("Record")]: r.reference ?? r.entityId ?? "", [t("Summary")]: r.summary ?? "", [t("IP address")]: r.ipAddress ?? "",
+          [t("Record")]: r.reference ?? r.entityId ?? "", [t("Summary")]: formatAmountsInText(r.summary ?? ""), [t("IP address")]: r.ipAddress ?? "",
         };
         return r.changes.length === 0
           ? [{ ...base, [t("Field")]: "", [t("Before")]: "", [t("After")]: "" }]
@@ -220,7 +220,7 @@ export default function AuditLogPage() {
                         <td className={`${TD} whitespace-nowrap font-medium`}>{actionLabel(row.action)}</td>
                         <td className={`${TD} whitespace-nowrap`}>{row.reference ?? row.entityId ?? "—"}</td>
                         <td className={`${TD} min-w-[320px]`}>
-                          {row.summary ?? ""}
+                          {formatAmountsInText(row.summary ?? "")}
                           {row.changes.length > 0 && (
                             <span className="ms-2 rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
                               {row.changes.length} {t(row.changes.length === 1 ? "change" : "changes")}

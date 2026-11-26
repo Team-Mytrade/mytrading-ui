@@ -140,6 +140,17 @@ export const formatAmount = (value: unknown, currency?: string | null): string =
     .format(toNumber(value));
 };
 
+/**
+ * Amounts the server wrote into a sentence ("Sent quotation … for AED 8394.750") in the company's format:
+ * "AED 8,394.75". Only a known currency code followed by a plain number changes, so references such as "GRN 45"
+ * and amounts already formatted stay as they are.
+ */
+export const formatAmountsInText = (text: string): string => {
+  const known = new Set([regional.currency, ...COMMON_CURRENCIES]);
+  return text.replace(/\b([A-Z]{3}) (-?\d+(?:\.\d+)?)(?![\d,]|\.\d)/g, (match, code: string, amount: string) =>
+    known.has(code) ? `${code} ${formatAmount(amount, code)}` : match);
+};
+
 /** A quantity or count in the company's number style; up to `maxDecimals` decimals (default 2). */
 export const formatNumber = (value: unknown, maxDecimals = 2): string =>
   numberFormat(`n|${maxDecimals}`, { maximumFractionDigits: maxDecimals }).format(toNumber(value));

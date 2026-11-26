@@ -126,6 +126,8 @@ const RolesPage = lazy(() => import("./pages/roleconfig/RolesPage"));
 const Alert = lazy(() => import("./pages/Notification/Alerts"));
 const UserPreferences = lazy(() => import("./pages/Notification/UserPreferences"));
 import AuthLayout from "./pages/AuthPages/AuthPageLayout";
+// Demo-only pages (OPS-6): "Coming soon" or their real replacement, see access/comingSoon.ts
+import { Unfinished } from "./pages/ComingSoonPage";
 const CrmViewPage = lazy(() => import("./pages/CRM/CrmViewPage"));
 const CustomerViewPage = lazy(() => import("./pages/common/CustomerViewPage"));
 const SalesChannels = lazy(() => import("./pages/Sales/SalesChannels"));
@@ -563,11 +565,11 @@ export default function AppRouter() {
           <Route path="/notifications/:id" element={<NotificationDetailPage />} />
           <Route path="/attendance_dashboard" element={<AttendanceDashboard />} />
 
-          <Route path="/sales-summary" element={<SalesSummary />} />
+          <Route path="/sales-summary" element={<Unfinished path="/sales-summary" page={<SalesSummary />} />} />
           <Route path="/activities" element={<Tasks />} />
-          <Route path="/dashboard-overview" element={<DashboardOverview />} />
-          <Route path="/keyMetrics" element={<KeyMetrics />} />
-          <Route path="/recentInteractions" element={<RecentInteractions />} />
+          <Route path="/dashboard-overview" element={<Unfinished path="/dashboard-overview" page={<DashboardOverview />} />} />
+          <Route path="/keyMetrics" element={<Unfinished path="/keyMetrics" page={<KeyMetrics />} />} />
+          <Route path="/recentInteractions" element={<Unfinished path="/recentInteractions" page={<RecentInteractions />} />} />
 
           <Route path="/leads" element={<Leads />} />
           {/* Old CRM demo screens (hard-coded sample data) open the live CRM pages instead */}
@@ -586,22 +588,22 @@ export default function AppRouter() {
           <Route path="/remindersPage" element={<Navigate to="/activities" replace />} />
           <Route path="/activityCalendar" element={<Navigate to="/activities" replace />} />
 
-          <Route path="/campaigns" element={<CampaignPage />} />
-          <Route path="/emailMarketing" element={<EmailMarketingPage />} />
-          <Route path="/sms" element={<SMSCampaignPage />} />
-          <Route path="/templates" element={<TemplatesManager />} />
-          <Route path="/segmentation" element={<SegmentationManager />} />
-          <Route path="/campaignReports" element={<CampaignReports />} />
+          <Route path="/campaigns" element={<Unfinished path="/campaigns" page={<CampaignPage />} />} />
+          <Route path="/emailMarketing" element={<Unfinished path="/emailMarketing" page={<EmailMarketingPage />} />} />
+          <Route path="/sms" element={<Unfinished path="/sms" page={<SMSCampaignPage />} />} />
+          <Route path="/templates" element={<Unfinished path="/templates" page={<TemplatesManager />} />} />
+          <Route path="/segmentation" element={<Unfinished path="/segmentation" page={<SegmentationManager />} />} />
+          <Route path="/campaignReports" element={<Unfinished path="/campaignReports" page={<CampaignReports />} />} />
 
-          <Route path="/tickets" element={<TicketSupport />} />
-          <Route path="/knowledgeBase" element={<KnowledgeBase />} />
-          <Route path="/sLAManagement" element={<SLAManagement />} />
-          <Route path="/SupportReports" element={<SupportReports />} />
+          <Route path="/tickets" element={<Unfinished path="/tickets" page={<TicketSupport />} />} />
+          <Route path="/knowledgeBase" element={<Unfinished path="/knowledgeBase" page={<KnowledgeBase />} />} />
+          <Route path="/sLAManagement" element={<Unfinished path="/sLAManagement" page={<SLAManagement />} />} />
+          <Route path="/SupportReports" element={<Unfinished path="/SupportReports" page={<SupportReports />} />} />
 
-          <Route path="/workflowRules" element={<AutomationWorkflowRules />} />
-          <Route path="/triggerSettings" element={<TriggerSettings />} />
-          <Route path="/automationLogs" element={<AutomationLogs />} />
-          <Route path="/scheduledActions" element={<ScheduledActions />} />
+          <Route path="/workflowRules" element={<Unfinished path="/workflowRules" page={<AutomationWorkflowRules />} />} />
+          <Route path="/triggerSettings" element={<Unfinished path="/triggerSettings" page={<TriggerSettings />} />} />
+          <Route path="/automationLogs" element={<Unfinished path="/automationLogs" page={<AutomationLogs />} />} />
+          <Route path="/scheduledActions" element={<Unfinished path="/scheduledActions" page={<ScheduledActions />} />} />
 
           <Route path="/activityReports" element={<Navigate to="/crm-reports" replace />} />
           <Route path="/customReports" element={<Navigate to="/crm-reports" replace />} />
@@ -610,16 +612,16 @@ export default function AppRouter() {
           <Route path="/performanceReports" element={<Navigate to="/crm-reports" replace />} />
           <Route path="/salesReports" element={<Navigate to="/sales-dashboard" replace />} />
 
-          <Route path="/customFields" element={<CustomFieldsManager />} />
-          <Route path="/emailSMS" element={<EmailSmsSettings />} />
-          <Route path="/importExport" element={<ImportExportPage />} />
-          <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route path="/customFields" element={<Unfinished path="/customFields" page={<CustomFieldsManager />} />} />
+          <Route path="/emailSMS" element={<Unfinished path="/emailSMS" page={<EmailSmsSettings />} />} />
+          <Route path="/importExport" element={<Unfinished path="/importExport" page={<ImportExportPage />} />} />
+          <Route path="/integrations" element={<Unfinished path="/integrations" page={<IntegrationsPage />} />} />
           <Route path="/rolesPermissions" element={<RolesPage />} />
 
-          <Route path="/user_dashboard" element={<UserDashboard />} />
+          <Route path="/user_dashboard" element={<Unfinished path="/user_dashboard" page={<UserDashboard />} />} />
 
-          <Route path="/preference" element={<UserPreferences />} />
-          <Route path="/alert" element={<Alert />} />
+          <Route path="/preference" element={<Unfinished path="/preference" page={<UserPreferences />} />} />
+          <Route path="/alert" element={<Unfinished path="/alert" page={<Alert />} />} />
 
           <Route path="/profile" element={<UserProfiles />} />
           <Route path="/my-preferences" element={<MyPreferences />} />

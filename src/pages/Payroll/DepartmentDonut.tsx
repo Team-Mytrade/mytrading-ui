@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { t } from "../../i18n/i18n";
-import { isDarkTheme, money } from "./taxTracker";
+import { isDarkTheme, money, shortMoney } from "./taxTracker";
 
 /** A department's slice: its name, its value, and its position in the company's (alphabetical) department list. */
 export interface DonutSlice {
@@ -24,13 +24,8 @@ const R = (SIZE - STROKE) / 2;
 const C = 2 * Math.PI * R;
 const GAP = 2; // px of surface between slices
 
-/** Compact rupees: ₹16.8 L, ₹1.2 Cr. */
-const short = (value: number) => {
-  const n = Number(value) || 0;
-  if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
-  if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`;
-  return money(n);
-};
+// ₹16.8 L / ₹1.2 Cr in an Indian company, AED 168K / SAR 1.2M elsewhere
+const short = shortMoney;
 
 /** Part of a whole as a donut with the total in the middle and a legend (share and amount); hover a slice or a row. */
 const DepartmentDonut: React.FC<{ slices: DonutSlice[]; totalLabel?: string; onSelect?: (name: string) => void }> = ({ slices, totalLabel, onSelect }) => {
