@@ -228,7 +228,7 @@ export const ProofOfDelivery: React.FC<ProofListProps> = ({ proofs, query, listU
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-semibold text-slate-800 dark:text-gray-100">
                 {tp("Received by")} {p.receiverName}
-                {p.receiverMobile && <span className="font-normal text-slate-500"> · {p.receiverMobile}</span>}
+                {p.receiverMobile && <span className="font-normal text-slate-500"> · <bdi dir="ltr" className="inline-block">{p.receiverMobile}</bdi></span>}
               </p>
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${p.status === "PARTIAL" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>
                 {statusLabel(p.status)}

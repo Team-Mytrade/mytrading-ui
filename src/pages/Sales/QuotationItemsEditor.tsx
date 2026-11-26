@@ -4,6 +4,8 @@ import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { allowsFraction, cellInput, NumberCell, taxRateFromCode } from "../Purchase/LineItemsEditor";
 import { formatMoney, companyCurrency, moneyDecimals, roundMoney } from "../../company/format";
 import { PriceSource, pricingApi } from "../../sales/pricingApi";
+import { LineCheck } from "../../sales/quoteCheckApi";
+import { LineInsight } from "../../components/quoting/LineInsight";
 
 import { t } from "../../i18n/i18n";
 /** One quotation line as edited on screen. Discount is a % of the line value, tax a % of what is left. */
@@ -139,6 +141,8 @@ type Props = {
   /** The customer and date the rates are for (price lists and customer prices); none: the default list. */
   customerId?: number | null;
   priceDate?: string | null;
+  /** Stock, promise date, price list and margin for the line at this position (from the line check), if any. */
+  insightFor?: (index: number) => LineCheck | null;
 };
 
 /** Units a service can be priced in (the Sales service only accepts its own unit names). */
@@ -166,6 +170,7 @@ export default function QuotationItemsEditor({
   currency,
   customerId,
   priceDate,
+  insightFor,
 }: Props) {
   const totals = quotationTotals(lines, additionalDiscount, currency);
   const code = currency || companyCurrency();
@@ -455,6 +460,7 @@ export default function QuotationItemsEditor({
                     </div>
                   </div>
                 </div>
+                {!isService && line.productId && insightFor && <LineInsight line={insightFor(index)} currency={currency} />}
                 {error && <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{error}</p>}
               </li>
             );

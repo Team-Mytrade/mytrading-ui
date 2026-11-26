@@ -204,7 +204,24 @@ export const REPORT_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "Marketing is over budget this month.",
   },
-  headcount: {
+  "delivery-cost": {
+    story: "November's own-fleet delivery cost, by vehicle.",
+    data: [
+      { label: "DXB-3-24680 (Isuzu NPR)", value: "38 trips, 1,240 km, 112 deliveries, AED 9,860 → AED 88 a delivery" },
+      { label: "DXB-7-11223 (Hino van)", value: "29 trips, 610 km, 96 deliveries, AED 4,320 → AED 45 a delivery" },
+      { label: "Failed", value: "11 of 208 (5.3%)" },
+    ],
+    result: "The truck costs twice as much per drop: give it the bulk orders and the van the small ones.",
+  },
+  "failed-deliveries": {
+    story: "Why November's deliveries came back.",
+    data: [
+      { label: "Customer closed", value: "6 (55%)" },
+      { label: "Wrong address", value: "3 (27%)" },
+      { label: "Sent again", value: "9 of 11; re-delivery cost about AED 790" },
+    ],
+    result: "Call ahead before deliveries to shops that close at noon on Friday.",
+  },  headcount: {
     story: "How many people work where.",
     data: [
       { label: "Total", value: "54" },

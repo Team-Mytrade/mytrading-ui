@@ -622,6 +622,7 @@ export const INVOICE_TOPICS: HelpTopic[] = [
       "Entries posted automatically from a document can't be edited or deleted: correct or cancel the document instead.",
       "An entry matched in a bank reconciliation must be unmatched before it changes.",
       "Nothing can be posted, changed or deleted on or before the lock date.",
+      "Once the company has branches, a manual entry belongs to one Branch (all its lines): the one chosen, else your default branch. Entries from documents take the document's branch; stock takes its warehouse's.",
     ],
     related: [
       { route: "/generalLedger", label: "General Ledger" },
@@ -658,6 +659,7 @@ export const INVOICE_TOPICS: HelpTopic[] = [
           "Choose Profit & loss, Balance sheet or Trial balance.",
           "Choose the Range (this month, last month, this quarter, financial year to date, last financial year or custom).",
           "For a part of the business, choose the Cost centre.",
+          "For one branch, choose it instead of All branches (No branch: entries made before branches, and company-wide ones).",
           "Click PDF to print it (needs the export right).",
         ],
       },
@@ -665,6 +667,7 @@ export const INVOICE_TOPICS: HelpTopic[] = [
     rules: [
       "Profit to date is income less expenses since the last year-end close, which moves them to retained earnings.",
       "Accounts without a statement type are listed separately: give them a type on Chart of Accounts.",
+      "A branch's statements read its own entries: invoices, bills, receipts, payments, expenses and journals in that branch, and stock moved in its warehouses. Each entry stays in one branch, so a branch's balance sheet balances. Opening balances typed on accounts, payroll and depreciation are under No branch for now.",
     ],
     related: [
       { route: "/generalLedger", label: "General Ledger" },
@@ -754,7 +757,10 @@ export const INVOICE_TOPICS: HelpTopic[] = [
         steps: ["Items recorded before automatic postings show Not posted: click Post to the ledger, only if it isn't already in the books (for example through its bank statement line)."],
       },
     ],
-    rules: ["Only expenses and income post. Record transfers and adjustments as a journal entry."],
+    rules: [
+      "Only expenses and income post. Record transfers and adjustments as a journal entry.",
+      "Once the company has branches, choose the Branch the item belongs to; left empty, a new item goes to your default branch.",
+    ],
     related: [{ route: "/journalEntries", label: "Journal Entries" }],
   },
   {

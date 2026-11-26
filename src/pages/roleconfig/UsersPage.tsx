@@ -13,6 +13,7 @@ import { ToasterService } from "../../Services/ToasterService";
 import { AuthContext } from "../../context/AuthContext";
 import { usePermissions } from "../../access/usePermissions";
 import { ManagedUser, RoleAccess, UserForm, errorText, userAdminApi } from "../../access/accessApi";
+import { useBranches } from "../../company/branchesApi";
 import {
   CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, ROW_ICON_BUTTON_DANGER, SECONDARY_BUTTON, STATS_ROW,
 } from "../Payroll/hrmsUi";
@@ -50,6 +51,10 @@ export default function UsersPage() {
   // Employee records (Payroll), to link a login to the person's employee record; null when they can't be read
   const [employees, setEmployees] = useState<EmployeeOption[] | null>(null);
   const [employeeId, setEmployeeId] = useState<number | "">("");
+  // The branches they work in (none ticked: every branch) and their default branch (BR-1)
+  const { branches } = useBranches();
+  const [branchIds, setBranchIds] = useState<number[]>([]);
+  const [defaultBranchId, setDefaultBranchId] = useState<number | "">("");
   // Other pages link here with ?userId= or ?employeeId= to show one person
   const [searchParams, setSearchParams] = useSearchParams();
   const filterUserId = searchParams.get("userId");
@@ -82,6 +87,8 @@ export default function UsersPage() {
 
   const openNew = () => {
     setForm(emptyForm());
+    setBranchIds([]);
+    setDefaultBranchId("");
     setEditing("new");
   };
 
@@ -91,6 +98,8 @@ export default function UsersPage() {
       designation: u.designation ?? "", roleIds: u.roles.map((r) => r.id), mobile: u.mobile ?? "",
     });
     setEmployeeId(u.employeeId ?? "");
+    setBranchIds(u.branchIds ?? []);
+    setDefaultBranchId(u.defaultBranchId ?? "");
     setEditing(u);
     if (employees === null) {
       axios.get<EmployeeOption[]>("/v1/api/common/employee/all").then((r) => setEmployees(r.data ?? [])).catch(() => setEmployees([]));
@@ -107,6 +116,9 @@ export default function UsersPage() {
     try {
       if (editing === "new") {
         const result = await userAdminApi.create(form);
+        if (branchIds.length > 0 || defaultBranchId !== "") {
+          await userAdminApi.setBranches(result.user.userId, branchIds, defaultBranchId === "" ? null : defaultBranchId);
+        }
         if (result.inviteSent) {
           ToasterService.success(`${result.user.firstName} was added and invited by email to set a password.`);
         } else {
@@ -123,7 +135,11 @@ export default function UsersPage() {
           const linked = employees?.find((emp) => emp.id === employeeId);
           await userAdminApi.linkEmployee(editing.userId, employeeId === "" ? null : employeeId, linked?.employeeCode ?? null);
         }
-        ToasterService.success(t("User updated. Role and employee changes apply from their next sign-in."));
+        const branchesBefore = [...(editing.branchIds ?? [])].sort().join(",");
+        if (branchesBefore !== [...branchIds].sort().join(",") || (editing.defaultBranchId ?? "") !== defaultBranchId) {
+          await userAdminApi.setBranches(editing.userId, branchIds, defaultBranchId === "" ? null : defaultBranchId);
+        }
+        ToasterService.success(t("User updated. Role, employee and branch changes apply from their next sign-in."));
       }
       setEditing(null);
       load();
@@ -194,6 +210,17 @@ export default function UsersPage() {
         ),
     },
     { key: "employeeCode", label: "Employee", render: (u) => u.employeeCode || "—" },
+    // Once the company has branches: where each person works
+    ...(branches.length > 0 ? [{
+      key: "branches", label: "Branches",
+      render: (u: ManagedUser) => !u.branchIds?.length
+        ? <span className="text-[11px] text-slate-500">{t("All branches")}</span>
+        : (
+          <span className="text-[11px] text-slate-700 dark:text-gray-200">
+            {u.branchIds.map((id) => branches.find((b) => b.id === id)?.code ?? `#${id}`).join(", ")}
+          </span>
+        ),
+    }] : []),
     {
       key: "status", label: "Status", sortable: true, sortValueGetter: statusOf,
       render: (u) => {
@@ -236,6 +263,13 @@ export default function UsersPage() {
   const menuPreview = menuForRoles(roles.filter((r) => assignedIds.has(r.id)), companyHidden);
   const toggleRole = (id: number) =>
     setForm((f) => ({ ...f, roleIds: assignedIds.has(id) ? (f.roleIds ?? []).filter((r) => r !== id) : [...(f.roleIds ?? []), id] }));
+  // A default outside the ticked branches goes; a branch switched off stays only if the user already had it
+  const toggleBranch = (id: number) => {
+    const next = branchIds.includes(id) ? branchIds.filter((b) => b !== id) : [...branchIds, id];
+    setBranchIds(next);
+    if (defaultBranchId !== "" && next.length > 0 && !next.includes(defaultBranchId)) setDefaultBranchId("");
+  };
+  const defaultChoices = branchIds.length > 0 ? branches.filter((b) => branchIds.includes(b.id)) : branches.filter((b) => b.active);
 
   return (
     <>
@@ -336,6 +370,36 @@ export default function UsersPage() {
                 </div>
               )}
             </div>
+
+            {branches.length > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <span className={LABEL}>{t("Branches")}</span>
+                  <div className="flex flex-wrap gap-1.5 rounded-lg border border-slate-200 p-2 dark:border-gray-700">
+                    {branches.filter((b) => b.active || branchIds.includes(b.id)).map((b) => (
+                      <label key={b.id} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${branchIds.includes(b.id)
+                        ? "border-cyan-400 bg-cyan-50 text-cyan-800 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-200"
+                        : "border-slate-200 text-slate-600 dark:border-gray-700 dark:text-gray-300"}`}>
+                        <input type="checkbox" className="h-3 w-3" checked={branchIds.includes(b.id)} onChange={() => toggleBranch(b.id)} />
+                        {b.code} · {b.name}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">
+                    {t(branchIds.length === 0 ? "None ticked: they work in every branch." : "They work in the ticked branches only.")} {t("Applies from their next sign-in.")}
+                  </p>
+                </div>
+                <div>
+                  <label className={LABEL} htmlFor="user-default-branch">{t("Default branch")}</label>
+                  <select id="user-default-branch" className={INPUT} value={defaultBranchId}
+                    onChange={(e) => setDefaultBranchId(e.target.value ? Number(e.target.value) : "")}>
+                    <option value="">{t(branchIds.length === 1 ? "The ticked branch" : "None")}</option>
+                    {defaultChoices.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{t("Where their new documents go unless they choose another branch.")}</p>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className={LABEL}>{t("Roles")}</label>

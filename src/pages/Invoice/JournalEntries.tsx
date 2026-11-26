@@ -28,6 +28,7 @@ import {
 } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
 import { companyCurrency } from "../../company/format";
+import { useBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/journal-entries`;
@@ -43,7 +44,8 @@ interface LineForm {
 
 const blankLine = (): LineForm => ({ generalAccountId: "", debit: "", credit: "", narration: "", costCentreId: "" });
 
-const emptyForm = () => ({ entryDate: todayInput(), description: "", sourceModule: "OTHER", sourceId: "" });
+// branchId "": a new entry goes to the person's default branch, an edited one keeps its own (BR-1)
+const emptyForm = () => ({ entryDate: todayInput(), description: "", sourceModule: "OTHER", sourceId: "", branchId: "" });
 
 const totalOf = (entry: JournalEntry) => (entry.entries ?? []).reduce((sum, line) => sum + Number(line.debit || 0), 0);
 
@@ -55,6 +57,8 @@ const JournalEntries: React.FC = () => {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [accounts, setAccounts] = useState<GeneralAccount[]>([]);
   const [centres, setCentres] = useState<CostCentre[]>([]);
+  // The company's branches (BR-1): the picker shows once there are some
+  const { branches } = useBranches();
   const [loading, setLoading] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [viewing, setViewing] = useState<JournalEntry | null>(null);
@@ -133,6 +137,7 @@ const JournalEntries: React.FC = () => {
       description: entry.description ?? "",
       sourceModule: entry.sourceModule ?? "OTHER",
       sourceId: entry.sourceId != null ? String(entry.sourceId) : "",
+      branchId: entry.branchId != null ? String(entry.branchId) : "",
     });
     setLines(
       (entry.entries ?? []).map((line) => ({
@@ -164,6 +169,7 @@ const JournalEntries: React.FC = () => {
       description: form.description.trim() || null,
       sourceModule: form.sourceModule || null,
       sourceId: form.sourceId ? Number(form.sourceId) : null,
+      branchId: form.branchId ? Number(form.branchId) : null,
       entries: filled.map((line) => ({
         generalAccountId: Number(line.generalAccountId),
         debit: Number(line.debit) || 0,
@@ -432,6 +438,15 @@ const JournalEntries: React.FC = () => {
               </div>
               <FloatingTextarea label={t("Description")} name="description" rows={2} value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+              {branches.length > 0 && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FloatingSelect1 label={t("Branch")} name="branchId" value={form.branchId}
+                    options={[{ id: "", name: t(editing ? "Keep its branch" : "My default branch") },
+                      ...branches.filter((b) => b.active || String(b.id) === form.branchId).map((b) => ({ id: String(b.id), name: `${b.code} · ${b.name}` }))]}
+                    includeEmptyOption={false}
+                    onChange={(event) => setForm((current) => ({ ...current, branchId: event.target.value }))} />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <div className="hidden grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_auto] gap-2 px-1 text-xs font-medium uppercase tracking-wide text-slate-500 sm:grid">

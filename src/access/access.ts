@@ -353,6 +353,9 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   ["/reports/cash-bank-book", "INVOICE:VIEW"],
   ["/reports/receipts-payments", "INVOICE:VIEW"],
   ["/reports/expenses", "INVOICE:VIEW"],
+  // Delivery cost and failed deliveries (DEL-4); vehicle costs show only with INVOICE:VIEW
+  ["/reports/delivery-cost", "DELIVERY:VIEW"],
+  ["/reports/failed-deliveries", "DELIVERY:VIEW"],
   ["/reports/customer-ledger", "INVOICE:VIEW"],
   ["/reports/vendor-ledger", "INVOICE:VIEW"],
   // HR & stock (8.2.1.6): everyone's HR and pay records are for HR / approvers; stock for inventory

@@ -53,6 +53,9 @@ import { formatAmount, formatDate, companyCurrency } from "../../company/format"
 
 import { t } from "../../i18n/i18n";
 import { DealCreditNote } from "../CRM/dealCredit";
+import { PriceApprovalInfo, quoteCheckApi } from "../../sales/quoteCheckApi";
+import { lineAt, useLineCheck } from "../../components/quoting/LineInsight";
+import PriceApprovalPanel, { priceCleared } from "../../components/quoting/PriceApprovalPanel";
 import { brandShade } from "../../company/brand";
 type Address = {
   id: number;
@@ -140,7 +143,7 @@ type Customer = {
   contacts: CustomerContact[];
 };
 
-type Quotation = {
+type Quotation = PriceApprovalInfo & {
   id: number;
   customerId: number;
   quotationType: "PRODUCT" | "SERVICE" | "MIXED" | string;
@@ -345,6 +348,22 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function toNumber(value: string | number | undefined | null) {
   return Number(value || 0);
+}
+
+/** What the line check needs from the form: every line in order (a service has no product), and the extra discount. */
+function lineCheckRequest(lines: QuotationLine[], form: QuotationForm, additionalDiscount: number) {
+  return {
+    customerId: form.customerId ? Number(form.customerId) : null,
+    currencyCode: form.currencyCode || null,
+    date: form.quoteDate || null,
+    additionalDiscount,
+    lines: lines.map((line) => ({
+      productId: line.itemType === "PRODUCT" && line.productId ? Number(line.productId) : (null as unknown as number),
+      quantity: Number(line.quantity) || 0,
+      unitPrice: Number(line.unitPrice) || 0,
+      discountPercentage: Number(line.discountPercentage) || 0,
+    })),
+  };
 }
 
 function money(value: number | string | undefined) {
@@ -623,8 +642,17 @@ const Quotations: React.FC = () => {
   const [products, setProducts] = useState<QuotationProduct[]>([]);
   const [form, setForm] = useState<QuotationForm>(emptyForm);
   const [lines, setLines] = useState<QuotationLine[]>([]);
+  // The draft being edited, as saved: its price approval (8.4.7)
+  const [approvalInfo, setApprovalInfo] = useState<Quotation | null>(null);
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  // Stock, promise date, price list and margin for each line as it is typed (8.4.18 / 8.4.19); all lines go, in order,
+  // so the answer's line numbers match (services count towards sharing the additional discount)
+  const checkBody = lineCheckRequest(lines, form, toNumber(form.quotationAdditionalDiscount));
+  const lineCheck = useLineCheck(JSON.stringify({ showForm, checkBody }),
+    showForm && checkBody.lines.some((l) => l.productId) ? () => quoteCheckApi.quote(checkBody) : null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Line errors show only after the first Save, not while a new line is still being filled in
@@ -904,6 +932,9 @@ const Quotations: React.FC = () => {
         return [res.data, ...current];
       });
       ToasterService.success(editingId ? "Quotation updated" : "Quotation created");
+      if (res.data.priceApproval === "PENDING") {
+        ToasterService.warning(t("Sent for price approval"), t("A sales approver has been asked; the quotation can be sent once its prices are approved."));
+      }
       closeForm();
     } catch (error) {
       ToasterService.error("Failed to save quotation", getErrorMessage(error, "Please try again."));
@@ -1001,6 +1032,7 @@ const Quotations: React.FC = () => {
       const full = res.data;
       const customer = customers.find((item) => Number(item.id) === Number(full.customerId));
       setLines((full.items || []).map(toLine));
+      setApprovalInfo(full);
       setEditingId(full.id);
       setSubmitAttempted(false);
       setForm({
@@ -1055,8 +1087,27 @@ const Quotations: React.FC = () => {
     }
   };
 
+  /** The draft's price approval after an approver decided (and the list row with it). */
+  const reloadApproval = async (id: number) => {
+    try {
+      const { data } = await axios.get<Quotation>(`${API_URL}/${id}`, { headers });
+      setApprovalInfo(data);
+      setQuotations((current) => current.map((item) => (item.id === id ? { ...item, ...data } : item)));
+    } catch {
+      // The panel keeps what it showed
+    }
+  };
+
   const updateQuotationStatus = async (quotation: Quotation, status: string, withoutEmail = false) => {
     if (status === getQuotationStatus(quotation.status)) return;
+    // Prices waiting for (or refused) approval don't go to the customer (8.4.7); the server refuses too
+    if ((status === "SENT" || status === "ACCEPTED") && !priceCleared(quotation)) {
+      ToasterService.error(
+        t(quotation.priceApproval === "REJECTED" ? "Its prices were rejected" : "It waits for price approval"),
+        t(quotation.priceApproval === "REJECTED" ? "Change the prices and save it to ask again." : "A sales approver must approve its prices first.")
+      );
+      return;
+    }
     // Sending a draft emails it to the customer (the dialog can still mark it sent without an email)
     if (status === "SENT" && !withoutEmail) {
       setEmailing({ quotation, markSent: true });
@@ -1545,6 +1596,9 @@ const Quotations: React.FC = () => {
             </p>
           )}
           {form.dealId && <DealCreditNote dealId={form.dealId} customerId={form.customerId} />}
+          {editingId && approvalInfo?.id === editingId && (
+            <PriceApprovalPanel quotation={approvalInfo} onDecided={() => reloadApproval(editingId)} />
+          )}
           <div className="mb-5 md:col-span-2">
             <SearchableSelect
               label={t("Customer")}
@@ -1627,7 +1681,22 @@ const Quotations: React.FC = () => {
               onAdditionalDiscountChange={(value) => setField("quotationAdditionalDiscount", String(value))}
               showErrors={submitAttempted}
               onCreateProduct={() => navigate("/purchase-products")}
+              insightFor={(index) => lineAt(lineCheck, index + 1)}
             />
+            {lineCheck?.needsApproval && (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100" data-needs-approval>
+                {t("These prices need a sales approver: saving asks for approval, and the quotation can't be sent until it is given.")}
+                {lineCheck.costShown && lineCheck.marginPercent != null && (
+                  <> {t("Margin on the quotation: {percent}%", { percent: String(lineCheck.marginPercent) })}</>
+                )}
+              </p>
+            )}
+            {!lineCheck?.needsApproval && lineCheck?.costShown && lineCheck.marginPercent != null && (
+              <p className="mt-2 text-xs text-slate-500 dark:text-gray-400">
+                {t("Margin on the quotation: {percent}%", { percent: String(lineCheck.marginPercent) })}
+                {lineCheck.marginFloorPercent != null && <> · {t("company floor {percent}%", { percent: String(lineCheck.marginFloorPercent) })}</>}
+              </p>
+            )}
           </div>
 
           <h3 className={sectionTitle}>{t("Terms & Delivery")}</h3>

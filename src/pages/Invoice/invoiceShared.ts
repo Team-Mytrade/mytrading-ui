@@ -223,6 +223,8 @@ export interface JournalEntry {
   // The document's currency and rate (amounts are in the company's currency)
   currency?: string | null;
   exchangeRate?: number | null;
+  // The company branch of the whole entry (BR-1); null = no branch
+  branchId?: number | null;
 }
 
 export const ACCOUNT_TYPE_OPTIONS: Option[] = [

@@ -92,6 +92,7 @@ export const FLOW_EXAMPLES: Record<string, HelpFlowExample> = {
     story: "Gulf Electronics Trading LLC starts on MyTrading on 1 November 2026.",
     steps: [
       "Company profile: Al Fahidi Tower, Dubai · TRN 100458712300003 · AED · VAT 5%.",
+      "Branches: DXB Dubai head office and AUH Abu Dhabi.",
       "Chart of accounts started from the standard list; 6450 Marketplace fees added.",
       "Emirates NBD current account and a petty cash box are added.",
       "8 products, 5 customers, 5 vendors and opening stock (AED 106,660) are imported.",

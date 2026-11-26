@@ -8489,6 +8489,46 @@ export const ar: Record<string, string> = {
   "Branch Code": "رمز الفرع",
   "Select Payment Terms": "اختر شروط الدفع",
 
+  // ---------------- Branches (BR-1) ----------------
+  Branches: "الفروع",
+  "Add branch": "إضافة فرع",
+  "Edit branch {code}": "تعديل الفرع {code}",
+  "Head office": "المقر الرئيسي",
+  "Switched off": "متوقف",
+  "In use": "قيد الاستخدام",
+  "Code *": "الرمز *",
+  "Name *": "الاسم *",
+  "Name in Arabic": "الاسم بالعربية",
+  "Emirate / region": "الإمارة / المنطقة",
+  "Commercial registration": "السجل التجاري",
+  "Commercial registration no.": "رقم السجل التجاري",
+  "e.g. Dubai branch": "مثال: فرع دبي",
+  "Search code, name or city": "ابحث بالرمز أو الاسم أو المدينة",
+  "Enter the branch code and name.": "أدخل رمز الفرع واسمه.",
+  "Branch {code} added.": "أُضيف الفرع {code}.",
+  "Branch {code} saved.": "حُفظ الفرع {code}.",
+  "Could not save the branch.": "تعذّر حفظ الفرع.",
+  "Last changed {when} by {who}": "آخر تغيير في {when} بواسطة {who}",
+  "No branches yet. Add the head office first, then each branch with its own address. Then give each warehouse its branch (Inventory → Warehouses) and each user the branches they work in (Settings → Users).":
+    "لا توجد فروع بعد. أضف المقر الرئيسي أولًا، ثم كل فرع بعنوانه. ثم حدّد لكل مستودع فرعه (المخزون ← المستودعات) ولكل مستخدم الفروع التي يعمل فيها (الإعدادات ← المستخدمون).",
+  "A branch is switched off rather than deleted: its warehouses, users and documents keep it.":
+    "يُوقف الفرع بدل حذفه: تحتفظ به مستودعاته ومستخدموه ومستنداته.",
+  "To move it, make another branch the head office.": "لنقله، اجعل فرعًا آخر المقر الرئيسي.",
+  "The company has one head office; ticking this moves it here.": "للشركة مقر رئيسي واحد؛ تحديد هذا الخيار ينقله إلى هنا.",
+  "All branches": "كل الفروع",
+  "None ticked: they work in every branch.": "لم يُحدَّد أي فرع: يعمل في كل الفروع.",
+  "They work in the ticked branches only.": "يعمل في الفروع المحددة فقط.",
+  "Applies from their next sign-in.": "يسري من تسجيل دخوله التالي.",
+  "Default branch": "الفرع الافتراضي",
+  "The ticked branch": "الفرع المحدد",
+  "Where their new documents go unless they choose another branch.": "الفرع الذي تذهب إليه مستنداته الجديدة ما لم يختر فرعًا آخر.",
+  "User updated. Role, employee and branch changes apply from their next sign-in.":
+    "حُدّث المستخدم. تسري تغييرات الدور والموظف والفرع من تسجيل دخوله التالي.",
+  "No branch yet": "لا فرع بعد",
+  "No branch": "بلا فرع",
+  "Keep its branch": "الإبقاء على فرعه",
+  "My default branch": "فرعي الافتراضي",
+
   // ---------------- Go-live check (ADO-2) ----------------
   "Go-live check": "فحص الجاهزية للتشغيل",
   "Only a Tenant Administrator can run the go-live check.": "لا يشغّل فحص الجاهزية للتشغيل إلا مسؤول الشركة.",
@@ -8772,4 +8812,13 @@ export const ar: Record<string, string> = {
   "expires on": "ينتهي في",
   "Open the employee's documents": "افتح مستندات الموظف",
   "Documents expiring in 30 days": "مستندات تنتهي خلال 30 يومًا",
+  // Delivery reports (DEL-4); the pages' own labels are in reports/center/deliveryReports.ts
+  "Delivery Cost": "تكلفة التوصيل",
+  "Failed Deliveries": "التوصيلات الفاشلة",
+  "Trips, cost and failed deliveries of your own fleet": "الرحلات والتكلفة والتوصيلات الفاشلة لأسطولك",
+  "Trips, kilometres and deliveries per vehicle, with each vehicle's running cost per delivery and per km.":
+    "الرحلات والكيلومترات والتوصيلات لكل مركبة، مع تكلفة تشغيل كل مركبة لكل توصيلة ولكل كم.",
+  "Deliveries returned or cancelled on the road, by reason, driver, route, customer and vehicle, and whether they went out again.":
+    "التوصيلات المرتجعة أو الملغاة على الطريق، حسب السبب والسائق والمسار والعميل والمركبة، وهل أُعيد إرسالها.",
+  "Every delivery's latest status, who updated it and why it failed.": "آخر حالة لكل توصيلة، ومن حدّثها، ولماذا فشلت.",
 };
