@@ -105,6 +105,16 @@ export type FieldConfig = {
   section?: string;
   /** Field-level check; return an error message to show under the field, or null when valid. */
   validate?: (value: any, form: PurchaseRecord) => string | null;
+  /**
+   * Draws the field's own control instead of the built-in input (e.g. a list of contact rows). Gets the value and
+   * a setter for it; required and maxLength checks don't apply, use validate / validateFields instead.
+   */
+  renderControl?: (context: {
+    value: any;
+    form: PurchaseRecord;
+    setValue: (value: any) => void;
+    error?: string;
+  }) => React.ReactNode;
   toggleOnValue?: string;
   toggleOffValue?: string;
   toggleOptions?: SelectOption[];
@@ -1182,6 +1192,13 @@ export const PurchaseResourcePage: React.FC<{ config: PurchaseResourceConfig }> 
           ? floatingOptions.find((option) => String(option.id) === String(value))?.name || formatCellValue(value)
           : formatCellValue(value));
       control = <ReadOnlyField label={t(field.label)} value={displayValue} />;
+    } else if (field.renderControl) {
+      control = field.renderControl({
+        value,
+        form,
+        setValue: (next) => setField(field, next),
+        error: touched[field.name] || submitAttempted ? fieldErrors[field.name] : undefined,
+      });
     } else if (field.type === "textarea") {
       control = (
         <AutoGrowTextarea

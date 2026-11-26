@@ -11,8 +11,9 @@ import { AuthContext } from "../../context/AuthContext";
 import { canAccessPath } from "../../access/access";
 import { usePermissions } from "../../access/usePermissions";
 import { companyCurrency, formatDateTime, formatMoney } from "../../company/format";
-import { addressStyle, regionalAddressLines } from "../../company/regionalAddress";
+import { regionalAddressLines } from "../../company/regionalAddress";
 import { t } from "../../i18n/i18n";
+import { contactRowsOf, countryDefinition, useCustomerFormOptions } from "./customerProfile";
 
 // One customer at a glance (Common → Customers → view): who they are, what they owe against their credit, how
 // to reach them, their addresses, and a way into their documents, reports and CRM history.
@@ -38,10 +39,15 @@ interface Customer {
   tradeName?: string | null;
   customerType?: string;
   status?: string;
+  paymentMode?: "CASH" | "CREDIT" | null;
+  taxCountry?: string | null;
   taxNumber?: string | null;
   registrationNumber?: string | null;
+  registrationDetails?: Record<string, string> | null;
   email?: string | null;
   phone?: string | null;
+  emails?: { value: string; label?: string | null; primary?: boolean }[];
+  phones?: { value: string; label?: string | null; primary?: boolean }[];
   website?: string | null;
   creditLimit?: number | null;
   outstandingBalance?: number | null;
@@ -81,16 +87,6 @@ const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : 
 const termDays = (terms?: string | null) => {
   const m = /^NET\s*(\d+)$/i.exec((terms ?? "").trim());
   return m ? Number(m[1]) : null;
-};
-
-/** GSTIN in India, TRN in the UAE / Bahrain / Oman, VAT number in Saudi Arabia, else "Tax number". */
-const taxLabel = (country?: string) => {
-  const lower = (country ?? "").trim().toLowerCase();
-  if (lower === "india" || lower === "in") return "GSTIN";
-  const style = addressStyle(country);
-  if (style === "AE" || lower === "bahrain" || lower === "oman") return "TRN";
-  if (style === "SA") return "VAT number";
-  return "Tax number";
 };
 
 const Section = ({ title, icon: Icon, action, children, className = "" }: {
@@ -152,7 +148,12 @@ export default function CustomerViewPage() {
     () => [...(customer?.addresses ?? [])].sort((a, b) => Number(!!b.defaultAddress) - Number(!!a.defaultAddress)),
     [customer],
   );
-  const mainCountry = addresses[0]?.country;
+  const formOptions = useCustomerFormOptions();
+  // The tax fields of the customer's tax country (else its default address's country)
+  const taxCountry = countryDefinition(formOptions, customer?.taxCountry || addresses[0]?.country);
+  const emails = contactRowsOf(customer?.emails, customer?.email);
+  const phones = contactRowsOf(customer?.phones, customer?.phone);
+  const isCash = customer?.paymentMode === "CASH";
 
   // Ways into the customer's work, only those the reader can open
   const links = customer ? [
@@ -219,6 +220,9 @@ export default function CustomerViewPage() {
                       </span>
                     )}
                     {customer.customerType && <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5 text-slate-400" />{t(words(customer.customerType))}</span>}
+                    <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${isCash ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"}`}>
+                      {t(isCash ? "Cash customer" : "Credit customer")}
+                    </span>
                     {customer.email && <a href={`mailto:${customer.email}`} className="inline-flex items-center gap-1 text-cyan-700 hover:underline dark:text-cyan-300"><Mail className="h-3.5 w-3.5" />{customer.email}</a>}
                     {customer.phone && <a href={`tel:${customer.phone}`} className="inline-flex items-center gap-1 text-cyan-700 hover:underline dark:text-cyan-300" dir="ltr"><Phone className="h-3.5 w-3.5" />{customer.phone}</a>}
                   </div>
@@ -240,8 +244,10 @@ export default function CustomerViewPage() {
               </div>
               <div className={`${CARD} p-4`}>
                 <p className={LABEL}>{t("Credit limit")}</p>
-                <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 dark:text-white">{limit === null ? t("No limit") : money(limit)}</p>
-                {limit === null ? (
+                <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 dark:text-white">{isCash ? t("Cash") : limit === null ? t("No limit") : money(limit)}</p>
+                {isCash ? (
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-gray-400">{t("Pays on the spot; no credit limit.")}</p>
+                ) : limit === null ? (
                   <p className="mt-0.5 text-[11px] text-slate-500 dark:text-gray-400">{t("Orders aren't checked against credit")}</p>
                 ) : limit === 0 ? (
                   <p className="mt-0.5 text-[11px] text-rose-600 dark:text-rose-400">{t("A limit of 0 blocks every order on credit.")}</p>
@@ -255,7 +261,7 @@ export default function CustomerViewPage() {
                 )}
               </div>
               <div className={`${CARD} p-4`}>
-                <p className={LABEL}>{t("Payment terms")}</p>
+                <p className={LABEL}>{t(isCash ? "Payment terms" : "Credit days (payment terms)")}</p>
                 <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{customer.paymentTerms || "—"}</p>
                 <p className="mt-0.5 text-[11px] text-slate-500 dark:text-gray-400">
                   {termDays(customer.paymentTerms) !== null ? t("{days} days from the invoice date", { days: termDays(customer.paymentTerms)! }) : t("Sets the due date on invoices")}
@@ -274,17 +280,51 @@ export default function CustomerViewPage() {
               {/* Contact, tax and registration */}
               <Section title="Details" icon={UserRound}>
                 <dl className="-my-2.5 divide-y divide-slate-100 dark:divide-[#2e2e2e]">
-                  <Row icon={Mail} label="Email">{customer.email ? <a href={`mailto:${customer.email}`} className="text-cyan-700 hover:underline dark:text-cyan-300">{customer.email}</a> : <None />}</Row>
-                  <Row icon={Phone} label="Phone">{customer.phone ? <a href={`tel:${customer.phone}`} dir="ltr" className="text-cyan-700 hover:underline dark:text-cyan-300">{customer.phone}</a> : <None />}</Row>
+                  <Row icon={Mail} label={emails.length > 1 ? "Emails" : "Email"}>
+                    {emails.length ? (
+                      <ul className="space-y-0.5">
+                        {emails.map((e) => (
+                          <li key={e.value}>
+                            <a href={`mailto:${e.value}`} className="text-cyan-700 hover:underline dark:text-cyan-300">{e.value}</a>
+                            {e.label && <span className="ms-1.5 text-xs font-normal text-slate-500">{e.label}</span>}
+                            {e.primary && emails.length > 1 && <Star className="ms-1 inline h-3 w-3 fill-amber-400 text-amber-400" aria-label={t("Primary")} />}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <None />}
+                  </Row>
+                  <Row icon={Phone} label={phones.length > 1 ? "Phones" : "Phone"}>
+                    {phones.length ? (
+                      <ul className="space-y-0.5">
+                        {phones.map((p) => (
+                          <li key={p.value}>
+                            <a href={`tel:${p.value}`} dir="ltr" className="text-cyan-700 hover:underline dark:text-cyan-300">{p.value}</a>
+                            {p.label && <span className="ms-1.5 text-xs font-normal text-slate-500">{p.label}</span>}
+                            {p.primary && phones.length > 1 && <Star className="ms-1 inline h-3 w-3 fill-amber-400 text-amber-400" aria-label={t("Primary")} />}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <None />}
+                  </Row>
                   <Row icon={Globe} label="Website">
                     {customer.website ? (
                       <a href={customer.website.startsWith("http") ? customer.website : `https://${customer.website}`} target="_blank" rel="noopener noreferrer"
                         className="text-cyan-700 hover:underline dark:text-cyan-300">{customer.website.replace(/^https?:\/\//, "")}</a>
                     ) : <None />}
                   </Row>
-                  <Row icon={Landmark} label={taxLabel(mainCountry)}>{customer.taxNumber ? <span className="font-mono">{customer.taxNumber}</span> : <span className="font-normal text-slate-400">{t("Not registered")}</span>}</Row>
-                  <Row icon={FileText} label="Registration number">{customer.registrationNumber || <None />}</Row>
+                  {taxCountry.fields.map((field) => {
+                    const value = field.target === "TAX_NUMBER" ? customer.taxNumber
+                      : field.target === "REGISTRATION_NUMBER" ? customer.registrationNumber
+                      : customer.registrationDetails?.[field.key];
+                    return (
+                      <Row key={field.key} icon={field.target === "TAX_NUMBER" ? Landmark : FileText} label={field.label}>
+                        {value ? <span className="font-mono">{value}</span>
+                          : field.target === "TAX_NUMBER" ? <span className="font-normal text-slate-400">{t("Not registered")}</span> : <None />}
+                      </Row>
+                    );
+                  })}
                   <Row icon={Building2} label="Customer type">{customer.customerType ? t(words(customer.customerType)) : <None />}</Row>
+                  <Row icon={Tags} label="Classification">{t(isCash ? "Cash" : "Credit")}</Row>
                 </dl>
               </Section>
 

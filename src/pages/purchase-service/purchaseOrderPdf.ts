@@ -106,6 +106,7 @@ export async function purchaseOrderPdf({ po, vendor, terms }: PurchaseOrderDoc):
   const buyerName = company?.legalName || company?.companyName || "My Trading";
   const regime = company?.taxRegime ?? "GST";
   const buyerTax = regime === "VAT" && company?.taxNumber ? `TRN: ${company.taxNumber}`
+    : regime === "TIN" && company?.taxNumber ? `TIN: ${company.taxNumber}`
     : regime !== "NONE" && company?.gstin ? `GSTIN: ${company.gstin}` : "";
   const taxLabel = regime === "VAT" ? "VAT" : regime === "GST" ? "GST" : "Tax";
   const approved = isPoApproved(po);

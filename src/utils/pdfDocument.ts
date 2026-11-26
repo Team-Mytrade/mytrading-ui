@@ -165,3 +165,23 @@ export async function createPdf(options?: jsPDFOptions): Promise<jsPDF> {
   }
   return doc;
 }
+
+/** Opens the print dialog for a PDF from a hidden frame, so no pop-up window is needed. */
+export function printPdfBlob(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  frame.src = url;
+  frame.onload = () => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => {
+      frame.remove();
+      URL.revokeObjectURL(url);
+    }, 60_000);
+  };
+  document.body.appendChild(frame);
+}

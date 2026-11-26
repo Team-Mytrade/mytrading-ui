@@ -114,12 +114,23 @@ export const presetForCountry = (country: ICountry): Partial<RegionalSettings> =
 
 // Countries with VAT (5% UAE/Oman, 15% Saudi Arabia, 10% Bahrain); Kuwait and Qatar have none yet
 const VAT_COUNTRIES = ["AE", "SA", "BH", "OM", "GB", "DE", "FR", "IT", "ES", "NL", "BE", "AT", "EG", "JO"];
-const NO_VAT_COUNTRIES = ["KW", "QA"];
+// No VAT, but companies register for income tax and get a tax identification number (Qatar: General Tax Authority)
+const TIN_COUNTRIES = ["QA"];
+const NO_VAT_COUNTRIES = ["KW"];
 
 /** The usual tax registration for a country, or undefined to keep the current choice. */
-export const taxRegimeForCountry = (country: ICountry): "VAT" | "GST" | "NONE" | undefined =>
+export const taxRegimeForCountry = (country: ICountry): "VAT" | "GST" | "TIN" | "NONE" | undefined =>
   country.isoCode === "IN" ? "GST" : VAT_COUNTRIES.includes(country.isoCode) ? "VAT"
+    : TIN_COUNTRIES.includes(country.isoCode) ? "TIN"
     : NO_VAT_COUNTRIES.includes(country.isoCode) ? "NONE" : undefined;
+
+/** A tax identification number's problem, or null when it looks right. */
+export const tinError = (value: string | null | undefined): string | null => {
+  const number = String(value ?? "").replace(/\s+/g, "").toUpperCase();
+  if (!number) return "Enter the tax identification number (TIN)";
+  if (!/^[A-Z0-9-]{5,20}$/.test(number)) return "Use 5 to 20 letters, digits or hyphens";
+  return null;
+};
 
 /** A VAT registration number's problem for the country, or null when it looks right. */
 export const vatNumberError = (value: string | null | undefined, countryName?: string | null): string | null => {

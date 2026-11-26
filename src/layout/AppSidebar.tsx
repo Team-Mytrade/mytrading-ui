@@ -88,7 +88,7 @@ import {
   Truck,
   Undo2,
   UserCheck,
-  UserCircle,
+  Settings,
   UserPlus,
   UserRound,
   Users,
@@ -408,7 +408,7 @@ export const navItems: NavItem[] = [
   },
 
   {
-    icon: <UserCircle className="w-5 h-5" />,
+    icon: <Settings className="w-5 h-5" />,
     name: "Settings",
     subItems: [
       { name: "My Profile", path: "/profile", icon: UserRound, section: "Account" },

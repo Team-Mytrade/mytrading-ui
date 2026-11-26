@@ -30,6 +30,25 @@ export const STANDARD_PAYMENT_TERMS: PaymentTermOption[] = [
 
 export const DEFAULT_PAYMENT_TERM = "NET30";
 
+// Advance-payment terms offered next to the company's list. Saved as their wording, which goes onto quotations,
+// invoices and e-invoices as it is (so at most 100 characters, the invoice's limit)
+export const ADVANCE_PAYMENT_TERMS: PaymentTermOption[] = [
+  "100% payment in advance",
+  "50% advance payment with LPO (local purchase order), balance 50% upon completion of deliverables",
+].map((text) => ({ id: text, name: text }));
+
+/** Longest custom payment term (what an invoice can hold). */
+export const PAYMENT_TERM_MAX_LENGTH = 100;
+
+/** The value of the "Custom…" choice, which lets the user type their own term. */
+export const CUSTOM_PAYMENT_TERM = "__CUSTOM__";
+
+/** Adds the advance-payment terms after the company's (or the standard) list. */
+export const withAdvanceTerms = (options: PaymentTermOption[]): PaymentTermOption[] => [
+  ...options,
+  ...ADVANCE_PAYMENT_TERMS.filter((term) => !options.some((o) => o.id === term.id)),
+];
+
 /** "TEST-75 — 75 days" (or the term's description when it has one). */
 export const paymentTermLabel = (row: PaymentTermRow): string => {
   const code = String(row.termCode ?? "").trim();
