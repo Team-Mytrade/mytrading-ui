@@ -47,6 +47,7 @@ import WhatsAppDocumentDialog from "../../components/common/WhatsAppDocumentDial
 import PaymentLinkDialog from "./PaymentLinkDialog";
 
 import { t } from "../../i18n/i18n";
+import { ProofOfDelivery } from "../Delivery/proofOfDelivery";
 const API_URL = `${INVOICE_API}/invoices`;
 const PAGE_SIZE = 10;
 
@@ -718,6 +719,10 @@ const Invoices: React.FC = () => {
             </dd>
           </div>
         </dl>
+
+        {selected.salesDispatchId != null && selected.salesDispatchId > 0 && (
+          <ProofOfDelivery query={{ salesDispatchId: selected.salesDispatchId }} />
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[640px] text-sm">

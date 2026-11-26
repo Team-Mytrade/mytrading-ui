@@ -41,6 +41,23 @@ export const COMMON_TOPICS: HelpTopic[] = [
         title: "Add a customer to a segment",
         steps: ["Open the row menu and choose Add to Segment.", "Pick the segment.", "Save."],
       },
+      {
+        title: "Follow up what a customer owes",
+        steps: [
+          "Open the customer: Collections shows what it owes, how much is overdue and how late, against its credit limit.",
+          "Open invoices list each invoice's due date and days late; Copy link gives its pay-online link to send.",
+          "Cheques in hand are the post-dated cheques received and not yet cleared.",
+          "Log a promise to pay: the amount and the day the customer promised; it shows here for sales and finance, and under CRM → Interactions.",
+          "Add a collection task puts \"Collect payment from …\" in your CRM task list for tomorrow.",
+        ],
+      },
+      {
+        title: "See everything about a customer",
+        steps: [
+          "Open the customer: the tabs at the bottom show its Timeline (interactions, tasks, deals opened and closed), Deals, Quotations, Sales Orders, Invoices & payments and Contacts.",
+          "Each tab shows only for people who may open that module; click a deal to open it.",
+        ],
+      },
     ],
     fields: [
       { name: "Customer name / Trade name", meaning: "The legal name (on invoices) and the name the customer trades under, if different." },

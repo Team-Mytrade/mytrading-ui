@@ -52,6 +52,7 @@ import QuotationItemsEditor, {
 import { formatAmount, formatDate, companyCurrency } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
+import { DealCreditNote } from "../CRM/dealCredit";
 import { brandShade } from "../../company/brand";
 type Address = {
   id: number;
@@ -1543,6 +1544,7 @@ const Quotations: React.FC = () => {
               {t("Made from CRM deal #")}{form.dealId}: accepting this quotation marks the deal as Won.
             </p>
           )}
+          {form.dealId && <DealCreditNote dealId={form.dealId} customerId={form.customerId} />}
           <div className="mb-5 md:col-span-2">
             <SearchableSelect
               label={t("Customer")}

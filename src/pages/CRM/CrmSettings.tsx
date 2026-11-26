@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { BellAlertIcon, ChartBarIcon, EyeIcon, ListBulletIcon, XMarkIcon, ArrowUpIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { BellAlertIcon, ChartBarIcon, EyeIcon, ListBulletIcon, XMarkIcon, ArrowUpIcon, PlusIcon, BanknotesIcon } from "@heroicons/react/24/outline";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { ToasterService } from "../../Services/ToasterService";
@@ -145,7 +145,8 @@ export default function CrmSettings() {
   const { settings, setSettings, loading } = useCrmSettings();
   const [saving, setSaving] = useState(false);
 
-  const put = async (change: Partial<Pick<Settings, "ownRecordsOnly" | "leadSources" | "lostReasons" | "idleDays" | "stageProbabilities">>) => {
+  const put = async (change: Partial<Pick<Settings, "ownRecordsOnly" | "leadSources" | "lostReasons" | "idleDays" | "stageProbabilities"
+    | "creditRule" | "creditOverdueDays">>) => {
     const res = await axios.put<Settings>(CRM_SETTINGS_API, change);
     setSettings(res.data);
     rememberCrmSettings(res.data);
@@ -188,6 +189,30 @@ export default function CrmSettings() {
       setSaving(true);
       await put({ idleDays: idleValue });
       ToasterService.success(t(idleValue === 0 ? "Follow-up reminders are off" : "Follow-up reminders saved"));
+    } catch (err) {
+      const message = apiError(err, "Failed to save the CRM settings");
+      ToasterService.error(Object.values(fieldErrorOf(message))[0] || message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // The credit check on deals (8.4.16): off, warn or block, and how late an invoice may be
+  const [creditRuleDraft, setCreditRuleDraft] = useState<Settings["creditRule"]>("WARN");
+  const [creditDaysDraft, setCreditDaysDraft] = useState("30");
+  useEffect(() => {
+    setCreditRuleDraft(settings.creditRule ?? "WARN");
+    setCreditDaysDraft(String(settings.creditOverdueDays ?? 30));
+  }, [settings.creditRule, settings.creditOverdueDays]);
+  const creditDays = Number(creditDaysDraft);
+  const creditDaysValid = creditDaysDraft.trim() !== "" && Number.isInteger(creditDays) && creditDays >= 0 && creditDays <= 365;
+  const creditChanged = creditRuleDraft !== (settings.creditRule ?? "WARN") || creditDays !== (settings.creditOverdueDays ?? 30);
+  const saveCredit = async () => {
+    if (!creditDaysValid) return;
+    try {
+      setSaving(true);
+      await put({ creditRule: creditRuleDraft, creditOverdueDays: creditDays });
+      ToasterService.success(t("Credit check saved"));
     } catch (err) {
       const message = apiError(err, "Failed to save the CRM settings");
       ToasterService.error(Object.values(fieldErrorOf(message))[0] || message);
@@ -315,6 +340,57 @@ export default function CrmSettings() {
             {t("0 turns these reminders off. A task still planned ahead counts as a follow-up. A deal's tasks and interactions are those on its lead or customer. Records without an owner aren't reminded.")}
           </p>
           {!idleValid && <p className="mt-1 text-xs text-rose-600">{t("Enter 0 to 365 days")}</p>}
+        </section>
+
+        <section className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+              <BanknotesIcon className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t("Credit check on deals")}</h2>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                {t("Deals show what their customer owes, how late and its credit limit, from the invoices. When a deal moves to Negotiation or Won for a customer over its credit limit or with an invoice overdue too long:")}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300">{t("What happens")}</span>
+              <select
+                value={creditRuleDraft}
+                disabled={loading || saving || !settings.canChange}
+                onChange={(e) => setCreditRuleDraft(e.target.value as Settings["creditRule"])}
+                className="h-9 w-72 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 outline-none focus:border-cyan-500 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              >
+                <option value="WARN">{t("Warn, and the person may go ahead")}</option>
+                <option value="BLOCK">{t("Block until finance releases the deal")}</option>
+                <option value="OFF">{t("Nothing: only show the credit")}</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-slate-600 dark:text-gray-300">{t("Overdue for more than (days)")}</span>
+              <input
+                type="number"
+                min={0}
+                max={365}
+                value={creditDaysDraft}
+                disabled={loading || saving || !settings.canChange}
+                onChange={(e) => setCreditDaysDraft(e.target.value)}
+                className="h-9 w-32 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 outline-none focus:border-cyan-500 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </label>
+            {settings.canChange && (
+              <button type="button" disabled={!creditDaysValid || saving || !creditChanged} onClick={saveCredit}
+                className="h-9 rounded-lg bg-cyan-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {saving ? t("Saving…") : t("Save")}
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {t("0 days counts any overdue invoice. A blocked deal can be released by someone with the sales, finance or CRM approval right (not its owner), with a reason; \"Ask finance to release\" sends them an alert. A customer with no credit limit is checked for overdue invoices only.")}
+          </p>
+          {!creditDaysValid && <p className="mt-1 text-xs text-rose-600">{t("Enter 0 to 365 days")}</p>}
         </section>
 
         <section className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">

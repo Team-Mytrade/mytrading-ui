@@ -24,6 +24,7 @@ import {
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
 import DealsBoard from "./DealsBoard";
+import { CreditChip, CreditDialog, CustomerCredit, releaseActive, useCustomerCredit } from "./dealCredit";
 import { useNavigate, useLocation } from "react-router-dom";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -61,6 +62,7 @@ const PRODUCTS_API = "/v1/api/common/products";
 const PAGE_SIZE = 10;
 
 const stageOptions = DEAL_STAGE_OPTIONS;
+const stageNameOf = (stage: string) => t(String(stageOptions.find((option) => option.id === stage)?.name ?? stage));
 
 const normalizeStage = (stage?: string) =>
   stage ? stage.trim().toUpperCase().replace(/\s+/g, "_") : "PROSPECTING";
@@ -93,6 +95,10 @@ interface Opportunity {
   closedOn?: string | null;
   // The amount in the company's currency at the latest exchange rate (none when finance has no rate)
   companyAmount?: number | null;
+  // 8.4.16: finance let the deal go ahead although its customer is over its credit limit or overdue
+  creditReleasedAt?: string | null;
+  creditReleasedByName?: string | null;
+  creditReleaseReason?: string | null;
 }
 
 interface DealLine {
@@ -181,6 +187,12 @@ export default function Deals() {
   const [ownerFilter, setOwnerFilter] = useState("");
   const [closeFilter, setCloseFilter] = useState("");
   const [wonConfirm, setWonConfirm] = useState<Opportunity | null>(null);
+  // 8.4.16: each deal's customer credit; a move into Negotiation or Won for a flagged customer asks first
+  const { credit } = useCustomerCredit(opportunities);
+  const creditOf = (o: { customer?: { id: number } | null }) => (o.customer?.id ? credit[o.customer.id] : undefined);
+  const [creditPrompt, setCreditPrompt] = useState<{
+    deal: Opportunity; stage: string; stageName: string; credit: CustomerCredit; blocked: boolean; message?: string | null;
+  } | null>(null);
 
   // A stage's default win probability (CRM Settings); a deal without its own shows this
   const stageProbability = (stage?: string) => crmSettings.stageProbabilities[normalizeStage(stage)] ?? 0;
@@ -362,7 +374,8 @@ export default function Deals() {
   const handleInlineChange = async (
     o: Opportunity,
     changes: Partial<Pick<Opportunity, "stage" | "status">>,
-    lostReason?: string
+    lostReason?: string,
+    creditChecked = false
   ) => {
     const next = {
       ...o,
@@ -373,6 +386,14 @@ export default function Deals() {
     // Moving to Lost asks why first
     if (next.stage === "LOST" && normalizeStage(o.stage) !== "LOST" && !lostReason) {
       setLostPrompt({ deal: o, reason: crmSettings.lostReasons[0] ?? "" });
+      return;
+    }
+    // Into Negotiation or Won for a customer over its credit or overdue: a warning to confirm, or blocked (8.4.16)
+    const flagged = creditOf(o);
+    const intoCreditStage = (next.stage === "NEGOTIATION" || next.stage === "WON") && next.stage !== normalizeStage(o.stage);
+    if (intoCreditStage && !creditChecked && !releaseActive(o) && flagged && (flagged.level === "WARN" || flagged.level === "BLOCK")) {
+      setCreditPrompt({ deal: o, stage: next.stage, stageName: stageNameOf(next.stage), credit: flagged,
+        blocked: flagged.level === "BLOCK", message: flagged.message });
       return;
     }
 
@@ -394,7 +415,14 @@ export default function Deals() {
     } catch (err: any) {
       console.error("Error updating opportunity", err);
       setOpportunities(previous);
-      ToasterService.error(apiError(err, "Failed to update opportunity"));
+      // The company blocks it until finance releases the deal: explain, and offer to ask
+      const data = err?.response?.data;
+      if (err?.response?.status === 409 && data?.code === "CREDIT_BLOCKED" && data.credit) {
+        setCreditPrompt({ deal: o, stage: next.stage, stageName: stageNameOf(next.stage), credit: data.credit, blocked: true,
+          message: data.message });
+      } else {
+        ToasterService.error(apiError(err, "Failed to update opportunity"));
+      }
     } finally {
       setInlineUpdatingId(null);
     }
@@ -582,6 +610,7 @@ export default function Deals() {
             {o.quotationNumber && (
               <div className="text-xs text-cyan-700 truncate max-w-[150px]">{t("Quotation")} {o.quotationNumber}</div>
             )}
+            <CreditChip credit={creditOf(o)} released={releaseActive(o)} />
           </div>
         </div>
       ),
@@ -949,6 +978,7 @@ export default function Deals() {
             deals={shownDeals.map((o) => ({ ...o, stage: normalizeStage(o.stage) }))}
             stages={stageOptions}
             probabilityOf={(d) => probabilityOf(d as Opportunity)}
+            creditOf={creditOf}
             canUpdate={canUpdate}
             updatingId={inlineUpdatingId}
             onMove={moveDeal}
@@ -1343,6 +1373,18 @@ export default function Deals() {
           </div>,
           document.body
         )}
+
+      {/* 8.4.16: the customer is over its credit or overdue: confirm the move, or ask finance / release */}
+      <CreditDialog
+        prompt={creditPrompt}
+        me={me}
+        onClose={() => setCreditPrompt(null)}
+        onProceed={(released) => {
+          const prompt = creditPrompt;
+          setCreditPrompt(null);
+          if (prompt) handleInlineChange({ ...prompt.deal, ...(released as Partial<Opportunity>) }, { stage: prompt.stage }, undefined, true);
+        }}
+      />
 
       {/* Board: a deal dropped on Won is confirmed first (it closes the deal at 100%) */}
       <DynamicPopup

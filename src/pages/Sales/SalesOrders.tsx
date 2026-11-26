@@ -39,6 +39,8 @@ import DocumentEmailDialog from "../../components/common/DocumentEmailDialog";
 import { createProformaPdf } from "./proformaPdf";
 
 import { t } from "../../i18n/i18n";
+import { ShieldCheckIcon as ProofIcon } from "lucide-react";
+import { ProofOfDelivery, tp } from "../Delivery/proofOfDelivery";
 type Address = {
   id: number;
   customerId: number;
@@ -688,6 +690,8 @@ const SalesOrders: React.FC = () => {
   const [dispatchOrder, setDispatchOrder] = useState<SalesOrder | null>(null);
   // Cancelling an order, or closing it short, with a reason
   const [closingOrder, setClosingOrder] = useState<{ order: SalesOrder; kind: "cancel" | "close" } | null>(null);
+  // Proof of delivery captured by drivers for the order's deliveries (DEL-1)
+  const [proofOrder, setProofOrder] = useState<SalesOrder | null>(null);
   const [releasingOrder, setReleasingOrder] = useState<SalesOrder | null>(null);
   // Proforma invoice: the order it was issued for, and whether its email dialog is open
   const [proforma, setProforma] = useState<SalesOrder | null>(null);
@@ -1692,6 +1696,15 @@ const SalesOrders: React.FC = () => {
           >
             <TruckIcon className="h-4 w-4" />
           </button>)}
+          {!["DRAFT", "CANCELLED"].includes(order.status || "DRAFT") && (<button
+            type="button"
+            onClick={() => setProofOrder(order)}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-green-50 hover:text-green-600 dark:text-slate-500 dark:hover:bg-green-950/40 dark:hover:text-green-400"
+            title={tp("Proof of delivery")}
+            aria-label={tp("Proof of delivery")}
+          >
+            <ProofIcon className="h-4 w-4" />
+          </button>)}
           {canApprove && canCancelOrder(order) && (<button
             type="button"
             onClick={() => setClosingOrder({ order, kind: "cancel" })}
@@ -2530,6 +2543,23 @@ const SalesOrders: React.FC = () => {
         ]}
       />
 
+      {proofOrder && (
+        <div data-overlay-dim data-overlay className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
+          onClick={() => setProofOrder(null)}>
+          <div data-overlay-panel role="dialog" aria-modal="true" aria-label={tp("Proof of delivery")}
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{tp("Proof of delivery")}</h2>
+                <p className="text-sm text-gray-500">{proofOrder.orderNumber}</p>
+              </div>
+              <button type="button" onClick={() => setProofOrder(null)} className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">{tp("Close")}</button>
+            </div>
+            <ProofOfDelivery query={{ salesOrderId: proofOrder.id }} showEmpty />
+          </div>
+        </div>
+      )}
+
       {closingOrder && (
         <CloseOrderDialog
           title={closingOrder.kind === "cancel" ? t("Cancel sales order") : t("Close sales order short")}
@@ -2690,6 +2720,7 @@ const SalesOrders: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  {dispatchOrder && <ProofOfDelivery className="mt-3" query={{ salesOrderId: dispatchOrder.id }} />}
                 </section>
               )}
 

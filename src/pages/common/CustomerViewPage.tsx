@@ -14,6 +14,8 @@ import { companyCurrency, formatDateTime, formatMoney } from "../../company/form
 import { regionalAddressLines } from "../../company/regionalAddress";
 import { t } from "../../i18n/i18n";
 import { contactRowsOf, countryDefinition, useCustomerFormOptions } from "./customerProfile";
+import CustomerCollections from "./CustomerCollections";
+import CustomerActivity from "./CustomerActivity";
 
 // One customer at a glance (Common → Customers → view): who they are, what they owe against their credit, how
 // to reach them, their addresses, and a way into their documents, reports and CRM history.
@@ -403,6 +405,12 @@ export default function CustomerViewPage() {
                 </Section>
               )}
             </div>
+
+            {/* 8.4.17: what is owed and how late, cheques in hand, promises to pay (CRM readers only) */}
+            <CustomerCollections customerId={customer.id} customerName={customer.customerName} />
+
+            {/* 8.4.2: the customer's timeline, deals, quotations, orders, invoices and contacts, each for its module's readers */}
+            <CustomerActivity customerId={customer.id} />
           </>
         )}
       </div>

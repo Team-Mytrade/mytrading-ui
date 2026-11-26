@@ -8,13 +8,51 @@ import { formatDateHijri, formatDateTime, formatNumber, pdfText } from "../../co
 import { fitLogo } from "../../components/common/export";
 
 import { brandShade } from "../../company/brand";
+import axios from "axios";
+import { DeliveryProof, PROOF_API, imageDataUrl, officeFileUrl } from "./proofOfDelivery";
+
+const imageFormat = (dataUrl: string) => (dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG");
 export interface ChallanLine {
   productName: string;
   orderedQty: number;
   deliveredQty?: number | null;
 }
 
+/** Proof of delivery from Driver Mode, with its pictures as data URLs (DEL-1). */
+export interface ChallanProof {
+  receiverName: string;
+  receiverMobile?: string | null;
+  capturedAt: string;
+  capturedBy?: string | null;
+  vehiclePlate?: string | null;
+  status: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  positionSource?: string | null;
+  codeVerified: boolean;
+  codeSentTo?: string | null;
+  signature?: string | null;
+  photos: string[];
+}
+
+/** The latest proof of delivery for the challan (null when there is none or it can't be read). */
+export async function challanProof(query: Record<string, number>): Promise<ChallanProof | null> {
+  try {
+    const { data } = await axios.get<DeliveryProof[]>(PROOF_API, { params: query });
+    const p = Array.isArray(data) ? data[0] : null;
+    if (!p) return null;
+    const [signature, ...photos] = await Promise.all([
+      p.signature ? imageDataUrl(officeFileUrl(p, p.signature)) : Promise.resolve(null),
+      ...p.photos.filter((f) => f.contentType !== "image/webp").slice(0, 3).map((f) => imageDataUrl(officeFileUrl(p, f))),
+    ]);
+    return { ...p, signature, photos: photos.filter((x): x is string => !!x) };
+  } catch {
+    return null;
+  }
+}
+
 export interface ChallanData {
+  proof?: ChallanProof | null;
   deliveryNo: string;
   deliveryDate?: string;
   status?: string;
@@ -140,10 +178,54 @@ export async function printDeliveryChallan(data: ChallanData): Promise<void> {
     doc.text(label, x + 3, y + 5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...MUTED);
-    doc.text("Name:", x + 3, y + 14);
+    const proof = i === 2 ? data.proof : null;
+    doc.text(proof ? t(`Name: ${proof.receiverName}`) : "Name:", x + 3, y + 14);
     doc.text("Signature:", x + 3, y + 22);
-    doc.text(i === 2 ? "Date & stamp:" : "Date:", x + 3, y + 30);
+    if (proof?.signature) {
+      try {
+        doc.addImage(proof.signature, imageFormat(proof.signature), x + 19, y + 16, boxWidth - 22, 10);
+      } catch {
+        /* unreadable picture: the box stays empty */
+      }
+    }
+    doc.text(proof ? t(`Date: ${formatDateTime(proof.capturedAt)}`) : i === 2 ? "Date & stamp:" : "Date:", x + 3, y + 30);
   });
+  y += 38;
+
+  // Proof of delivery captured at the door (Driver Mode)
+  const proof = data.proof;
+  if (proof) {
+    if (y > height - 60) {
+      doc.addPage();
+      header();
+      y = 40;
+    }
+    const place = proof.latitude != null && proof.longitude != null
+      ? `${proof.latitude.toFixed(6)}, ${proof.longitude.toFixed(6)} (${proof.positionSource === "TRIP" ? "trip's last position" : "phone GPS"})`
+      : "-";
+    autoTable(doc, { ...table, startY: y, head: [[{ content: "PROOF OF DELIVERY", colSpan: 4 }]], body: [
+      ["Received by", t(proof.receiverName + (proof.receiverMobile ? ` · ${proof.receiverMobile}` : "")), "Status", t(proof.status === "PARTIAL" ? "Partly delivered" : "Delivered")],
+      ["Time", t(formatDateTime(proof.capturedAt)), "Driver", t([proof.capturedBy, proof.vehiclePlate].filter(Boolean).join(" · "))],
+      ["Location", t(place), "One-time code", t(proof.codeVerified ? `Confirmed${proof.codeSentTo ? ` (sent to ${proof.codeSentTo})` : ""}` : "Not used")],
+    ], columnStyles: { 0: { cellWidth: 30, fontStyle: "bold", textColor: [71, 85, 105] }, 1: { cellWidth: 61 }, 2: { cellWidth: 30, fontStyle: "bold", textColor: [71, 85, 105] }, 3: { cellWidth: 61 } } });
+    y = tableEnd() + 4;
+    if (proof.photos.length) {
+      if (y > height - 60) {
+        doc.addPage();
+        header();
+        y = 40;
+      }
+      proof.photos.forEach((photo, i) => {
+        try {
+          const props = doc.getImageProperties(photo);
+          const scale = Math.min(58 / props.width, 40 / props.height);
+          doc.addImage(photo, imageFormat(photo), margin + i * 62, y, props.width * scale, props.height * scale);
+        } catch {
+          /* skipped */
+        }
+      });
+    }
+  }
 
   for (let page = 1; page <= doc.getNumberOfPages(); page += 1) {
     doc.setPage(page);

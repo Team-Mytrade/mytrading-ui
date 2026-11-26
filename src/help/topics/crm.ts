@@ -370,6 +370,18 @@ export const CRM_TOPICS: HelpTopic[] = [
         ],
         who: "CRM admin",
       },
+      {
+        title: "Decide what happens to deals for customers who owe too much",
+        steps: [
+          "Under Credit check on deals, choose Warn (the default), Block until finance releases the deal, or Nothing.",
+          "Enter how many days an invoice may be overdue (30 to start with; 0 counts any overdue invoice) and click Save.",
+          "Deals then show a chip when their customer is over its credit limit or overdue too long, and moving one to Negotiation or Won warns or is blocked.",
+          "A blocked deal's owner clicks Ask finance to release; someone with the sales, finance or CRM approval right releases it with a reason.",
+          "A release lasts 30 days, and only while the customer owes no more than it did then; after that the deal is checked again. Accepting the deal's quotation (which marks it Won) is checked the same way.",
+          "Only people who may view finance see the amounts owed, the open invoices and the cheques; others see the warning and how many days late.",
+        ],
+        who: "CRM admin",
+      },
     ],
     fields: [
       { name: "Owner", meaning: "The login responsible for a lead or deal; set on Leads and Deals." },

@@ -24,26 +24,39 @@ const TH = "px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide t
 const TD = "px-3 py-2 align-top text-sm text-slate-700 dark:text-gray-200";
 const TILL_KEY = "pos.till";
 
-interface Till { id: number; code: string; name: string; warehouseId: number; walkInCustomerId: number; currencyCode: string; cashAccountId: number | null; cardAccountId: number | null; active: boolean; pricesIncludeTax?: boolean | null }
+// returnApprovalLimit: returns a cashier makes alone up to this amount; above it (or always, when empty) a supervisor approves
+interface Till { id: number; code: string; name: string; warehouseId: number; walkInCustomerId: number; currencyCode: string; cashAccountId: number | null; cardAccountId: number | null; active: boolean; pricesIncludeTax?: boolean | null; returnApprovalLimit?: number | null }
 interface Shift {
   id: number; tillId: number; status: string; openedAt: string; openedBy: string | null; openingCash: number; closedAt: string | null; expectedCash: number;
   countedCash: number | null; cashDifference: number | null; saleCount: number; invoicesPending: number; cashSales: number; cardSales: number; taxTotal: number; salesTotal: number;
   cashRefunds: number; cardRefunds: number; returnsPending: number; differencePosted?: boolean | null; differenceError?: string | null;
+  // Exchange credit used by sales / given by returns (no cash moved); returns waiting for a supervisor
+  creditSales?: number; exchangeCredits?: number; returnsAwaitingApproval?: number;
+}
+interface ReturnableLine {
+  saleLineId: number; productCode: string | null; productName: string | null; quantity: number; lineTotal: number; returnable: number;
+  taxRate?: number | null; taxAmount?: number | null; batchNumber?: string | null; serialNumbers?: string[];
 }
 interface ReturnableSale {
   id: number; saleNumber: string; invoiceNumber: string | null; soldAt: string; customerName: string | null; currencyCode: string; status: string;
-  lines: { saleLineId: number; productCode: string | null; productName: string | null; quantity: number; lineTotal: number; returnable: number }[];
+  lines: ReturnableLine[]; cashRefundable?: number; cardRefundable?: number;
 }
+type RefundMethod = "CASH" | "CARD" | "EXCHANGE";
 interface PosReturn {
   id: number; returnNumber: string; saleNumber: string; returnedAt: string; returnedBy: string | null; reason: string | null; restock: boolean; refundMethod: string; refundAmount: number;
-  currencyCode: string; creditNoteNumber: string | null; status: string; errorMessage: string | null; lines: { productCode: string | null; productName: string | null; quantity: number; amount: number }[];
+  currencyCode: string; creditNoteNumber: string | null; status: string; errorMessage: string | null; taxAmount?: number | null;
+  approvedBy?: string | null; rejectedReason?: string | null; creditId?: number | null; exchangeSaleId?: number | null; exchangeSaleNumber?: string | null;
+  lines: { productCode: string | null; productName: string | null; quantity: number; amount: number; taxAmount?: number | null; taxRate?: number | null; batchNumber?: string | null; serialNumbers?: string | null }[];
 }
-type ReturnForm = { number: string; sale: ReturnableSale | null; quantities: Record<number, string>; reason: string; restock: boolean; method: "CASH" | "CARD"; reference: string };
-const blankReturn = (number = ""): ReturnForm => ({ number, sale: null, quantities: {}, reason: "", restock: true, method: "CASH", reference: newReference() });
+type ReturnForm = { number: string; sale: ReturnableSale | null; quantities: Record<number, string>; serials: Record<number, string[]>; reason: string; restock: boolean; method: RefundMethod; reference: string };
+const blankReturn = (number = ""): ReturnForm => ({ number, sale: null, quantities: {}, serials: {}, reason: "", restock: true, method: "CASH", reference: newReference() });
+const methodLabel = (method: string) => (method === "CASH" ? "Cash" : method === "CARD" ? "Card" : "Exchange");
 interface SaleLine { productCode: string | null; productName: string | null; quantity: number; unitPrice: number; discountAmount: number | null; taxRate: number | null; taxAmount: number | null; lineTotal: number }
 interface Sale {
   id: number; saleNumber: string; soldAt: string; soldBy: string | null; customerName: string | null; currencyCode: string; invoiceNumber: string | null; status: string; invoiceError: string | null;
   subTotal: number; taxAmount: number; grandTotal: number; cashAmount: number; cardAmount: number; cashTendered: number; changeGiven: number; cardReference: string | null; lines: SaleLine[];
+  // An exchange: what the returned goods' credit paid, and that return
+  creditAmount?: number | null; exchangeReturnNumber?: string | null;
   // The tax invoice QR (PNG data URI) for the receipt; none outside VAT
   receiptQr?: string | null;
 }
@@ -51,7 +64,7 @@ interface Product { id: number; productCode?: string; productName?: string; barc
 interface Named { id: number; name?: string; accountName?: string; customerName?: string; customerCode?: string; active?: boolean }
 // listPrice: the price the till filled in (the customer's, price list's or catalogue's); below it, or a discount, needs a supervisor
 type CartLine = { key: string; product: Product; quantity: string; unitPrice: string; listPrice: string; discount: string; batchNumber: string; serials: string };
-type TillForm = { id: number | null; code: string; name: string; warehouseId: string; walkInCustomerId: string; currencyCode: string; cashAccountId: string; cardAccountId: string; active: boolean; pricesIncludeTax: boolean };
+type TillForm = { id: number | null; code: string; name: string; warehouseId: string; walkInCustomerId: string; currencyCode: string; cashAccountId: string; cardAccountId: string; active: boolean; pricesIncludeTax: boolean; returnApprovalLimit: string };
 
 let seq = 0;
 const asArray = <T,>(data: unknown): T[] =>
@@ -97,6 +110,9 @@ export default function PointOfSale() {
   const [cardReference, setCardReference] = useState("");
   const [reference, setReference] = useState(newReference);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
+  // An exchange return whose credit pays for this sale
+  const [exchange, setExchange] = useState<PosReturn | null>(null);
+  const [lastReturn, setLastReturn] = useState<PosReturn | null>(null);
   const [busy, setBusy] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -223,7 +239,10 @@ export default function PointOfSale() {
   }, [cart, lineAmounts, round]);
 
   const cardAmount = Number(card) || 0;
-  const cashDue = round(Math.max(0, totals.total - cardAmount));
+  const credit = exchange ? Number(exchange.refundAmount) : 0;
+  // The new items must be worth at least the exchange credit
+  const creditTooBig = credit > 0 && cart.length > 0 && totals.total < credit;
+  const cashDue = round(Math.max(0, totals.total - credit - cardAmount));
   const tendered = Number(cash) || 0;
   const change = round(Math.max(0, tendered - cashDue));
   const short = round(Math.max(0, cashDue - tendered));
@@ -234,6 +253,7 @@ export default function PointOfSale() {
     setCard("");
     setCardReference("");
     setCustomerId("");
+    setExchange(null);
     setReference(newReference());
     searchRef.current?.focus();
   };
@@ -259,6 +279,10 @@ export default function PointOfSale() {
       ToasterService.error(t("{product}: enter the batch number.", { product: noBatch.product.productCode ?? "" }));
       return;
     }
+    if (creditTooBig) {
+      ToasterService.error(t("The new items are worth less than the exchange credit of {amount}.", { amount: money(credit) }));
+      return;
+    }
     if (short > 0) {
       ToasterService.error(t("The payment is {amount} short.", { amount: money(short) }));
       return;
@@ -266,7 +290,8 @@ export default function PointOfSale() {
     setBusy(true);
     try {
       const { data } = await axios.post<Sale>(`${POS}/sales`, {
-        clientReference: reference, shiftId: shift.id, customerId: customerId ? Number(customerId) : null,
+        clientReference: reference, shiftId: shift.id, customerId: exchange ? null : customerId ? Number(customerId) : null,
+        exchangeReturnId: exchange?.id ?? null,
         cashTendered: tendered, cardAmount, cardReference: cardReference.trim() || null,
         lines: cart.map((l) => ({
           productId: l.product.id, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), discountAmount: Number(l.discount) || null,
@@ -310,9 +335,20 @@ export default function PointOfSale() {
   const returnValue = (form: ReturnForm) =>
     round((form.sale?.lines ?? []).reduce((sum, l) => sum + (l.lineTotal / l.quantity) * (Number(form.quantities[l.saleLineId]) || 0), 0));
 
+  // Within the till's limit a cashier's return goes through; above it a supervisor approves (a supervisor's own goes through)
+  const limit = till?.returnApprovalLimit == null ? null : Number(till.returnApprovalLimit);
+  const needsApproval = (amount: number) => !canApprove && (limit == null || amount > limit);
+  // What can still go back the way the sale was paid
+  const refundableBy = (form: ReturnForm) =>
+    form.method === "CASH" ? form.sale?.cashRefundable : form.method === "CARD" ? form.sale?.cardRefundable : undefined;
+
   const submitReturn = async () => {
     if (!shift || !returning?.sale) return;
-    const lines = returning.sale.lines.map((l) => ({ saleLineId: l.saleLineId, quantity: Number(returning.quantities[l.saleLineId]) || 0 })).filter((l) => l.quantity > 0);
+    const sale = returning.sale;
+    const lines = sale.lines.map((l) => ({
+      saleLineId: l.saleLineId, quantity: Number(returning.quantities[l.saleLineId]) || 0,
+      serialNumbers: (l.serialNumbers?.length ?? 0) > 0 ? returning.serials[l.saleLineId] ?? [] : undefined,
+    })).filter((l) => l.quantity > 0);
     if (lines.length === 0) {
       ToasterService.error("Enter how many are coming back.");
       return;
@@ -321,22 +357,92 @@ export default function PointOfSale() {
       ToasterService.error("Returns are in whole units.");
       return;
     }
+    const tooMany = sale.lines.find((l) => (Number(returning.quantities[l.saleLineId]) || 0) > l.returnable);
+    if (tooMany) {
+      ToasterService.error(t("Only {count} of {product} can still come back.", { count: tooMany.returnable, product: tooMany.productCode ?? "" }));
+      return;
+    }
+    const serialsMissing = lines.find((l) => l.serialNumbers && l.serialNumbers.length !== l.quantity);
+    if (serialsMissing) {
+      ToasterService.error("Tick one serial number for each unit coming back.");
+      return;
+    }
     if (!returning.reason.trim()) {
       ToasterService.error("Enter why the goods came back.");
+      return;
+    }
+    const value = returnValue(returning);
+    const allowed = refundableBy(returning);
+    if (allowed != null && value > Number(allowed) + 0.005) {
+      ToasterService.error(t("Only {amount} can go back this way: refund what was paid by card to the card, and cash in cash.", { amount: money(Number(allowed)) }));
       return;
     }
     setBusy(true);
     try {
       const { data } = await axios.post<PosReturn>(`${POS}/returns`, {
-        clientReference: returning.reference, saleId: returning.sale.id, shiftId: shift.id, refundMethod: returning.method,
+        clientReference: returning.reference, saleId: sale.id, shiftId: shift.id, refundMethod: returning.method,
         reason: returning.reason.trim(), restock: returning.restock, lines,
       });
-      if (data.status === "COMPLETED") ToasterService.success(`${data.returnNumber}: ${t("refund")} ${money(data.refundAmount)}`);
-      else ToasterService.error("The return isn't finished. Retry it from the shift's returns.", data.errorMessage ?? undefined);
+      returned(data);
       setReturning(null);
       await loadShift();
     } catch (err) {
       ToasterService.error("The return could not be made", errorText(err, "Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // What the till does once a return is in: tell the cashier, offer the slip, and an exchange's credit goes onto the next sale
+  const returned = (data: PosReturn) => {
+    if (data.status === "AWAITING_APPROVAL") {
+      ToasterService.success(t("{number} waits for a supervisor to approve it (over the till's limit).", { number: data.returnNumber }));
+      return;
+    }
+    if (data.status !== "COMPLETED") {
+      ToasterService.error("The return isn't finished. Retry it from the shift's returns.", data.errorMessage ?? undefined);
+      return;
+    }
+    setLastReturn(data);
+    if (data.refundMethod === "EXCHANGE") {
+      setExchange(data);
+      ToasterService.success(t("{number}: exchange credit {amount}. Ring up the new items.", { number: data.returnNumber, amount: money(data.refundAmount) }));
+    } else {
+      ToasterService.success(`${data.returnNumber}: ${t("refund")} ${money(data.refundAmount)}`);
+    }
+  };
+
+  const decide = async (item: PosReturn, approve: boolean) => {
+    let reason: string | null = null;
+    if (!approve) {
+      reason = window.prompt(t("Why is the return rejected?")) ?? null;
+      if (reason === null) return;
+    }
+    setBusy(true);
+    try {
+      const { data } = approve
+        ? await axios.post<PosReturn>(`${POS}/returns/${item.id}/approve`)
+        : await axios.post<PosReturn>(`${POS}/returns/${item.id}/reject`, { reason });
+      if (approve) returned(data);
+      else ToasterService.success(t("{number} rejected; nothing was paid back.", { number: data.returnNumber }));
+      await loadShift();
+    } catch (err) {
+      ToasterService.error(approve ? "The return could not be approved" : "The return could not be rejected", errorText(err, "Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const payOut = async (item: PosReturn, method: "CASH" | "CARD") => {
+    if (!shift) return;
+    setBusy(true);
+    try {
+      const { data } = await axios.post<PosReturn>(`${POS}/returns/${item.id}/pay-out`, { shiftId: shift.id, refundMethod: method });
+      if (exchange?.id === item.id) setExchange(null);
+      returned(data);
+      await loadShift();
+    } catch (err) {
+      ToasterService.error("The credit could not be paid out", errorText(err, "Please try again."));
     } finally {
       setBusy(false);
     }
@@ -421,6 +527,7 @@ export default function PointOfSale() {
         code: tillForm.code, name: tillForm.name, warehouseId: Number(tillForm.warehouseId), walkInCustomerId: Number(tillForm.walkInCustomerId), currencyCode: tillForm.currencyCode,
         cashAccountId: tillForm.cashAccountId ? Number(tillForm.cashAccountId) : null, cardAccountId: tillForm.cardAccountId ? Number(tillForm.cardAccountId) : null, active: tillForm.active,
         pricesIncludeTax: tillForm.pricesIncludeTax,
+        returnApprovalLimit: tillForm.returnApprovalLimit.trim() === "" ? null : Number(tillForm.returnApprovalLimit),
       };
       const { data } = await (tillForm.id ? axios.put<Till>(`${POS}/tills/${tillForm.id}`, body) : axios.post<Till>(`${POS}/tills`, body));
       setTillForm(null);
@@ -451,6 +558,7 @@ export default function PointOfSale() {
       <table>${sale.lines.map((l) => `<tr><td colspan="2">${escapeHtml(l.productName ?? l.productCode)}</td></tr>
         <tr><td>${Number(l.quantity)} x ${escapeHtml(amount(l.unitPrice))}${Number(l.discountAmount) ? ` - ${escapeHtml(amount(l.discountAmount))}` : ""}${l.taxRate != null ? ` (${Number(l.taxRate)}%)` : ""}</td><td class="r">${escapeHtml(amount(l.lineTotal))}</td></tr>`).join("")}</table>
       <table>${line("Subtotal", amount(sale.subTotal), true)}${line(company?.taxRegime === "GST" ? "GST" : "VAT", amount(sale.taxAmount))}${line("Total", amount(sale.grandTotal), true)}
+      ${Number(sale.creditAmount) ? line(`Exchange credit ${sale.exchangeReturnNumber ?? ""}`, amount(sale.creditAmount ?? 0)) : ""}
       ${sale.cashAmount ? line("Cash", amount(sale.cashTendered)) : ""}${sale.cardAmount ? line("Card", amount(sale.cardAmount)) : ""}${sale.changeGiven ? line("Change", amount(sale.changeGiven)) : ""}</table>
       ${sale.receiptQr && sale.receiptQr.startsWith("data:image/png;base64,") ? `<p style="margin-top:6px"><img src="${escapeHtml(sale.receiptQr)}" width="140" height="140" alt="QR"></p>` : ""}
       <p style="margin-top:8px">Thank you</p></body></html>`;
@@ -465,8 +573,47 @@ export default function PointOfSale() {
     win.print();
   };
 
+  // The return slip: what came back, the credit note against the original tax invoice, the tax reversed and how it was paid back
+  const printReturn = async (item: PosReturn) => {
+    const company = await loadCompany().catch(() => null);
+    const vat = company?.taxRegime === "VAT";
+    const row = (label: string, value: string, strong = false) => `<tr${strong ? ' class="b"' : ""}><td>${escapeHtml(label)}</td><td class="r">${escapeHtml(value)}</td></tr>`;
+    const amount = (value: number | null | undefined) => formatMoney(Number(value ?? 0), { currency: item.currencyCode });
+    const sale = sales.find((s) => s.saleNumber === item.saleNumber);
+    const tax = Number(item.taxAmount ?? 0);
+    const paid = item.refundMethod === "EXCHANGE" ? `Exchange credit${item.exchangeSaleNumber ? ` (used on ${item.exchangeSaleNumber})` : ""}` : `Refund by ${item.refundMethod === "CASH" ? "cash" : "card"}`;
+    const taxNumber = vat || company?.taxRegime === "TIN" ? company?.taxNumber : company?.gstin;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(item.returnNumber)}</title><style>
+      body{font:12px monospace;width:72mm;margin:0 auto;padding:4mm}h1{font-size:14px;text-align:center;margin:0}p{margin:2px 0;text-align:center}
+      table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:1px 0;vertical-align:top}.r{text-align:right;white-space:nowrap}.b td{font-weight:bold;border-top:1px dashed #000}
+      @media print{@page{margin:0;size:80mm auto}}</style></head><body>
+      <h1>${escapeHtml(company?.legalName || company?.companyName || "")}</h1>
+      <p>${escapeHtml(company ? companyAddressLines(company).join(", ") : "")}</p>
+      ${taxNumber ? `<p>${vat ? "TRN" : company?.taxRegime === "TIN" ? "TIN" : "GSTIN"}: ${escapeHtml(taxNumber)}</p>` : ""}
+      <p><b>${vat ? "CREDIT NOTE · إشعار دائن" : "RETURN SLIP"}</b></p>
+      <p>${escapeHtml(item.creditNoteNumber ?? item.returnNumber)} · ${escapeHtml(formatDateTime(item.returnedAt))}</p>
+      <p>${escapeHtml(item.returnNumber)}${item.returnedBy ? ` · ${escapeHtml(item.returnedBy)}` : ""}${item.approvedBy ? ` · approved ${escapeHtml(item.approvedBy)}` : ""}</p>
+      <p>Original: ${escapeHtml(sale?.invoiceNumber ?? "")} ${escapeHtml(item.saleNumber)}</p>
+      <table>${item.lines.map((l) => `<tr><td colspan="2">${escapeHtml(l.productName ?? l.productCode)}</td></tr>
+        <tr><td>${Number(l.quantity)}${l.taxRate != null ? ` (${Number(l.taxRate)}%)` : ""}${l.batchNumber ? ` · ${escapeHtml(l.batchNumber)}` : ""}${l.serialNumbers ? ` · ${escapeHtml(l.serialNumbers)}` : ""}</td><td class="r">${escapeHtml(amount(l.amount))}</td></tr>`).join("")}</table>
+      <table>${row("Net", amount(Number(item.refundAmount) - tax), true)}${row(company?.taxRegime === "GST" ? "GST" : "VAT", amount(tax))}${row("Total", amount(item.refundAmount), true)}
+      ${row(paid, amount(item.refundAmount))}</table>
+      <p style="margin-top:6px">${escapeHtml(item.reason ?? "")}</p>
+      <p style="margin-top:12px">Customer signature ____________</p></body></html>`;
+    const win = window.open("", "_blank", "width=340,height=600");
+    if (!win) {
+      ToasterService.error("Allow pop-ups to print the receipt.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
   const newTillForm = (): TillForm => ({
     id: null, code: "", name: "", warehouseId: "", walkInCustomerId: "", currencyCode: companyCurrency(), cashAccountId: "", cardAccountId: "", active: true, pricesIncludeTax: false,
+    returnApprovalLimit: "",
   });
   const nameOf = (n: Named) => n.name ?? n.accountName ?? n.customerName ?? String(n.id);
 
@@ -485,7 +632,7 @@ export default function PointOfSale() {
               <button type="button" className={ROW_ICON_BUTTON} title={t("Till settings")} aria-label={t("Till settings")}
                 onClick={() => setTillForm({ id: till.id, code: till.code, name: till.name, warehouseId: String(till.warehouseId), walkInCustomerId: String(till.walkInCustomerId), currencyCode: till.currencyCode,
                   cashAccountId: till.cashAccountId ? String(till.cashAccountId) : "", cardAccountId: till.cardAccountId ? String(till.cardAccountId) : "", active: till.active,
-                  pricesIncludeTax: !!till.pricesIncludeTax })}>
+                  pricesIncludeTax: !!till.pricesIncludeTax, returnApprovalLimit: till.returnApprovalLimit == null ? "" : String(till.returnApprovalLimit) })}>
                 <Settings className="h-4 w-4" />
               </button>
             )}
@@ -497,7 +644,8 @@ export default function PointOfSale() {
               <span>{t("Cash")}: <b>{money(shift.cashSales)}</b></span>
               <span>{t("Card")}: <b>{money(shift.cardSales)}</b></span>
               {(Number(shift.cashRefunds) > 0 || Number(shift.cardRefunds) > 0) && <span>{t("Refunds")}: <b>{money(Number(shift.cashRefunds) + Number(shift.cardRefunds))}</b></span>}
-              {canApprove && !returning && <button type="button" className={SECONDARY_BUTTON} onClick={() => setReturning(blankReturn())}><Undo2 className="h-4 w-4" /> {t("Return")}</button>}
+              {Number(shift.returnsAwaitingApproval) > 0 && <span className="font-semibold text-amber-700 dark:text-amber-300">{t("Awaiting a supervisor")}: {shift.returnsAwaitingApproval}</span>}
+              {canCreate && !returning && <button type="button" className={SECONDARY_BUTTON} onClick={() => setReturning(blankReturn())}><Undo2 className="h-4 w-4" /> {t("Return")}</button>}
               {canCreate && !closing && <button type="button" className={SECONDARY_BUTTON} onClick={() => setClosing({ counted: "", notes: "" })}>{t("Close shift")}</button>}
             </div>
           )}
@@ -556,6 +704,11 @@ export default function PointOfSale() {
                 <input type="checkbox" checked={tillForm.pricesIncludeTax} onChange={(e) => setTillForm({ ...tillForm, pricesIncludeTax: e.target.checked })} />
                 {t("Prices at this till include tax (shelf prices); the invoice shows them net plus tax")}
               </label>
+              <div>
+                <label className={LABEL} htmlFor="till-limit">{t("Returns a cashier may make alone, up to")}</label>
+                <input id="till-limit" type="number" min="0" step="any" className={INPUT} value={tillForm.returnApprovalLimit} placeholder={t("Empty: every return needs a supervisor")}
+                  onChange={(e) => setTillForm({ ...tillForm, returnApprovalLimit: e.target.value })} />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => setTillForm(null)}>{t("Close")}</button>
@@ -571,9 +724,18 @@ export default function PointOfSale() {
               <div><span className={LABEL}>{t("Float at the start")}</span>{money(shift.openingCash)}</div>
               <div><span className={LABEL}>{t("Cash sales")}</span>{money(shift.cashSales)}</div>
               <div><span className={LABEL}>{t("Cash refunds")}</span>{money(shift.cashRefunds)}</div>
+              <div><span className={LABEL}>{t("Cash expected in the till")}</span><b>{money(shift.expectedCash)}</b></div>
+              <div><span className={LABEL}>{t("Card refunds")}</span>{money(shift.cardRefunds)}</div>
+              {Number(shift.exchangeCredits) > 0 && <div><span className={LABEL}>{t("Exchange credit given")}</span>{money(shift.exchangeCredits)}</div>}
+              {Number(shift.creditSales) > 0 && <div><span className={LABEL}>{t("Paid by exchange credit")}</span>{money(shift.creditSales)}</div>}
               <div><span className={LABEL}>{t("Tax collected")}</span>{money(shift.taxTotal)}</div>
               <div><span className={LABEL}>{t("Opened")}</span>{formatDateTime(shift.openedAt)} · {shift.openedBy}</div>
             </div>
+            {(Number(shift.returnsAwaitingApproval) > 0 || shift.returnsPending > 0) && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                {t("Finish this shift's returns first: approve or reject those awaiting a supervisor, and retry the unfinished ones.")}
+              </p>
+            )}
             <div className="grid gap-3 md:grid-cols-3">
               <div><label className={LABEL} htmlFor="close-count">{t("Cash counted")}</label><input id="close-count" type="number" min="0" step="any" className={INPUT} value={closing.counted} onChange={(e) => setClosing({ ...closing, counted: e.target.value })} /></div>
               <div className="md:col-span-2"><label className={LABEL} htmlFor="close-notes">{t("Notes")}</label><input id="close-notes" className={INPUT} value={closing.notes} maxLength={500} onChange={(e) => setClosing({ ...closing, notes: e.target.value })} /></div>
@@ -607,7 +769,31 @@ export default function PointOfSale() {
                           <td className={`${TD} text-end`}>{Number(l.quantity)}</td>
                           <td className={`${TD} text-end`}>{l.returnable}</td>
                           <td className={`${TD} text-end`}>{money(l.lineTotal)}</td>
-                          <td className={TD}><input type="number" min="0" max={l.returnable} step="1" disabled={l.returnable <= 0} className={CELL} aria-label={t("Coming back")} value={returning.quantities[l.saleLineId] ?? ""} onChange={(e) => setReturning({ ...returning, quantities: { ...returning.quantities, [l.saleLineId]: e.target.value } })} /></td>
+                          <td className={TD}>
+                            <input type="number" min="0" max={l.returnable} step="1" disabled={l.returnable <= 0} className={CELL} aria-label={t("Coming back")} value={returning.quantities[l.saleLineId] ?? ""}
+                              onChange={(e) => {
+                                const quantity = Math.min(l.returnable, Math.max(0, Math.floor(Number(e.target.value) || 0)));
+                                const serials = (l.serialNumbers?.length ?? 0) > 0 && quantity === l.returnable ? l.serialNumbers ?? [] : returning.serials[l.saleLineId] ?? [];
+                                setReturning({ ...returning, quantities: { ...returning.quantities, [l.saleLineId]: e.target.value === "" ? "" : String(quantity) },
+                                  serials: { ...returning.serials, [l.saleLineId]: serials.slice(0, quantity) } });
+                              }} />
+                            {l.batchNumber && <div className="mt-1 text-xs text-slate-500">{t("Batch")}: {l.batchNumber}</div>}
+                            {(l.serialNumbers?.length ?? 0) > 0 && (Number(returning.quantities[l.saleLineId]) || 0) > 0 && (
+                              <fieldset className="mt-1 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-gray-300">
+                                <legend className="sr-only">{t("Serial numbers coming back")}</legend>
+                                {(l.serialNumbers ?? []).map((serial) => {
+                                  const chosen = returning.serials[l.saleLineId] ?? [];
+                                  return (
+                                    <label key={serial} className="inline-flex items-center gap-1">
+                                      <input type="checkbox" checked={chosen.includes(serial)}
+                                        onChange={(e) => setReturning({ ...returning, serials: { ...returning.serials,
+                                          [l.saleLineId]: e.target.checked ? [...chosen, serial] : chosen.filter((s) => s !== serial) } })} /> {serial}
+                                    </label>
+                                  );
+                                })}
+                              </fieldset>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -617,9 +803,10 @@ export default function PointOfSale() {
                   <div><label className={LABEL} htmlFor="ret-reason">{t("Reason")}</label><input id="ret-reason" className={INPUT} value={returning.reason} maxLength={200} onChange={(e) => setReturning({ ...returning, reason: e.target.value })} /></div>
                   <div>
                     <label className={LABEL} htmlFor="ret-method">{t("Refund by")}</label>
-                    <select id="ret-method" className={INPUT} value={returning.method} onChange={(e) => setReturning({ ...returning, method: e.target.value as "CASH" | "CARD" })}>
-                      <option value="CASH">{t("Cash")}</option>
-                      <option value="CARD">{t("Card")}</option>
+                    <select id="ret-method" className={INPUT} value={returning.method} onChange={(e) => setReturning({ ...returning, method: e.target.value as RefundMethod })}>
+                      <option value="CASH">{t("Cash")}{returning.sale.cashRefundable != null ? ` (${t("up to")} ${money(returning.sale.cashRefundable)})` : ""}</option>
+                      <option value="CARD">{t("Card")}{returning.sale.cardRefundable != null ? ` (${t("up to")} ${money(returning.sale.cardRefundable)})` : ""}</option>
+                      <option value="EXCHANGE">{t("Exchange (credit for new items)")}</option>
                     </select>
                   </div>
                   <label className="inline-flex items-center gap-2 self-end pb-2 text-sm text-slate-700 dark:text-gray-200">
@@ -629,9 +816,14 @@ export default function PointOfSale() {
               </>
             )}
             <div className="flex flex-wrap items-center justify-end gap-3">
-              {returning.sale && <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">{t("Refund")}: {money(returnValue(returning))}</span>}
+              {returning.sale && needsApproval(returnValue(returning)) && returnValue(returning) > 0 && (
+                <span className="text-sm text-amber-700 dark:text-amber-300">
+                  {limit == null ? t("Every return at this till needs a supervisor's approval.") : t("Over {amount}: a supervisor approves it before anything is paid back.", { amount: money(limit) })}
+                </span>
+              )}
+              {returning.sale && <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">{t(returning.method === "EXCHANGE" ? "Exchange credit" : "Refund")}: {money(returnValue(returning))}</span>}
               <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => setReturning(null)}>{t("Close")}</button>
-              {returning.sale && <button type="button" className={PRIMARY_BUTTON} disabled={busy} onClick={submitReturn}>{t("Make the return")}</button>}
+              {returning.sale && <button type="button" className={PRIMARY_BUTTON} disabled={busy} onClick={submitReturn}>{t(needsApproval(returnValue(returning)) ? "Send for approval" : "Make the return")}</button>}
             </div>
           </div>
         )}
@@ -724,7 +916,8 @@ export default function PointOfSale() {
             <div className={`${CARD} space-y-3 p-4`}>
               <div>
                 <label className={LABEL} htmlFor="pos-customer">{t("Customer")}</label>
-                <select id="pos-customer" className={INPUT} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <select id="pos-customer" className={INPUT} value={customerId} disabled={!!exchange} title={exchange ? t("An exchange is for the customer of the original sale") : undefined}
+                  onChange={(e) => setCustomerId(e.target.value)}>
                   <option value="">{t("Walk-in")}</option>
                   {customers.map((c) => <option key={c.id} value={c.id}>{nameOf(c)}</option>)}
                 </select>
@@ -733,7 +926,16 @@ export default function PointOfSale() {
                 <div className="flex justify-between"><dt>{t("Subtotal")}</dt><dd>{money(totals.subTotal)}</dd></div>
                 <div className="flex justify-between"><dt>{t("Tax")}</dt><dd>{money(totals.tax)}</dd></div>
                 <div className="flex justify-between text-xl font-bold text-slate-900 dark:text-white"><dt>{t("Total")}</dt><dd>{money(totals.total)}</dd></div>
+                {exchange && (
+                  <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300">
+                    <dt>{t("Exchange credit")} {exchange.returnNumber}
+                      <button type="button" className="ms-2 text-xs underline" onClick={() => setExchange(null)}>{t("Remove")}</button>
+                    </dt>
+                    <dd>−{money(credit)}</dd>
+                  </div>
+                )}
               </dl>
+              {creditTooBig && <p className="text-sm text-rose-600">{t("The new items are worth less than the exchange credit of {amount}.", { amount: money(credit) })}</p>}
               <div className="grid grid-cols-2 gap-2">
                 <div><label className={LABEL} htmlFor="pos-card">{t("Card")}</label><input id="pos-card" type="number" min="0" step="any" className={INPUT} value={card} onChange={(e) => setCard(e.target.value)} /></div>
                 <div><label className={LABEL} htmlFor="pos-auth">{t("Card reference")}</label><input id="pos-auth" className={INPUT} value={cardReference} maxLength={100} onChange={(e) => setCardReference(e.target.value)} /></div>
@@ -744,14 +946,14 @@ export default function PointOfSale() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={SECONDARY_BUTTON} disabled={cart.length === 0} onClick={() => setCash(String(cashDue))}>{t("Exact cash")}</button>
-                <button type="button" className={SECONDARY_BUTTON} disabled={cart.length === 0} onClick={() => { setCard(String(totals.total)); setCash(""); }}>{t("All on card")}</button>
+                <button type="button" className={SECONDARY_BUTTON} disabled={cart.length === 0} onClick={() => { setCard(String(round(Math.max(0, totals.total - credit)))); setCash(""); }}>{t("All on card")}</button>
               </div>
               <div className="flex justify-between text-sm font-semibold">
                 <span className="text-slate-600 dark:text-gray-300">{t(short > 0 ? "Still to pay" : "Change")}</span>
                 <span className={short > 0 ? "text-rose-600" : "text-emerald-700"}>{money(short > 0 ? short : change)}</span>
               </div>
               {canCreate && (
-                <button type="button" className={`${PRIMARY_BUTTON} w-full justify-center`} disabled={busy || cart.length === 0 || short > 0} onClick={complete}>
+                <button type="button" className={`${PRIMARY_BUTTON} w-full justify-center`} disabled={busy || cart.length === 0 || short > 0 || creditTooBig} onClick={complete}>
                   {t(busy ? "Working..." : "Complete sale")}
                 </button>
               )}
@@ -761,6 +963,13 @@ export default function PointOfSale() {
                   <div className="font-semibold">{lastSale.saleNumber}{lastSale.invoiceNumber ? ` · ${lastSale.invoiceNumber}` : ""}</div>
                   <div>{t("Change")}: {money(lastSale.changeGiven)}</div>
                   <button type="button" className={`${SECONDARY_BUTTON} mt-2`} onClick={() => void printReceipt(lastSale)}><Printer className="h-4 w-4" /> {t("Print receipt")}</button>
+                </div>
+              )}
+              {lastReturn && (
+                <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-800 dark:bg-gray-800 dark:text-gray-200">
+                  <div className="font-semibold">{lastReturn.returnNumber}{lastReturn.creditNoteNumber ? ` · ${lastReturn.creditNoteNumber}` : ""}</div>
+                  <div>{t(methodLabel(lastReturn.refundMethod))}: {money(lastReturn.refundAmount)}</div>
+                  <button type="button" className={`${SECONDARY_BUTTON} mt-2`} onClick={() => void printReturn(lastReturn)}><Printer className="h-4 w-4" /> {t("Print return slip")}</button>
                 </div>
               )}
             </div>
@@ -795,7 +1004,7 @@ export default function PointOfSale() {
                           <td className={`${TD} whitespace-nowrap text-end`}>
                             {s.status !== "COMPLETED" && canCreate && <button type="button" className={ROW_ICON_BUTTON} title={t("Retry the invoice")} aria-label={t("Retry the invoice")} onClick={() => void retry(s)}><RotateCw className="h-4 w-4" /></button>}
                             <button type="button" className={ROW_ICON_BUTTON} title={t("Print receipt")} aria-label={t("Print receipt")} onClick={() => void printReceipt(s)}><Printer className="h-4 w-4" /></button>
-                            {s.status === "COMPLETED" && canApprove && <button type="button" className={ROW_ICON_BUTTON} title={t("Return")} aria-label={t("Return")} onClick={() => void findSale(s.saleNumber)}><Undo2 className="h-4 w-4" /></button>}
+                            {s.status === "COMPLETED" && canCreate && <button type="button" className={ROW_ICON_BUTTON} title={t("Return")} aria-label={t("Return")} onClick={() => void findSale(s.saleNumber)}><Undo2 className="h-4 w-4" /></button>}
                           </td>
                         </tr>
                       ))}
@@ -811,24 +1020,52 @@ export default function PointOfSale() {
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
                     <thead className="bg-slate-50 dark:bg-[#222222]">
-                      <tr><th className={TH}>{t("Return")}</th><th className={TH}>{t("Sale")}</th><th className={TH}>{t("Reason")}</th><th className={TH}>{t("Credit note")}</th><th className={TH}>{t("Refund by")}</th><th className={`${TH} text-end`}>{t("Refund")}</th><th className={TH} aria-label={t("Actions")} /></tr>
+                      <tr><th className={TH}>{t("Return")}</th><th className={TH}>{t("Sale")}</th><th className={TH}>{t("Reason")}</th><th className={TH}>{t("Status")}</th><th className={TH}>{t("Credit note")}</th><th className={TH}>{t("Refund by")}</th><th className={`${TH} text-end`}>{t("Refund")}</th><th className={TH} aria-label={t("Actions")} /></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
-                      {returns.map((r) => (
-                        <tr key={r.id}>
-                          <td className={`${TD} font-medium`}>{r.returnNumber}</td>
-                          <td className={TD}>{r.saleNumber}</td>
-                          <td className={TD}>{r.reason}{!r.restock && <span className="ms-2 text-xs text-amber-600">{t("Not restocked")}</span>}</td>
-                          <td className={TD}>{r.creditNoteNumber ?? "—"}</td>
-                          <td className={TD}>{t(r.refundMethod === "CASH" ? "Cash" : "Card")}</td>
-                          <td className={`${TD} text-end font-medium`}>{money(r.refundAmount)}</td>
-                          <td className={`${TD} whitespace-nowrap text-end`}>
-                            {r.status !== "COMPLETED" && (
-                              <button type="button" className={ROW_ICON_BUTTON} title={r.errorMessage ?? t("Retry the return")} aria-label={t("Retry the return")} onClick={() => void retryReturn(r)}><RotateCw className="h-4 w-4 text-rose-600" /></button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {returns.map((r) => {
+                        const openCredit = r.refundMethod === "EXCHANGE" && r.status === "COMPLETED" && !r.exchangeSaleId;
+                        return (
+                          <tr key={r.id}>
+                            <td className={`${TD} font-medium`}>{r.returnNumber}<div className="text-xs text-slate-500">{r.returnedBy}</div></td>
+                            <td className={TD}>{r.saleNumber}</td>
+                            <td className={TD}>{r.reason}{!r.restock && <span className="ms-2 text-xs text-amber-600">{t("Not restocked")}</span>}</td>
+                            <td className={TD}>
+                              <span className={r.status === "COMPLETED" ? "text-emerald-700" : r.status === "REJECTED" ? "text-slate-500" : "text-amber-700"}>
+                                {t(r.status === "AWAITING_APPROVAL" ? "Awaiting a supervisor" : r.status === "REJECTED" ? "Rejected" : r.status === "PENDING" ? "Not finished" : "Done")}
+                              </span>
+                              {r.approvedBy && <div className="text-xs text-slate-500">{t(r.status === "REJECTED" ? "Rejected by" : "Approved by")} {r.approvedBy}{r.rejectedReason ? `: ${r.rejectedReason}` : ""}</div>}
+                              {r.exchangeSaleNumber && <div className="text-xs text-slate-500">{t("Used on")} {r.exchangeSaleNumber}</div>}
+                            </td>
+                            <td className={TD}>{r.creditNoteNumber ?? "—"}</td>
+                            <td className={TD}>{t(methodLabel(r.refundMethod))}</td>
+                            <td className={`${TD} text-end font-medium`}>{money(r.refundAmount)}</td>
+                            <td className={`${TD} whitespace-nowrap text-end`}>
+                              {r.status === "PENDING" && (
+                                <button type="button" className={ROW_ICON_BUTTON} title={r.errorMessage ?? t("Retry the return")} aria-label={t("Retry the return")} onClick={() => void retryReturn(r)}><RotateCw className="h-4 w-4 text-rose-600" /></button>
+                              )}
+                              {r.status === "AWAITING_APPROVAL" && canApprove && (
+                                <>
+                                  <button type="button" className={`${SECONDARY_BUTTON} me-1`} disabled={busy} onClick={() => void decide(r, true)}>{t("Approve")}</button>
+                                  <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => void decide(r, false)}>{t("Reject")}</button>
+                                </>
+                              )}
+                              {openCredit && canCreate && exchange?.id !== r.id && (
+                                <button type="button" className={`${SECONDARY_BUTTON} me-1`} onClick={() => setExchange(r)}>{t("Use for a sale")}</button>
+                              )}
+                              {openCredit && canCreate && (
+                                <>
+                                  <button type="button" className={`${SECONDARY_BUTTON} me-1`} disabled={busy} onClick={() => void payOut(r, "CASH")}>{t("Pay out in cash")}</button>
+                                  <button type="button" className={`${SECONDARY_BUTTON} me-1`} disabled={busy} onClick={() => void payOut(r, "CARD")}>{t("Pay out to card")}</button>
+                                </>
+                              )}
+                              {r.status === "COMPLETED" && (
+                                <button type="button" className={ROW_ICON_BUTTON} title={t("Print return slip")} aria-label={t("Print return slip")} onClick={() => void printReturn(r)}><Printer className="h-4 w-4" /></button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

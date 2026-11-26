@@ -164,6 +164,7 @@ const ShiftSchedulePage = lazy(() => import("./pages/Attendance/EmployeeShiftSch
 const TimesheetManagementPage = lazy(() => import("./pages/Attendance/TimesheetManagementPage"));
 const PayrollPage = lazy(() => import("./pages/Payroll/PayrollPage"));
 const EmployeeDocumentsPage = lazy(() => import("./pages/Payroll/EmployeeDocumentsPage"));
+const ExpiringDocumentsPage = lazy(() => import("./pages/Payroll/ExpiringDocumentsPage"));
 const SalesDashboard = lazy(() => import("./pages/Sales/SalesDashboard"));
 const CrmDashboardPage = lazy(() => import("./pages/CRM/CrmDashboardPage"));
 const CrmSettingsPage = lazy(() => import("./pages/CRM/CrmSettings"));
@@ -518,6 +519,7 @@ export default function AppRouter() {
           <Route path="/benefits" element={<BenefitsAllowancesPage />} />
           <Route path="/document-management" element={<DocumentManagementPage />} />
           <Route path="/employeeDocuments" element={<EmployeeDocumentsPage />} />
+          <Route path="/expiring-documents" element={<ExpiringDocumentsPage />} />
           <Route path="/employee-documents" element={<EmployeeDocumentsPage />} />
           <Route path="/performance-management" element={<PerformanceManagementPage />} />
           <Route path="/exit-management" element={<ExitManagementPage />} />

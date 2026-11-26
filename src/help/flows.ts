@@ -137,7 +137,7 @@ export const HELP_FLOWS: HelpFlow[] = [
       { title: "Set up the till (once)", route: "/sales-pos", who: "Sales Manager", detail: "Till settings: the warehouse it sells from, the walk-in customer and where cash and card go." },
       { title: "Open the shift", route: "/sales-pos", who: "Cashier", detail: "Choose the till and enter the cash in the till at the start." },
       { title: "Sell", route: "/sales-pos", who: "Cashier", detail: "Scan or search the items and take cash or card; each sale becomes a tax invoice. Retry any invoice shown as pending." },
-      { title: "Returns", route: "/sales-pos", who: "Supervisor", detail: "Find the sale by receipt or invoice number, enter what comes back and refund by cash or card." },
+      { title: "Returns", route: "/sales-pos", who: "Cashier", detail: "Find the sale by receipt or invoice number, enter what comes back and refund by cash, card or exchange; a supervisor approves returns over the till's limit." },
       { title: "Close the shift", route: "/sales-pos", who: "Cashier", detail: "Count the cash; any difference is posted to the ledger." },
     ],
   },

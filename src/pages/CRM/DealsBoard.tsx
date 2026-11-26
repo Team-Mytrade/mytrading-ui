@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CalendarIcon, UserIcon } from "@heroicons/react/24/outline";
 import { formatDate, companyCurrency } from "../../company/format";
 import { formatMoney } from "../Dashboard/dashboardKit";
+import { CreditChip, CustomerCredit, releaseActive } from "./dealCredit";
 import { t } from "../../i18n/i18n";
 
 // The pipeline board (backlog 8.3.4): one column per stage; dragging a card, or its "Move to" list, changes the stage.
@@ -21,12 +22,15 @@ export interface BoardDeal {
   customer?: { id: number; name?: string; customerName?: string } | null;
   owner?: string | null;
   ownerName?: string | null;
+  creditReleasedAt?: string | null;
 }
 
 interface Props {
   deals: BoardDeal[];
   stages: { id: string; name: string }[];
   probabilityOf: (deal: BoardDeal) => number;
+  // 8.4.16: the deal's customer credit (over the limit, overdue), for the card's chip
+  creditOf?: (deal: BoardDeal) => CustomerCredit | undefined;
   canUpdate: boolean;
   updatingId: number | null;
   // Won asks for confirmation and Lost for the reason before the move is saved (the page decides)
@@ -53,7 +57,7 @@ const isOpenStage = (stage: string) => stage !== "WON" && stage !== "LOST";
 const byCloseDate = (a: BoardDeal, b: BoardDeal) =>
   (a.expectedCloseDate || "9999").localeCompare(b.expectedCloseDate || "9999") || a.dealName.localeCompare(b.dealName);
 
-export default function DealsBoard({ deals, stages, probabilityOf, canUpdate, updatingId, onMove, onOpen }: Props) {
+export default function DealsBoard({ deals, stages, probabilityOf, creditOf, canUpdate, updatingId, onMove, onOpen }: Props) {
   // The card being dragged (kept here, not only in the browser's drag data, so a drop always knows it)
   const [dragging, setDragging] = useState<BoardDeal | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
@@ -201,6 +205,7 @@ export default function DealsBoard({ deals, stages, probabilityOf, canUpdate, up
                         {deal.status === "CANCELLED" && (
                           <span className="rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-600">{t("Cancelled")}</span>
                         )}
+                        {creditOf && isOpenStage(deal.stage) && <CreditChip credit={creditOf(deal)} released={releaseActive(deal)} />}
                       </div>
                       {/* Without dragging (phones, keyboards): move it here */}
                       {canUpdate && (

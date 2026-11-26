@@ -371,6 +371,7 @@ const ROUTE_PERMISSIONS: [string, string][] = [
   ["/salaryStructure", "HRM:APPROVE"],
   ["/employeeSalary", "HRM:APPROVE"],
   ["/employeeDocuments", "HRM:APPROVE"],
+  ["/expiring-documents", "HRM:APPROVE"],
   ["/payrollEngine", "HRM:APPROVE"],
   // Everyone's pay lines by month (company YTD statement)
   ["/payrollStatements", "HRM:APPROVE"],

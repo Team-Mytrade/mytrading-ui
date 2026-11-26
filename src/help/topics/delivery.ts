@@ -304,6 +304,15 @@ export const DELIVERY_TOPICS: HelpTopic[] = [
           "Your current location is saved with the update.",
         ],
       },
+      {
+        title: "Capture proof of delivery",
+        steps: [
+          "Delivered and Partly open the proof of delivery: type the receiver's name (and mobile).",
+          "Ask the receiver to sign on the screen with a finger, or tap Send code: a one-time code goes to that mobile by SMS / WhatsApp and the receiver reads it out to you.",
+          "Add photos of the goods at the door with Take photo or Choose photo (up to 5).",
+          "Tap Confirm. The receiver, signature, photos, time and place are saved and the office sees them on the delivery order, delivery note, sales order and invoice; the customer sees them in the customer portal.",
+        ],
+      },
       { title: "End the trip", steps: ["Tap End Trip and confirm. Your location stops being shared."] },
     ],
     rules: [
@@ -312,6 +321,8 @@ export const DELIVERY_TOPICS: HelpTopic[] = [
       "Without a connection, positions are kept on the phone and sent once it is back.",
       "One trip per driver and per vehicle. Opening Driver Mode again on the same vehicle carries on the same trip.",
       "Delivered here updates the delivery only; the office confirms the delivery note with the delivered quantities, which takes the goods out of stock.",
+      "Proof of delivery needs the receiver's name and a signature or the one-time code. Signature and name work without HTTPS; camera and location need HTTPS (photos can still be chosen from the gallery).",
+      "The one-time code needs the company's SMS or WhatsApp channel switched on (Settings → Alert channels). It is valid for 15 minutes, 5 tries.",
     ],
     related: [
       { route: "/vehicle-tracking", label: "Live Tracking" },
