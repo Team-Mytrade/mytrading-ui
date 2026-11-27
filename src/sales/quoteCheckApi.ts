@@ -79,6 +79,8 @@ export interface QuoteLineInput {
   discountPercentage?: number | null;
   discountAmount?: number | null;
   additionalDiscount?: number | null;
+  /** COM-2: base units in one of the line's unit (24 for a CARTON of 24); stock and costs are checked in base units. */
+  unitFactor?: number | null;
 }
 
 export interface PricingRules {

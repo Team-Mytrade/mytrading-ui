@@ -23,6 +23,8 @@ type GrnItem = {
   manufacturingDate: string | null;
   expiryDate: string | null;
   serialNumbers: string[];
+  /** COM-2: base units in one of the line's unit (24 for a CARTON of 24); serials are one per piece. */
+  unitFactor?: number;
   /** What the product master says to capture for this line. Missing = not known, so all fields are shown. */
   tracking?: Tracking;
 };
@@ -201,6 +203,7 @@ const asItems = (order: PurchaseRecord): GrnItem[] =>
         expiryDate: null,
         serialNumbers: [],
         tracking: trackingOf(line),
+        unitFactor: Number(line.unitFactor) || 1,
       };
     })
     // Lines with nothing left to receive are left out.
@@ -227,6 +230,7 @@ const toGrnItem = (raw: PurchaseRecord): GrnItem => ({
   expiryDate: toInputDate(raw.expiryDate),
   serialNumbers: toSerials(raw.serialNumbers),
   tracking: trackingOf(raw),
+  unitFactor: Number(raw.unitFactor ?? raw.purchaseOrderLineItem?.unitFactor) || 1,
 });
 
 /**
@@ -248,6 +252,8 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     const received = num(item.receivedQuantity);
     const rejected = num(item.rejectedQuantity);
     const accepted = num(item.acceptedQuantity);
+    // Serial numbers are one per piece: 2 CARTONs of 24 need 48 (COM-2)
+    const pieces = Math.round(accepted * (item.unitFactor || 1) * 1000) / 1000;
     if (item.acceptedQuantity === "") return `${name}: enter the accepted quantity.`;
     const max = maxFor(item, isEditing);
 
@@ -262,7 +268,7 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     if (tracking?.batch && !item.batchNumber) return `${name}: enter the batch number (this product is batch tracked).`;
     if (tracking?.expiry && !item.expiryDate) return `${name}: enter the expiry date (this product is expiry tracked).`;
     if (tracking?.serial && accepted > 0 && !item.serialNumbers.some(Boolean)) {
-      return `${name}: enter ${accepted} serial number(s) (this product is serial tracked).`;
+      return `${name}: enter ${pieces} serial number(s) (this product is serial tracked).`;
     }
     if (item.manufacturingDate && item.expiryDate && item.expiryDate <= item.manufacturingDate) {
       return `${name}: expiry date must be after the manufacturing date.`;
@@ -271,8 +277,8 @@ const validateItems = (items: GrnItem[], isEditing: boolean): string | null => {
     const serials = item.serialNumbers.filter(Boolean);
     if (serials.length) {
       if (new Set(serials).size !== serials.length) return `${name}: the same serial number is entered twice.`;
-      if (serials.length !== accepted) {
-        return `${name}: enter exactly ${accepted} serial number(s), one for each accepted unit.`;
+      if (serials.length !== pieces) {
+        return `${name}: enter exactly ${pieces} serial number(s), one for each accepted piece.`;
       }
     }
   }
@@ -765,7 +771,7 @@ export default function GoodsReceiptEditor({
                     {showSerial && (
                       <div className="goods-receipt-editor__serials">
                         <SerialInputs
-                          count={num(item.acceptedQuantity)}
+                          count={Math.round(num(item.acceptedQuantity) * (item.unitFactor || 1))}
                           required={Boolean(tracking?.serial)}
                           values={item.serialNumbers}
                           onChange={(serialNumbers) => updateItem(index, { serialNumbers })}

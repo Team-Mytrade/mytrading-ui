@@ -12,6 +12,8 @@ export interface ReportEntry {
   module: ReportModule;
   /** A report built in the Report Center (shared filters and export), not a module page. */
   center?: boolean;
+  /** Counts by branch: offers the Branch picker (BR-1 step 5; finance, sales and purchase documents carry a branch). */
+  byBranch?: boolean;
 }
 
 /** The modules in menu order; title is the menu label and page heading, path the module's report page. */
@@ -37,6 +39,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Every issued invoice and credit note in the period, with net, tax and total.",
     module: "sales",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/sales-analysis",
@@ -44,6 +47,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Net sales by customer, product, category, sales person or month, after credit notes.",
     module: "sales",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/open-orders",
@@ -51,6 +55,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Confirmed orders with lines still to deliver: their value, how late they are, and by product.",
     module: "sales",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/dispatched-not-invoiced",
@@ -58,6 +63,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Goods and services that went out but no issued invoice bills yet, oldest first.",
     module: "sales",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/quotation-conversion",
@@ -79,6 +85,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Net sales less what the goods cost, by product, customer, category, sales person or month.",
     module: "sales",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/sales-forecast",
@@ -119,6 +126,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Every vendor bill and debit note in the period, with net, tax and total.",
     module: "purchase",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/purchase-analysis",
@@ -126,6 +134,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Goods received less goods sent back, by vendor, product or month.",
     module: "purchase",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/open-purchase-orders",
@@ -140,6 +149,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Goods accepted into stock that no vendor bill covers yet, oldest first.",
     module: "purchase",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/vendor-performance",
@@ -174,6 +184,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Every journal entry of the period with its debits and credits.",
     module: "finance",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/cash-bank-book",
@@ -188,6 +199,7 @@ export const REPORTS: ReportEntry[] = [
     description: "Money in and out of every cash box and bank account, by what it was for.",
     module: "finance",
     center: true,
+    byBranch: true,
   },
   {
     path: "/reports/customer-ledger",
@@ -209,6 +221,7 @@ export const REPORTS: ReportEntry[] = [
     description: "What each expense account took, by cost centre or month.",
     module: "finance",
     center: true,
+    byBranch: true,
   },
   { path: "/accountsReceivable", title: "Accounts Receivable", description: "What customers owe, with their age.", module: "finance" },
   { path: "/generalLedger", title: "General Ledger", description: "Every posting by account.", module: "finance" },

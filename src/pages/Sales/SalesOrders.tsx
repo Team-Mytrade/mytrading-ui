@@ -68,6 +68,8 @@ type SalesOrderItem = {
   productName: string;
   description: string;
   uom: string;
+  // COM-2: the unit it is sold in when not the base unit (CARTON)
+  unitCode?: string | null;
   quantity: number;
   unitPrice: number;
   discountPercentage: number;
@@ -158,6 +160,8 @@ type DispatchableItem = {
   /** Held by draft dispatches that are not confirmed yet */
   draftQuantity?: number;
   remainingQuantity: number;
+  // COM-2: the unit the quantities are in when it isn't the base unit (CARTON)
+  unitCode?: string | null;
 };
 
 type SalesDispatch = {
@@ -221,6 +225,7 @@ type QuotationItemOption = {
   productName?: string;
   description?: string;
   uom?: string;
+  unitCode?: string | null;
   quantity?: number;
   unitPrice?: number;
   discountPercentage?: number;
@@ -393,7 +398,8 @@ function itemFromQuotationItem(qItem: QuotationItemOption): OrderItemForm {
     productCode: qItem.productCode || "",
     productName: qItem.productName || "",
     description: qItem.description || "",
-    uom: qItem.uom || "",
+    // COM-2: the unit it was quoted in (CARTON), else the base unit
+    uom: qItem.unitCode || qItem.uom || "",
     quantity: String(qItem.quantity ?? 1),
     unitPrice: String(qItem.unitPrice ?? 0),
     discountPercentage: String(qItem.discountPercentage ?? 0),
@@ -419,7 +425,7 @@ function itemFromOrderItem(item: SalesOrderItem): OrderItemForm {
     productCode: item.productCode || "",
     productName: item.productName || "",
     description: item.description || "",
-    uom: item.uom || "",
+    uom: item.unitCode || item.uom || "",
     quantity: String(item.quantity || 1),
     unitPrice: String(item.unitPrice || 0),
     discountPercentage: String(item.discountPercentage || 0),
@@ -2769,7 +2775,7 @@ const SalesOrders: React.FC = () => {
                                 <span className="ml-1 text-xs text-amber-600">+{item.draftQuantity} draft</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right text-gray-500">{item.remainingQuantity}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">{item.remainingQuantity}{item.unitCode ? ` ${item.unitCode}` : ""}</td>
                             <td className="px-3 py-2 text-right">
                               <input
                                 type="number"

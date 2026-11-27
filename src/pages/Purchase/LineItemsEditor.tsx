@@ -19,7 +19,9 @@ export type LineItem = {
 type Props = {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
-  products: Array<{ id: number | string; productName: string; uom?: string; categoryId?: number | string }>;
+  // units / purchaseUnit (COM-2): the product's other units (CARTON of 24) and the one it is usually bought in
+  products: Array<{ id: number | string; productName: string; uom?: string; categoryId?: number | string;
+    units?: Array<{ unitCode: string; factor: number | string }> | null; purchaseUnit?: string | null }>;
   categories?: Array<{ id: number | string; categoryName: string }>;
   uomOptions?: string[];
   showUom?: boolean;
@@ -262,6 +264,7 @@ export default function LineItemsEditor({
                   items.filter((_, i) => i !== index).map((other) => String(other.productId)).filter(Boolean)
                 );
                 const quantityDecimals = allowsFraction(row.unitOfMeasure) ? 3 : 0;
+                const lineProduct = products.find((p) => String(p.id) === String(row.productId));
 
                 return (
                   <tr key={row.id ?? index} className="align-top">
@@ -273,7 +276,8 @@ export default function LineItemsEditor({
                           updateRow(index, {
                             productId: e.target.value,
                             productName: product?.productName,
-                            unitOfMeasure: product?.uom || row.unitOfMeasure || "PIECES",
+                            // The unit it is usually bought in (a CARTON), else its base unit
+                            unitOfMeasure: (product?.units?.length ? product.purchaseUnit : null) || product?.uom || row.unitOfMeasure || "PIECES",
                             categoryId: product?.categoryId || "",
                           });
                         }}
@@ -328,21 +332,42 @@ export default function LineItemsEditor({
                             const quantity = allowsFraction(unitOfMeasure)
                               ? toNumber(row.quantity)
                               : Math.ceil(toNumber(row.quantity));
-                            updateRow(index, { unitOfMeasure, quantity });
+                            // COM-2: a price per PIECE becomes a price per CARTON of 24 (and back)
+                            const size = (u: string) => Number(lineProduct?.units?.find((x) => x.unitCode === u)?.factor) || 1;
+                            const price = toNumber(row.unitPrice);
+                            const unitPrice = lineProduct?.units?.length && price > 0
+                              ? Math.round((price / size(row.unitOfMeasure)) * size(unitOfMeasure) * 1000) / 1000
+                              : row.unitPrice;
+                            updateRow(index, { unitOfMeasure, quantity, unitPrice });
                           }}
                           disabled={disabled}
                           aria-label={t("Unit of measure")}
                           className={cellInput}
                         >
-                          {/* Keep the product's own UOM visible even if it isn't in the list. */}
-                          {!uomOptions.includes(row.unitOfMeasure) && row.unitOfMeasure && (
-                            <option value={row.unitOfMeasure}>{row.unitOfMeasure}</option>
+                          {lineProduct?.units?.length ? (
+                            // COM-2: the product's base unit and its other units with their size
+                            <>
+                              {[lineProduct.uom, ...lineProduct.units.map((u) => u.unitCode)]
+                                .filter((u, i, all): u is string => Boolean(u) && all.indexOf(u) === i)
+                                .concat(row.unitOfMeasure && ![lineProduct.uom, ...lineProduct.units.map((u) => u.unitCode)].includes(row.unitOfMeasure) ? [row.unitOfMeasure] : [])
+                                .map((u) => {
+                                  const size = lineProduct.units?.find((x) => x.unitCode === u)?.factor;
+                                  return <option key={u} value={u}>{size ? `${u} (${Number(size)} ${lineProduct.uom ?? ""})` : u}</option>;
+                                })}
+                            </>
+                          ) : (
+                            <>
+                              {/* Keep the product's own UOM visible even if it isn't in the list. */}
+                              {!uomOptions.includes(row.unitOfMeasure) && row.unitOfMeasure && (
+                                <option value={row.unitOfMeasure}>{row.unitOfMeasure}</option>
+                              )}
+                              {uomOptions.map((u) => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </>
                           )}
-                          {uomOptions.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
                         </select>
                       </td>
                     )}

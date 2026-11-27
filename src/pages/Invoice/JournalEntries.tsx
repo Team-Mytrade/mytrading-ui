@@ -28,7 +28,7 @@ import {
 } from "./invoiceShared";
 import { DialogFooter } from "./invoiceUi";
 import { companyCurrency } from "../../company/format";
-import { useBranches } from "../../company/branchesApi";
+import { useMyBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/journal-entries`;
@@ -58,7 +58,7 @@ const JournalEntries: React.FC = () => {
   const [accounts, setAccounts] = useState<GeneralAccount[]>([]);
   const [centres, setCentres] = useState<CostCentre[]>([]);
   // The company's branches (BR-1): the picker shows once there are some
-  const { branches } = useBranches();
+  const { branches } = useMyBranches();
   const [loading, setLoading] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [viewing, setViewing] = useState<JournalEntry | null>(null);

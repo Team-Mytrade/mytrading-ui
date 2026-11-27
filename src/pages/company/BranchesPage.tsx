@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { Building2, GitBranch, Pencil, Star, X } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -10,7 +10,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { getSelectedTenant, hasPermission } from "../../access/access";
 import { errorText } from "../../access/accessApi";
 import { useCompany } from "../../company/companyApi";
-import { type Branch, type BranchRequest, branchesApi, clearBranchCache, useBranches } from "../../company/branchesApi";
+import { type Branch, type BranchNumbering, type BranchRequest, branchesApi, clearBranchCache, useBranches } from "../../company/branchesApi";
 import { CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, SECONDARY_BUTTON, STATS_ROW } from "../Payroll/hrmsUi";
 import { formatDateTime } from "../../company/format";
 import { t } from "../../i18n/i18n";
@@ -44,6 +44,26 @@ export default function BranchesPage() {
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
   const [form, setForm] = useState<Form>(emptyForm(""));
   const [saving, setSaving] = useState(false);
+  // Number by branch (BR-1 step 4); null while loading or when it can't be read
+  const [numbering, setNumbering] = useState<BranchNumbering | null>(null);
+  const [savingNumbering, setSavingNumbering] = useState(false);
+
+  useEffect(() => {
+    if (!canEdit) return;
+    branchesApi.numbering().then(setNumbering).catch(() => setNumbering(null));
+  }, [canEdit]);
+
+  const toggleNumbering = async (on: boolean) => {
+    setSavingNumbering(true);
+    try {
+      setNumbering(await branchesApi.setNumbering(on));
+      ToasterService.success(t(on ? "New documents in a branch are now numbered by branch." : "New documents are numbered for the whole company again."));
+    } catch (err) {
+      ToasterService.error(t(errorText(err, "Could not change how documents are numbered.")));
+    } finally {
+      setSavingNumbering(false);
+    }
+  };
 
   const stats = useMemo(() => ({
     total: branches.length,
@@ -152,6 +172,26 @@ export default function BranchesPage() {
         {loaded && branches.length === 0 && (
           <div className={`${CARD} mb-4 p-4 text-sm text-slate-600 dark:text-gray-300`}>
             {t("No branches yet. Add the head office first, then each branch with its own address. Then give each warehouse its branch (Inventory → Warehouses) and each user the branches they work in (Settings → Users).")}
+          </div>
+        )}
+
+        {numbering && (
+          <div className={`${CARD} mb-4 p-4 text-xs`}>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-0.5" checked={numbering.numberByBranch} disabled={savingNumbering}
+                onChange={(e) => toggleNumbering(e.target.checked)} />
+              <span>
+                <span className="text-sm font-semibold text-slate-800 dark:text-gray-200">{t("Number documents by branch")}</span>
+                <span className="block text-slate-500 dark:text-gray-400">
+                  {t("New invoices, receipts, credit and debit notes, expenses, journals, sales orders, dispatches and goods receipts in a branch get the branch's own numbers with its code in front, e.g. {example}. Documents without a branch, and numbers already given, stay as they are.", { example: `${branches[0]?.code ?? "DXB"}-INV-202611-000001` })}
+                </span>
+                {numbering.updatedAt && (
+                  <span className="mt-1 block text-[11px] text-slate-400">
+                    {t("Last changed {when} by {who}", { when: formatDateTime(numbering.updatedAt), who: numbering.updatedBy ?? "—" })}
+                  </span>
+                )}
+              </span>
+            </label>
           </div>
         )}
 

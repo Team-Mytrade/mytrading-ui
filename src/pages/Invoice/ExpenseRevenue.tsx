@@ -27,7 +27,7 @@ import {
 import { DialogFooter, StatusBadge } from "./invoiceUi";
 import { defaultBankAccountId, useBankAccounts } from "./bankShared";
 import BankAccountField from "./BankAccountField";
-import { useBranches } from "../../company/branchesApi";
+import { useMyBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/expenses-revenue`;
@@ -99,7 +99,7 @@ const ExpenseRevenue: React.FC = () => {
   const [posting, setPosting] = useState<Item | null>(null);
   const bankAccounts = useBankAccounts();
   // The company's branches (BR-1): the picker shows once there are some
-  const { branches } = useBranches();
+  const { branches } = useMyBranches();
   const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const fetchAll = useCallback(async () => {

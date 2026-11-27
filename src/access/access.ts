@@ -46,6 +46,11 @@ export interface AccessInfo {
   portalCustomerId: number | null;
   // Page actions the user's roles switch off, as "page|ACTION" (e.g. "/quotations|CREATE"); see pageDenied
   pageDenies: string[];
+  // BR-1: the branches the user works in (Settings → Users); empty = every branch. The services show and change
+  // only those branches' documents (and those without a branch)
+  branches?: number[];
+  // Where the user's new documents go
+  defaultBranch?: number | null;
 }
 
 export const NO_ACCESS: AccessInfo = {
@@ -57,6 +62,8 @@ export const NO_ACCESS: AccessInfo = {
   tenantModules: [],
   employeeId: null,
   pageDenies: [],
+  branches: [],
+  defaultBranch: null,
 };
 
 /** Reads the access claims from the JWT issued by auth-service. */
@@ -75,6 +82,8 @@ export const decodeAccess = (token: string | null | undefined): AccessInfo => {
       employeeId: typeof claims.employeeId === "number" ? claims.employeeId : null,
       portalCustomerId: typeof claims.portalCustomerId === "number" ? claims.portalCustomerId : null,
       pageDenies: Array.isArray(claims.pageDenies) ? claims.pageDenies : [],
+      branches: Array.isArray(claims.branches) ? claims.branches.filter((b: unknown) => typeof b === "number") : [],
+      defaultBranch: typeof claims.branch === "number" ? claims.branch : null,
     };
   } catch {
     return NO_ACCESS;

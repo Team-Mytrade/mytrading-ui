@@ -47,6 +47,20 @@ export type QuotationProduct = {
   categoryName?: string;
   category?: { id?: number; categoryName?: string };
   active?: boolean;
+  // COM-2: other units (a CARTON of 24) and the one it is usually sold in
+  units?: Array<{ unitCode: string; factor: number | string; sellingPrice?: number | string | null }> | null;
+  salesUnit?: string | null;
+};
+
+/** Base units in one of the line's unit (1 for the base unit or a product without other units). */
+export const unitSize = (product: QuotationProduct | undefined, unit: string | undefined) =>
+  Number(product?.units?.find((u) => u.unitCode === unit)?.factor) || 1;
+
+/** One unit's price: its own, else the base price x its size. */
+const unitPrice = (product: QuotationProduct | undefined, unit: string | undefined) => {
+  const own = product?.units?.find((u) => u.unitCode === unit)?.sellingPrice;
+  const base = num(product?.sellingPrice ?? product?.standardCost);
+  return own != null && own !== "" ? num(own) : base * unitSize(product, unit);
 };
 
 const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
@@ -109,10 +123,11 @@ export const productLinePatch = (product: QuotationProduct | undefined, taxRate 
   productName: product?.productName || "",
   productCode: product?.productCode || "",
   description: product?.description || "",
-  uom: product?.uom || "",
+  // COM-2: the unit it is usually sold in (a CARTON) when it has other units, else its own unit
+  uom: (product?.units?.length ? product?.salesUnit : null) || product?.uom || "",
   categoryId: product?.category?.id ?? product?.categoryId,
   categoryName: product?.category?.categoryName || product?.categoryName || "",
-  unitPrice: num(product?.sellingPrice ?? product?.standardCost),
+  unitPrice: unitPrice(product, (product?.units?.length ? product?.salesUnit : null) || product?.uom),
   taxCode: product?.taxCode || "",
   taxRate: taxRateFromCode(product?.taxCode) ?? taxRate,
 });
@@ -198,12 +213,15 @@ export default function QuotationItemsEditor({
     if (targets.length === 0) return;
     try {
       const prices = await pricingApi.prices(customerId ?? null, currency ?? null, priceDate ?? null,
-        targets.map((line) => ({ productId: Number(line.productId), quantity: num(line.quantity) || 1 })));
+        // Prices and quantity breaks are per base unit: a line of CARTONs asks for its pieces and pays 24 of them
+        targets.map((line) => ({ productId: Number(line.productId),
+          quantity: (num(line.quantity) || 1) * unitSize(products.find((p) => String(p.id) === String(line.productId)), line.uom) })));
       const byKey = new Map(targets.map((line, i) => [line.key, prices[i]]));
       change(latest.current.map((line) => {
         const price = byKey.get(line.key);
         if (!price || !line.priceAuto || Number(line.productId) !== Number(price.productId) || price.unitPrice == null) return line;
-        return { ...line, unitPrice: Number(price.unitPrice), priceSource: price.source, priceListName: price.priceListName ?? undefined };
+        const size = unitSize(products.find((p) => String(p.id) === String(line.productId)), line.uom);
+        return { ...line, unitPrice: Math.round(Number(price.unitPrice) * size * 1000) / 1000, priceSource: price.source, priceListName: price.priceListName ?? undefined };
       }));
     } catch {
       // Pricing not reachable: the catalogue price stays
@@ -325,7 +343,8 @@ export default function QuotationItemsEditor({
                 .filter((other, i) => i !== index && other.itemType === "PRODUCT" && other.productId)
                 .map((other) => String(other.productId))
             );
-            const meta = [line.productCode, line.uom].filter(Boolean).join(" · ");
+            const lineProduct = products.find((item) => String(item.id) === String(line.productId));
+            const meta = [line.productCode, lineProduct?.units?.length ? null : line.uom].filter(Boolean).join(" · ");
             const isService = line.itemType === "SERVICE";
             return (
               <li
@@ -371,6 +390,29 @@ export default function QuotationItemsEditor({
                       </div>
                     )}
                     {!isService && meta && <div className="mt-1 truncate px-0.5 text-[11px] text-slate-400 dark:text-gray-500">{meta}</div>}
+                    {!isService && lineProduct?.units?.length ? (
+                      // COM-2: sold in its base unit or one of its other units; the rate follows the unit
+                      <select
+                        value={line.uom}
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          const rate = num(line.unitPrice) / unitSize(lineProduct, line.uom) * unitSize(lineProduct, next);
+                          update(index, { uom: next, unitPrice: Math.round(rate * 1000) / 1000 });
+                        }}
+                        aria-label={t("Unit")}
+                        title={t("Unit")}
+                        className={`${cellInput} mt-1 w-auto text-xs`}
+                        data-testid="line-unit"
+                      >
+                        {[lineProduct.uom, ...lineProduct.units.map((u) => u.unitCode)]
+                          .filter((u, i, all): u is string => Boolean(u) && all.indexOf(u) === i)
+                          .map((u) => (
+                            <option key={u} value={u}>
+                              {unitSize(lineProduct, u) === 1 ? u : `${u} (${unitSize(lineProduct, u)} ${lineProduct.uom ?? ""})`}
+                            </option>
+                          ))}
+                      </select>
+                    ) : null}
                     {!isService && line.priceAuto && line.priceSource && line.priceSource !== "CATALOGUE" && (
                       <div className="mt-0.5 px-0.5 text-[11px] font-medium text-cyan-700 dark:text-cyan-400">
                         {line.priceSource === "CUSTOMER" ? t("Customer price") : `${t("Price list")}: ${line.priceListName ?? ""}`}

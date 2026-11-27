@@ -57,6 +57,7 @@ export const HOME_TOPICS: HelpTopic[] = [
       "AI must be switched on for the company in Company Settings; each question counts against the monthly AI uses.",
       "The figures a question needs are sent with it to Anthropic.",
       "Answers can be wrong: check the figures in the report.",
+      "Name a branch in the question (e.g. \"Dubai sales this month\") to have the finance and sales reports read for that branch; answers never show branches you don't work in.",
     ],
     related: [{ route: "/company-settings", label: "Company Settings" }],
   },
@@ -100,6 +101,7 @@ export const REPORT_TOPICS: HelpTopic[] = [
     rules: [
       "A module's report needs that module's access; the sales reports open with Sales or Invoice access.",
       "A module shows in the menu only when you can open at least one of its reports.",
+      "With more than one branch, the reports that count finance, sales and purchase documents have a Branch picker: All branches, or one (documents without a branch are then left out). Someone limited to some branches sees only theirs. Stock, purchase order, CRM, HR and delivery reports cover the whole company.",
     ],
     related: [
       { route: "/reports/sales-register", label: "Sales Register" },
@@ -1123,7 +1125,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       "A user with permissions beyond yours shows as Restricted: only a higher administrator can change their account.",
       "Without a role a user can only use self-service.",
       "The invite email needs the user service's mail settings.",
-      "Once the company has branches: tick the Branches a person works in (none ticked means every branch) and their Default branch, where their new documents go. Applies from their next sign-in.",
+      "Once the company has branches: tick the Branches a person works in (none ticked means every branch) and their Default branch, where their new documents go. They then see and change only those branches' documents (and those without a branch). Applies from their next sign-in.",
     ],
     related: [
       { route: "/rolesPermissions", label: "Roles & Permissions" },
@@ -1276,7 +1278,9 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       "Everyone signed in sees the branch list (for the branch pickers); only a company administrator changes it.",
       "The books by branch: invoices, bills, receipts, payments, expenses and journals take a branch (stock takes its warehouse's), and Financial Statements read one branch.",
       "Sales orders, dispatches, counter sales and goods receipts take the branch of their warehouse (else the person's default branch), and the invoices and bills made from them follow. A transfer to another branch's warehouse moves the stock value between the two branches' books.",
-      "Coming next: users limited to their branches, and document numbers per branch.",
+      "Someone limited to some branches (Settings → Users) sees and opens only those branches' documents and books, and those without a branch; they can't put a document in another branch or change one there. Warehouses and stock stay open to everyone, so stock can be sent to another branch.",
+      "Number documents by branch (above the list, for a company administrator): new invoices, receipts, credit and debit notes, expenses, journals, sales orders, dispatches and goods receipts in a branch get that branch's own numbers with its code in front (DXB-INV-202611-000001), counting from 1 in each branch. Documents without a branch, and numbers already given, stay as they are; POS sales, quotations and purchase orders keep the company's numbers. A change reaches every service within a minute.",
+      "Reports and dashboards by branch: the finance, sales and purchase reports that count documents (Sales Register, Sales Analysis, Gross Margin, Open Orders, Dispatched Not Invoiced, Purchase Register, Purchase Analysis, Goods Received Not Billed, Day Book, Receipts & Payments, Expenses by Account) and the Sales and Invoice dashboards have a Branch picker; one branch leaves out documents without a branch, and exports name the branch. Ask MyTrade answers for a branch when the question names it.",
     ],
     related: [
       { route: "/warehouse", label: "Warehouses" },

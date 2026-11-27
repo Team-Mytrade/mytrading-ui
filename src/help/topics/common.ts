@@ -183,9 +183,20 @@ export const COMMON_TOPICS: HelpTopic[] = [
         title: "Add a product picture",
         steps: ["Open the product and upload a PNG, JPEG or WebP image of up to 5 MB.", "Or choose Use Initial for a picture made from the name."],
       },
+      {
+        title: "Buy and sell in cartons, packs or drums",
+        steps: [
+          "Open the product's Units tab and click Add unit.",
+          "Enter the unit (e.g. CARTON) and how many of the base unit it holds (e.g. 24 PIECES).",
+          "Optionally enter its own barcode and its price (empty = the product's price × its size).",
+          "Tick Buy in for the unit it is usually bought in, and Sell in for the one it is usually sold in.",
+          "Save.",
+        ],
+      },
     ],
     fields: [
-      { name: "UOM", meaning: "The unit you count it in. Orders, stock and invoices use the same unit." },
+      { name: "UOM", meaning: "The base unit: stock, costs and stock levels are always kept in it." },
+      { name: "Other units", meaning: "Cartons, packs, drums… each holding a number of the base unit, with its own barcode and price." },
       { name: "Tax code", meaning: "The tax applied when it is sold or bought (rate in Tax Types). Empty for companies that don't charge tax." },
       { name: "HS code / SAC", meaning: "Customs code for goods, service code for services; printed on export and GST invoices." },
       { name: "Barcode", meaning: "EAN/UPC, 8 to 14 digits; the Point of Sale finds the product by it." },

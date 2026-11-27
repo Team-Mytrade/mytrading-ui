@@ -3,7 +3,8 @@ import { t } from "../../i18n/i18n";
 // those dashboards comes from the module's own API; nothing here holds sample data.
 import { useEffect, useState, type ReactNode } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { BRANCH_PARAM, BranchViewPicker } from "../../company/branchView";
 import { Inbox, type LucideIcon } from "lucide-react";
 import { formatMoney as companyMoney, formatNumber as companyNumber, formatDate as companyDate, dateLocale } from "../../company/format";
 
@@ -350,20 +351,39 @@ export function LoadNotice({ failed }: { failed: string[] }) {
   );
 }
 
+/** A dashboard without the Branch picker reads every branch: a branch picked on another dashboard tab is dropped. */
+function NoBranchView() {
+  const [params, setParams] = useSearchParams();
+  const picked = params.has(BRANCH_PARAM);
+  useEffect(() => {
+    if (picked) {
+      setParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete(BRANCH_PARAM);
+        return next;
+      }, { replace: true });
+    }
+  }, [picked, setParams]);
+  return null;
+}
+
 /**
  * The standard dashboard page: load notice, quick links, figures, then the panels. panelClass sets the panel grid's
  * columns on a large screen (default two; "lg:grid-cols-3" for three).
  */
-export function DashboardLayout({ failed = [], links, kpis, panelClass = "lg:grid-cols-2", children }: {
+export function DashboardLayout({ failed = [], links, kpis, panelClass = "lg:grid-cols-2", branchView = false, children }: {
   failed?: string[];
   links?: ReactNode;
   kpis?: ReactNode;
   panelClass?: string;
+  /** Offers the Branch picker (BR-1 step 5): the dashboard's finance, sales and purchase figures for one branch. */
+  branchView?: boolean;
   children: ReactNode;
 }) {
   return (
     <div className="dash-layout mx-auto flex w-full max-w-7xl flex-col gap-3 px-1 pb-2 pt-1">
       <LoadNotice failed={failed} />
+      {branchView ? <BranchViewPicker className="w-full max-w-xs flex-none" /> : <NoBranchView />}
       {links}
       {kpis && <div className="grid flex-none grid-cols-2 gap-3 lg:grid-cols-4">{kpis}</div>}
       <div className={`dash-body grid grid-cols-1 gap-3 ${panelClass}`}>{children}</div>

@@ -11,7 +11,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { useCompany } from "../../company/companyApi";
 import { formatDate, formatMoney, todayIso } from "../../company/format";
 import { CostCentre, INVOICE_API, apiError, costCentreLabel, labelOf } from "./invoiceShared";
-import { branchLabel, useBranches } from "../../company/branchesApi";
+import { branchLabel, useMyBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 interface StatementLine {
@@ -127,7 +127,7 @@ const FinancialStatements: React.FC = () => {
   // "" = the whole company, "0" = lines without a cost centre
   const [centre, setCentre] = useState("");
   // BR-1: "" = every branch, "0" = entries without a branch; the filter shows once the company has branches
-  const { branches } = useBranches();
+  const { branches, limited: branchesLimited } = useMyBranches();
   const [branch, setBranch] = useState("");
 
   useEffect(() => {
@@ -295,7 +295,7 @@ const FinancialStatements: React.FC = () => {
             )}
             {branches.length > 0 && (
               <select className={INPUT} value={branch} onChange={(e) => setBranch(e.target.value)} aria-label={t("Branch")}>
-                <option value="">{t("All branches")}</option>
+                <option value="">{branchesLimited ? t("All your branches") : t("All branches")}</option>
                 {branches.map((b) => <option key={b.id} value={String(b.id)}>{b.code} · {b.name}</option>)}
                 <option value="0">{t("No branch")}</option>
               </select>

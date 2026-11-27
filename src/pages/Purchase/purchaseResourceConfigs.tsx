@@ -913,8 +913,12 @@ export const purchaseOrderConfig: PurchaseResourceConfig = {
           productName: p.label,
           uom: String(p.raw?.uom || "PIECES"),
           categoryId: p.raw?.productCategory?.id ?? p.raw?.category?.id ?? p.raw?.categoryId ?? "",
+          // COM-2: ordered in the product's units (a CARTON of 24); stock still counts its pieces
+          units: Array.isArray(p.raw?.units) ? p.raw.units : null,
+          purchaseUnit: p.raw?.purchaseUnit ?? null,
         }))}
-        showUom={false}
+        // The product's own units only (a product without other units shows its base unit)
+        uomOptions={[]}
         showPricing
         currency={typeof form.currency === "string" ? form.currency : null}
         // Tax = (Qty × Unit price − Discount) × the product's GST % (from its tax code, e.g. GST18 → 18%).
