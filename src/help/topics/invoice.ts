@@ -667,7 +667,7 @@ export const INVOICE_TOPICS: HelpTopic[] = [
     rules: [
       "Profit to date is income less expenses since the last year-end close, which moves them to retained earnings.",
       "Accounts without a statement type are listed separately: give them a type on Chart of Accounts.",
-      "A branch's statements read its own entries: invoices, bills, receipts, payments, expenses and journals in that branch, and stock moved in its warehouses. Each entry stays in one branch, so a branch's balance sheet balances. Opening balances typed on accounts, payroll and depreciation are under No branch for now.",
+      "A branch's statements read its own entries: invoices, bills, receipts, payments, expenses and journals in that branch, and stock moved in its warehouses. An invoice from a dispatch takes the branch of the warehouse the goods left from, and a bill from a goods receipt the receiving warehouse's, so sales and their cost land in the same branch. Stock transferred to another branch's warehouse moves its value through Inter-branch balances (1590): what the receiving branch owes the sending one, which nets to zero for the company. Each entry stays in one branch, so a branch's balance sheet balances. Opening balances typed on accounts, payroll and depreciation are under No branch for now.",
     ],
     related: [
       { route: "/generalLedger", label: "General Ledger" },

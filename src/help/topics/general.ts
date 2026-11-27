@@ -1274,7 +1274,9 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       "A branch is never deleted, only switched off, because documents keep pointing at it.",
       "The head office can't be switched off; make another branch the head office first.",
       "Everyone signed in sees the branch list (for the branch pickers); only a company administrator changes it.",
-      "The books by branch: invoices, bills, receipts, payments, expenses and journals take a branch (stock takes its warehouse's), and Financial Statements read one branch. Coming next: the branch on quotations, orders and purchase documents, users limited to their branches, and document numbers per branch.",
+      "The books by branch: invoices, bills, receipts, payments, expenses and journals take a branch (stock takes its warehouse's), and Financial Statements read one branch.",
+      "Sales orders, dispatches, counter sales and goods receipts take the branch of their warehouse (else the person's default branch), and the invoices and bills made from them follow. A transfer to another branch's warehouse moves the stock value between the two branches' books.",
+      "Coming next: users limited to their branches, and document numbers per branch.",
     ],
     related: [
       { route: "/warehouse", label: "Warehouses" },

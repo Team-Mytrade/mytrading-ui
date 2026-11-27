@@ -61,6 +61,7 @@ const USED_FOR: Record<string, string> = {
   COST_OF_SALES: "Cost of the goods sold and returned.",
   STOCK_ADJUSTMENTS: "Stock counted up, written off or damaged.",
   OPENING_BALANCE: "Opening stock entered when starting to use the system.",
+  INTER_BRANCH: "Stock value transferred between branches: what the receiving branch owes the sending one (nets to zero for the company).",
   FIXED_ASSETS: "The cost of assets in the register.",
   ACCUMULATED_DEPRECIATION: "Depreciation so far on those assets.",
   DEPRECIATION_EXPENSE: "Each month's depreciation.",
