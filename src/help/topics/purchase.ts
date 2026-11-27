@@ -137,6 +137,7 @@ export const PURCHASE_TOPICS: HelpTopic[] = [
     rules: [
       "Approval is decided only while the order is a draft; changing the order starts the approvals over.",
       "Above the own-approval limit, the buyer who raised an order can't approve it.",
+      "A line can be ordered in any of the product's units (Products → Units), e.g. CARTON: its quantity and price are per carton, and the product's usual buying unit is chosen first. Changing the unit changes the price to match (a piece price × 24 for a carton of 24).",
     ],
     related: [
       { route: "/purchase-service/goods-receipt-notes", label: "Goods Receipts (GRN)" },
@@ -288,6 +289,7 @@ export const PURCHASE_TOPICS: HelpTopic[] = [
     rules: [
       "A receipt can be cancelled (Purchase Manager) only while its goods aren't in stock.",
       "Goods go only into active warehouses (not a vendor's consignment location).",
+      "Goods ordered in a larger unit go into stock in the product's base unit: 10 CARTONs of 24 add 240 PIECES, each costing the carton price ÷ 24. Serial-numbered goods need one serial per piece.",
     ],
     related: [
       { route: "/purchase-service/orders", label: "Purchase Orders" },

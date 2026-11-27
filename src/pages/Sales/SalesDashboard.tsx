@@ -184,7 +184,7 @@ const SalesDashboard: React.FC = () => {
       <PageMeta title={t("Sales Dashboard")} description="Sales overview and analytics" />
       <PageBreadcrumb pageTitle="Sales Dashboard" />
 
-      <DashboardLayout
+      <DashboardLayout branchView
         links={<ModuleTiles tiles={tiles} loading={false} />}
         panelClass="lg:grid-cols-3"
         kpis={

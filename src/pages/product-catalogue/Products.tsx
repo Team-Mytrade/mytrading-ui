@@ -14,6 +14,7 @@ import { formatMoney, companyCurrency, getRegional } from "../../company/format"
 
 import { t } from "../../i18n/i18n";
 import { currentCompanyCountry } from "../../company/companyApi";
+import { ProductUnitRow, ProductUnitsEditor, tu, unitsError, unitsPayload, unitsSummary } from "./productUnits";
 /* ------------------------------------------------------------------ */
 /* Endpoints & constants                                               */
 /* ------------------------------------------------------------------ */
@@ -572,7 +573,8 @@ const baseProductConfig: PurchaseResourceConfig = {
         ),
     },
     { key: "brand", label: "Brand" },
-    { key: "uom", label: "UOM" },
+    // The base unit, then the other units with their size (COM-2): PIECES · CARTON 24
+    { key: "uom", label: "UOM", render: (row) => unitsSummary(row.uom, row.units), exportValue: (row) => unitsSummary(row.uom, row.units) },
     // One "Type" column instead of two Yes/No columns: a product is either Stock or Service, never both.
     {
       key: "stockItem",
@@ -697,6 +699,16 @@ const baseProductConfig: PurchaseResourceConfig = {
     { name: "expiryTracking", section: "Inventory Tracking", label: "Expiry Tracking (needs Batch Tracking)", type: "checkbox", defaultValue: false },
     // Status is changed here (create and edit).
     { name: "active", section: "Inventory Tracking", label: "Active", type: "checkbox", defaultValue: true },
+    // Other units it is bought and sold in (COM-2); the UOM above is the base unit stock is kept in
+    {
+      name: "units", section: "Units",
+      get label() { return tu("Other units"); },
+      gridClassName: "md:col-span-2",
+      validate: (value, form) => unitsError(value, String(form.uom || "PIECES")),
+      renderControl: ({ value, form, setValue, error }) => (
+        <ProductUnitsEditor value={value} base={String(form.uom || "PIECES")} onChange={setValue} error={error} />
+      ),
+    },
   ],
 
   searchFields: ["productName", "productCode", "categoryName", "brand", "uom"],
@@ -724,10 +736,12 @@ const baseProductConfig: PurchaseResourceConfig = {
     batchTracking: false,
     expiryTracking: false,
     active: true,
+    units: [],
   },
 
   normalizeForm: (row) => ({
     ...row,
+    units: Array.isArray(row.units) ? row.units.map((u: ProductUnitRow) => ({ ...u, sellingPrice: u.sellingPrice ?? "" })) : [],
     categoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
     // Remembered so an existing product can keep an (now inactive) category, but not move into one.
     originalCategoryId: row.productCategory?.id ?? row.categoryId ?? row.category?.id ?? "",
@@ -761,6 +775,7 @@ const baseProductConfig: PurchaseResourceConfig = {
       batchTracking,
       expiryTracking: batchTracking && Boolean(form.expiryTracking),
       active: Boolean(form.active),
+      units: unitsPayload(form.units),
     };
   },
 };

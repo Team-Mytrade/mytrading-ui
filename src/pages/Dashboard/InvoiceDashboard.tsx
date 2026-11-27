@@ -102,7 +102,7 @@ export default function InvoiceDashboard() {
   ];
 
   return (
-    <DashboardLayout
+    <DashboardLayout branchView
       failed={failed}
       links={<ModuleTiles tiles={tiles} loading={loading} />}
       panelClass="lg:grid-cols-3"

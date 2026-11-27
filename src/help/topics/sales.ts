@@ -71,6 +71,7 @@ export const SALES_TOPICS: HelpTopic[] = [
       "Only drafts can be edited: change a sent quotation by making a new one.",
       "Accepting or rejecting needs SALES:APPROVE (a Sales Manager).",
       "A price typed on a line stays; otherwise the line takes the customer price, the price list price, or the catalogue price.",
+      "A product with other units (Products → Units) can be quoted in any of them, e.g. CARTON: the quantity and rate are per carton, the product's usual selling unit comes first, and a list or catalogue price per piece is multiplied by the carton's size.",
       "The chat icon sends the quotation PDF to the customer's WhatsApp, from your company's WhatsApp number (Notification Settings → Alert channels → WhatsApp, with a document template); a draft becomes Sent.",
     ],
     related: [
@@ -142,6 +143,7 @@ export const SALES_TOPICS: HelpTopic[] = [
       "Only drafts can be edited; only drafts and cancelled orders can be deleted.",
       "Dispatch goods only from this page. A draft dispatch doesn't count as delivered until it is confirmed.",
       "Services are dispatched too (as delivered), without stock.",
+      "A line sold in a larger unit (CARTON of 24) keeps that unit from its quotation: the order, dispatch and invoice count cartons at the carton price, while stock is reserved and taken out in pieces (2 cartons = 48 pieces).",
       "A customer with no credit limit is never held; the limit is set on the customer.",
     ],
     related: [

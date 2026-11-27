@@ -10,6 +10,8 @@ import { toLocalIsoDate, todayIso } from "../../../utils/localDate";
 import { formatDate } from "../../../company/format";
 import { INVOICE_API, money } from "../../Invoice/invoiceShared";
 import { t } from "../../../i18n/i18n";
+import { BRANCH_PARAM, BranchViewPicker, viewedBranch } from "../../../company/branchView";
+import { branchLabel, useBranches } from "../../../company/branchesApi";
 
 /* ================= Periods ================= */
 
@@ -71,6 +73,9 @@ export const useSyncedParams = (
   const key = JSON.stringify(values);
   useEffect(() => {
     const next = Object.fromEntries(Object.entries(JSON.parse(key) as Record<string, string>).filter(([, v]) => v));
+    // The branch the report is viewed for (BR-1 step 5) is kept by the Branch picker, not by the report
+    const branch = new URLSearchParams(window.location.search).get(BRANCH_PARAM);
+    if (branch) next[BRANCH_PARAM] = branch;
     setter.current(next, { replace: true });
   }, [key]);
 };
@@ -172,10 +177,13 @@ export const SelectField: React.FC<{ label: string; value: string; options: Opti
   </Field>
 );
 
-/** Filter bar: period and filters on the left, export buttons on the right. */
+/** Filter bar: period and filters on the left, export buttons on the right. Reports that count by branch get a Branch picker. */
 export const FilterBar: React.FC<{ children: React.ReactNode; actions?: React.ReactNode }> = ({ children, actions }) => (
   <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
-    <div className="flex flex-wrap items-end gap-3">{children}</div>
+    <div className="flex flex-wrap items-end gap-3">
+      {children}
+      <BranchViewPicker />
+    </div>
     {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
   </div>
 );
@@ -372,7 +380,13 @@ const buttonClass =
 export function ExportButtons<T extends object>({ report, modules, disabled }: { report: ReportExport<T>; modules: string[]; disabled?: boolean }) {
   const canExport = useCanExport(modules);
   const [busy, setBusy] = useState(false);
+  const { branches } = useBranches();
   if (!canExport) return null;
+  // Viewed for one branch (BR-1 step 5): the export says which, so a printout isn't taken for the whole company
+  const branch = viewedBranch();
+  if (branch) {
+    report = { ...report, details: [{ label: "Branch", value: branchLabel(branches, Number(branch)) }, ...(report.details ?? [])] };
+  }
   const run = async (work: () => unknown) => {
     try {
       setBusy(true);

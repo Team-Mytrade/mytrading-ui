@@ -8516,6 +8516,12 @@ export const ar: Record<string, string> = {
   "To move it, make another branch the head office.": "لنقله، اجعل فرعًا آخر المقر الرئيسي.",
   "The company has one head office; ticking this moves it here.": "للشركة مقر رئيسي واحد؛ تحديد هذا الخيار ينقله إلى هنا.",
   "All branches": "كل الفروع",
+  "All your branches": "كل فروعك",
+  "Number documents by branch": "ترقيم المستندات حسب الفرع",
+  "New invoices, receipts, credit and debit notes, expenses, journals, sales orders, dispatches and goods receipts in a branch get the branch's own numbers with its code in front, e.g. {example}. Documents without a branch, and numbers already given, stay as they are.": "تحصل الفواتير والمقبوضات والإشعارات الدائنة والمدينة والمصروفات والقيود وأوامر البيع والإرساليات واستلامات البضائع الجديدة في فرع على أرقام الفرع الخاصة يسبقها رمزه، مثل {example}. وتبقى المستندات التي بلا فرع والأرقام المعطاة من قبل كما هي.",
+  "New documents in a branch are now numbered by branch.": "تُرقَّم المستندات الجديدة في الفرع الآن حسب الفرع.",
+  "New documents are numbered for the whole company again.": "تُرقَّم المستندات الجديدة مرة أخرى على مستوى الشركة.",
+  "Could not change how documents are numbered.": "تعذّر تغيير طريقة ترقيم المستندات.",
   "None ticked: they work in every branch.": "لم يُحدَّد أي فرع: يعمل في كل الفروع.",
   "They work in the ticked branches only.": "يعمل في الفروع المحددة فقط.",
   "Applies from their next sign-in.": "يسري من تسجيل دخوله التالي.",
@@ -8821,4 +8827,6 @@ export const ar: Record<string, string> = {
   "Deliveries returned or cancelled on the road, by reason, driver, route, customer and vehicle, and whether they went out again.":
     "التوصيلات المرتجعة أو الملغاة على الطريق، حسب السبب والسائق والمسار والعميل والمركبة، وهل أُعيد إرسالها.",
   "Every delivery's latest status, who updated it and why it failed.": "آخر حالة لكل توصيلة، ومن حدّثها، ولماذا فشلت.",
+  // Reports and dashboards by branch (BR-1 step 5)
+  "All my branches": "كل فروعي",
 };

@@ -16,6 +16,8 @@ import { useLanguage } from "../i18n/i18n";
 
 import { useState, useEffect, Suspense } from "react";
 import PageLoading from "../components/common/PageLoading";
+// Also installs the branch view's request interceptor (reports and dashboards for one branch)
+import { viewedBranch } from "../company/branchView";
 import "../styles/SalesDarkMode.css";
 
 const LayoutContent: React.FC = () => {
@@ -84,7 +86,8 @@ const LayoutContent: React.FC = () => {
           ) : canAccessPath(access, location.pathname) ? (
             // Pages are loaded on demand; header and sidebar stay while one loads. A new language, regional
             // setting or company (Super Admin) draws the page again.
-            <Suspense key={`${regional.version}-${lang}-${tenantId ?? "all"}`} fallback={<PageLoading />}>
+            // A report or dashboard viewed for another branch (BR-1 step 5) is drawn again too, reading that branch
+            <Suspense key={`${regional.version}-${lang}-${tenantId ?? "all"}-${viewedBranch() ?? ""}`} fallback={<PageLoading />}>
               <Outlet />
             </Suspense>
           ) : (

@@ -48,6 +48,7 @@ import QuotationItemsEditor, {
   QuotationLine,
   QuotationProduct,
   quotationTotals,
+  unitSize,
 } from "./QuotationItemsEditor";
 import { formatAmount, formatDate, companyCurrency } from "../../company/format";
 
@@ -85,6 +86,7 @@ type QuotationItem = {
   description: string;
   productCode: string;
   uom: string;
+  unitCode?: string | null;
   quantity: number;
   unitPrice: number;
   discountPercentage: number;
@@ -351,7 +353,7 @@ function toNumber(value: string | number | undefined | null) {
 }
 
 /** What the line check needs from the form: every line in order (a service has no product), and the extra discount. */
-function lineCheckRequest(lines: QuotationLine[], form: QuotationForm, additionalDiscount: number) {
+function lineCheckRequest(lines: QuotationLine[], form: QuotationForm, additionalDiscount: number, products: QuotationProduct[] = []) {
   return {
     customerId: form.customerId ? Number(form.customerId) : null,
     currencyCode: form.currencyCode || null,
@@ -362,6 +364,8 @@ function lineCheckRequest(lines: QuotationLine[], form: QuotationForm, additiona
       quantity: Number(line.quantity) || 0,
       unitPrice: Number(line.unitPrice) || 0,
       discountPercentage: Number(line.discountPercentage) || 0,
+      // COM-2: a line in CARTONs is checked as its pieces
+      unitFactor: line.itemType === "PRODUCT" ? unitSize(products.find((p) => String(p.id) === String(line.productId)), line.uom) : null,
     })),
   };
 }
@@ -609,7 +613,8 @@ const toLine = (item: QuotationItem): QuotationLine => ({
   productName: item.productName || "",
   productCode: item.productCode || "",
   description: item.description || "",
-  uom: item.uom || "",
+  // COM-2: the unit it is sold in (CARTON), else its base unit
+  uom: item.unitCode || item.uom || "",
   quantity: Number(item.quantity) || 1,
   unitPrice: Number(item.unitPrice) || 0,
   discountPercentage: Number(item.discountPercentage) || 0,
@@ -650,7 +655,7 @@ const Quotations: React.FC = () => {
 
   // Stock, promise date, price list and margin for each line as it is typed (8.4.18 / 8.4.19); all lines go, in order,
   // so the answer's line numbers match (services count towards sharing the additional discount)
-  const checkBody = lineCheckRequest(lines, form, toNumber(form.quotationAdditionalDiscount));
+  const checkBody = lineCheckRequest(lines, form, toNumber(form.quotationAdditionalDiscount), products);
   const lineCheck = useLineCheck(JSON.stringify({ showForm, checkBody }),
     showForm && checkBody.lines.some((l) => l.productId) ? () => quoteCheckApi.quote(checkBody) : null);
   const [loading, setLoading] = useState(false);
