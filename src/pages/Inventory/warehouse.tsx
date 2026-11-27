@@ -23,6 +23,7 @@ import {
 } from "../../components/inputfeild/FloatingInput";
 import { ToasterService } from "../../Services/ToasterService";
 import { usePermissions } from "../../access/usePermissions";
+import { branchLabel, useBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 type WarehouseLocationType = string;
@@ -46,6 +47,8 @@ type Warehouse = {
   stockCount?: number;
   status?: WarehouseStatus;
   active?: boolean;
+  // The company branch it belongs to (BR-1)
+  branchId?: number | null;
 };
 
 type WarehouseForm = {
@@ -53,6 +56,8 @@ type WarehouseForm = {
   name: string;
   locationType: string;
   status: string;
+  // "" = not given
+  branchId: string;
 };
 
 const API_URL = "/v1/api/inventory/warehouses";
@@ -70,6 +75,7 @@ const emptyForm: WarehouseForm = {
   name: "",
   locationType: "",
   status: "ACTIVE",
+  branchId: "",
 };
 
 // ---------------------------------------------------------------------------
@@ -150,6 +156,9 @@ const WarehousePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleteWarehouse, setDeleteWarehouse] = useState<Warehouse | null>(null);
+  // The company's branches (Settings → Branches); the picker and column show once there are some
+  const { branches } = useBranches();
+  const activeBranches = branches.filter((b) => b.active);
 
   const [locationTypeOptions, setLocationTypeOptions] = useState<string[]>(
     FALLBACK_LOCATION_TYPES
@@ -267,6 +276,8 @@ const WarehousePage: React.FC = () => {
       name: "",
       locationType: locationTypeOptions[0] || "",
       status: "ACTIVE",
+      // With one branch there's nothing to choose
+      branchId: activeBranches.length === 1 ? String(activeBranches[0].id) : "",
     });
     setShowFormModal(true);
   };
@@ -284,6 +295,7 @@ const WarehousePage: React.FC = () => {
       name: warehouse.name ?? "",
       locationType: warehouse.locationType ?? "",
       status: warehouse.status || "ACTIVE",
+      branchId: warehouse.branchId != null ? String(warehouse.branchId) : "",
     });
     setShowFormModal(true);
   };
@@ -369,6 +381,8 @@ const WarehousePage: React.FC = () => {
       name: form.name.trim(),
       locationType: form.locationType,
       active: form.status === "ACTIVE",
+      // None sent keeps the branch the warehouse has
+      branchId: form.branchId ? Number(form.branchId) : null,
     };
     return editingId ? { id: editingId, ...base } : base;
   };
@@ -425,6 +439,7 @@ const WarehousePage: React.FC = () => {
               locationType: payload.locationType,
               status: form.status,
               active: payload.active,
+              branchId: payload.branchId ?? w.branchId,
             };
           })
         );
@@ -546,6 +561,15 @@ const WarehousePage: React.FC = () => {
         </span>
       ),
     },
+    ...(branches.length > 0 ? [{
+      key: "branchId",
+      label: "Branch",
+      sortable: true,
+      sortValueGetter: (warehouse: Warehouse) => branchLabel(branches, warehouse.branchId),
+      render: (warehouse: Warehouse) => warehouse.branchId != null
+        ? <span className="text-sm text-slate-700 dark:text-slate-300">{branchLabel(branches, warehouse.branchId)}</span>
+        : <span className="text-xs text-amber-600">{t("No branch yet")}</span>,
+    }] : []),
     {
       key: "locationType",
       label: "Location Type",
@@ -802,6 +826,19 @@ const WarehousePage: React.FC = () => {
                 includeEmptyOption={false}
                 options={statusOptions.map((status) => ({ id: status, name: status }))}
               />,
+              ...(branches.length > 0 ? [
+                <FloatingSelect
+                  key="branchId"
+                  label={t("Branch")}
+                  name="branchId"
+                  value={form.branchId}
+                  onChange={handleChange}
+                  includeEmptyOption
+                  // A branch switched off stays on a warehouse that already has it
+                  options={branches.filter((b) => b.active || String(b.id) === form.branchId)
+                    .map((b) => ({ id: String(b.id), name: `${b.code} · ${b.name}` }))}
+                />,
+              ] : []),
             ],
           },
         ]}

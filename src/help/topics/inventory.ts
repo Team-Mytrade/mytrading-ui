@@ -272,9 +272,13 @@ export const INVENTORY_TOPICS: HelpTopic[] = [
       { name: "Active", meaning: "Receives and issues stock." },
       { name: "Inactive", meaning: "Closed for stock movements." },
     ],
+    rules: [
+      "Once the company has branches (Settings → Branches), give each warehouse its Branch. A warehouse's branch can be changed but not taken away.",
+    ],
     related: [
       { route: "/bins", label: "Bins & Putaway" },
       { route: "/inventory", label: "Stock on Hand" },
+      { route: "/branches", label: "Branches" },
     ],
   },
 ];

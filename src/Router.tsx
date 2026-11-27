@@ -185,6 +185,7 @@ const AuditLogPage = lazy(() => import("./pages/company/AuditLogPage"));
 const DataImportPage = lazy(() => import("./pages/company/DataImportPage"));
 const GettingStartedPage = lazy(() => import("./pages/company/GettingStartedPage"));
 const GoLiveCheckPage = lazy(() => import("./pages/company/GoLiveCheckPage"));
+const BranchesPage = lazy(() => import("./pages/company/BranchesPage"));
 const HelpCenterPage = lazy(() => import("./pages/Help/HelpCenterPage"));
 const ApiKeysPage = lazy(() => import("./pages/company/ApiKeysPage"));
 const WebhooksPage = lazy(() => import("./pages/company/WebhooksPage"));
@@ -252,6 +253,8 @@ const DayBookReport = lazy(() => import("./pages/reports/center/DayBook"));
 const CashBankBookReport = lazy(() => import("./pages/reports/center/CashBankBook"));
 const ReceiptsPaymentsReport = lazy(() => import("./pages/reports/center/ReceiptsPayments"));
 const ExpenseAnalysisReport = lazy(() => import("./pages/reports/center/ExpenseAnalysis"));
+const DeliveryCostReport = lazy(() => import("./pages/reports/center/DeliveryCost"));
+const FailedDeliveriesReport = lazy(() => import("./pages/reports/center/FailedDeliveries"));
 const CustomerLedgerReport = lazy(() => import("./pages/reports/center/PartyLedger").then((m) => ({ default: m.CustomerLedger })));
 const VendorLedgerReport = lazy(() => import("./pages/reports/center/PartyLedger").then((m) => ({ default: m.VendorLedger })));
 const HeadcountReport = lazy(() => import("./pages/reports/center/Headcount"));
@@ -325,6 +328,8 @@ export default function AppRouter() {
           <Route path="/getting-started" element={<GettingStartedPage />} />
           {/* The opening data checked before the first transaction (ADO-2) */}
           <Route path="/go-live-check" element={<GoLiveCheckPage />} />
+          {/* The company's branches (BR-1) */}
+          <Route path="/branches" element={<BranchesPage />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/help/flow/:flowId" element={<HelpCenterPage />} />
           <Route path="/help/:topicId" element={<HelpCenterPage />} />
@@ -447,6 +452,9 @@ export default function AppRouter() {
           <Route path="/reports/inventory" element={<ReportCenter module="inventory" />} />
           <Route path="/reports/finance" element={<ReportCenter module="finance" />} />
           <Route path="/reports/hr" element={<ReportCenter module="hr" />} />
+          <Route path="/reports/delivery" element={<ReportCenter module="delivery" />} />
+          <Route path="/reports/delivery-cost" element={<DeliveryCostReport />} />
+          <Route path="/reports/failed-deliveries" element={<FailedDeliveriesReport />} />
           <Route path="/reports/sales-register" element={<SalesRegister />} />
           <Route path="/reports/sales-analysis" element={<SalesAnalysis />} />
           <Route path="/reports/open-orders" element={<OpenOrdersReport />} />

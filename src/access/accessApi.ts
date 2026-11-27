@@ -70,6 +70,9 @@ export interface ManagedUser {
   manageable: boolean;
   // For SMS and WhatsApp alerts
   mobile?: string | null;
+  // The branches they work in (empty: every branch) and their default branch (BR-1)
+  branchIds?: number[];
+  defaultBranchId?: number | null;
 }
 
 export interface UserForm {
@@ -175,6 +178,9 @@ export const userAdminApi = {
   /** Links the login to an employee record (null removes the link); self-service follows at the next sign-in. */
   linkEmployee: (userId: string, employeeId: number | null, employeeCode: string | null) =>
     axios.put<ManagedUser>(`${ACCESS}/users/${encodeURIComponent(userId)}/employee`, { employeeId, employeeCode }).then((r) => r.data),
+  // No branches: every branch
+  setBranches: (userId: string, branchIds: number[], defaultBranchId: number | null) =>
+    axios.put<ManagedUser>(`${ACCESS}/users/${encodeURIComponent(userId)}/branches`, { branchIds, defaultBranchId }).then((r) => r.data),
   setActive: (userId: string, active: boolean) =>
     axios.get(`/v1/api/user/${encodeURIComponent(userId)}/${active ? "activate" : "deactivate"}`),
   assignRoles: (userId: string, roleIds: number[]) =>

@@ -11,6 +11,7 @@ import { usePermissions } from "../../access/usePermissions";
 import { useCompany } from "../../company/companyApi";
 import { formatDate, formatMoney, todayIso } from "../../company/format";
 import { CostCentre, INVOICE_API, apiError, costCentreLabel, labelOf } from "./invoiceShared";
+import { branchLabel, useBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 interface StatementLine {
@@ -125,6 +126,9 @@ const FinancialStatements: React.FC = () => {
   const [centres, setCentres] = useState<CostCentre[]>([]);
   // "" = the whole company, "0" = lines without a cost centre
   const [centre, setCentre] = useState("");
+  // BR-1: "" = every branch, "0" = entries without a branch; the filter shows once the company has branches
+  const { branches } = useBranches();
+  const [branch, setBranch] = useState("");
 
   useEffect(() => {
     axios.get<CostCentre[]>(`${INVOICE_API}/cost-centres`).then((r) => setCentres(Array.isArray(r.data) ? r.data : [])).catch(() => setCentres([]));
@@ -137,21 +141,22 @@ const FinancialStatements: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!from || !to || to < from) return;
+    const branchParam = branch ? { branchId: branch } : {};
     try {
       setLoading(true);
       if (statement === "PNL") {
-        setPnl((await axios.get<ProfitAndLoss>(`${INVOICE_API}/financial-statements/profit-and-loss`, { params: { from, to, ...(centre ? { costCentreId: centre } : {}) } })).data);
+        setPnl((await axios.get<ProfitAndLoss>(`${INVOICE_API}/financial-statements/profit-and-loss`, { params: { from, to, ...(centre ? { costCentreId: centre } : {}), ...branchParam } })).data);
       } else if (statement === "BS") {
-        setSheet((await axios.get<BalanceSheet>(`${INVOICE_API}/financial-statements/balance-sheet`, { params: { asOf: to } })).data);
+        setSheet((await axios.get<BalanceSheet>(`${INVOICE_API}/financial-statements/balance-sheet`, { params: { asOf: to, ...branchParam } })).data);
       } else {
-        setTrial((await axios.get<TrialBalance>(`${INVOICE_API}/financial-statements/trial-balance`, { params: { from, to } })).data);
+        setTrial((await axios.get<TrialBalance>(`${INVOICE_API}/financial-statements/trial-balance`, { params: { from, to, ...branchParam } })).data);
       }
     } catch (err) {
       ToasterService.error(apiError(err, "Could not work out the statement"));
     } finally {
       setLoading(false);
     }
-  }, [statement, from, to, centre]);
+  }, [statement, from, to, centre, branch]);
 
   useEffect(() => {
     load();
@@ -175,7 +180,8 @@ const FinancialStatements: React.FC = () => {
   const exportPdf = () => {
     const title = STATEMENTS.find((s) => s.id === statement)?.label ?? "Financial statement";
     const range = statement === "BS" ? `As at ${formatDate(to)}` : `${formatDate(from)} to ${formatDate(to)}`;
-    const common = { title, reportLabel: "Financial statement", includeSerialNumber: false, metadata: [{ label: "Range", value: range }] };
+    const branchMeta = branch ? [{ label: "Branch", value: branch === "0" ? "No branch" : branchLabel(branches, Number(branch)) }] : [];
+    const common = { title, reportLabel: "Financial statement", includeSerialNumber: false, metadata: [{ label: "Range", value: range }, ...branchMeta] };
     if (statement === "TB" && trial) {
       exportListingPdf<TrialBalanceLine>({
         ...common,
@@ -287,9 +293,17 @@ const FinancialStatements: React.FC = () => {
                 {centres.map((c) => <option key={c.id} value={String(c.id)}>{costCentreLabel(c)}</option>)}
               </select>
             )}
+            {branches.length > 0 && (
+              <select className={INPUT} value={branch} onChange={(e) => setBranch(e.target.value)} aria-label={t("Branch")}>
+                <option value="">{t("All branches")}</option>
+                {branches.map((b) => <option key={b.id} value={String(b.id)}>{b.code} · {b.name}</option>)}
+                <option value="0">{t("No branch")}</option>
+              </select>
+            )}
           </div>
           <div className="text-right text-xs text-slate-500 dark:text-gray-400">
             <div className="font-semibold text-slate-700 dark:text-gray-200">{company?.legalName || company?.companyName}</div>
+            {branch && <div>{branch === "0" ? t("No branch") : branchLabel(branches, Number(branch))}</div>}
             <div>{periodLabel}</div>
           </div>
         </div>

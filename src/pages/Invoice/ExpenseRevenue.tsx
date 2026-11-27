@@ -27,6 +27,7 @@ import {
 import { DialogFooter, StatusBadge } from "./invoiceUi";
 import { defaultBankAccountId, useBankAccounts } from "./bankShared";
 import BankAccountField from "./BankAccountField";
+import { useBranches } from "../../company/branchesApi";
 
 import { t } from "../../i18n/i18n";
 const API_URL = `${INVOICE_API}/expenses-revenue`;
@@ -45,6 +46,8 @@ interface Item {
   bankAccountId?: number | null;
   /** In the ledger: new entries post as they are saved; older ones when someone posts them. */
   posted?: boolean;
+  // The company branch (BR-1); null = no branch
+  branchId?: number | null;
 }
 
 // Each entry posts to the ledger, so only expenses and income are recorded here (the rest go in as journal entries)
@@ -77,6 +80,8 @@ const emptyForm = () => ({
   paymentMethod: "BANK_TRANSFER",
   generalAccountId: "",
   bankAccountId: "",
+  // "": a new entry goes to the person's default branch, an edited one keeps its own (BR-1)
+  branchId: "",
 });
 
 const ExpenseRevenue: React.FC = () => {
@@ -93,6 +98,8 @@ const ExpenseRevenue: React.FC = () => {
   const [deleting, setDeleting] = useState<Item | null>(null);
   const [posting, setPosting] = useState<Item | null>(null);
   const bankAccounts = useBankAccounts();
+  // The company's branches (BR-1): the picker shows once there are some
+  const { branches } = useBranches();
   const setBankAccount = useCallback((bankAccountId: string) => setForm((current) => ({ ...current, bankAccountId })), []);
 
   const fetchAll = useCallback(async () => {
@@ -143,6 +150,7 @@ const ExpenseRevenue: React.FC = () => {
       paymentMethod: item.paymentMethod || "BANK_TRANSFER",
       generalAccountId: item.generalAccount?.id ? String(item.generalAccount.id) : "",
       bankAccountId: item.bankAccountId != null ? String(item.bankAccountId) : "",
+      branchId: item.branchId != null ? String(item.branchId) : "",
     });
     setFormOpen(true);
   };
@@ -178,6 +186,7 @@ const ExpenseRevenue: React.FC = () => {
       paymentMethod: form.paymentMethod || null,
       generalAccount: form.generalAccountId ? { id: Number(form.generalAccountId) } : null,
       bankAccountId: form.bankAccountId ? Number(form.bankAccountId) : null,
+      branchId: form.branchId ? Number(form.branchId) : null,
     };
     setBusy(true);
     try {
@@ -388,6 +397,12 @@ const ExpenseRevenue: React.FC = () => {
                     : "Posted to this expense account; blank: Purchases and expenses.")}
                 </p>
               </div>
+              {branches.length > 0 && (
+                <FloatingSelect1 label={t("Branch")} name="branchId" value={form.branchId} includeEmptyOption={false}
+                  options={[{ id: "", name: t(editing ? "Keep its branch" : "My default branch") },
+                    ...branches.filter((b) => b.active || String(b.id) === form.branchId).map((b) => ({ id: String(b.id), name: `${b.code} · ${b.name}` }))]}
+                  onChange={(event) => setForm((current) => ({ ...current, branchId: event.target.value }))} />
+              )}
             </div>
             <DialogFooter onCancel={() => setFormOpen(false)} submitLabel={t(editing ? "Save changes" : "Record")} busy={busy} />
           </form>

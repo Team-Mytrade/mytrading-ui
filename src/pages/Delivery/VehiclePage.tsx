@@ -22,6 +22,7 @@ import { FloatingInput, FloatingSelect1 as FloatingSelect } from "../../componen
 import { usePermissions } from "../../access/usePermissions";
 
 import { t } from "../../i18n/i18n";
+import { tr } from "../reports/center/deliveryReports";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 // Matches the confirmed API schema exactly:
@@ -36,6 +37,8 @@ interface Vehicle {
   owner: string;
   status: string;
   active?: boolean; // returned by GET, never sent on POST/PUT
+  // Finance cost centre its running costs are charged to (Delivery Cost report)
+  costCentreId?: number | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -90,6 +93,14 @@ const VehiclePage: React.FC = () => {
 
   useEffect(() => { loadData(); }, []);
 
+  // Cost centres from finance; without finance rights the field stays hidden and a vehicle keeps the one it has
+  const [costCentres, setCostCentres] = useState<{ id: number; code?: string; name: string; active?: boolean }[]>([]);
+  useEffect(() => {
+    axios.get("/v1/api/invoice/cost-centres", { skipSessionExpiredHandling: true } as object)
+      .then((r) => setCostCentres(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setCostCentres([]));
+  }, []);
+
   // Lock body scroll while the modal is open
   useEffect(() => {
     document.body.style.overflow = showForm ? "hidden" : "";
@@ -141,6 +152,7 @@ const VehiclePage: React.FC = () => {
       capacityKg:   Number(form.capacityKg) || 0,
       owner:        form.owner,
       status:       form.status,
+      costCentreId: form.costCentreId ?? null,
     };
 
     try {
@@ -504,7 +516,24 @@ const VehiclePage: React.FC = () => {
                       required
                       options={STATUS_OPTIONS.map(s => ({ id: s, name: s }))}
                     />
+
+                    {costCentres.length > 0 && (
+                      <FloatingSelect
+                        label={tr("Cost centre")}
+                        name="costCentreId"
+                        value={form.costCentreId == null ? "" : String(form.costCentreId)}
+                        onChange={(e) => setForm(prev => ({ ...prev, costCentreId: e.target.value ? Number(e.target.value) : null }))}
+                        options={costCentres
+                          .filter(c => c.active !== false || c.id === form.costCentreId)
+                          .map(c => ({ id: String(c.id), name: c.code ? `${c.code} · ${c.name}` : c.name }))}
+                      />
+                    )}
                   </div>
+                  {costCentres.length > 0 && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      {tr("Charge this vehicle's fuel, repairs and driver costs to its cost centre: the Delivery Cost report shows them per delivery and per km.")}
+                    </p>
+                  )}
 
                   <div className="mt-4 flex flex-col justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row">
                     <button

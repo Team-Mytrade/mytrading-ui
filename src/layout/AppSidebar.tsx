@@ -101,6 +101,7 @@ import {
   Calculator,
   CircleHelp,
   HeartPulse,
+  GitBranch,
 } from "lucide-react";
 import { PayrollRegion, usePayrollRegion } from "../company/payrollRegion";
 import { useSidebar } from "../context/SidebarContext";
@@ -403,6 +404,7 @@ export const navItems: NavItem[] = [
       { name: "Sales", path: "/reports/sales", icon: ShoppingCart },
       { name: "Purchase", path: "/reports/purchase", icon: ClipboardList },
       { name: "Inventory", path: "/reports/inventory", icon: Boxes },
+      { name: "Delivery", path: "/reports/delivery", icon: Truck },
       { name: "Finance", path: "/reports/finance", icon: Landmark },
       { name: "HR & Payroll", path: "/reports/hr", icon: Users },
     ],
@@ -418,6 +420,7 @@ export const navItems: NavItem[] = [
       { name: "Getting started", path: "/getting-started", permission: "USERS:ADMIN", icon: Rocket, section: "Company" },
       { name: "Go-live check", path: "/go-live-check", permission: "USERS:ADMIN", icon: ClipboardCheck, section: "Company" },
       { name: "Company Settings", path: "/company-settings", permission: "USERS:ADMIN", icon: Building, section: "Company" },
+      { name: "Branches", path: "/branches", permission: "USERS:ADMIN", icon: GitBranch, section: "Company" },
       { name: "Notification Settings", path: "/notification-settings", permission: "USERS:ADMIN", icon: BellRing, section: "Company" },
       { name: "Audit Log", path: "/audit-log", permission: "USERS:ADMIN", icon: History, section: "Company" },
       { name: "System health", path: "/system-health", permission: "USERS:ADMIN", icon: HeartPulse, section: "Company" },

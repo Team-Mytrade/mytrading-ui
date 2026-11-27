@@ -3,7 +3,7 @@
  * exist elsewhere, each under its module. Reports → All reports lists them all; Reports → Sales, Purchase, … each open
  * one module's reports (/reports/<module>). Only the ones the user can open are shown (canAccessPath).
  */
-export type ReportModule = "sales" | "purchase" | "inventory" | "finance" | "hr";
+export type ReportModule = "sales" | "purchase" | "inventory" | "delivery" | "finance" | "hr";
 
 export interface ReportEntry {
   path: string;
@@ -19,6 +19,7 @@ export const REPORT_MODULES: { module: ReportModule; title: string; path: string
   { module: "sales", title: "Sales", path: "/reports/sales", description: "What you sold, to whom, who sold it and what it earned" },
   { module: "purchase", title: "Purchase", path: "/reports/purchase", description: "What you bought, from whom, and what is still to come or to bill" },
   { module: "inventory", title: "Inventory", path: "/reports/inventory", description: "What you hold, how old it is and what moves" },
+  { module: "delivery", title: "Delivery", path: "/reports/delivery", description: "Trips, cost and failed deliveries of your own fleet" },
   { module: "finance", title: "Finance", path: "/reports/finance", description: "Books, ledgers, statements, tax and cash" },
   { module: "hr", title: "HR & Payroll", path: "/reports/hr", description: "People, pay, leave and attendance" },
 ];
@@ -148,6 +149,23 @@ export const REPORTS: ReportEntry[] = [
     center: true,
   },
   { path: "/accountsPayable", title: "Accounts Payable", description: "Vendor bills still to pay, with their age.", module: "purchase" },
+
+  // Delivery (DEL-4)
+  {
+    path: "/reports/delivery-cost",
+    title: "Delivery Cost",
+    description: "Trips, kilometres and deliveries per vehicle, with each vehicle's running cost per delivery and per km.",
+    module: "delivery",
+    center: true,
+  },
+  {
+    path: "/reports/failed-deliveries",
+    title: "Failed Deliveries",
+    description: "Deliveries returned or cancelled on the road, by reason, driver, route, customer and vehicle, and whether they went out again.",
+    module: "delivery",
+    center: true,
+  },
+  { path: "/deliveryStatus", title: "Delivery Status", description: "Every delivery's latest status, who updated it and why it failed.", module: "delivery" },
 
   // Finance
   {

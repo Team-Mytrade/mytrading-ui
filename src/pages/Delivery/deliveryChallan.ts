@@ -204,9 +204,11 @@ export async function printDeliveryChallan(data: ChallanData): Promise<void> {
       ? `${proof.latitude.toFixed(6)}, ${proof.longitude.toFixed(6)} (${proof.positionSource === "TRIP" ? "trip's last position" : "phone GPS"})`
       : "-";
     autoTable(doc, { ...table, startY: y, head: [[{ content: "PROOF OF DELIVERY", colSpan: 4 }]], body: [
-      ["Received by", t(proof.receiverName + (proof.receiverMobile ? ` · ${proof.receiverMobile}` : "")), "Status", t(proof.status === "PARTIAL" ? "Partly delivered" : "Delivered")],
-      ["Time", t(formatDateTime(proof.capturedAt)), "Driver", t([proof.capturedBy, proof.vehiclePlate].filter(Boolean).join(" · "))],
-      ["Location", t(place), "One-time code", t(proof.codeVerified ? `Confirmed${proof.codeSentTo ? ` (sent to ${proof.codeSentTo})` : ""}` : "Not used")],
+      // Name and mobile in cells of their own: an Arabic name and digits in one cell get reordered
+      ["Received by", t(proof.receiverName), "Mobile", t(proof.receiverMobile)],
+      ["Time", t(formatDateTime(proof.capturedAt)), "Status", t(proof.status === "PARTIAL" ? "Partly delivered" : "Delivered")],
+      ["Location", t(place), "Driver", t([proof.capturedBy, proof.vehiclePlate].filter(Boolean).join(" · "))],
+      ["One-time code", t(proof.codeVerified ? `Confirmed${proof.codeSentTo ? ` (sent to ${proof.codeSentTo})` : ""}` : "Not used"), "", ""],
     ], columnStyles: { 0: { cellWidth: 30, fontStyle: "bold", textColor: [71, 85, 105] }, 1: { cellWidth: 61 }, 2: { cellWidth: 30, fontStyle: "bold", textColor: [71, 85, 105] }, 3: { cellWidth: 61 } } });
     y = tableEnd() + 4;
     if (proof.photos.length) {

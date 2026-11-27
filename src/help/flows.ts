@@ -109,6 +109,7 @@ export const HELP_FLOWS: HelpFlow[] = [
     summary: "From an empty company to working: company details, accounts, bank, opening data, people and their access.",
     steps: [
       { title: "Company details", route: "/company-settings", who: "Tenant Administrator", detail: "Legal name, country, currency, financial year, tax registration, logo and sign-in rules." },
+      { title: "Branches", route: "/branches", who: "Tenant Administrator", detail: "Add the head office and each branch with its address; skip it for a company with one place of business." },
       { title: "Accounts", route: "/postingAccounts", who: "Finance Manager", detail: "Look over the standard accounts and point any automatic posting at your own." },
       { title: "Bank and cash", route: "/bankAccounts", who: "Finance Manager", detail: "Add the bank accounts and cash boxes with their opening balances." },
       { title: "Opening data", route: "/data-import", who: "Tenant Administrator", detail: "Import products, customers and vendors, then opening stock, unpaid invoices and bills and ledger balances." },

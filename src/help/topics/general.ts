@@ -82,10 +82,10 @@ export const REPORT_TOPICS: HelpTopic[] = [
   {
     id: "report-center",
     route: "/reports",
-    aliases: ["/reports/sales", "/reports/purchase", "/reports/inventory", "/reports/finance", "/reports/hr"],
+    aliases: ["/reports/sales", "/reports/purchase", "/reports/inventory", "/reports/delivery", "/reports/finance", "/reports/hr"],
     module: "Reports",
     title: "Report Center",
-    summary: "The business reports, by module: Sales, Purchase, Inventory, Finance and HR & Payroll. All reports lists every one; each module's entry lists just its own. You see only the reports your rights let you open.",
+    summary: "The business reports, by module: Sales, Purchase, Inventory, Delivery, Finance and HR & Payroll. All reports lists every one; each module's entry lists just its own. You see only the reports your rights let you open.",
     who: [{ role: "Everyone", can: "The reports of the modules they can open." }],
     tasks: [
       {
@@ -808,6 +808,79 @@ export const REPORT_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: "delivery-cost",
+    route: "/reports/delivery-cost",
+    module: "Reports",
+    title: "Delivery Cost",
+    summary: "Your own fleet in a period: trips, kilometres and deliveries per vehicle, driver, route or customer, and what each vehicle cost per delivery and per km.",
+    who: [{ role: "Delivery staff (Delivery view right)", can: "Trips and deliveries. The cost columns also need the Finance (Invoice) view right." }],
+    tasks: [
+      {
+        title: "Set up vehicle costs",
+        steps: [
+          "In Finance → Cost Centres make one cost centre per vehicle (or per group of vehicles).",
+          "On Vehicles, choose each vehicle's Cost centre.",
+          "Charge the vehicle's fuel, repairs, insurance and driver costs to that cost centre when you record expenses and bills.",
+        ],
+      },
+      {
+        title: "Read the report",
+        steps: [
+          "Choose the Period.",
+          "Pick By vehicle, By driver, By route or By customer. By vehicle adds Cost, Cost / delivery and Cost / km.",
+          "The cards show trips and km, deliveries (with how many have proof of delivery), failed deliveries and the fleet cost.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Trips / Distance", meaning: "Trips started in Driver Mode in the period and the kilometres their GPS recorded." },
+      { name: "Delivered / Partly / Failed", meaning: "Delivery orders whose last status in the period was delivered, partly delivered, or returned / cancelled on the road with a reason." },
+      { name: "Cost", meaning: "What the vehicle's cost centre's expense accounts took in the period." },
+      { name: "Cost / delivery", meaning: "Cost divided by the vehicle's delivered, partly delivered and failed deliveries." },
+    ],
+    rules: [
+      "A delivery counts in the period its last status changed in.",
+      "A vehicle without a cost centre shows no cost; a parked vehicle still shows its cost.",
+      "Kilometres come only from trips in Driver Mode, which needs HTTPS for GPS.",
+    ],
+    related: [
+      { route: "/reports/failed-deliveries", label: "Failed Deliveries" },
+      { route: "/vehicle", label: "Vehicles" },
+      { route: "/costCentres", label: "Cost Centres" },
+    ],
+  },
+  {
+    id: "failed-deliveries",
+    route: "/reports/failed-deliveries",
+    module: "Reports",
+    title: "Failed Deliveries",
+    summary: "Deliveries that came back or were cancelled on the road in a period: why, by which driver, on which route and vehicle, for which customer, and whether they went out again.",
+    who: [{ role: "Delivery and sales staff (Delivery view right)", can: "The whole report. The re-delivery cost also needs the Finance (Invoice) view right." }],
+    tasks: [
+      {
+        title: "Find what goes wrong",
+        steps: [
+          "Choose the Period.",
+          "By reason shows the reasons drivers gave, most frequent first; By driver, By route, By customer and By vehicle show who and where fails most.",
+          "The list below has every failed delivery with its reason, driver, vehicle, route and whether it was sent again.",
+        ],
+      },
+      { title: "Export or print", steps: ["Click Excel, PDF or Print."] },
+    ],
+    fields: [
+      { name: "Failed", meaning: "Returned, or cancelled on the road with a reason (a planner's own cancel is left out)." },
+      { name: "Sent again on", meaning: "The next delivery order made for the same sales order; Not yet when there is none." },
+      { name: "Re-delivery cost (estimate)", meaning: "The vehicle's cost per delivery in the period, for each failed delivery." },
+    ],
+    rules: ["Reasons are grouped whatever their capitals and spaces.", "Drivers give the reason in Driver Mode when they tap Not delivered."],
+    related: [
+      { route: "/reports/delivery-cost", label: "Delivery Cost" },
+      { route: "/deliveryStatus", label: "Delivery Status" },
+      { route: "/driver", label: "Driver Mode" },
+    ],
+  },
+  {
     id: "headcount",
     route: "/reports/headcount",
     module: "Reports",
@@ -1050,10 +1123,12 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       "A user with permissions beyond yours shows as Restricted: only a higher administrator can change their account.",
       "Without a role a user can only use self-service.",
       "The invite email needs the user service's mail settings.",
+      "Once the company has branches: tick the Branches a person works in (none ticked means every branch) and their Default branch, where their new documents go. Applies from their next sign-in.",
     ],
     related: [
       { route: "/rolesPermissions", label: "Roles & Permissions" },
       { route: "/employeeRecords", label: "Employees" },
+      { route: "/branches", label: "Branches" },
     ],
     flows: ["company-setup"],
   },
@@ -1158,6 +1233,55 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       { route: "/getting-started", label: "Getting started" },
       { route: "/data-import", label: "Data Import" },
       { route: "/financialStatements", label: "Financial Statements" },
+    ],
+    flows: ["company-setup"],
+  },
+  {
+    id: "branches",
+    route: "/branches",
+    module: "Settings",
+    title: "Branches",
+    summary: "The company's branches (Dubai, Abu Dhabi, Riyadh…), each with its own address, contact and commercial registration. One is the head office. Warehouses and users are given their branch.",
+    who: [{ role: "Tenant Administrator", can: "Add and change branches." }],
+    tasks: [
+      {
+        title: "Add the branches",
+        steps: [
+          "Click Add branch: a short Code (DXB, AUH-2), the Name and, for Arabic documents, the Name in Arabic.",
+          "Fill in the Address, City, Emirate / region, Country, Phone, Email and Commercial registration no., and save.",
+          "The first branch is the head office. To move it, edit another branch and tick Head office.",
+        ],
+      },
+      {
+        title: "Give each warehouse and person their branch",
+        steps: [
+          "Inventory → Warehouses: edit each warehouse and choose its Branch.",
+          "Settings → Users: edit each person, tick the Branches they work in and choose their Default branch.",
+        ],
+      },
+      { title: "A branch closes", steps: ["Edit it and untick In use. Its warehouses, users and documents keep it."] },
+    ],
+    fields: [
+      { name: "Code", meaning: "Up to 20 letters, digits and dashes, unique in the company; later the start of the branch's document numbers." },
+      { name: "Commercial registration no.", meaning: "The branch's own CR or licence number, if it has one. The tax number stays the company's." },
+    ],
+    statuses: [
+      { name: "Head office", meaning: "The company's main branch; there is always exactly one." },
+      { name: "Active", meaning: "In use: can be given to warehouses and users." },
+      { name: "Switched off", meaning: "Closed: kept by what already has it, not given to anything new." },
+    ],
+    rules: [
+      "A branch is never deleted, only switched off, because documents keep pointing at it.",
+      "The head office can't be switched off; make another branch the head office first.",
+      "Everyone signed in sees the branch list (for the branch pickers); only a company administrator changes it.",
+      "The books by branch: invoices, bills, receipts, payments, expenses and journals take a branch (stock takes its warehouse's), and Financial Statements read one branch.",
+      "Sales orders, dispatches, counter sales and goods receipts take the branch of their warehouse (else the person's default branch), and the invoices and bills made from them follow. A transfer to another branch's warehouse moves the stock value between the two branches' books.",
+      "Coming next: users limited to their branches, and document numbers per branch.",
+    ],
+    related: [
+      { route: "/warehouse", label: "Warehouses" },
+      { route: "/role_config", label: "Users" },
+      { route: "/company-settings", label: "Company Settings" },
     ],
     flows: ["company-setup"],
   },

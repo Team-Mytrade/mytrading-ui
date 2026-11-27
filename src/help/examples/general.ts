@@ -72,6 +72,16 @@ export const GENERAL_EXAMPLES: Record<string, HelpExample> = {
     ],
     result: "The storekeeper adjusts the two stock lines, finance sets the limit, Check again shows Ready to go live.",
   },
+  branches: {
+    story: "Gulf Electronics Trading opens a second branch in Abu Dhabi next to its Dubai head office.",
+    data: [
+      { label: "Head office", value: "DXB · Dubai head office · Al Fahidi Tower, Dubai" },
+      { label: "New branch", value: "AUH · Abu Dhabi branch · Mussafah M-12, Abu Dhabi · CR CN-4512870" },
+      { label: "Warehouse", value: "Mussafah Store → AUH" },
+      { label: "User", value: "Omar Haddad: branches AUH, default AUH" },
+    ],
+    result: "The Abu Dhabi store and Omar now belong to the AUH branch; Dubai staff keep every branch.",
+  },
   "company-settings": {
     story: "The admin fills in the company profile that prints on every invoice.",
     data: [
