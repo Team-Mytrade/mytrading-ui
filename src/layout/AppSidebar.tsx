@@ -344,7 +344,7 @@ export const navItems: NavItem[] = [
       { name: "My Salary", path: "/mySalary", icon: Wallet, section: "Payroll" },
       { name: "Tax Tracker", gulfName: "Pay Tracker", path: "/taxTracker", permission: "HRM:APPROVE", icon: Calculator, section: "Payroll" },
       { name: "Statements", path: "/payrollStatements", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll" },
-      { name: "Gulf Pay Files", path: "/gulfPayFiles", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll" },
+      { name: "Gulf Pay Files", path: "/gulfPayFiles", permission: "HRM:APPROVE", icon: FileSpreadsheet, section: "Payroll", regions: ["GCC"] },
       {
         name: "Payroll Reports",
         icon: BarChart3,
@@ -657,9 +657,21 @@ const AppSidebar: React.FC = () => {
     toggleSidebar();
   };
 
+  // The group holding the page on screen ("Payroll Reports" while on Department Summary), or null
+  const activeGroupKey = (): string | null => {
+    for (const [index, nav] of visibleNavItems.entries()) {
+      for (const [subIndex, sub] of (nav.subItems ?? []).entries()) {
+        if (sub.subItems?.some((ss) => ss.path && isActive(ss.path))) return `${index}-${subIndex}`;
+      }
+    }
+    return null;
+  };
+
   const handleSidebarMouseLeave = () => {
     if (window.innerWidth >= 1024 && isExpanded && !isResizing && !isSidebarManuallyToggledRef.current) {
-      setOpenSubSubmenu(null);
+      // Close the groups opened while browsing, but keep the current page's group open for when the sidebar
+      // opens again (clearing it left "Payroll Reports" highlighted but closed)
+      setOpenSubSubmenu(activeGroupKey());
       setRailTooltip(null);
       toggleSidebar();
     }

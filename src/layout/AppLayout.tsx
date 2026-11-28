@@ -55,7 +55,9 @@ const LayoutContent: React.FC = () => {
 
   return (
 
-    <div className="h-screen overflow-hidden bg-[#eaf8fa] dark:bg-[#1f1f1f] lg:flex">
+    // overflow-clip, not overflow-hidden: a hidden box can still be scrolled by the browser (e.g. to show a focused
+    // sr-only file input after an upload), which shifted the whole app up and left a grey band; clip can't scroll
+    <div className="h-screen overflow-clip bg-[#eaf8fa] dark:bg-[#1f1f1f] lg:flex">
       <div>
         <AppSidebar />
         <Backdrop />
@@ -70,7 +72,7 @@ const LayoutContent: React.FC = () => {
             ? `calc(100% - ${(isExpanded || isHovered ? `${sidebarWidth}px` : "60px")})`
             : "100%",
         }}
-        className={`flex h-screen min-w-0 flex-col overflow-hidden ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
+        className={`flex h-screen min-w-0 flex-col overflow-clip ${isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"}`}
       >
         <div className="shrink-0">
           <AppHeader />

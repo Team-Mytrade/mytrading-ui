@@ -30,9 +30,12 @@ export const HeadlineCard: React.FC<{ label: string; value: string; note?: strin
   </div>
 );
 
+// Old and new regime in their own colours, so the regime is seen at a glance
 export const RegimePill: React.FC<{ regime?: string | null }> = ({ regime }) =>
   regime ? (
-    <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:border-gray-700 dark:text-gray-300">
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${regime === "OLD"
+      ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+      : "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-900/30 dark:text-sky-300"}`}>
       {regime === "OLD" ? t("Old regime") : t("New regime")}
     </span>
   ) : null;

@@ -8829,4 +8829,15 @@ export const ar: Record<string, string> = {
   "Every delivery's latest status, who updated it and why it failed.": "آخر حالة لكل توصيلة، ومن حدّثها، ولماذا فشلت.",
   // Reports and dashboards by branch (BR-1 step 5)
   "All my branches": "كل فروعي",
+  // Branch form by country; data migration's designations created on request
+  Emirate: "الإمارة",
+  "State / region": "الولاية / المنطقة",
+  "Company registration no.": "رقم تسجيل الشركة",
+  "Use digits only; spaces, dashes, brackets and a leading + are fine": "استخدم الأرقام فقط؛ المسافات والشرطات والأقواس وعلامة + في البداية مقبولة",
+  "Use 7-15 digits; spaces, dashes, brackets and a leading + are fine": "استخدم من 7 إلى 15 رقمًا؛ المسافات والشرطات والأقواس وعلامة + في البداية مقبولة",
+  "Same basic % and HRA % for all designations": "نفس نسبة الراتب الأساسي وبدل السكن لكل المسميات الوظيفية",
+  "Basic % for all": "نسبة الراتب الأساسي للجميع",
+  "HRA % for all": "نسبة بدل السكن للجميع",
+  "A designation created here gets only its basic % and HRA %. If your designations file has the real split, import that file first: salaries are built from the split the designation has when they are imported.":
+    "المسمى الوظيفي المُنشأ هنا يأخذ نسبة الراتب الأساسي وبدل السكن فقط. إذا كان ملف المسميات الوظيفية يحتوي على التوزيع الصحيح فاستورده أولًا: تُبنى الرواتب على توزيع المسمى الوظيفي وقت استيرادها.",
 };

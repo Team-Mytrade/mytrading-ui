@@ -1264,7 +1264,7 @@ export const SETTINGS_TOPICS: HelpTopic[] = [
       { title: "A branch closes", steps: ["Edit it and untick In use. Its warehouses, users and documents keep it."] },
     ],
     fields: [
-      { name: "Code", meaning: "Up to 20 letters, digits and dashes, unique in the company; later the start of the branch's document numbers." },
+      { name: "Code", meaning: "Up to 20 letters, digits, dashes and underscores, unique in the company; later the start of the branch's document numbers." },
       { name: "Commercial registration no.", meaning: "The branch's own CR or licence number, if it has one. The tax number stays the company's." },
     ],
     statuses: [

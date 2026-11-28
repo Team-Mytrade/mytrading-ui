@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { CalendarDaysIcon } from "@heroicons/react/24/outline";
@@ -66,6 +66,31 @@ const LeaveBalances: React.FC = () => {
   }, [load]);
 
   useSyncedParams(setParams, { year, leaveType });
+
+  // Every leave type of the year for the Leave type list, also while one is chosen (the report then holds only
+  // that one): taken from an unfiltered report, fetched once per year when the page opens with a type chosen
+  const [typeChoices, setTypeChoices] = useState<{ code: string; name: string }[]>([]);
+  const choicesYear = useRef<string | null>(null);
+  useEffect(() => {
+    if (!leaveType) {
+      if (report) {
+        setTypeChoices(report.types.map(({ code, name }) => ({ code, name })));
+        choicesYear.current = year;
+      }
+      return;
+    }
+    if (choicesYear.current === year) return;
+    let live = true;
+    axios.get<Report>("/v1/api/attendance/reports/leave-balances", {
+      params: { year: year || undefined }, skipSessionExpiredHandling: true,
+    } as object).then((res) => {
+      if (live && Array.isArray(res.data?.types)) {
+        setTypeChoices(res.data.types.map(({ code, name }) => ({ code, name })));
+        choicesYear.current = year;
+      }
+    }).catch(() => { /* the chosen type still shows; the list fills on the next unfiltered load */ });
+    return () => { live = false; };
+  }, [report, leaveType, year]);
 
   const rows: Row[] = useMemo(() => (report?.rows ?? []).map((r) => ({ ...r, id: String(r.employeeId) })), [report]);
   const types = report?.types ?? [];
@@ -141,7 +166,10 @@ const LeaveBalances: React.FC = () => {
             allLabel="Latest"
             onChange={setYear}
           />
-          {types.length > 0 && <SelectField label="Leave type" value={leaveType} options={types.map((x) => ({ value: x.code, label: x.name }))} allLabel="All leave types" onChange={setLeaveType} />}
+          {(typeChoices.length > 0 || types.length > 0) && (
+            <SelectField label="Leave type" value={leaveType} allLabel="All leave types" onChange={setLeaveType}
+              options={(typeChoices.length > 0 ? typeChoices : types).map((x) => ({ value: x.code, label: x.name }))} />
+          )}
         </FilterBar>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
