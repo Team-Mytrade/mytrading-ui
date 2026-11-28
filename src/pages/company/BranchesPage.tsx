@@ -13,7 +13,39 @@ import { useCompany } from "../../company/companyApi";
 import { type Branch, type BranchNumbering, type BranchRequest, branchesApi, clearBranchCache, useBranches } from "../../company/branchesApi";
 import { CARD, PAGE_BODY, PRIMARY_BUTTON, ROW_ICON_BUTTON, SECONDARY_BUTTON, STATS_ROW } from "../Payroll/hrmsUi";
 import { formatDateTime } from "../../company/format";
+import { countries } from "../../company/regional";
+import { INDIAN_STATES, findIndianState, validateGstin, validatePhone } from "../../utils/indiaValidators";
 import { t } from "../../i18n/i18n";
+
+const GULF = ["united arab emirates", "uae", "saudi arabia", "ksa", "qatar", "oman", "bahrain", "kuwait"];
+
+/** What the branch form asks for in a country: an Indian branch has a state and GSTIN, a Gulf one an Arabic name. */
+const branchCountryKind = (country?: string | null): "INDIA" | "GULF" | "OTHER" => {
+  const c = (country || "").trim().toLowerCase();
+  if (c === "india" || c === "in") return "INDIA";
+  return GULF.includes(c) ? "GULF" : "OTHER";
+};
+
+/** The phone's problem for the branch's country, or null: India 10 digits (after +91 / 0), elsewhere 7-15 digits. */
+const branchPhoneError = (phone?: string | null, country?: string | null): string | null => {
+  const value = (phone || "").trim();
+  if (!value) return null;
+  if (!/^\+?[0-9\s\-()]+$/.test(value)) return "Use digits only; spaces, dashes, brackets and a leading + are fine";
+  if (branchCountryKind(country) === "INDIA") return validatePhone(value);
+  const digits = value.replace(/\D/g, "").length;
+  return digits < 7 || digits > 15 ? "Use 7-15 digits; spaces, dashes, brackets and a leading + are fine" : null;
+};
+
+/** The GSTIN's problem for an Indian branch (format, and the state it is registered in), or null. */
+const branchGstinError = (gstin?: string | null, state?: string | null): string | null => {
+  const value = (gstin || "").trim().toUpperCase();
+  if (!value) return null;
+  const format = validateGstin(value);
+  if (format) return format;
+  const st = findIndianState(state);
+  return st && !st.gstCodes.includes(value.slice(0, 2))
+    ? `This GSTIN is registered in another state (code ${value.slice(0, 2)}); ${st.name} is ${st.gstCodes[0]}` : null;
+};
 
 const INPUT =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-gray-700 dark:bg-[#222222] dark:text-white";
@@ -47,6 +79,10 @@ export default function BranchesPage() {
   // Number by branch (BR-1 step 4); null while loading or when it can't be read
   const [numbering, setNumbering] = useState<BranchNumbering | null>(null);
   const [savingNumbering, setSavingNumbering] = useState(false);
+  const countryNames = useMemo(() => countries().map((c) => c.name), []);
+  const kind = branchCountryKind(form.country);
+  const phoneError = branchPhoneError(form.phone, form.country);
+  const gstinError = kind === "INDIA" ? branchGstinError(form.commercialRegistration, form.state) : null;
 
   useEffect(() => {
     if (!canEdit) return;
@@ -86,6 +122,12 @@ export default function BranchesPage() {
     e.preventDefault();
     if (!form.code.trim() || !form.name.trim()) {
       ToasterService.error(t("Enter the branch code and name."));
+      return;
+    }
+    const problem = branchPhoneError(form.phone, form.country)
+      ?? (kind === "INDIA" ? branchGstinError(form.commercialRegistration, form.state) : null);
+    if (problem) {
+      ToasterService.error(t(problem));
       return;
     }
     setSaving(true);
@@ -214,14 +256,45 @@ export default function BranchesPage() {
             <div className="grid grid-cols-2 gap-3">
               {field("code", "Code *", { maxLength: 20, placeholder: "DXB", style: { textTransform: "uppercase" } })}
               {field("name", "Name *", { maxLength: 150, placeholder: t("e.g. Dubai branch") })}
-              <div className="col-span-2">{field("nameArabic", "Name in Arabic", { maxLength: 150, dir: "rtl" })}</div>
+              {/* Country first: the fields below follow it (an Indian branch has a state and GSTIN, a Gulf one an Arabic name) */}
+              <div className="col-span-2">
+                <label className={LABEL} htmlFor="branch-country">{t("Country")}</label>
+                <select id="branch-country" className={INPUT} value={form.country ?? ""}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    const changedKind = branchCountryKind(next) !== kind;
+                    // Fields of another country's kind don't carry over (an emirate isn't an Indian state)
+                    setForm({ ...form, country: next, ...(changedKind ? { state: "", commercialRegistration: "", nameArabic: branchCountryKind(next) === "GULF" ? form.nameArabic : "" } : {}) });
+                  }}>
+                  <option value="">{t("Choose the country")}</option>
+                  {form.country && !countryNames.includes(form.country) && <option value={form.country}>{form.country}</option>}
+                  {countryNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
+              </div>
+              {kind === "GULF" && <div className="col-span-2">{field("nameArabic", "Name in Arabic", { maxLength: 150, dir: "rtl" })}</div>}
               <div className="col-span-2">{field("addressLine", "Address", { maxLength: 300 })}</div>
               {field("city", "City", { maxLength: 100 })}
-              {field("state", "Emirate / region", { maxLength: 100 })}
-              {field("country", "Country", { maxLength: 100 })}
-              {field("phone", "Phone", { maxLength: 50, type: "tel", placeholder: "+971 4 123 4567" })}
+              {kind === "INDIA" ? (
+                <div>
+                  <label className={LABEL} htmlFor="branch-state">{t("State")}</label>
+                  <select id="branch-state" className={INPUT} value={findIndianState(form.state)?.name ?? form.state ?? ""}
+                    onChange={(e) => setForm({ ...form, state: e.target.value })}>
+                    <option value="">{t("Choose the state")}</option>
+                    {INDIAN_STATES.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+              ) : field("state", kind === "GULF" ? (/emirates|uae/i.test(form.country ?? "") ? "Emirate" : "Region") : "State / region", { maxLength: 100 })}
+              <div>
+                {field("phone", "Phone", { maxLength: 50, type: "tel", placeholder: kind === "INDIA" ? "+91 98765 43210" : kind === "GULF" ? "+971 4 123 4567" : "+44 20 7946 0000" })}
+                {phoneError && <p className="mt-1 text-[11px] text-red-600">{t(phoneError)}</p>}
+              </div>
               {field("email", "Email", { maxLength: 150, type: "email" })}
-              {field("commercialRegistration", "Commercial registration no.", { maxLength: 50 })}
+              <div className="col-span-2">
+                {kind === "INDIA"
+                  ? field("commercialRegistration", "GSTIN", { maxLength: 15, placeholder: "29ABCDE1234F1Z5", style: { textTransform: "uppercase" } })
+                  : field("commercialRegistration", kind === "GULF" ? "Commercial registration no." : "Company registration no.", { maxLength: 50 })}
+                {gstinError && <p className="mt-1 text-[11px] text-red-600">{t(gstinError)}</p>}
+              </div>
             </div>
 
             <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-xs dark:border-gray-700">

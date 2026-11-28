@@ -55,6 +55,8 @@ export default function HrDataImport({ refreshKey = 0 }: { refreshKey?: number }
   // Records the open batch refers to that don't exist yet, which of them to create, and a designation's pay split
   const [missing, setMissing] = useState<MissingRecord[]>([]);
   const [toCreate, setToCreate] = useState<Record<string, { on: boolean; basic: string; hra: string }>>({});
+  // One basic % and HRA % for every designation being created, instead of typing them for each
+  const [sameSplit, setSameSplit] = useState({ on: false, basic: "", hra: "" });
   const [goLive, setGoLive] = useState<GoLiveResult | null>(null);
   // Another system's export: its headers mapped to our columns before it is uploaded
   // The entry grid: rows typed or pasted in, for a company without a file
@@ -124,18 +126,22 @@ export default function HrDataImport({ refreshKey = 0 }: { refreshKey?: number }
       ? await migrationApi.missing(batch.id).catch(() => []) : [];
     setMissing(list);
     setToCreate(Object.fromEntries(list.map((m) => [missingKey(m), { on: true, basic: "", hra: "" }])));
+    setSameSplit({ on: false, basic: "", hra: "" });
   };
 
   const chosenMissing = missing.filter((m) => toCreate[missingKey(m)]?.on);
+  // The pay split a new designation gets: the shared one when "same for all" is ticked, else its own
+  const splitOf = (m: MissingRecord) => (sameSplit.on ? sameSplit : toCreate[missingKey(m)]);
+  const missingDesignations = missing.filter((m) => m.type === "designations");
   const splitMissing = chosenMissing.some((m) => m.type === "designations"
-    && (!toCreate[missingKey(m)].basic.trim() || !toCreate[missingKey(m)].hra.trim()));
+    && (!splitOf(m).basic.trim() || !splitOf(m).hra.trim()));
 
   /** Creates the ticked records (each kind as its own batch, so they can be undone), then checks this batch again. */
   const createMissing = async () => {
     if (!openBatch?.id || chosenMissing.length === 0) return;
     const id = openBatch.id;
     const records = chosenMissing.map((m) => ({ type: m.type, name: m.name,
-      values: m.type === "designations" ? { basic: toCreate[missingKey(m)].basic.trim(), hra: toCreate[missingKey(m)].hra.trim() } : undefined }));
+      values: m.type === "designations" ? { basic: splitOf(m).basic.trim(), hra: splitOf(m).hra.trim() } : undefined }));
     const result = await run(`create-${id}`, () => migrationApi.createMissing(id, records), "The records could not be created");
     if (result) {
       const waiting = result.created.filter((b) => b.status !== "COMMITTED");
@@ -643,9 +649,10 @@ export default function HrDataImport({ refreshKey = 0 }: { refreshKey?: number }
           <div className={CARD_HEAD}>
             <h2 className={CARD_TITLE}>{t("Files uploaded")}</h2>
           </div>
-          <div className="overflow-x-auto">
+          {/* Its own scroll area: the sideways scrollbar stays in view instead of below a long list, and the headings stay put */}
+          <div className="max-h-[70vh] overflow-auto">
             <table className="min-w-full divide-y divide-slate-100 dark:divide-gray-800">
-              <thead className={THEAD}>
+              <thead className={`${THEAD} sticky top-0 z-10`}>
                 <tr>
                   <th className={TH}>{t("What")}</th>
                   <th className={TH}>{t("File")}</th>
@@ -715,6 +722,24 @@ export default function HrDataImport({ refreshKey = 0 }: { refreshKey?: number }
                                     {t("Not in MyTrade yet")}: {t("create")} {missing.length}?
                                   </p>
                                   <p className="text-xs">{t("Each kind is created as its own file in its stage, so it can be undone like any other.")}</p>
+                                  {missingDesignations.length > 1 && (
+                                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                                      <label className="flex items-center gap-2 font-medium">
+                                        <input type="checkbox" checked={sameSplit.on}
+                                          onChange={(e) => setSameSplit({ ...sameSplit, on: e.target.checked })} />
+                                        {t("Same basic % and HRA % for all designations")}
+                                      </label>
+                                      {sameSplit.on && (
+                                        <>
+                                          <input aria-label={t("Basic % for all")} className={`${TOOL_INPUT} w-24`} placeholder={t("Basic %")}
+                                            value={sameSplit.basic} onChange={(e) => setSameSplit({ ...sameSplit, basic: e.target.value })} />
+                                          <input aria-label={t("HRA % for all")} className={`${TOOL_INPUT} w-24`} placeholder={t("HRA % of basic")}
+                                            value={sameSplit.hra} onChange={(e) => setSameSplit({ ...sameSplit, hra: e.target.value })} />
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                  <p className="text-xs">{t("A designation created here gets only its basic % and HRA %. If your designations file has the real split, import that file first: salaries are built from the split the designation has when they are imported.")}</p>
                                   <ul className="space-y-1">
                                     {missing.map((m) => {
                                       const k = missingKey(m);
@@ -727,7 +752,7 @@ export default function HrDataImport({ refreshKey = 0 }: { refreshKey?: number }
                                             <span>{t(m.title)}:</span> <strong>{m.name}</strong>
                                             <span className="text-xs opacity-75">({m.rows} {t(m.rows === 1 ? "row" : "rows")})</span>
                                           </label>
-                                          {m.type === "designations" && state.on && (
+                                          {m.type === "designations" && state.on && !sameSplit.on && (
                                             <>
                                               <input aria-label={`${t("Basic %")} ${m.name}`} className={`${TOOL_INPUT} w-24`} placeholder={t("Basic %")}
                                                 value={state.basic} onChange={(e) => setToCreate((all) => ({ ...all, [k]: { ...state, basic: e.target.value } }))} />

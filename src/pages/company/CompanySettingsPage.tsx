@@ -387,7 +387,18 @@ export default function CompanySettingsPage() {
                       )}
                       {fieldError("state")}
                     </div>
-                    {field("postalCode", india ? "PIN code *" : "Postal code / PO Box", { maxLength: 20 })}
+                    {field("postalCode", india ? "PIN code *" : "Postal code / PO Box", india
+                      ? {
+                        // An Indian PIN is 6 digits: nothing else can be typed, and a wrong one shows at once
+                        maxLength: 6, inputMode: "numeric", placeholder: "560066",
+                        onChange: (e) => {
+                          const pin = e.target.value.replace(/\D/g, "").slice(0, 6);
+                          if (!form) return;
+                          setForm({ ...form, postalCode: pin });
+                          setErrors({ ...errors, postalCode: pin.length === 6 ? validatePinCode(pin) ?? validatePinState(pin, form.state) ?? "" : "" });
+                        },
+                      }
+                      : { maxLength: 20 })}
                     <div>
                       <label className={LABEL} htmlFor="company-country">{t("Country *")}</label>
                       <select id="company-country" className={INPUT} disabled={!editable} value={form.country ?? ""}

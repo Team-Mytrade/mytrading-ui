@@ -19,7 +19,6 @@ import StatsCard from "../../components/common/Statscard";
 import { PAGE_BODY, STATS_ROW, TOOL_BUTTON } from "./hrmsUi";
 import ReusableTable, { ColumnDef } from "../../components/common/Table";
 import { ToasterService } from "../../Services/ToasterService";
-import { todayIso } from "../../utils/localDate";
 import { formatMoney } from "../../company/format";
 
 import { t } from "../../i18n/i18n";
@@ -165,7 +164,8 @@ const EmployeeSalaryPage: React.FC = () => {
                 // First 4 columns: employeeName, month, basic, grossSalary -> top 4 summary metric cards in drawer
                 const rowItem: Record<string, any> = {
                     employeeName: empName,
-                    month: record.month || todayIso().slice(0, 7),
+                    // The month the salary took effect; none known shows a dash (never today's month)
+                    month: record.month || "",
                     basic: basic,
                     grossSalary: grossSalary,
                     monthlyGross: Math.round(grossSalary / 12 * 100) / 100,
@@ -291,7 +291,7 @@ const EmployeeSalaryPage: React.FC = () => {
             render: (row) => (
                 <div className="flex items-center justify-center mx-auto">
                     <CalendarIcon className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-2" />
-                    <span className="text-xs font-medium text-gray-900 dark:text-gray-300">{row.month}</span>
+                    <span className="text-xs font-medium text-gray-900 dark:text-gray-300">{row.month || "—"}</span>
                 </div>
             )
         },
@@ -346,7 +346,7 @@ const EmployeeSalaryPage: React.FC = () => {
                     pageSize={PAGE_SIZE}
                     defaultSortKey="month"
                     defaultSortOrder="desc"
-                    rowDetailsTitle={(row) => `${row.employeeName || 'Employee'} - ${row.month}`}
+                    rowDetailsTitle={(row) => `${row.employeeName || 'Employee'}${row.month ? ` - ${row.month}` : ""}`}
                     rowDetailsSubtitle={t("Salary structure in yearly amounts; each month pays one twelfth (see Payslips for what was paid)")}
                     emptyState={
                         <div className="flex flex-col items-center">
